@@ -1,0 +1,19 @@
+[package]
+name = "asv-router"
+version = "0.1.0"
+edition = "2021"
+description = "Model-free intent routing with incremental learning. Sub-millisecond, no embeddings, no GPU."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/gladius/asv-router"
+keywords = ["intent", "routing", "nlp", "chatbot", "sparse-vectors"]
+categories = ["text-processing", "algorithms"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dev-dependencies]
