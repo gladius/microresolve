@@ -128,6 +128,11 @@ impl InvertedIndex {
     pub fn is_empty(&self) -> bool {
         self.postings.is_empty()
     }
+
+    /// Iterate over all terms in the index.
+    pub fn terms(&self) -> impl Iterator<Item = &String> {
+        self.postings.keys()
+    }
 }
 
 #[cfg(test)]

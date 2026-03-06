@@ -57,10 +57,11 @@
 //!
 //! - You need semantic understanding ("stop charging me" won't match "cancel subscription" without training)
 //! - You have 10K+ intents with heavy overlap
-//! - You need deep semantic multilingual matching (tokenizer handles any Unicode but stop words are English-centric)
+//! - You need deep semantic multilingual matching (CJK supported via Aho-Corasick, but coverage depends on seed quality)
 
 pub mod index;
 pub mod multi;
+pub mod seed;
 pub mod tokenizer;
 pub mod vector;
 
@@ -69,14 +70,21 @@ pub mod wasm;
 
 pub use multi::{IntentRelation, MultiRouteOutput, MultiRouteResult};
 
+use aho_corasick::AhoCorasick;
 use index::InvertedIndex;
-use std::collections::HashMap;
-use tokenizer::{tokenize, training_to_terms};
+use std::collections::{HashMap, HashSet};
+use tokenizer::{
+    is_cjk, tokenize, training_to_terms, split_script_runs, generate_cjk_residual_bigrams,
+    find_cjk_negated_regions, is_learnable_cjk_bigram, PositionedTerm, ScriptType,
+};
 use vector::LearnedVector;
 
 /// Intent router with incremental learning.
 ///
 /// The main entry point for the library. Manages intents, routing, and learning.
+/// Supports both Latin and CJK scripts via a dual-path tokenization architecture:
+/// Latin text uses whitespace tokenization; CJK text uses Aho-Corasick automaton
+/// matching with character bigram fallback for novel terms.
 pub struct Router {
     vectors: HashMap<String, LearnedVector>,
     index: InvertedIndex,
@@ -84,6 +92,14 @@ pub struct Router {
     /// Structure: { intent_id: { lang_code: [phrases] } }
     training: HashMap<String, HashMap<String, Vec<String>>>,
     top_k: usize,
+    /// Aho-Corasick automaton for CJK term matching. None if no CJK terms exist.
+    cjk_automaton: Option<AhoCorasick>,
+    /// Pattern strings for the automaton. cjk_patterns[pattern_id] = term string.
+    cjk_patterns: Vec<String>,
+    /// When true, defers automaton rebuilds until `end_batch()` is called.
+    batch_mode: bool,
+    /// Tracks whether the automaton needs rebuilding (dirty during batch mode).
+    cjk_dirty: bool,
 }
 
 impl Default for Router {
@@ -100,6 +116,10 @@ impl Router {
             index: InvertedIndex::new(),
             training: HashMap::new(),
             top_k: 10,
+            cjk_automaton: None,
+            cjk_patterns: Vec::new(),
+            batch_mode: false,
+            cjk_dirty: false,
         }
     }
 
@@ -107,6 +127,38 @@ impl Router {
     pub fn with_top_k(mut self, top_k: usize) -> Self {
         self.top_k = top_k;
         self
+    }
+
+    /// Begin batch mode: defers CJK automaton rebuilds until `end_batch()`.
+    ///
+    /// Use this when calling `learn()` or `correct()` many times in sequence.
+    /// The inverted index is still updated incrementally per call, so routing
+    /// remains functional. Only the CJK automaton rebuild is deferred.
+    ///
+    /// ```
+    /// use asv_router::Router;
+    ///
+    /// let mut router = Router::new();
+    /// router.add_intent("cancel", &["取消 订单"]);
+    ///
+    /// router.begin_batch();
+    /// for i in 0..100 {
+    ///     router.learn(&format!("query {}", i), "cancel");
+    /// }
+    /// router.end_batch(); // single automaton rebuild
+    /// ```
+    pub fn begin_batch(&mut self) {
+        self.batch_mode = true;
+        self.cjk_dirty = false;
+    }
+
+    /// End batch mode and rebuild the CJK automaton if needed.
+    pub fn end_batch(&mut self) {
+        self.batch_mode = false;
+        if self.cjk_dirty {
+            self.rebuild_cjk_automaton_now();
+            self.cjk_dirty = false;
+        }
     }
 
     /// Add an intent with seed phrases.
@@ -176,8 +228,9 @@ impl Router {
     ///
     /// Returns up to `top_k` results (default 10), sorted by score descending.
     /// Empty results means no intent matched any query terms.
+    /// Supports both Latin and CJK scripts via dual-path extraction.
     pub fn route(&self, query: &str) -> Vec<RouteResult> {
-        let terms = tokenize(query);
+        let terms = self.extract_terms(query);
         if terms.is_empty() {
             return vec![];
         }
@@ -204,8 +257,9 @@ impl Router {
     ///
     /// Appends the query to the intent's training phrases and reinforces
     /// learned term weights. Weights grow asymptotically toward 1.0.
+    /// For CJK queries, only learns clean automaton matches and filtered residual bigrams.
     pub fn learn(&mut self, query: &str, intent_id: &str) {
-        let terms = tokenize(query);
+        let terms = self.extract_terms_for_learning(query);
         if terms.is_empty() {
             return;
         }
@@ -224,16 +278,21 @@ impl Router {
             self.vectors.insert(intent_id.to_string(), vector.clone());
             self.index.update_intent(intent_id, &vector);
         }
+
+        // Only rebuild automaton if the query had CJK characters
+        if query.chars().any(is_cjk) {
+            self.rebuild_cjk_automaton();
+        }
     }
 
     /// Correct a routing mistake: move query from wrong intent to right intent.
     pub fn correct(&mut self, query: &str, wrong_intent: &str, correct_intent: &str) {
-        let terms = tokenize(query);
+        let terms = self.extract_terms(query);
         if terms.is_empty() {
             return;
         }
 
-        // Unlearn from wrong
+        // Unlearn from wrong (use all extracted terms for thorough unlearning)
         if let Some(vector) = self.vectors.get_mut(wrong_intent) {
             vector.unlearn(&terms);
             self.index.update_intent(wrong_intent, vector);
@@ -244,7 +303,7 @@ impl Router {
             }
         }
 
-        // Learn on correct
+        // Learn on correct (uses selective CJK extraction)
         self.learn(query, correct_intent);
     }
 
@@ -257,6 +316,7 @@ impl Router {
             vector.decay(factor);
             self.index.update_intent(id, vector);
         }
+        self.rebuild_cjk_automaton();
     }
 
     /// Route and return the best match with a confidence score.
@@ -285,6 +345,7 @@ impl Router {
     /// intents, then re-sorts by position to match the user's original ordering.
     /// Also detects relationships (sequential, conditional, negation) between
     /// consecutive intents from gap words.
+    /// Supports both Latin and CJK scripts.
     ///
     /// ```
     /// use asv_router::Router;
@@ -299,7 +360,8 @@ impl Router {
     /// assert_eq!(result.intents[0].id, "cancel_order");
     /// ```
     pub fn route_multi(&self, query: &str, threshold: f32) -> MultiRouteOutput {
-        multi::route_multi(&self.index, &self.vectors, query, threshold)
+        let (positioned, query_chars) = self.extract_terms_positioned(query);
+        multi::route_multi(&self.index, &self.vectors, positioned, query_chars, threshold)
     }
 
     /// Export router state as JSON for persistence.
@@ -319,12 +381,18 @@ impl Router {
 
         let index = InvertedIndex::build(&state.intents);
 
-        Ok(Self {
+        let mut router = Self {
             vectors: state.intents,
             index,
             training: state.training,
             top_k: state.top_k,
-        })
+            cjk_automaton: None,
+            cjk_patterns: Vec::new(),
+            batch_mode: false,
+            cjk_dirty: false,
+        };
+        router.rebuild_cjk_automaton_now();
+        Ok(router)
     }
 
     /// Number of registered intents.
@@ -356,6 +424,300 @@ impl Router {
 
     fn rebuild_index(&mut self) {
         self.index = InvertedIndex::build(&self.vectors);
+        // Full index rebuild always rebuilds automaton immediately (not deferred)
+        self.rebuild_cjk_automaton_now();
+    }
+
+    /// Request a CJK automaton rebuild. Deferred if in batch mode.
+    fn rebuild_cjk_automaton(&mut self) {
+        if self.batch_mode {
+            self.cjk_dirty = true;
+        } else {
+            self.rebuild_cjk_automaton_now();
+        }
+    }
+
+    /// Unconditionally rebuild the Aho-Corasick automaton from CJK terms in the index.
+    fn rebuild_cjk_automaton_now(&mut self) {
+        let cjk_terms: Vec<String> = self.index.terms()
+            .filter(|t| t.chars().any(is_cjk))
+            .cloned()
+            .collect();
+
+        if cjk_terms.is_empty() {
+            self.cjk_automaton = None;
+            self.cjk_patterns = Vec::new();
+            return;
+        }
+
+        self.cjk_automaton = Some(
+            AhoCorasick::builder()
+                .match_kind(aho_corasick::MatchKind::Standard)
+                .build(&cjk_terms)
+                .expect("failed to build CJK automaton")
+        );
+        self.cjk_patterns = cjk_terms;
+    }
+
+    /// Extract terms from a query using dual-path (Latin tokenizer + CJK automaton).
+    fn extract_terms(&self, query: &str) -> Vec<String> {
+        if !query.chars().any(is_cjk) {
+            return tokenize(query);
+        }
+
+        let lower = query.to_lowercase();
+        let runs = split_script_runs(&lower);
+        let mut all_terms = Vec::new();
+        let mut seen = HashSet::new();
+
+        for run in &runs {
+            match run.script {
+                ScriptType::Latin => {
+                    for term in tokenize(&run.text) {
+                        if seen.insert(term.clone()) {
+                            all_terms.push(term);
+                        }
+                    }
+                }
+                ScriptType::Cjk => {
+                    let terms = self.extract_cjk_run_terms(&run.text, false);
+                    for term in terms {
+                        if seen.insert(term.clone()) {
+                            all_terms.push(term);
+                        }
+                    }
+                }
+            }
+        }
+
+        all_terms
+    }
+
+    /// Extract terms for learning — more selective for CJK to prevent noise pollution.
+    fn extract_terms_for_learning(&self, query: &str) -> Vec<String> {
+        if !query.chars().any(is_cjk) {
+            return tokenize(query);
+        }
+
+        let lower = query.to_lowercase();
+        let runs = split_script_runs(&lower);
+        let mut all_terms = Vec::new();
+        let mut seen = HashSet::new();
+
+        for run in &runs {
+            match run.script {
+                ScriptType::Latin => {
+                    for term in tokenize(&run.text) {
+                        if seen.insert(term.clone()) {
+                            all_terms.push(term);
+                        }
+                    }
+                }
+                ScriptType::Cjk => {
+                    let terms = self.extract_cjk_run_terms(&run.text, true);
+                    for term in terms {
+                        if seen.insert(term.clone()) {
+                            all_terms.push(term);
+                        }
+                    }
+                }
+            }
+        }
+
+        all_terms
+    }
+
+    /// Extract terms from a CJK text run.
+    ///
+    /// 1. Detect negation marker positions
+    /// 2. Scan automaton on original text (overlapping matches)
+    /// 3. Find unmatched residual regions
+    /// 4. Generate bigrams from cleaned residuals
+    ///
+    /// If `for_learning` is true, only include residual bigrams that pass the noise filter.
+    fn extract_cjk_run_terms(&self, cjk_text: &str, for_learning: bool) -> Vec<String> {
+        let negated_regions = find_cjk_negated_regions(cjk_text);
+        let chars: Vec<char> = cjk_text.chars().collect();
+        let mut matched_terms = Vec::new();
+        let mut covered: HashSet<usize> = HashSet::new();
+
+        // Step 1: Automaton scan (if available)
+        if let Some(ref automaton) = self.cjk_automaton {
+            for mat in automaton.find_overlapping_iter(cjk_text) {
+                let pattern_idx = mat.pattern().as_usize();
+                let term = &self.cjk_patterns[pattern_idx];
+
+                // Convert byte offset to char offset
+                let start_char = cjk_text[..mat.start()].chars().count();
+                let end_char = cjk_text[..mat.end()].chars().count();
+
+                // Check if this match falls in a negated region
+                if negated_regions.iter().any(|(ns, ne)| start_char >= *ns && start_char < *ne) {
+                    continue;
+                }
+
+                matched_terms.push(term.clone());
+                for i in start_char..end_char {
+                    covered.insert(i);
+                }
+            }
+        }
+
+        // Step 2: Find unmatched residual regions
+        let mut residual_runs: Vec<String> = Vec::new();
+        let mut current_run = String::new();
+
+        for (i, &c) in chars.iter().enumerate() {
+            if !covered.contains(&i) && is_cjk(c) {
+                current_run.push(c);
+            } else if !current_run.is_empty() {
+                residual_runs.push(std::mem::take(&mut current_run));
+            }
+        }
+        if !current_run.is_empty() {
+            residual_runs.push(current_run);
+        }
+
+        // Step 3: Generate bigrams from residuals (with stop char filtering)
+        for residual in &residual_runs {
+            let bigrams = generate_cjk_residual_bigrams(residual);
+            for bg in bigrams {
+                // For learning, apply stricter filter
+                if for_learning && !is_learnable_cjk_bigram(&bg) {
+                    continue;
+                }
+
+                // Check negation for residual bigrams
+                // Find position of this bigram in the original text
+                if let Some(pos) = cjk_text.find(&bg) {
+                    let char_pos = cjk_text[..pos].chars().count();
+                    if negated_regions.iter().any(|(ns, ne)| char_pos >= *ns && char_pos < *ne) {
+                        continue;
+                    }
+                }
+
+                matched_terms.push(bg);
+            }
+        }
+
+        matched_terms
+    }
+
+    /// Extract positioned terms for multi-intent decomposition.
+    ///
+    /// Returns positioned terms with character offsets and the processed query as chars.
+    fn extract_terms_positioned(&self, query: &str) -> (Vec<PositionedTerm>, Vec<char>) {
+        let lower = query.to_lowercase();
+
+        if !lower.chars().any(is_cjk) {
+            // Fast path: Latin only
+            return tokenizer::tokenize_positioned(&lower);
+        }
+
+        // Dual path: expand contractions, split into script runs
+        let expanded = tokenizer::expand_contractions_public(&lower);
+        let full_chars: Vec<char> = expanded.chars().collect();
+        let runs = split_script_runs(&expanded);
+
+        let mut all_positioned = Vec::new();
+
+        for run in &runs {
+            match run.script {
+                ScriptType::Latin => {
+                    // Tokenize the Latin run and adjust offsets
+                    let (terms, _) = tokenizer::tokenize_positioned(&run.text);
+                    for mut pt in terms {
+                        pt.offset += run.char_offset;
+                        pt.end_offset += run.char_offset;
+                        all_positioned.push(pt);
+                    }
+                }
+                ScriptType::Cjk => {
+                    let cjk_terms = self.extract_cjk_run_positioned(&run.text, run.char_offset);
+                    all_positioned.extend(cjk_terms);
+                }
+            }
+        }
+
+        (all_positioned, full_chars)
+    }
+
+    /// Extract positioned CJK terms from a CJK text run using the automaton.
+    fn extract_cjk_run_positioned(&self, cjk_text: &str, base_offset: usize) -> Vec<PositionedTerm> {
+        let negated_regions = find_cjk_negated_regions(cjk_text);
+        let chars: Vec<char> = cjk_text.chars().collect();
+
+        let mut positioned = Vec::new();
+        let mut covered: HashSet<usize> = HashSet::new();
+
+        // Automaton scan
+        if let Some(ref automaton) = self.cjk_automaton {
+            for mat in automaton.find_overlapping_iter(cjk_text) {
+                let pattern_idx = mat.pattern().as_usize();
+                let term = &self.cjk_patterns[pattern_idx];
+
+                let start_char = cjk_text[..mat.start()].chars().count();
+                let end_char = cjk_text[..mat.end()].chars().count();
+
+                if negated_regions.iter().any(|(ns, ne)| start_char >= *ns && start_char < *ne) {
+                    continue;
+                }
+
+                positioned.push(PositionedTerm {
+                    term: term.clone(),
+                    offset: base_offset + start_char,
+                    end_offset: base_offset + end_char,
+                    is_cjk: true,
+                });
+
+                for i in start_char..end_char {
+                    covered.insert(i);
+                }
+            }
+        }
+
+        // Residual bigrams
+        let mut current_run_start = None;
+        let mut current_run = String::new();
+
+        for (i, &c) in chars.iter().enumerate() {
+            if !covered.contains(&i) && is_cjk(c) {
+                if current_run_start.is_none() {
+                    current_run_start = Some(i);
+                }
+                current_run.push(c);
+            } else if !current_run.is_empty() {
+                let run_start = current_run_start.take().unwrap();
+                let bigrams = generate_cjk_residual_bigrams(&current_run);
+                let mut bi = 0;
+                for bg in bigrams {
+                    positioned.push(PositionedTerm {
+                        term: bg,
+                        offset: base_offset + run_start + bi,
+                        end_offset: base_offset + run_start + bi + 2,
+                        is_cjk: true,
+                    });
+                    bi += 1;
+                }
+                current_run.clear();
+            }
+        }
+        if !current_run.is_empty() {
+            let run_start = current_run_start.unwrap();
+            let bigrams = generate_cjk_residual_bigrams(&current_run);
+            let mut bi = 0;
+            for bg in bigrams {
+                positioned.push(PositionedTerm {
+                    term: bg,
+                    offset: base_offset + run_start + bi,
+                    end_offset: base_offset + run_start + bi + 2,
+                    is_cjk: true,
+                });
+                bi += 1;
+            }
+        }
+
+        positioned
     }
 }
 
@@ -498,6 +860,165 @@ mod tests {
 
         let result = router.route("reset password");
         assert_eq!(result[0].id, "password_reset");
+    }
+
+    // --- CJK routing tests ---
+
+    #[test]
+    fn cjk_chinese_basic_routing() {
+        let mut router = Router::new();
+        // Space-separated seeds (as LLM would provide)
+        router.add_intent("cancel_order", &[
+            "取消 订单",
+            "我 要 取消",
+            "退订",
+        ]);
+        router.add_intent("track_order", &[
+            "查看 订单",
+            "物流 状态",
+            "快递 到 哪里",
+        ]);
+
+        // Query: "我想取消我的订单" (I want to cancel my order)
+        let result = router.route("我想取消我的订单");
+        assert!(!result.is_empty(), "should match CJK query");
+        assert_eq!(result[0].id, "cancel_order");
+    }
+
+    #[test]
+    fn cjk_japanese_basic_routing() {
+        let mut router = Router::new();
+        router.add_intent("cancel", &[
+            "キャンセル",
+            "取り消し",
+        ]);
+        router.add_intent("track", &[
+            "追跡",
+            "配送 状況",
+        ]);
+
+        let result = router.route("キャンセルしたい");
+        assert!(!result.is_empty(), "should match Japanese query");
+        assert_eq!(result[0].id, "cancel");
+    }
+
+    #[test]
+    fn cjk_four_char_idiom() {
+        let mut router = Router::new();
+        // Test 4-character compound term (automaton handles any length)
+        router.add_intent("complaint", &[
+            "莫名其妙",
+            "投诉",
+        ]);
+        router.add_intent("praise", &[
+            "非常满意",
+            "好评",
+        ]);
+
+        let result = router.route("这个服务莫名其妙");
+        assert!(!result.is_empty());
+        assert_eq!(result[0].id, "complaint");
+    }
+
+    #[test]
+    fn cjk_mixed_language_query() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &[
+            "cancel my order",
+            "取消 订单",
+        ]);
+
+        // Mixed: "I want to 取消订单"
+        let result = router.route("I want to 取消订单");
+        assert!(!result.is_empty());
+        assert_eq!(result[0].id, "cancel_order");
+    }
+
+    #[test]
+    fn cjk_learning() {
+        let mut router = Router::new();
+        router.add_intent("refund", &[
+            "退款",
+            "退钱",
+        ]);
+
+        // Before learning: "要回我的钱" has no seed match
+        let before = router.route("要回我的钱");
+        let _had_refund = before.iter().any(|r| r.id == "refund");
+
+        // Learn the phrase
+        router.learn("要回我的钱", "refund");
+
+        // After learning: should route to refund
+        let after = router.route("要回我的钱");
+        assert!(!after.is_empty());
+        assert_eq!(after[0].id, "refund");
+    }
+
+    #[test]
+    fn cjk_negation_routing() {
+        let mut router = Router::new();
+        router.add_intent("cancel", &["取消", "退订"]);
+        router.add_intent("track", &["查看", "追踪"]);
+
+        // "不取消" — negation should suppress 取消
+        let result = router.route("不取消");
+        // 取消 is negated, so cancel intent should not be top
+        let cancel_score = result.iter().find(|r| r.id == "cancel").map(|r| r.score).unwrap_or(0.0);
+        // Without the negated term, cancel shouldn't score
+        assert_eq!(cancel_score, 0.0, "negated term should not score");
+    }
+
+    #[test]
+    fn cjk_multi_intent() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["取消 订单", "退订"]);
+        router.add_intent("check_balance", &["查看 余额", "账户 余额"]);
+
+        let result = router.route_multi("取消订单然后查看余额", 0.3);
+        assert!(result.intents.len() >= 2, "should detect 2 intents, got {}", result.intents.len());
+
+        let ids: Vec<&str> = result.intents.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.contains(&"cancel_order"), "missing cancel_order in {:?}", ids);
+        assert!(ids.contains(&"check_balance"), "missing check_balance in {:?}", ids);
+
+        // Should detect sequential relation from 然后
+        if !result.relations.is_empty() {
+            assert!(
+                matches!(result.relations[0], IntentRelation::Sequential { .. }),
+                "expected Sequential from 然后, got {:?}", result.relations[0]
+            );
+        }
+    }
+
+    #[test]
+    fn cjk_unsegmented_seeds() {
+        // LLM might generate seeds without spaces — tokenizer must still produce
+        // character bigrams so the automaton can find substrings in queries
+        let mut router = Router::new();
+        router.add_intent("save_recipe", &[
+            "保存食谱",         // unsegmented: "save recipe"
+            "保存我的食谱",     // unsegmented: "save my recipe"
+        ]);
+
+        // Query with those characters embedded in longer text
+        let result = router.route("你能帮我保存一下食谱吗");
+        assert!(!result.is_empty(), "should match unsegmented CJK seeds");
+        assert_eq!(result[0].id, "save_recipe");
+    }
+
+    #[test]
+    fn cjk_export_import_roundtrip() {
+        let mut router = Router::new();
+        router.add_intent("cancel", &["取消 订单"]);
+        router.learn("退订服务", "cancel");
+
+        let json = router.export_json();
+        let restored = Router::import_json(&json).unwrap();
+
+        let result = restored.route("取消订单");
+        assert!(!result.is_empty());
+        assert_eq!(result[0].id, "cancel");
     }
 
     #[test]

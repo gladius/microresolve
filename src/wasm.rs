@@ -1,7 +1,7 @@
 //! WebAssembly bindings for ASV Router.
 
 use wasm_bindgen::prelude::*;
-use crate::{Router, IntentRelation};
+use crate::{Router, IntentRelation, seed};
 
 #[wasm_bindgen]
 pub struct WasmRouter {
@@ -93,6 +93,14 @@ impl WasmRouter {
         self.inner.intent_count()
     }
 
+    pub fn begin_batch(&mut self) {
+        self.inner.begin_batch();
+    }
+
+    pub fn end_batch(&mut self) {
+        self.inner.end_batch();
+    }
+
     /// Get all intents as JSON: [{id, seeds, seeds_by_lang, learned_count}]
     pub fn get_intents_json(&self) -> String {
         let mut ids = self.inner.intent_ids();
@@ -120,6 +128,28 @@ impl WasmRouter {
         match Router::import_json(json) {
             Ok(r) => { self.inner = r; true }
             Err(_) => false
+        }
+    }
+
+    /// Get supported languages as JSON: {"en": "English", ...}
+    pub fn get_languages(&self) -> String {
+        seed::supported_languages_json()
+    }
+
+    /// Build an LLM prompt for seed generation.
+    /// languages_json: JSON array of language codes, e.g. ["en", "zh"]
+    pub fn build_seed_prompt(&self, intent_id: &str, description: &str, languages_json: &str) -> String {
+        let languages: Vec<String> = serde_json::from_str(languages_json).unwrap_or_default();
+        seed::build_prompt(intent_id, description, &languages)
+    }
+
+    /// Parse an LLM response into seeds grouped by language.
+    /// Returns JSON: {"seeds_by_lang": {...}, "total": N} or {"error": "..."}
+    pub fn parse_seed_response(&self, response_text: &str, languages_json: &str) -> String {
+        let languages: Vec<String> = serde_json::from_str(languages_json).unwrap_or_default();
+        match seed::parse_response(response_text, &languages) {
+            Ok(json) => json,
+            Err(e) => serde_json::json!({"error": e}).to_string(),
         }
     }
 }

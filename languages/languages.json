@@ -1,0 +1,50 @@
+{
+  "en": {
+    "name": "English",
+    "hint": null
+  },
+  "es": {
+    "name": "Spanish",
+    "hint": "Write how Spanish speakers actually type in chat. Use Latin American and Iberian variants. Include colloquial expressions."
+  },
+  "fr": {
+    "name": "French",
+    "hint": "Write how French speakers actually type in chat. Include informal tu-form and formal vous-form variants."
+  },
+  "de": {
+    "name": "German",
+    "hint": "Write how German speakers actually type in chat. Include informal du-form and formal Sie-form variants."
+  },
+  "pt": {
+    "name": "Portuguese",
+    "hint": "Write how Portuguese speakers actually type in chat. Include both Brazilian and European Portuguese variants."
+  },
+  "hi": {
+    "name": "Hindi",
+    "hint": "Write in Devanagari script as Hindi speakers actually type. Include casual and formal registers. Use natural Hindi, not English transliterations."
+  },
+  "ta": {
+    "name": "Tamil",
+    "hint": "Write in pure Tamil script (\u0ba4\u0bae\u0bbf\u0bb4\u0bcd). Do NOT use romanized/Tanglish. Write how Tamil speakers naturally type in Tamil script. Include casual and formal registers."
+  },
+  "ar": {
+    "name": "Arabic",
+    "hint": "Write in Arabic script as native speakers actually type in chat. Include both formal (MSA-influenced) and informal/dialectal variants."
+  },
+  "ru": {
+    "name": "Russian",
+    "hint": "Write in Cyrillic as Russian speakers actually type in chat. Include formal and informal variants."
+  },
+  "zh": {
+    "name": "Chinese",
+    "hint": "For Chinese: generate exactly 10 seed phrases, then render EACH phrase in BOTH simplified Chinese and traditional Chinese. The output array must contain exactly 20 strings: the same 10 seeds in simplified + the same 10 seeds in traditional. Do NOT generate 10 different simplified and 10 different traditional."
+  },
+  "ja": {
+    "name": "Japanese",
+    "hint": "Write how Japanese speakers actually type in chat. Use natural mix of kanji, hiragana, and katakana. Include polite and casual forms."
+  },
+  "ko": {
+    "name": "Korean",
+    "hint": "Write how Korean speakers actually type in chat. Include polite and casual speech levels."
+  }
+}

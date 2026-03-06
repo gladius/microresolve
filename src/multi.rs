@@ -1,11 +1,11 @@
 //! Multi-intent routing with positional decomposition and relation detection.
 //!
 //! Decomposes a query containing multiple intents via greedy term consumption,
-//! tracks word positions to recover the user's original ordering, and detects
-//! relationships (sequential, conditional, negation) from gap words between spans.
+//! tracks character positions to recover the user's original ordering, and detects
+//! relationships (sequential, conditional, negation) from gap text between spans.
 
 use crate::index::InvertedIndex;
-use crate::tokenizer::{tokenize_positioned, PositionedTerm};
+use crate::tokenizer::PositionedTerm;
 use crate::vector::LearnedVector;
 use std::collections::{HashMap, HashSet};
 
@@ -16,9 +16,9 @@ pub struct MultiRouteResult {
     pub id: String,
     /// Match score from term accumulation.
     pub score: f32,
-    /// First word position in original query (determines ordering).
+    /// First character position in original query (determines ordering).
     pub position: usize,
-    /// Word position span `(start, end)` consumed by this intent.
+    /// Character position span `(start, end)` consumed by this intent.
     pub span: (usize, usize),
 }
 
@@ -49,19 +49,19 @@ pub struct MultiRouteOutput {
 /// Run multi-intent greedy decomposition.
 ///
 /// Algorithm:
-/// 1. Tokenize query into positioned terms
+/// 1. Receive positioned terms (from dual-path extraction)
 /// 2. Score all intents against remaining terms
 /// 3. Take highest-scoring intent, consume its matching terms
 /// 4. Repeat until no intent scores above threshold
 /// 5. Re-sort detected intents by position (user's original order)
-/// 6. Detect relations from gap words between spans
+/// 6. Detect relations from gap text between spans
 pub(crate) fn route_multi(
     index: &InvertedIndex,
     vectors: &HashMap<String, LearnedVector>,
-    query: &str,
+    positioned: Vec<PositionedTerm>,
+    query_chars: Vec<char>,
     threshold: f32,
 ) -> MultiRouteOutput {
-    let (positioned, original_words) = tokenize_positioned(query);
     if positioned.is_empty() {
         return MultiRouteOutput {
             intents: vec![],
@@ -102,30 +102,30 @@ pub(crate) fn route_multi(
         };
 
         // Consume matching terms, track positions
-        let mut consumed_positions: Vec<usize> = Vec::new();
+        let mut consumed_offsets: Vec<(usize, usize)> = Vec::new(); // (offset, end_offset)
         let mut new_remaining: Vec<PositionedTerm> = Vec::new();
 
         for pt in remaining {
             if effective.contains_key(&pt.term) {
-                consumed_positions.push(pt.position);
+                consumed_offsets.push((pt.offset, pt.end_offset));
             } else {
                 new_remaining.push(pt);
             }
         }
 
-        if consumed_positions.is_empty() {
+        if consumed_offsets.is_empty() {
             break;
         }
 
-        let min_pos = *consumed_positions.iter().min().unwrap();
-        let max_pos = *consumed_positions.iter().max().unwrap();
+        let min_offset = consumed_offsets.iter().map(|(s, _)| *s).min().unwrap();
+        let max_end = consumed_offsets.iter().map(|(_, e)| *e).max().unwrap();
 
         seen_intents.insert(best.id.clone());
         detected.push(MultiRouteResult {
             id: best.id.clone(),
             score: best.score,
-            position: min_pos,
-            span: (min_pos, max_pos),
+            position: min_offset,
+            span: (min_offset, max_end),
         });
 
         remaining = new_remaining;
@@ -134,8 +134,8 @@ pub(crate) fn route_multi(
     // Re-sort by position (user's original ordering)
     detected.sort_by_key(|d| d.position);
 
-    // Detect relations from gap words between consecutive spans
-    let relations = detect_relations(&detected, &original_words);
+    // Detect relations from gap text between consecutive spans
+    let relations = detect_relations(&detected, &query_chars);
 
     MultiRouteOutput {
         intents: detected,
@@ -155,12 +155,15 @@ fn build_search_terms(remaining: &[PositionedTerm]) -> Vec<String> {
         }
     }
 
-    // Bigrams from position-adjacent pairs (gap ≤ 3 words in original)
+    // Bigrams from position-adjacent Latin terms only (CJK terms are already complete units)
     let mut sorted: Vec<&PositionedTerm> = remaining.iter().collect();
-    sorted.sort_by_key(|pt| pt.position);
+    sorted.sort_by_key(|pt| pt.offset);
 
     for window in sorted.windows(2) {
-        if window[1].position.saturating_sub(window[0].position) <= 3 {
+        // Only create bigrams between Latin (non-CJK) terms within 25 chars
+        if !window[0].is_cjk && !window[1].is_cjk
+            && window[1].offset.saturating_sub(window[0].end_offset) <= 25
+        {
             let bigram = format!("{} {}", window[0].term, window[1].term);
             if seen.insert(bigram.clone()) {
                 terms.push(bigram);
@@ -171,23 +174,23 @@ fn build_search_terms(remaining: &[PositionedTerm]) -> Vec<String> {
     terms
 }
 
-/// Detect relations between consecutive intents by examining gap words.
+/// Detect relations between consecutive intents by examining gap text.
 fn detect_relations(
     intents: &[MultiRouteResult],
-    original_words: &[String],
+    query_chars: &[char],
 ) -> Vec<IntentRelation> {
     let mut relations = Vec::new();
 
     for i in 0..intents.len().saturating_sub(1) {
-        let gap_start = intents[i].span.1 + 1;
+        let gap_start = intents[i].span.1;
         let gap_end = intents[i + 1].span.0;
 
-        if gap_start >= gap_end || gap_end > original_words.len() {
+        if gap_start >= gap_end || gap_end > query_chars.len() {
             relations.push(IntentRelation::Parallel);
             continue;
         }
 
-        let gap_text = original_words[gap_start..gap_end].join(" ");
+        let gap_text: String = query_chars[gap_start..gap_end].iter().collect();
         relations.push(classify_relation(&gap_text, i));
     }
 
@@ -199,8 +202,10 @@ fn classify_relation(gap: &str, index: usize) -> IntentRelation {
     let g = gap.to_lowercase();
 
     // Sequential: "then", "after", "next", "followed by", "once done"
+    // CJK: 然后 (then), 之后 (after)
     if has_word(&g, "then") || has_word(&g, "after") || has_word(&g, "next")
         || g.contains("followed by") || g.contains("once done")
+        || g.contains("然后") || g.contains("之后")
     {
         return IntentRelation::Sequential {
             first: index,
@@ -209,8 +214,10 @@ fn classify_relation(gap: &str, index: usize) -> IntentRelation {
     }
 
     // Conditional: "or", "otherwise", "if not", "failing that"
+    // CJK: 或者 (or/otherwise)
     if has_word(&g, "otherwise") || g.contains("if not") || g.contains("failing that")
         || has_word(&g, "or")
+        || g.contains("或者")
     {
         return IntentRelation::Conditional {
             primary: index,
@@ -227,8 +234,10 @@ fn classify_relation(gap: &str, index: usize) -> IntentRelation {
     }
 
     // Negation: "not" (from expanded "don't"), "except", "without", "never"
+    // CJK: 但不 (but not)
     if has_word(&g, "not") || has_word(&g, "except") || has_word(&g, "without")
         || has_word(&g, "never")
+        || g.contains("但不")
     {
         return IntentRelation::Negation {
             do_this: index,
@@ -519,6 +528,22 @@ mod tests {
         assert!(matches!(
             classify_relation("and", 0),
             IntentRelation::Parallel
+        ));
+    }
+
+    #[test]
+    fn classify_cjk_sequential() {
+        assert!(matches!(
+            classify_relation("然后", 0),
+            IntentRelation::Sequential { first: 0, then: 1 }
+        ));
+    }
+
+    #[test]
+    fn classify_cjk_conditional() {
+        assert!(matches!(
+            classify_relation("或者", 0),
+            IntentRelation::Conditional { primary: 0, fallback: 1 }
         ));
     }
 }

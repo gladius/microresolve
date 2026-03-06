@@ -1037,9 +1037,8 @@ function refreshIntents() {
 const modal = document.getElementById('modal');
 const langNames = {
   en: 'English', es: 'Spanish', fr: 'French', ta: 'Tamil',
-  de: 'German', pt: 'Portuguese', it: 'Italian', ja: 'Japanese',
-  ko: 'Korean', zh: 'Chinese', hi: 'Hindi', ar: 'Arabic',
-  ru: 'Russian', nl: 'Dutch', sv: 'Swedish', pl: 'Polish',
+  de: 'German', pt: 'Portuguese', hi: 'Hindi', ar: 'Arabic',
+  zh: 'Chinese', ja: 'Japanese', ko: 'Korean', ru: 'Russian',
 };
 
 function getSelectedLangs() {
@@ -1148,59 +1147,16 @@ generateBtn.onclick = async () => {
     return;
   }
 
-  const langList = languages.map(l => langNames[l] || l).join(', ');
-
   generateBtn.disabled = true;
   generateStatus.style.color = 'var(--text-muted)';
   generateStatus.textContent = 'Generating diverse seeds via Claude Haiku...';
 
-  const multiLang = languages.length > 1;
-  const seedGuidelines = `Generate realistic seed phrases for an intent routing system. These phrases train a keyword-matching router (not an LLM), so vocabulary diversity is critical.
-
-Intent ID: ${intentId || '(unnamed)'}
-Description: ${description}
-
-Generate exactly 10 phrases per language. Each phrase must be something a real human would actually type in a chat box or support ticket. Requirements:
-
-VARIETY IN LENGTH:
-- 2-3 short phrases (2-4 words): "cancel order", "refund status"
-- 4-5 medium phrases (5-10 words): "I need to cancel the order I placed"
-- 2-3 long/conversational phrases (10+ words): "hey I ordered something yesterday and I changed my mind, can you cancel it"
-
-VARIETY IN STYLE:
-- Formal: "I would like to request a cancellation"
-- Casual: "yo can I cancel this thing"
-- Frustrated: "why is it so hard to cancel an order around here"
-- Question form: "how do I cancel my recent order"
-- Command form: "cancel order 12345"
-- Contextual/story: "I found a better price elsewhere so I need to cancel"
-
-VOCABULARY DIVERSITY (most important):
-- Use different verbs for the same action (cancel/terminate/revoke/withdraw/undo)
-- Use different nouns (order/purchase/transaction/item)
-- Include phrases that describe the SITUATION not just the action ("I changed my mind", "ordered by mistake")
-- Include emotional/frustrated variants that real users type
-
-DO NOT:
-- Repeat the same structure with word swaps ("cancel my order" / "cancel my purchase" / "cancel my item")
-- Use overly polished corporate language
-- Generate translations of the same phrases across languages — each language should have culturally natural expressions`;
-
-  const prompt = multiLang
-    ? seedGuidelines + `
-
-Languages: ${langList}
-For non-English languages: write how native speakers actually type in chat, not translations of English phrases. Include slang, colloquialisms, and culturally natural expressions.
-
-Return ONLY a JSON object mapping language codes to arrays. No markdown, no explanation. Example:
-{"en": ["phrase one", "long conversational phrase here"], "es": ["frase natural", "frase larga y conversacional aquí"]}`
-    : seedGuidelines + `
-
-Language: ${langList}
-
-Return ONLY a JSON array of strings. No markdown, no explanation.`;
-
   try {
+    // Rust builds the prompt
+    const langsJson = JSON.stringify(languages);
+    const prompt = router.build_seed_prompt(intentId, description, langsJson);
+
+    // JS only does HTTP transport
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -1224,35 +1180,19 @@ Return ONLY a JSON array of strings. No markdown, no explanation.`;
     const data = await resp.json();
     const text = data.content[0].text.trim();
 
-    // Parse response and populate existing language panels
-    let allSeeds = [];
+    // Rust parses the response
+    const parsed = JSON.parse(router.parse_seed_response(text, langsJson));
+    if (parsed.error) throw new Error(parsed.error);
 
-    if (multiLang) {
-      // Expect {"en": [...], "es": [...]}
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('Could not parse response as JSON object');
-      const seedsByLang = JSON.parse(jsonMatch[0]);
+    const { seeds_by_lang, total } = parsed;
 
-      // Fill existing panels
-      for (const lang of languages) {
-        const langSeeds = seedsByLang[lang] || [];
-        allSeeds.push(...langSeeds);
-        const ta = document.querySelector(`#lang-panels textarea[data-lang="${lang}"]`);
-        if (ta) {
-          const prev = ta.value.trim();
-          ta.value = prev ? prev + '\n' + langSeeds.join('\n') : langSeeds.join('\n');
-        }
-      }
-    } else {
-      // Expect [...]
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('Could not parse response as JSON array');
-      allSeeds = JSON.parse(jsonMatch[0]);
-
-      const ta = document.querySelector(`#lang-panels textarea[data-lang="${languages[0]}"]`);
+    // Populate language panels
+    for (const lang of languages) {
+      const langSeeds = seeds_by_lang[lang] || [];
+      const ta = document.querySelector(`#lang-panels textarea[data-lang="${lang}"]`);
       if (ta) {
         const prev = ta.value.trim();
-        ta.value = prev ? prev + '\n' + allSeeds.join('\n') : allSeeds.join('\n');
+        ta.value = prev ? prev + '\n' + langSeeds.join('\n') : langSeeds.join('\n');
       }
     }
 
@@ -1265,10 +1205,9 @@ Return ONLY a JSON array of strings. No markdown, no explanation.`;
       header.textContent = (langNames[lang] || lang) + ' (' + count + ')';
     });
 
-    // Sync to main textarea
     syncLangPanels();
 
-    const total = allSeeds.length;
+    const multiLang = languages.length > 1;
     generateStatus.style.color = 'var(--green)';
     generateStatus.textContent = `Generated ${total} seeds` + (multiLang ? ` across ${languages.length} languages` : '');
   } catch (e) {

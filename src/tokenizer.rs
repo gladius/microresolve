@@ -4,6 +4,7 @@
 //! Also converts training phrases into term-weight maps for seeding intents.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
 
 /// Expand common English contractions to prevent garbage tokens from apostrophe splitting.
 /// "don't" → "do not", "can't" → "can not", "what's" → "what", etc.
@@ -30,12 +31,17 @@ fn expand_contractions(text: &str) -> String {
     text
 }
 
+/// Public wrapper for expand_contractions (used by Router for dual-path tokenization).
+pub fn expand_contractions_public(text: &str) -> String {
+    expand_contractions(text)
+}
+
 /// Detect word positions that are negated (should be suppressed from scoring).
 ///
 /// Conservative: only negates after "do not" (from expanded "don't") and
 /// explicit negation words ("never", "without", "except"). Does NOT negate
 /// after "can not" (can't = inability) or "is not" (isn't = state).
-fn find_negated_positions(words: &[&str], stop_set: &HashSet<&str>) -> HashSet<usize> {
+fn find_negated_positions(words: &[&str], stop_set: &HashSet<String>) -> HashSet<usize> {
     let mut negated: HashSet<usize> = HashSet::new();
     let mut negate_next = 0u8; // counter: negate next N content words
 
@@ -71,23 +77,49 @@ fn find_negated_positions(words: &[&str], stop_set: &HashSet<&str>) -> HashSet<u
     negated
 }
 
-/// Common English words that don't carry intent signal.
-const STOP_WORDS: &[&str] = &[
-    // Articles and pronouns
-    "a", "an", "the", "i", "my", "me", "we", "our", "you", "your",
-    "it", "its", "he", "she", "they", "them",
-    // Prepositions
-    "in", "on", "at", "to", "for", "of", "with", "from", "by", "as",
-    // Conjunctions
-    "and", "or", "but", "if", "then", "so",
-    // Conversational filler
-    "please", "can", "could", "would", "want", "need", "like",
-    "just", "also", "about", "how", "what", "which", "that", "this",
-    "is", "are", "was", "were", "be", "been", "being",
-    "do", "does", "did", "have", "has", "had",
-    "will", "shall", "should", "may", "might", "must",
-    "not", "no", "yes", "all", "some", "any", "each", "every",
-];
+/// Stop word data loaded from languages/stopwords.json.
+struct StopWordData {
+    /// English stop words (used for Latin text filtering).
+    english: HashSet<String>,
+    /// Combined CJK stop characters from zh, ja, ko.
+    cjk_chars: HashSet<char>,
+}
+
+fn stop_data() -> &'static StopWordData {
+    static DATA: OnceLock<StopWordData> = OnceLock::new();
+    DATA.get_or_init(|| {
+        let json = include_str!("../languages/stopwords.json");
+        let all: HashMap<String, Vec<String>> =
+            serde_json::from_str(json).expect("invalid stopwords.json");
+
+        let english: HashSet<String> = all.get("en")
+            .map(|v| v.iter().cloned().collect())
+            .unwrap_or_default();
+
+        let mut cjk_chars = HashSet::new();
+        for lang in &["zh", "ja", "ko"] {
+            if let Some(words) = all.get(*lang) {
+                for w in words {
+                    for c in w.chars() {
+                        cjk_chars.insert(c);
+                    }
+                }
+            }
+        }
+
+        StopWordData { english, cjk_chars }
+    })
+}
+
+/// Get the English stop word set.
+fn english_stop_set() -> &'static HashSet<String> {
+    &stop_data().english
+}
+
+/// Get the combined CJK stop character set.
+pub fn cjk_stop_char_set() -> &'static HashSet<char> {
+    &stop_data().cjk_chars
+}
 
 /// Tokenize a query into searchable terms (unigrams + bigrams).
 ///
@@ -105,33 +137,73 @@ pub fn tokenize(query: &str) -> Vec<String> {
     let lower = query.to_lowercase();
     let expanded = expand_contractions(&lower);
 
-    let words: Vec<&str> = expanded
+    // Split into words, but also break CJK runs from Latin text
+    let raw_words: Vec<&str> = expanded
         .split(|c: char| !c.is_alphanumeric() && c != '-')
         .filter(|w| !w.is_empty())
         .collect();
 
-    let stop_set: HashSet<&str> = STOP_WORDS.iter().copied().collect();
+    // Expand CJK tokens into character bigrams (and individual chars as unigrams)
+    let stop_set = english_stop_set();
+    let cjk_stop_set = cjk_stop_char_set();
 
-    let negated = find_negated_positions(&words, &stop_set);
+    let mut words: Vec<String> = Vec::new();
+    let mut is_word_cjk: Vec<bool> = Vec::new();
 
-    let mut terms: Vec<String> = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
+    for word in &raw_words {
+        let has_cjk = word.chars().any(is_cjk);
+        if !has_cjk {
+            words.push(word.to_string());
+            is_word_cjk.push(false);
+        } else {
+            // Split CJK token into sub-runs (CJK chars vs non-CJK chars)
+            let chars: Vec<char> = word.chars().collect();
+            let mut cjk_run = String::new();
 
-    // Unigrams (excluding stop words and negated terms)
-    for (i, word) in words.iter().enumerate() {
-        if !stop_set.contains(word) && !negated.contains(&i) {
-            let w = word.to_string();
-            if seen.insert(w.clone()) {
-                terms.push(w);
+            for &c in &chars {
+                if is_cjk(c) {
+                    cjk_run.push(c);
+                } else {
+                    if !cjk_run.is_empty() {
+                        // Generate individual CJK words (non-stop chars) and bigrams
+                        expand_cjk_run(&cjk_run, &cjk_stop_set, &mut words, &mut is_word_cjk);
+                        cjk_run.clear();
+                    }
+                    // Non-CJK char in a mixed token — add as Latin word
+                    let s = c.to_string();
+                    if !s.is_empty() && s.chars().any(|c| c.is_alphanumeric()) {
+                        words.push(s);
+                        is_word_cjk.push(false);
+                    }
+                }
+            }
+            if !cjk_run.is_empty() {
+                expand_cjk_run(&cjk_run, &cjk_stop_set, &mut words, &mut is_word_cjk);
             }
         }
     }
 
-    // Bigrams (consecutive non-stop, non-negated word pairs)
+    let word_refs: Vec<&str> = words.iter().map(|w| w.as_str()).collect();
+    let negated = find_negated_positions(&word_refs, &stop_set);
+
+    let mut terms: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+
+    // Unigrams (excluding stop words, CJK stop chars, and negated terms)
+    for (i, word) in words.iter().enumerate() {
+        if !stop_set.contains(word.as_str()) && !negated.contains(&i) {
+            if seen.insert(word.clone()) {
+                terms.push(word.clone());
+            }
+        }
+    }
+
+    // Bigrams (consecutive non-stop, non-negated, non-CJK word pairs)
+    // CJK bigrams are already generated by expand_cjk_run, so skip CJK words here
     let non_stop: Vec<&str> = words.iter()
         .enumerate()
-        .filter(|(i, w)| !stop_set.contains(**w) && !negated.contains(i))
-        .map(|(_, w)| *w)
+        .filter(|(i, w)| !stop_set.contains(w.as_str()) && !negated.contains(i) && !is_word_cjk[*i])
+        .map(|(_, w)| w.as_str())
         .collect();
 
     for window in non_stop.windows(2) {
@@ -142,6 +214,46 @@ pub fn tokenize(query: &str) -> Vec<String> {
     }
 
     terms
+}
+
+/// Expand a CJK character run into indexable terms.
+///
+/// Generates character bigrams from contiguous CJK text, filtering stop characters.
+/// For space-separated seeds like "保存 食谱", each word arrives as a separate run,
+/// so "保存" goes in as-is. For unsegmented text like "保存食谱", this produces
+/// bigrams "保存", "存食", "食谱".
+fn expand_cjk_run(
+    run: &str,
+    stop_set: &HashSet<char>,
+    words: &mut Vec<String>,
+    is_cjk: &mut Vec<bool>,
+) {
+    let chars: Vec<char> = run.chars()
+        .filter(|c| !stop_set.contains(c))
+        .collect();
+
+    if chars.is_empty() {
+        return;
+    }
+
+    // Single char: add as unigram
+    if chars.len() == 1 {
+        words.push(chars[0].to_string());
+        is_cjk.push(true);
+        return;
+    }
+
+    // For 2+ chars: add the full cleaned run as a term (exact match),
+    // plus character bigrams for substring matching
+    let full: String = chars.iter().collect();
+    words.push(full);
+    is_cjk.push(true);
+
+    for window in chars.windows(2) {
+        let bigram: String = window.iter().collect();
+        words.push(bigram);
+        is_cjk.push(true);
+    }
 }
 
 /// Convert training phrases into term weights.
@@ -189,13 +301,17 @@ pub fn training_to_terms(queries: &[String]) -> HashMap<String, f32> {
         .collect()
 }
 
-/// A term with its position in the original query.
+/// A term with its position in the processed query.
 #[derive(Debug, Clone)]
 pub struct PositionedTerm {
     /// The term (lowercase, after stop word removal).
     pub term: String,
-    /// Word index in the original query's word array.
-    pub position: usize,
+    /// Character offset in the processed query.
+    pub offset: usize,
+    /// Exclusive end character offset.
+    pub end_offset: usize,
+    /// Whether this term was extracted from CJK text (skip bigram generation).
+    pub is_cjk: bool,
 }
 
 /// Tokenize with position tracking for multi-intent decomposition.
@@ -203,31 +319,252 @@ pub struct PositionedTerm {
 /// Unlike `tokenize()`, this preserves duplicate terms at different positions
 /// so each occurrence can be consumed independently by different intents.
 ///
-/// Returns `(positioned_terms, all_words)` where `all_words` includes stop words
-/// (used for gap analysis in relation detection).
-pub fn tokenize_positioned(query: &str) -> (Vec<PositionedTerm>, Vec<String>) {
+/// Returns `(positioned_terms, query_chars)` where `query_chars` is the
+/// processed query as a char array (used for gap analysis in relation detection).
+pub fn tokenize_positioned(query: &str) -> (Vec<PositionedTerm>, Vec<char>) {
     let lower = query.to_lowercase();
     let expanded = expand_contractions(&lower);
+    let chars: Vec<char> = expanded.chars().collect();
 
-    let words: Vec<&str> = expanded
-        .split(|c: char| !c.is_alphanumeric() && c != '-')
-        .filter(|w| !w.is_empty())
-        .collect();
+    // Find words with their char positions
+    let mut words_positions: Vec<(String, usize, usize)> = Vec::new();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i].is_alphanumeric() || chars[i] == '-' {
+            let start = i;
+            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '-') {
+                i += 1;
+            }
+            let word: String = chars[start..i].iter().collect();
+            words_positions.push((word, start, i));
+        } else {
+            i += 1;
+        }
+    }
 
-    let stop_set: HashSet<&str> = STOP_WORDS.iter().copied().collect();
-    let original_words: Vec<String> = words.iter().map(|w| w.to_string()).collect();
+    let stop_set = english_stop_set();
+    let word_strs: Vec<&str> = words_positions.iter().map(|(w, _, _)| w.as_str()).collect();
+    let negated = find_negated_positions(&word_strs, stop_set);
 
-    let positioned: Vec<PositionedTerm> = words
+    let positioned: Vec<PositionedTerm> = words_positions
         .iter()
         .enumerate()
-        .filter(|(_, w)| !stop_set.contains(**w))
-        .map(|(pos, w)| PositionedTerm {
-            term: w.to_string(),
-            position: pos,
+        .filter(|(idx, (w, _, _))| !stop_set.contains(w.as_str()) && !negated.contains(idx))
+        .map(|(_, (w, start, end))| PositionedTerm {
+            term: w.clone(),
+            offset: *start,
+            end_offset: *end,
+            is_cjk: false,
         })
         .collect();
 
-    (positioned, original_words)
+    (positioned, chars)
+}
+
+// --- CJK Support ---
+
+/// Check if a character is in CJK Unicode ranges.
+pub fn is_cjk(c: char) -> bool {
+    matches!(c,
+        '\u{4E00}'..='\u{9FFF}'   // CJK Unified Ideographs
+        | '\u{3040}'..='\u{309F}' // Hiragana
+        | '\u{30A0}'..='\u{30FF}' // Katakana
+        | '\u{AC00}'..='\u{D7AF}' // Korean Hangul Syllables
+        | '\u{3400}'..='\u{4DBF}' // CJK Unified Ideographs Extension A
+        | '\u{F900}'..='\u{FAFF}' // CJK Compatibility Ideographs
+        | '\u{1100}'..='\u{11FF}' // Hangul Jamo
+        | '\u{3130}'..='\u{318F}' // Hangul Compatibility Jamo
+    )
+}
+
+/// CJK negation markers.
+pub const CJK_NEGATION_MARKERS: &[&str] = &["不", "没", "别", "未"];
+
+/// Japanese multi-character negation suffixes.
+pub const JA_NEGATION_SUFFIXES: &[&str] = &["ない", "しない", "できない"];
+
+/// CJK clause boundary characters.
+pub const CJK_CLAUSE_BOUNDARIES: &[char] = &['，', '、', '。', '；'];
+
+/// CJK conjunction words (multi-character).
+pub const CJK_CONJUNCTIONS: &[&str] = &["但", "然后", "而且", "或者"];
+
+/// Script type for a text run.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ScriptType {
+    Latin,
+    Cjk,
+}
+
+/// A contiguous run of same-script text.
+#[derive(Debug, Clone)]
+pub struct ScriptRun {
+    pub script: ScriptType,
+    pub text: String,
+    /// Character offset of this run in the full query.
+    pub char_offset: usize,
+}
+
+/// Split text into runs of Latin vs CJK script.
+pub fn split_script_runs(text: &str) -> Vec<ScriptRun> {
+    let mut runs = Vec::new();
+    let mut current_text = String::new();
+    let mut current_is_cjk: Option<bool> = None;
+    let mut run_start = 0;
+    let mut char_idx = 0;
+
+    for c in text.chars() {
+        if is_cjk(c) {
+            if current_is_cjk == Some(false) {
+                // Flush Latin run
+                if !current_text.is_empty() {
+                    runs.push(ScriptRun {
+                        script: ScriptType::Latin,
+                        text: std::mem::take(&mut current_text),
+                        char_offset: run_start,
+                    });
+                }
+                run_start = char_idx;
+            }
+            if current_is_cjk.is_none() {
+                run_start = char_idx;
+            }
+            current_is_cjk = Some(true);
+            current_text.push(c);
+        } else if c.is_alphanumeric() {
+            if current_is_cjk == Some(true) {
+                // Flush CJK run
+                if !current_text.is_empty() {
+                    runs.push(ScriptRun {
+                        script: ScriptType::Cjk,
+                        text: std::mem::take(&mut current_text),
+                        char_offset: run_start,
+                    });
+                }
+                run_start = char_idx;
+            }
+            if current_is_cjk.is_none() {
+                run_start = char_idx;
+            }
+            current_is_cjk = Some(false);
+            current_text.push(c);
+        } else {
+            // Non-alphanumeric (spaces, punctuation): attach to current run
+            current_text.push(c);
+        }
+        char_idx += 1;
+    }
+
+    if !current_text.is_empty() {
+        let script = match current_is_cjk {
+            Some(true) => ScriptType::Cjk,
+            _ => ScriptType::Latin,
+        };
+        runs.push(ScriptRun {
+            script,
+            text: current_text,
+            char_offset: run_start,
+        });
+    }
+
+    runs
+}
+
+/// Find CJK negated character regions in a CJK text run.
+///
+/// Returns Vec of (start_char, end_char) ranges where terms should be suppressed.
+/// Negation starts at a marker and extends to the next clause boundary or end.
+pub fn find_cjk_negated_regions(text: &str) -> Vec<(usize, usize)> {
+    let chars: Vec<char> = text.chars().collect();
+    let text_len = chars.len();
+    let mut regions = Vec::new();
+    let stop_set: HashSet<char> = CJK_CLAUSE_BOUNDARIES.iter().copied().collect();
+
+    // Check single-char Chinese negation markers
+    for (i, &c) in chars.iter().enumerate() {
+        let s: String = c.to_string();
+        if CJK_NEGATION_MARKERS.contains(&s.as_str()) {
+            // Find end: next clause boundary, conjunction, or end of text
+            let neg_start = i + 1; // suppress after the marker
+            let mut neg_end = text_len;
+            for j in neg_start..text_len {
+                if stop_set.contains(&chars[j]) {
+                    neg_end = j;
+                    break;
+                }
+                // Check multi-char conjunctions
+                let remaining: String = chars[j..].iter().collect();
+                if CJK_CONJUNCTIONS.iter().any(|conj| remaining.starts_with(conj)) {
+                    neg_end = j;
+                    break;
+                }
+            }
+            if neg_start < neg_end {
+                regions.push((neg_start, neg_end));
+            }
+        }
+    }
+
+    // Check Japanese multi-char negation suffixes
+    let text_str: String = chars.iter().collect();
+    for suffix in JA_NEGATION_SUFFIXES {
+        let suffix_chars: Vec<char> = suffix.chars().collect();
+        let suffix_len = suffix_chars.len();
+        if text_len >= suffix_len {
+            for i in 0..=(text_len - suffix_len) {
+                if chars[i..i + suffix_len] == suffix_chars[..] {
+                    // Negate terms after this suffix until clause boundary
+                    let neg_start = i + suffix_len;
+                    let mut neg_end = text_len;
+                    for j in neg_start..text_len {
+                        if stop_set.contains(&chars[j]) {
+                            neg_end = j;
+                            break;
+                        }
+                    }
+                    if neg_start < neg_end {
+                        regions.push((neg_start, neg_end));
+                    }
+                }
+            }
+        }
+    }
+    let _ = text_str; // suppress unused warning
+
+    regions
+}
+
+/// Generate bigrams from unmatched CJK residual text.
+///
+/// Strips stop characters (but keeps negation markers), then generates character bigrams.
+pub fn generate_cjk_residual_bigrams(text: &str) -> Vec<String> {
+    let stop_set = cjk_stop_char_set();
+
+    // Remove stop chars (keep negation markers — they're not in stop set)
+    let cleaned: Vec<char> = text.chars()
+        .filter(|c| is_cjk(*c) && !stop_set.contains(c))
+        .collect();
+
+    let mut bigrams = Vec::new();
+    for window in cleaned.windows(2) {
+        let bigram: String = window.iter().collect();
+        bigrams.push(bigram);
+    }
+    bigrams
+}
+
+/// Check if a CJK residual bigram is clean enough to learn.
+///
+/// Returns false for bigrams that are entirely stop characters or negation markers.
+pub fn is_learnable_cjk_bigram(bigram: &str) -> bool {
+    let stop_set = cjk_stop_char_set();
+    let neg_chars: HashSet<char> = ['不', '没', '别', '未'].iter().copied().collect();
+    let chars: Vec<char> = bigram.chars().collect();
+    if chars.len() < 2 {
+        return false;
+    }
+    // At least one char must be neither a stop char nor a negation marker
+    chars.iter().any(|c| !stop_set.contains(c) && !neg_chars.contains(c))
 }
 
 #[cfg(test)]
@@ -376,5 +713,106 @@ mod tests {
             assert!(*weight >= 0.3);
             assert!(*weight <= 0.95);
         }
+    }
+
+    // --- CJK tests ---
+
+    #[test]
+    fn is_cjk_detection() {
+        assert!(is_cjk('取'));  // Chinese
+        assert!(is_cjk('の'));  // Hiragana
+        assert!(is_cjk('カ'));  // Katakana
+        assert!(is_cjk('한'));  // Korean
+        assert!(!is_cjk('a'));
+        assert!(!is_cjk('1'));
+        assert!(!is_cjk(' '));
+    }
+
+    #[test]
+    fn split_script_runs_latin_only() {
+        let runs = split_script_runs("cancel my order");
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0].script, ScriptType::Latin);
+    }
+
+    #[test]
+    fn split_script_runs_cjk_only() {
+        let runs = split_script_runs("取消订单");
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0].script, ScriptType::Cjk);
+        assert_eq!(runs[0].char_offset, 0);
+    }
+
+    #[test]
+    fn split_script_runs_mixed() {
+        let runs = split_script_runs("cancel 取消订单 order");
+        assert_eq!(runs.len(), 3);
+        assert_eq!(runs[0].script, ScriptType::Latin);
+        assert_eq!(runs[1].script, ScriptType::Cjk);
+        assert_eq!(runs[2].script, ScriptType::Latin);
+    }
+
+    #[test]
+    fn cjk_residual_bigrams() {
+        // "取消订单" → bigrams: "取消", "消订", "订单"
+        let bigrams = generate_cjk_residual_bigrams("取消订单");
+        assert_eq!(bigrams.len(), 3);
+        assert!(bigrams.contains(&"取消".to_string()));
+        assert!(bigrams.contains(&"订单".to_string()));
+    }
+
+    #[test]
+    fn cjk_residual_bigrams_filters_stop_chars() {
+        // "我的订单" → stop chars 我,的 removed → only "订单" remains (1 char not enough for bigram)
+        // Wait: after removing 我 and 的, we have "订单" which is 2 chars → 1 bigram
+        let bigrams = generate_cjk_residual_bigrams("我的订单");
+        assert!(bigrams.contains(&"订单".to_string()));
+        assert!(!bigrams.iter().any(|b| b.contains('我')));
+    }
+
+    #[test]
+    fn cjk_negation_regions() {
+        // "不取消" → negation at pos 0, suppresses from pos 1 to end
+        let regions = find_cjk_negated_regions("不取消");
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions[0], (1, 3));
+    }
+
+    #[test]
+    fn cjk_negation_stops_at_clause_boundary() {
+        // "不取消，查看订单" → negation suppresses "取消" but not "查看订单"
+        let regions = find_cjk_negated_regions("不取消，查看订单");
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions[0].0, 1);
+        assert_eq!(regions[0].1, 3); // stops at ，
+    }
+
+    #[test]
+    fn cjk_negation_stops_at_conjunction() {
+        // "不取消然后查看" → negation suppresses "取消" but not after "然后"
+        let regions = find_cjk_negated_regions("不取消然后查看");
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions[0].0, 1);
+        assert_eq!(regions[0].1, 3); // stops at 然后
+    }
+
+    #[test]
+    fn learnable_cjk_bigram_checks() {
+        assert!(is_learnable_cjk_bigram("取消"));
+        assert!(is_learnable_cjk_bigram("订单"));
+        assert!(!is_learnable_cjk_bigram("我的")); // both stop chars
+        assert!(!is_learnable_cjk_bigram("a"));     // too short
+    }
+
+    #[test]
+    fn positioned_terms_have_char_offsets() {
+        let (terms, _chars) = tokenize_positioned("cancel my order");
+        // "cancel" starts at char 0, "order" starts at char 10
+        let cancel = terms.iter().find(|t| t.term == "cancel").unwrap();
+        assert_eq!(cancel.offset, 0);
+        assert_eq!(cancel.end_offset, 6);
+        let order = terms.iter().find(|t| t.term == "order").unwrap();
+        assert_eq!(order.offset, 10);
+        assert_eq!(order.end_offset, 15);
     }
 }
