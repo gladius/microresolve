@@ -226,10 +226,9 @@ fn classify_relation(gap: &str, index: usize) -> IntentRelation {
         };
     }
 
-    // Negation: "don't"/"don t", "except", "without"
-    // Note: apostrophe in "don't" splits to "don" + "t" in our tokenizer
-    if g.contains("don t") || g.contains("don\u{2019}t") || g.contains("don't")
-        || has_word(&g, "except") || has_word(&g, "without")
+    // Negation: "not" (from expanded "don't"), "except", "without", "never"
+    if has_word(&g, "not") || has_word(&g, "except") || has_word(&g, "without")
+        || has_word(&g, "never")
     {
         return IntentRelation::Negation {
             do_this: index,
@@ -486,7 +485,7 @@ mod tests {
     #[test]
     fn classify_negation_patterns() {
         assert!(matches!(
-            classify_relation("but don t", 0),
+            classify_relation("but do not", 0),
             IntentRelation::Negation { do_this: 0, not_this: 1 }
         ));
         assert!(matches!(

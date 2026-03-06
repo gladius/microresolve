@@ -152,6 +152,11 @@ impl LearnedVector {
         self.seed_terms.is_empty() && self.learned_terms.is_empty()
     }
 
+    /// Number of learned terms (excluding seed).
+    pub fn learned_term_count(&self) -> usize {
+        self.learned_terms.len()
+    }
+
     /// Check if seed layer has terms.
     pub fn is_seeded(&self) -> bool {
         !self.seed_terms.is_empty()

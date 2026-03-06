@@ -637,6 +637,155 @@ fn run_oos_eval(dataset: &Dataset) {
 
     println!("╚══════════════════════════════════════════════════════════════════════════╝");
     println!();
+
+    // --- Confidence ratio (top1/top2) thresholds ---
+    println!("╔══════════════════════════════════════════════════════════════════════════╗");
+    println!("║  Confidence Ratio (top1/top2) — better OOS separation                  ║");
+    println!("╠══════════════════════════════════════════════════════════════════════════╣");
+    println!(
+        "║  {:>10} │ {:>10} {:>10} {:>10} {:>10}               ║",
+        "Min Conf", "OOS-Reject", "IS-Correct", "IS-Reject", "F1"
+    );
+    println!("║  ──────────┼─────────────────────────────────────────────             ║");
+
+    let conf_thresholds = [1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0];
+
+    for &min_conf in &conf_thresholds {
+        let mut oos_rejected = 0usize;
+        for ex in &dataset.oos_test {
+            let results = router.route(&ex.text);
+            let confidence = if results.len() >= 2 {
+                results[0].score / results[1].score
+            } else if results.is_empty() {
+                0.0
+            } else {
+                f32::INFINITY
+            };
+            if results.is_empty() || confidence < min_conf {
+                oos_rejected += 1;
+            }
+        }
+
+        let mut is_correct = 0usize;
+        let mut is_rejected = 0usize;
+        for ex in &dataset.test {
+            let results = router.route(&ex.text);
+            let confidence = if results.len() >= 2 {
+                results[0].score / results[1].score
+            } else if results.is_empty() {
+                0.0
+            } else {
+                f32::INFINITY
+            };
+            if results.is_empty() || confidence < min_conf {
+                is_rejected += 1;
+            } else if results[0].id == ex.intent {
+                is_correct += 1;
+            }
+        }
+
+        let oos_reject_rate = oos_rejected as f32 / dataset.oos_test.len().max(1) as f32;
+        let is_correct_rate = is_correct as f32 / dataset.test.len().max(1) as f32;
+        let is_reject_rate = is_rejected as f32 / dataset.test.len().max(1) as f32;
+
+        let precision = if oos_rejected > 0 {
+            oos_rejected as f32 / (oos_rejected + is_rejected) as f32
+        } else {
+            0.0
+        };
+        let recall = oos_reject_rate;
+        let f1 = if precision + recall > 0.0 {
+            2.0 * precision * recall / (precision + recall)
+        } else {
+            0.0
+        };
+
+        println!(
+            "║  {:>9.1} │ {:>9.1}% {:>9.1}% {:>9.1}% {:>9.3}               ║",
+            min_conf,
+            oos_reject_rate * 100.0,
+            is_correct_rate * 100.0,
+            is_reject_rate * 100.0,
+            f1,
+        );
+    }
+
+    println!("╚══════════════════════════════════════════════════════════════════════════╝");
+    println!();
+    // --- Combined: score × confidence ---
+    println!("╔══════════════════════════════════════════════════════════════════════════╗");
+    println!("║  Combined (score × confidence) — best of both signals                  ║");
+    println!("╠══════════════════════════════════════════════════════════════════════════╣");
+    println!(
+        "║  {:>10} │ {:>10} {:>10} {:>10} {:>10}               ║",
+        "Threshold", "OOS-Reject", "IS-Correct", "IS-Reject", "F1"
+    );
+    println!("║  ──────────┼─────────────────────────────────────────────             ║");
+
+    let combined_thresholds = [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0];
+
+    for &threshold in &combined_thresholds {
+        let mut oos_rejected = 0usize;
+        for ex in &dataset.oos_test {
+            let results = router.route(&ex.text);
+            let combined = if results.len() >= 2 {
+                results[0].score * (results[0].score / results[1].score)
+            } else if results.is_empty() {
+                0.0
+            } else {
+                results[0].score * 10.0 // single match gets high confidence
+            };
+            if combined < threshold {
+                oos_rejected += 1;
+            }
+        }
+
+        let mut is_correct = 0usize;
+        let mut is_rejected = 0usize;
+        for ex in &dataset.test {
+            let results = router.route(&ex.text);
+            let combined = if results.len() >= 2 {
+                results[0].score * (results[0].score / results[1].score)
+            } else if results.is_empty() {
+                0.0
+            } else {
+                results[0].score * 10.0
+            };
+            if combined < threshold {
+                is_rejected += 1;
+            } else if results[0].id == ex.intent {
+                is_correct += 1;
+            }
+        }
+
+        let oos_reject_rate = oos_rejected as f32 / dataset.oos_test.len().max(1) as f32;
+        let is_correct_rate = is_correct as f32 / dataset.test.len().max(1) as f32;
+        let is_reject_rate = is_rejected as f32 / dataset.test.len().max(1) as f32;
+
+        let precision = if oos_rejected > 0 {
+            oos_rejected as f32 / (oos_rejected + is_rejected) as f32
+        } else {
+            0.0
+        };
+        let recall = oos_reject_rate;
+        let f1 = if precision + recall > 0.0 {
+            2.0 * precision * recall / (precision + recall)
+        } else {
+            0.0
+        };
+
+        println!(
+            "║  {:>9.1} │ {:>9.1}% {:>9.1}% {:>9.1}% {:>9.3}               ║",
+            threshold,
+            oos_reject_rate * 100.0,
+            is_correct_rate * 100.0,
+            is_reject_rate * 100.0,
+            f1,
+        );
+    }
+
+    println!("╚══════════════════════════════════════════════════════════════════════════╝");
+    println!();
     println!("  OOS-Reject = % of out-of-scope queries correctly rejected (higher = better)");
     println!("  IS-Correct = % of in-scope queries correctly routed (higher = better)");
     println!("  IS-Reject  = % of in-scope queries wrongly rejected (lower = better)");

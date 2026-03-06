@@ -61,13 +61,20 @@ impl InvertedIndex {
     }
 
     /// Search: score intents matching any query term, return top-k.
+    ///
+    /// Applies IDF (inverse document frequency) weighting at search time:
+    /// terms shared across many intents get discounted, terms unique to
+    /// one intent get boosted. Formula: `weight * (1 + 0.5 * ln(N/df))`.
     pub fn search(&self, query_terms: &[String], top_k: usize) -> Vec<ScoredIntent> {
+        let n = self.intent_count.max(1) as f32;
         let mut scores: HashMap<&str, f32> = HashMap::new();
 
         for term in query_terms {
             if let Some(postings) = self.postings.get(term) {
+                let df = postings.len() as f32;
+                let idf = 1.0 + 0.5 * (n / df).ln();
                 for (intent_id, weight) in postings {
-                    *scores.entry(intent_id.as_str()).or_insert(0.0) += weight;
+                    *scores.entry(intent_id.as_str()).or_insert(0.0) += weight * idf;
                 }
             }
         }
@@ -179,10 +186,13 @@ mod tests {
 
         let index = InvertedIndex::build(&vecs);
 
-        // "cancel order" -> cancel_order scores 1.0 + 0.9 = 1.9
+        // "cancel order" -> cancel_order wins. "cancel" is unique (IDF boost),
+        // "order" is shared (IDF=1.0). Score > raw 1.9 due to IDF.
         let results = index.search(&terms(&["cancel", "order"]), 10);
         assert_eq!(results[0].id, "cancel_order");
-        assert!((results[0].score - 1.9).abs() < 0.001);
+        assert!(results[0].score > 1.9); // IDF boosts unique "cancel"
+        // track_order only matches "order", so cancel_order should be significantly ahead
+        assert!(results[0].score > results[1].score);
     }
 
     #[test]

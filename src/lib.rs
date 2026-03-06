@@ -57,12 +57,15 @@
 //!
 //! - You need semantic understanding ("stop charging me" won't match "cancel subscription" without training)
 //! - You have 10K+ intents with heavy overlap
-//! - You need multilingual support (tokenizer is English-centric)
+//! - You need deep semantic multilingual matching (tokenizer handles any Unicode but stop words are English-centric)
 
 pub mod index;
 pub mod multi;
 pub mod tokenizer;
 pub mod vector;
+
+#[cfg(feature = "wasm")]
+pub mod wasm;
 
 pub use multi::{IntentRelation, MultiRouteOutput, MultiRouteResult};
 
@@ -77,8 +80,9 @@ use vector::LearnedVector;
 pub struct Router {
     vectors: HashMap<String, LearnedVector>,
     index: InvertedIndex,
-    /// Raw training phrases per intent (for recomputation on learn/unlearn).
-    training: HashMap<String, Vec<String>>,
+    /// Raw training phrases per intent, grouped by language code.
+    /// Structure: { intent_id: { lang_code: [phrases] } }
+    training: HashMap<String, HashMap<String, Vec<String>>>,
     top_k: usize,
 }
 
@@ -121,7 +125,33 @@ impl Router {
         let terms = training_to_terms(&phrases);
         let vector = LearnedVector::from_seed(terms);
         self.vectors.insert(id.to_string(), vector);
-        self.training.insert(id.to_string(), phrases);
+        let mut lang_map = HashMap::new();
+        lang_map.insert("en".to_string(), phrases);
+        self.training.insert(id.to_string(), lang_map);
+        self.rebuild_index();
+    }
+
+    /// Add an intent with seed phrases grouped by language.
+    ///
+    /// All phrases across all languages are indexed together into one flat vector.
+    /// Language grouping is preserved in the datastore for display/export.
+    ///
+    /// ```
+    /// use asv_router::Router;
+    /// use std::collections::HashMap;
+    ///
+    /// let mut router = Router::new();
+    /// let mut seeds = HashMap::new();
+    /// seeds.insert("en".to_string(), vec!["cancel my order".to_string()]);
+    /// seeds.insert("es".to_string(), vec!["cancelar mi pedido".to_string()]);
+    /// router.add_intent_multilingual("cancel_order", seeds);
+    /// ```
+    pub fn add_intent_multilingual(&mut self, id: &str, seeds_by_lang: HashMap<String, Vec<String>>) {
+        let all_phrases: Vec<String> = seeds_by_lang.values().flat_map(|v| v.clone()).collect();
+        let terms = training_to_terms(&all_phrases);
+        let vector = LearnedVector::from_seed(terms);
+        self.vectors.insert(id.to_string(), vector);
+        self.training.insert(id.to_string(), seeds_by_lang);
         self.rebuild_index();
     }
 
@@ -180,9 +210,9 @@ impl Router {
             return;
         }
 
-        // Store raw phrase
-        let phrases = self.training.entry(intent_id.to_string()).or_default();
-        phrases.push(query.to_string());
+        // Store raw phrase under "_learned" language key
+        let lang_map = self.training.entry(intent_id.to_string()).or_default();
+        lang_map.entry("_learned".to_string()).or_default().push(query.to_string());
 
         // Update learned weights
         if let Some(vector) = self.vectors.get_mut(intent_id) {
@@ -208,8 +238,10 @@ impl Router {
             vector.unlearn(&terms);
             self.index.update_intent(wrong_intent, vector);
         }
-        if let Some(phrases) = self.training.get_mut(wrong_intent) {
-            phrases.retain(|p| p != query);
+        if let Some(lang_map) = self.training.get_mut(wrong_intent) {
+            for phrases in lang_map.values_mut() {
+                phrases.retain(|p| p != query);
+            }
         }
 
         // Learn on correct
@@ -225,6 +257,26 @@ impl Router {
             vector.decay(factor);
             self.index.update_intent(id, vector);
         }
+    }
+
+    /// Route and return the best match with a confidence score.
+    ///
+    /// Confidence = top1_score / top2_score. High confidence (>2.0) means
+    /// the top intent stands out clearly. Low confidence (~1.0) means
+    /// multiple intents scored similarly — likely ambiguous or out-of-scope.
+    ///
+    /// Returns `None` if no intent matches any query terms.
+    pub fn route_confident(&self, query: &str) -> Option<(RouteResult, f32)> {
+        let results = self.route(query);
+        if results.is_empty() {
+            return None;
+        }
+        let confidence = if results.len() >= 2 {
+            results[0].score / results[1].score
+        } else {
+            f32::INFINITY
+        };
+        Some((results[0].clone(), confidence))
     }
 
     /// Route a query that may contain multiple intents.
@@ -285,6 +337,23 @@ impl Router {
         self.vectors.get(intent_id)
     }
 
+    /// Get all intent IDs.
+    pub fn intent_ids(&self) -> Vec<String> {
+        self.vectors.keys().cloned().collect()
+    }
+
+    /// Get all training phrases for an intent (flat, all languages combined).
+    pub fn get_training(&self, intent_id: &str) -> Option<Vec<String>> {
+        self.training.get(intent_id).map(|lang_map| {
+            lang_map.values().flat_map(|v| v.clone()).collect()
+        })
+    }
+
+    /// Get training phrases grouped by language.
+    pub fn get_training_by_lang(&self, intent_id: &str) -> Option<&HashMap<String, Vec<String>>> {
+        self.training.get(intent_id)
+    }
+
     fn rebuild_index(&mut self) {
         self.index = InvertedIndex::build(&self.vectors);
     }
@@ -303,7 +372,8 @@ pub struct RouteResult {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct RouterState {
     intents: HashMap<String, LearnedVector>,
-    training: HashMap<String, Vec<String>>,
+    /// Training phrases grouped by language: { intent_id: { lang: [phrases] } }
+    training: HashMap<String, HashMap<String, Vec<String>>>,
     top_k: usize,
 }
 
