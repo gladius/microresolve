@@ -17,5 +17,8 @@ data/*.parquet
 .DS_Store
 Thumbs.db
 
+# Runtime data
+.env
+
 # Claude Code
 .claude/

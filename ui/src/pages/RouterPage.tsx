@@ -1,0 +1,494 @@
+import { useState, useRef, useEffect } from 'react';
+import { api, type MultiRouteOutput, type ReviewAnalysis } from '@/api/client';
+import { useAppStore } from '@/store';
+
+const INTENT_COLORS = [
+  'text-emerald-400', 'text-blue-400', 'text-amber-400', 'text-pink-400',
+  'text-cyan-400', 'text-violet-400', 'text-orange-400', 'text-lime-400',
+];
+const INTENT_BG_COLORS = [
+  'bg-emerald-400/20', 'bg-blue-400/20', 'bg-amber-400/20', 'bg-pink-400/20',
+  'bg-cyan-400/20', 'bg-violet-400/20', 'bg-orange-400/20', 'bg-lime-400/20',
+];
+
+type Message =
+  | { type: 'query'; text: string }
+  | { type: 'result'; result: MultiRouteOutput; latency: number; query: string; review?: ReviewAnalysis; reviewing?: boolean }
+  | { type: 'learn'; text: string }
+  | { type: 'system'; html: string }
+  | { type: 'error'; text: string }
+  | { type: 'help' };
+
+export default function RouterPage() {
+  const { settings } = useAppStore();
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const push = (...msgs: Message[]) => setMessages(prev => [...prev, ...msgs]);
+
+  const updateMessage = (index: number, patch: Partial<Message & { type: 'result' }>) => {
+    setMessages(prev => prev.map((m, i) => i === index ? { ...m, ...patch } : m));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = input.trim();
+    if (!raw) return;
+    setInput('');
+    await handleInput(raw);
+    inputRef.current?.focus();
+  };
+
+  const handleInput = async (raw: string) => {
+    if (raw === '/help') {
+      push({ type: 'query', text: raw }, { type: 'help' });
+      return;
+    }
+
+    if (raw === '/reset') {
+      push({ type: 'query', text: raw });
+      try {
+        await api.reset();
+        await api.loadDefaults();
+        push({ type: 'learn', text: 'Router reset to defaults.' });
+      } catch (err) {
+        push({ type: 'error', text: String(err) });
+      }
+      return;
+    }
+
+    const learnMatch = raw.match(/^\/learn\s+(.+?)\s*(?:->|→)\s*(\S+)$/i);
+    if (learnMatch) {
+      const [, query, intent] = learnMatch;
+      push({ type: 'query', text: raw });
+      try {
+        await api.learn(query, intent);
+        push({ type: 'learn', text: `Learned: "${query}" → ${intent}` });
+      } catch (err) {
+        push({ type: 'error', text: String(err) });
+      }
+      return;
+    }
+
+    const correctMatch = raw.match(/^\/correct\s+(.+?)\s*(?:->|→)\s*(\S+)\s*(?:->|→)\s*(\S+)$/i);
+    if (correctMatch) {
+      const [, query, wrong, right] = correctMatch;
+      push({ type: 'query', text: raw });
+      try {
+        await api.correct(query, wrong, right);
+        push({ type: 'learn', text: `Corrected: "${query}" moved from ${wrong} → ${right}` });
+      } catch (err) {
+        push({ type: 'error', text: String(err) });
+      }
+      return;
+    }
+
+    // Regular query
+    push({ type: 'query', text: raw });
+    const t0 = performance.now();
+    try {
+      const result = await api.routeMulti(raw, 0.3);
+      const latency = performance.now() - t0;
+      const msgIndex = messages.length + 1; // +1 for the query message we just pushed
+
+      if (settings.mode === 'learn') {
+        // Push result with reviewing=true, then start LLM review
+        push({ type: 'result', result, latency, query: raw, reviewing: true });
+        runReview(msgIndex, raw, result);
+      } else {
+        push({ type: 'result', result, latency, query: raw });
+      }
+    } catch (err) {
+      push({ type: 'error', text: String(err) });
+    }
+  };
+
+  const runReview = async (msgIndex: number, query: string, result: MultiRouteOutput) => {
+    try {
+      const review = await api.review(
+        query,
+        result.intents.map(i => ({ id: i.id, score: i.score, intent_type: i.intent_type, span: i.span })),
+        0.3,
+      );
+      updateMessage(msgIndex, { review, reviewing: false });
+    } catch (err) {
+      updateMessage(msgIndex, { reviewing: false });
+      push({ type: 'error', text: `Review failed: ${(err as Error).message}` });
+    }
+  };
+
+  const applySuggestion = async (suggestion: ReviewAnalysis['suggestions'][0]) => {
+    try {
+      if (suggestion.action === 'learn') {
+        await api.learn(suggestion.query, suggestion.intent_id);
+        push({ type: 'learn', text: `Applied: learn "${suggestion.query}" → ${suggestion.intent_id}` });
+      } else if (suggestion.action === 'correct' && suggestion.wrong_intent) {
+        await api.correct(suggestion.query, suggestion.wrong_intent, suggestion.intent_id);
+        push({ type: 'learn', text: `Applied: correct "${suggestion.query}" from ${suggestion.wrong_intent} → ${suggestion.intent_id}` });
+      } else if (suggestion.action === 'add_seed' && suggestion.seed) {
+        await api.addSeed(suggestion.intent_id, suggestion.seed);
+        push({ type: 'learn', text: `Applied: added seed "${suggestion.seed}" to ${suggestion.intent_id}` });
+      }
+    } catch (err) {
+      push({ type: 'error', text: `Failed: ${err}` });
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-6rem)]">
+      {settings.mode === 'learn' && (
+        <div className="mb-3">
+          <span className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-full font-semibold uppercase">
+            Learn Mode
+          </span>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
+        {messages.length === 0 && (
+          <div className="text-zinc-600 text-sm text-center py-16">
+            Type a query to route it. Try: <code className="text-violet-400">cancel my order and track the package</code>
+          </div>
+        )}
+        {messages.map((msg, i) => (
+          <MessageBubble key={i} msg={msg} onApplySuggestion={applySuggestion} />
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex gap-2 pt-3 border-t border-zinc-800">
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="Type a query... or /help for commands"
+          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-white font-mono text-sm placeholder-zinc-500 focus:outline-none focus:border-violet-500 transition-colors"
+          autoFocus
+        />
+        <button
+          type="submit"
+          className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-medium transition-colors text-sm"
+        >
+          Route
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function MessageBubble({ msg, onApplySuggestion }: {
+  msg: Message;
+  onApplySuggestion: (s: ReviewAnalysis['suggestions'][0]) => void;
+}) {
+  if (msg.type === 'query') {
+    return (
+      <div className="font-mono text-sm text-white mb-1">
+        <span className="text-violet-400">{'> '}</span>
+        {msg.text}
+      </div>
+    );
+  }
+
+  if (msg.type === 'error') {
+    return <div className="text-red-400 text-sm pl-5">{msg.text}</div>;
+  }
+
+  if (msg.type === 'learn') {
+    return <div className="text-emerald-400 text-sm pl-5">{msg.text}</div>;
+  }
+
+  if (msg.type === 'system') {
+    return <div className="text-zinc-500 text-sm pl-5" dangerouslySetInnerHTML={{ __html: msg.html }} />;
+  }
+
+  if (msg.type === 'help') {
+    return (
+      <div className="text-zinc-400 text-sm pl-5 leading-relaxed">
+        <strong>Commands:</strong><br />
+        <code className="text-violet-400">any text</code> — route query (auto-detects multi-intent)<br />
+        <code className="text-violet-400">/learn &lt;query&gt; -&gt; &lt;intent&gt;</code> — teach the router<br />
+        <code className="text-violet-400">/correct &lt;query&gt; -&gt; &lt;wrong&gt; -&gt; &lt;right&gt;</code> — fix misroute<br />
+        <code className="text-violet-400">/reset</code> — reset to default demo intents<br />
+        <code className="text-violet-400">/help</code> — show this message
+      </div>
+    );
+  }
+
+  // Result card
+  const { result, latency, query, review, reviewing } = msg;
+  if (!result || result.intents.length === 0) {
+    return <div className="text-zinc-500 text-sm pl-5">No match found.</div>;
+  }
+
+  const bestScore = Math.max(...result.intents.map(i => i.score));
+  const actions = result.intents.filter(i => i.intent_type === 'action');
+  const contexts = result.intents.filter(i => i.intent_type === 'context');
+
+  return (
+    <div className="pl-5 mb-3">
+      {/* Highlighted query card */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-2">
+        <HighlightedQuery query={query} intents={result.intents} />
+      </div>
+
+      {/* E4: Group by action vs context */}
+      {actions.length > 0 && (
+        <div className="mb-1">
+          {actions.length > 0 && contexts.length > 0 && (
+            <div className="text-[10px] text-emerald-400/60 uppercase font-semibold tracking-wide mb-0.5 pl-1">Actions</div>
+          )}
+          {actions.map((intent, i) => (
+            <IntentRow key={intent.id} intent={intent} index={result.intents.indexOf(intent)} bestScore={bestScore} isMulti={result.intents.length > 1} latency={latency} />
+          ))}
+        </div>
+      )}
+      {contexts.length > 0 && (
+        <div className="mb-1">
+          {actions.length > 0 && (
+            <div className="text-[10px] text-cyan-400/60 uppercase font-semibold tracking-wide mb-0.5 pl-1 mt-1">Context</div>
+          )}
+          {contexts.map((intent, i) => (
+            <IntentRow key={intent.id} intent={intent} index={result.intents.indexOf(intent)} bestScore={bestScore} isMulti={result.intents.length > 1} latency={latency} />
+          ))}
+        </div>
+      )}
+
+      {/* Timing for single intent */}
+      {result.intents.length === 1 && (
+        <div className="text-zinc-600 text-xs pl-2">{latency.toFixed(0)}ms</div>
+      )}
+      {result.intents.length > 1 && (
+        <div className="text-zinc-600 text-xs pl-2">{result.intents.length} intents ({latency.toFixed(0)}ms)</div>
+      )}
+
+      {/* Relations */}
+      {result.relations.length > 0 &&
+        result.relations.map((rel, i) => (
+          <div key={i} className="text-violet-400 text-xs pl-2 mt-0.5">
+            Relation: {rel.type}
+          </div>
+        ))}
+
+      {/* Metadata */}
+      {Object.keys(result.metadata).length > 0 && (
+        <div className="mt-1 pl-2">
+          {Object.entries(result.metadata).map(([intentId, meta]) => (
+            <div key={intentId} className="text-xs">
+              {Object.entries(meta).map(([key, values]) => (
+                <div key={key} className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-zinc-500">{intentId}.{key}:</span>
+                  {values.map((v, i) => (
+                    <span key={i} className="text-cyan-400/70 font-mono">{v}</span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Projected context from co-occurrence */}
+      {result.projected_context?.length > 0 && (
+        <div className="mt-1.5 pl-2">
+          <div className="text-[10px] text-violet-400/60 uppercase font-semibold tracking-wide mb-0.5">Projected Context</div>
+          <div className="flex flex-wrap gap-1.5">
+            {result.projected_context.map(pc => (
+              <span key={pc.id} className="text-xs font-mono bg-violet-400/5 border border-violet-400/20 rounded px-2 py-0.5 flex items-center gap-1.5">
+                <span className="text-cyan-400">{pc.id}</span>
+                <span className="text-zinc-500">{Math.round(pc.strength * 100)}%</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* E1: LLM Review card */}
+      {reviewing && (
+        <div className="mt-2 bg-amber-400/5 border border-amber-400/20 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-amber-400 text-xs">
+            <span className="animate-pulse">●</span>
+            LLM reviewing...
+          </div>
+        </div>
+      )}
+      {review && <ReviewCard review={review} onApply={onApplySuggestion} />}
+    </div>
+  );
+}
+
+// --- Intent row ---
+
+function IntentRow({ intent, index, bestScore, isMulti, latency }: {
+  intent: { id: string; score: number; intent_type: string; span: [number, number] };
+  index: number;
+  bestScore: number;
+  isMulti: boolean;
+  latency: number;
+}) {
+  const relativeScore = intent.score / bestScore;
+  const isWeak = isMulti && relativeScore < 0.3;
+  const color = INTENT_COLORS[index % INTENT_COLORS.length];
+  const bgColor = INTENT_BG_COLORS[index % INTENT_BG_COLORS.length];
+
+  return (
+    <div className={`flex items-center gap-2.5 font-mono text-sm px-2 py-1 rounded ${bgColor} ${isWeak ? 'opacity-40' : ''}`}>
+      <span className={`font-semibold ${color}`}>{intent.id}</span>
+      <span className="text-amber-400">{intent.score.toFixed(2)}</span>
+      <span className={`text-[9px] px-1 py-0.5 rounded border font-semibold uppercase ${
+        intent.intent_type === 'context'
+          ? 'text-cyan-400 border-cyan-400/30'
+          : 'text-emerald-400 border-emerald-400/30'
+      }`}>
+        {intent.intent_type}
+      </span>
+      {isMulti && (
+        <span className="text-zinc-600 text-xs">[{intent.span[0]},{intent.span[1]}]</span>
+      )}
+      {isWeak && <span className="text-zinc-600 text-[10px]">weak</span>}
+    </div>
+  );
+}
+
+// --- E1: Review card ---
+
+function ReviewCard({ review, onApply }: {
+  review: ReviewAnalysis;
+  onApply: (s: ReviewAnalysis['suggestions'][0]) => void;
+}) {
+  const [applied, setApplied] = useState<Set<number>>(new Set());
+
+  const confidenceColor = {
+    high: 'text-emerald-400',
+    medium: 'text-amber-400',
+    low: 'text-red-400',
+  }[review.confidence];
+
+  return (
+    <div className="mt-2 bg-zinc-900 border border-zinc-800 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded font-semibold uppercase">LLM Review</span>
+          <span className={`text-[10px] ${confidenceColor} font-semibold`}>{review.confidence}</span>
+        </div>
+      </div>
+
+      <div className="text-xs text-zinc-400">{review.summary}</div>
+
+      {/* False positives */}
+      {review.false_positives.length > 0 && (
+        <div>
+          <div className="text-[10px] text-red-400/70 uppercase font-semibold mb-0.5">False Positives</div>
+          {review.false_positives.map((fp, i) => (
+            <div key={i} className="text-xs text-zinc-500 pl-2">
+              <span className="text-red-400 font-mono">{fp.id}</span> — {fp.reason}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Missed */}
+      {review.missed.length > 0 && (
+        <div>
+          <div className="text-[10px] text-amber-400/70 uppercase font-semibold mb-0.5">Missed Intents</div>
+          {review.missed.map((m, i) => (
+            <div key={i} className="text-xs text-zinc-500 pl-2">
+              <span className="text-amber-400 font-mono">{m.id}</span> — {m.reason}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Suggestions with approve buttons */}
+      {review.suggestions.length > 0 && (
+        <div>
+          <div className="text-[10px] text-violet-400/70 uppercase font-semibold mb-1">Suggestions</div>
+          {review.suggestions.map((s, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs pl-2 py-1">
+              <div className="flex-1">
+                <span className="text-violet-400 font-mono">{s.action}</span>
+                {s.action === 'learn' && (
+                  <span className="text-zinc-400"> "{s.query}" → <span className="text-emerald-400">{s.intent_id}</span></span>
+                )}
+                {s.action === 'correct' && (
+                  <span className="text-zinc-400"> "{s.query}" from <span className="text-red-400">{s.wrong_intent}</span> → <span className="text-emerald-400">{s.intent_id}</span></span>
+                )}
+                {s.action === 'add_seed' && (
+                  <span className="text-zinc-400"> "{s.seed}" → <span className="text-emerald-400">{s.intent_id}</span></span>
+                )}
+                <div className="text-zinc-600 mt-0.5">{s.reason}</div>
+              </div>
+              <button
+                onClick={() => {
+                  onApply(s);
+                  setApplied(prev => new Set(prev).add(i));
+                }}
+                disabled={applied.has(i)}
+                className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors flex-shrink-0 ${
+                  applied.has(i)
+                    ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/30'
+                    : 'bg-violet-600 hover:bg-violet-500 text-white'
+                }`}
+              >
+                {applied.has(i) ? 'Applied' : 'Approve'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {review.correct.length > 0 && review.false_positives.length === 0 && review.suggestions.length === 0 && (
+        <div className="text-emerald-400 text-xs">All routing correct.</div>
+      )}
+    </div>
+  );
+}
+
+// --- Highlighted query with colored spans ---
+
+function HighlightedQuery({
+  query, intents,
+}: {
+  query: string;
+  intents: { id: string; span: [number, number] }[];
+}) {
+  const charMap = new Array(query.length).fill(-1);
+  intents.forEach((intent, idx) => {
+    const [start, end] = intent.span;
+    for (let i = Math.max(0, start); i < Math.min(query.length, end); i++) {
+      charMap[i] = idx;
+    }
+  });
+
+  const segments: { text: string; intentIdx: number }[] = [];
+  let i = 0;
+  while (i < query.length) {
+    const currentIdx = charMap[i];
+    let j = i + 1;
+    while (j < query.length && charMap[j] === currentIdx) j++;
+    segments.push({ text: query.slice(i, j), intentIdx: currentIdx });
+    i = j;
+  }
+
+  return (
+    <div className="font-mono text-sm leading-relaxed">
+      {segments.map((seg, i) => {
+        if (seg.intentIdx === -1) {
+          return <span key={i} className="text-zinc-500">{seg.text}</span>;
+        }
+        const color = INTENT_COLORS[seg.intentIdx % INTENT_COLORS.length];
+        const intent = intents[seg.intentIdx];
+        return (
+          <span key={i} className={`${color} font-semibold`} title={intent.id}>
+            {seg.text}
+          </span>
+        );
+      })}
+    </div>
+  );
+}

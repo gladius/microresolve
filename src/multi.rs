@@ -20,6 +20,8 @@ pub struct MultiRouteResult {
     pub position: usize,
     /// Character position span `(start, end)` consumed by this intent.
     pub span: (usize, usize),
+    /// Whether this is an action or context intent.
+    pub intent_type: crate::IntentType,
 }
 
 /// Relationship between two consecutive detected intents.
@@ -44,10 +46,25 @@ pub struct MultiRouteOutput {
     pub intents: Vec<MultiRouteResult>,
     /// Relations between consecutive intent pairs (`intents[i]` → `intents[i+1]`).
     pub relations: Vec<IntentRelation>,
-    /// Ordered prerequisites: actions/data fetches needed before fulfilling detected intents.
-    /// Deduplicated and ordered by dependency chain (earlier entries resolve first).
-    /// Populated by `Router::route_multi()` from configured prerequisites.
-    pub prerequisites: Vec<String>,
+    /// Opaque metadata per detected intent, keyed by intent id.
+    /// Populated by `Router::route_multi()` from configured metadata.
+    pub metadata: HashMap<String, HashMap<String, Vec<String>>>,
+}
+
+impl MultiRouteOutput {
+    /// Return only "strong" intents — those scoring >= `ratio` of the top intent.
+    ///
+    /// Useful for filtering noise from co-occurrence recording and display.
+    /// Intents below the relative threshold are likely false positives from
+    /// incidental term overlap (e.g., "order" matching apply_coupon).
+    pub fn strong_intents(&self, ratio: f32) -> Vec<&MultiRouteResult> {
+        let top = self.intents.iter().map(|i| i.score).fold(0.0f32, f32::max);
+        if top <= 0.0 {
+            return vec![];
+        }
+        let floor = top * ratio;
+        self.intents.iter().filter(|i| i.score >= floor).collect()
+    }
 }
 
 /// Run multi-intent greedy decomposition.
@@ -70,7 +87,7 @@ pub(crate) fn route_multi(
         return MultiRouteOutput {
             intents: vec![],
             relations: vec![],
-            prerequisites: vec![],
+            metadata: HashMap::new(),
         };
     }
 
@@ -131,6 +148,7 @@ pub(crate) fn route_multi(
             score: best.score,
             position: min_offset,
             span: (min_offset, max_end),
+            intent_type: crate::IntentType::Action, // Default; overridden by Router::route_multi()
         });
 
         remaining = new_remaining;
@@ -145,7 +163,7 @@ pub(crate) fn route_multi(
     MultiRouteOutput {
         intents: detected,
         relations,
-        prerequisites: vec![], // Populated by Router::route_multi()
+        metadata: HashMap::new(), // Populated by Router::route_multi()
     }
 }
 

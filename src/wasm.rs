@@ -1,7 +1,7 @@
 //! WebAssembly bindings for ASV Router.
 
 use wasm_bindgen::prelude::*;
-use crate::{Router, IntentRelation, seed};
+use crate::{Router, IntentRelation, IntentType, seed};
 
 #[wasm_bindgen]
 pub struct WasmRouter {
@@ -44,18 +44,33 @@ impl WasmRouter {
         self.inner.remove_intent(id);
     }
 
-    /// Set ordered prerequisites for an intent.
-    /// prereqs_json is a JSON array: ["get_user_profile", "get_last_order"]
-    pub fn set_prerequisites(&mut self, intent_id: &str, prereqs_json: &str) {
-        let prereqs: Vec<String> = serde_json::from_str(prereqs_json).unwrap_or_default();
-        let refs: Vec<&str> = prereqs.iter().map(|s| s.as_str()).collect();
-        self.inner.set_prerequisites(intent_id, &refs);
+    /// Set intent type: "action" or "context".
+    pub fn set_intent_type(&mut self, intent_id: &str, intent_type: &str) {
+        let t = match intent_type {
+            "context" => IntentType::Context,
+            _ => IntentType::Action,
+        };
+        self.inner.set_intent_type(intent_id, t);
     }
 
-    /// Get prerequisites for an intent. Returns JSON array or "null".
-    pub fn get_prerequisites(&self, intent_id: &str) -> String {
-        match self.inner.get_prerequisites(intent_id) {
-            Some(prereqs) => serde_json::to_string(prereqs).unwrap_or_default(),
+    /// Get intent type. Returns "action" or "context".
+    pub fn get_intent_type(&self, intent_id: &str) -> String {
+        match self.inner.get_intent_type(intent_id) {
+            IntentType::Action => "action".to_string(),
+            IntentType::Context => "context".to_string(),
+        }
+    }
+
+    /// Set metadata for an intent. values_json is a JSON array: ["val1", "val2"]
+    pub fn set_metadata(&mut self, intent_id: &str, key: &str, values_json: &str) {
+        let values: Vec<String> = serde_json::from_str(values_json).unwrap_or_default();
+        self.inner.set_metadata(intent_id, key, values);
+    }
+
+    /// Get all metadata for an intent. Returns JSON object or "null".
+    pub fn get_metadata(&self, intent_id: &str) -> String {
+        match self.inner.get_metadata(intent_id) {
+            Some(meta) => serde_json::to_string(meta).unwrap_or_default(),
             None => "null".to_string(),
         }
     }
@@ -69,7 +84,7 @@ impl WasmRouter {
         serde_json::to_string(&out).unwrap_or_default()
     }
 
-    /// Route multi-intent. Returns JSON with intents and relations.
+    /// Route multi-intent. Returns JSON with intents, relations, and metadata.
     pub fn route_multi(&self, query: &str, threshold: f32) -> String {
         let output = self.inner.route_multi(query, threshold);
         let intents: Vec<serde_json::Value> = output.intents.iter().map(|i| {
@@ -77,7 +92,8 @@ impl WasmRouter {
                 "id": i.id,
                 "score": (i.score * 100.0).round() / 100.0,
                 "position": i.position,
-                "span": [i.span.0, i.span.1]
+                "span": [i.span.0, i.span.1],
+                "intent_type": i.intent_type
             })
         }).collect();
         let relations: Vec<serde_json::Value> = output.relations.iter().map(|r| {
@@ -96,7 +112,7 @@ impl WasmRouter {
         serde_json::to_string(&serde_json::json!({
             "intents": intents,
             "relations": relations,
-            "prerequisites": output.prerequisites
+            "metadata": output.metadata
         })).unwrap_or_default()
     }
 
@@ -120,7 +136,7 @@ impl WasmRouter {
         self.inner.end_batch();
     }
 
-    /// Get all intents as JSON: [{id, seeds, seeds_by_lang, learned_count}]
+    /// Get all intents as JSON: [{id, seeds, seeds_by_lang, learned_count, intent_type, metadata}]
     pub fn get_intents_json(&self) -> String {
         let mut ids = self.inner.intent_ids();
         ids.sort();
@@ -129,11 +145,15 @@ impl WasmRouter {
             let by_lang = self.inner.get_training_by_lang(id).cloned().unwrap_or_default();
             let learned = self.inner.get_vector(id)
                 .map(|v| v.learned_term_count()).unwrap_or(0);
+            let intent_type = self.inner.get_intent_type(id);
+            let metadata = self.inner.get_metadata(id).cloned().unwrap_or_default();
             serde_json::json!({
                 "id": id,
                 "seeds": all_seeds,
                 "seeds_by_lang": by_lang,
-                "learned_count": learned
+                "learned_count": learned,
+                "intent_type": intent_type,
+                "metadata": metadata
             })
         }).collect();
         serde_json::to_string(&intents).unwrap_or_default()

@@ -70,6 +70,16 @@ pub mod wasm;
 
 pub use multi::{IntentRelation, MultiRouteOutput, MultiRouteResult};
 
+/// The type of an intent — whether it represents a user action or supporting context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IntentType {
+    /// User explicitly wants this done (e.g. cancel_order, refund).
+    Action,
+    /// Supporting data for fulfillment (e.g. check_balance, get_user_profile).
+    Context,
+}
+
 use aho_corasick::AhoCorasick;
 use index::InvertedIndex;
 use std::collections::{HashMap, HashSet};
@@ -100,10 +110,14 @@ pub struct Router {
     batch_mode: bool,
     /// Tracks whether the automaton needs rebuilding (dirty during batch mode).
     cjk_dirty: bool,
-    /// Ordered prerequisites per intent. When an intent is detected,
-    /// these are the actions/data fetches needed before fulfillment.
-    /// Order matters: earlier prerequisites should be resolved first.
-    prerequisites: HashMap<String, Vec<String>>,
+    /// Intent type per intent (Action or Context). Default: Action.
+    intent_types: HashMap<String, IntentType>,
+    /// Opaque metadata per intent. User-defined key-value pairs.
+    /// ASV stores and returns this data but never interprets it.
+    metadata: HashMap<String, HashMap<String, Vec<String>>>,
+    /// Co-occurrence counts: how often intent pairs fire together in route_multi.
+    /// Key: (intent_a, intent_b) where a < b lexicographically. Value: count.
+    co_occurrence: HashMap<(String, String), u32>,
 }
 
 impl Default for Router {
@@ -124,7 +138,9 @@ impl Router {
             cjk_patterns: Vec::new(),
             batch_mode: false,
             cjk_dirty: false,
-            prerequisites: HashMap::new(),
+            intent_types: HashMap::new(),
+            metadata: HashMap::new(),
+            co_occurrence: HashMap::new(),
         }
     }
 
@@ -227,6 +243,8 @@ impl Router {
         self.vectors.remove(id);
         self.training.remove(id);
         self.index.remove_intent(id);
+        self.intent_types.remove(id);
+        self.metadata.remove(id);
     }
 
     /// Route a query to matching intents, ranked by score.
@@ -367,9 +385,20 @@ impl Router {
     pub fn route_multi(&self, query: &str, threshold: f32) -> MultiRouteOutput {
         let (positioned, query_chars) = self.extract_terms_positioned(query);
         let mut output = multi::route_multi(&self.index, &self.vectors, positioned, query_chars, threshold);
-        // Resolve prerequisites for all detected intents
-        let ids: Vec<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
-        output.prerequisites = self.resolve_prerequisites(&ids);
+        // Attach intent types and metadata for each detected intent
+        for intent in &mut output.intents {
+            intent.intent_type = self.get_intent_type(&intent.id);
+        }
+        for intent in &output.intents {
+            if let Some(meta) = self.metadata.get(&intent.id) {
+                for (key, values) in meta {
+                    output.metadata
+                        .entry(intent.id.clone())
+                        .or_default()
+                        .insert(key.clone(), values.clone());
+                }
+            }
+        }
         output
     }
 
@@ -379,7 +408,8 @@ impl Router {
             intents: self.vectors.clone(),
             training: self.training.clone(),
             top_k: self.top_k,
-            prerequisites: self.prerequisites.clone(),
+            intent_types: self.intent_types.clone(),
+            metadata: self.metadata.clone(),
         };
         serde_json::to_string(&state).unwrap_or_default()
     }
@@ -400,7 +430,9 @@ impl Router {
             cjk_patterns: Vec::new(),
             batch_mode: false,
             cjk_dirty: false,
-            prerequisites: state.prerequisites,
+            intent_types: state.intent_types,
+            metadata: state.metadata,
+            co_occurrence: HashMap::new(),
         };
         router.rebuild_cjk_automaton_now();
         Ok(router)
@@ -433,48 +465,82 @@ impl Router {
         self.training.get(intent_id)
     }
 
-    /// Set ordered prerequisites for an intent.
+    /// Set the type of an intent (Action or Context).
     ///
-    /// Prerequisites are actions or data fetches needed before fulfilling an intent.
-    /// Order matters: earlier entries should be resolved first (dependency chain).
+    /// ```
+    /// use asv_router::{Router, IntentType};
+    ///
+    /// let mut router = Router::new();
+    /// router.add_intent("check_balance", &["check my balance", "account balance"]);
+    /// router.set_intent_type("check_balance", IntentType::Context);
+    /// assert_eq!(router.get_intent_type("check_balance"), IntentType::Context);
+    /// ```
+    pub fn set_intent_type(&mut self, intent_id: &str, intent_type: IntentType) {
+        self.intent_types.insert(intent_id.to_string(), intent_type);
+    }
+
+    /// Get the type of an intent. Defaults to Action if not set.
+    pub fn get_intent_type(&self, intent_id: &str) -> IntentType {
+        self.intent_types.get(intent_id).copied().unwrap_or(IntentType::Action)
+    }
+
+    /// Set opaque metadata for an intent.
+    ///
+    /// ASV stores and returns this data but never interprets it.
+    /// The application layer decides what to do with it.
     ///
     /// ```
     /// use asv_router::Router;
     ///
     /// let mut router = Router::new();
-    /// router.add_intent("refund", &["refund my order", "give me my money back"]);
-    /// router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
+    /// router.add_intent("cancel_order", &["cancel my order"]);
+    /// router.set_metadata("cancel_order", "context_intents", vec!["check_balance".into(), "track_order".into()]);
     /// ```
-    pub fn set_prerequisites(&mut self, intent_id: &str, prereqs: &[&str]) {
-        self.prerequisites.insert(
-            intent_id.to_string(),
-            prereqs.iter().map(|s| s.to_string()).collect(),
-        );
+    pub fn set_metadata(&mut self, intent_id: &str, key: &str, values: Vec<String>) {
+        self.metadata
+            .entry(intent_id.to_string())
+            .or_default()
+            .insert(key.to_string(), values);
     }
 
-    /// Get prerequisites for an intent.
-    pub fn get_prerequisites(&self, intent_id: &str) -> Option<&Vec<String>> {
-        self.prerequisites.get(intent_id)
+    /// Get all metadata for an intent.
+    pub fn get_metadata(&self, intent_id: &str) -> Option<&HashMap<String, Vec<String>>> {
+        self.metadata.get(intent_id)
     }
 
-    /// Resolve prerequisites for a set of detected intents.
-    ///
-    /// Returns a deduplicated, ordered list of all prerequisites needed.
-    /// When multiple intents share prerequisites, each prerequisite appears
-    /// only once, at the earliest position it's needed.
-    pub fn resolve_prerequisites(&self, intent_ids: &[&str]) -> Vec<String> {
-        let mut seen = HashSet::new();
-        let mut result = Vec::new();
-        for id in intent_ids {
-            if let Some(prereqs) = self.prerequisites.get(*id) {
-                for p in prereqs {
-                    if seen.insert(p.clone()) {
-                        result.push(p.clone());
-                    }
-                }
+    /// Get a specific metadata key for an intent.
+    pub fn get_metadata_key(&self, intent_id: &str, key: &str) -> Option<&Vec<String>> {
+        self.metadata.get(intent_id)?.get(key)
+    }
+
+    /// Record co-occurrence for a set of intents detected together.
+    /// Call after route_multi to track which intents fire together.
+    pub fn record_co_occurrence(&mut self, intent_ids: &[&str]) {
+        for i in 0..intent_ids.len() {
+            for j in (i + 1)..intent_ids.len() {
+                let (a, b) = if intent_ids[i] < intent_ids[j] {
+                    (intent_ids[i].to_string(), intent_ids[j].to_string())
+                } else {
+                    (intent_ids[j].to_string(), intent_ids[i].to_string())
+                };
+                *self.co_occurrence.entry((a, b)).or_insert(0) += 1;
             }
         }
-        result
+    }
+
+    /// Get co-occurrence data as a list of (intent_a, intent_b, count) sorted by count desc.
+    pub fn get_co_occurrence(&self) -> Vec<(&str, &str, u32)> {
+        let mut pairs: Vec<(&str, &str, u32)> = self.co_occurrence
+            .iter()
+            .map(|((a, b), &count)| (a.as_str(), b.as_str(), count))
+            .collect();
+        pairs.sort_by(|a, b| b.2.cmp(&a.2));
+        pairs
+    }
+
+    /// Clear co-occurrence data.
+    pub fn clear_co_occurrence(&mut self) {
+        self.co_occurrence.clear();
     }
 
     fn rebuild_index(&mut self) {
@@ -792,9 +858,12 @@ struct RouterState {
     /// Training phrases grouped by language: { intent_id: { lang: [phrases] } }
     training: HashMap<String, HashMap<String, Vec<String>>>,
     top_k: usize,
-    /// Ordered prerequisites per intent.
+    /// Intent types (Action or Context).
     #[serde(default)]
-    prerequisites: HashMap<String, Vec<String>>,
+    intent_types: HashMap<String, IntentType>,
+    /// Opaque metadata per intent.
+    #[serde(default)]
+    metadata: HashMap<String, HashMap<String, Vec<String>>>,
 }
 
 #[cfg(test)]
@@ -1097,74 +1166,108 @@ mod tests {
     // --- Prerequisite tests ---
 
     #[test]
-    fn prerequisites_basic() {
+    fn intent_type_default_is_action() {
         let mut router = Router::new();
-        router.add_intent("refund", &["refund my order", "give me my money back"]);
-        router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
-
-        let prereqs = router.get_prerequisites("refund").unwrap();
-        assert_eq!(prereqs, &["get_user_profile", "get_last_order"]);
-    }
-
-    #[test]
-    fn prerequisites_resolve_single_intent() {
-        let mut router = Router::new();
-        router.add_intent("refund", &["refund my order"]);
-        router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
-
-        let resolved = router.resolve_prerequisites(&["refund"]);
-        assert_eq!(resolved, vec!["get_user_profile", "get_last_order"]);
-    }
-
-    #[test]
-    fn prerequisites_resolve_multi_intent_dedup() {
-        let mut router = Router::new();
-        router.add_intent("refund", &["refund my order"]);
         router.add_intent("cancel_order", &["cancel my order"]);
-        router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
-        router.set_prerequisites("cancel_order", &["get_user_profile", "get_order_status"]);
-
-        // Both need get_user_profile — should appear only once, at earliest position
-        let resolved = router.resolve_prerequisites(&["refund", "cancel_order"]);
-        assert_eq!(resolved, vec!["get_user_profile", "get_last_order", "get_order_status"]);
+        assert_eq!(router.get_intent_type("cancel_order"), IntentType::Action);
     }
 
     #[test]
-    fn prerequisites_no_prereqs_returns_empty() {
+    fn intent_type_set_and_get() {
         let mut router = Router::new();
-        router.add_intent("greeting", &["hello", "hi"]);
-
-        assert!(router.get_prerequisites("greeting").is_none());
-        assert!(router.resolve_prerequisites(&["greeting"]).is_empty());
+        router.add_intent("check_balance", &["check my balance"]);
+        router.set_intent_type("check_balance", IntentType::Context);
+        assert_eq!(router.get_intent_type("check_balance"), IntentType::Context);
     }
 
     #[test]
-    fn prerequisites_in_route_multi_output() {
+    fn intent_type_in_route_multi_output() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["cancel my order", "I want to cancel"]);
+        router.add_intent("check_balance", &["check my balance", "account balance"]);
+        router.set_intent_type("check_balance", IntentType::Context);
+
+        let result = router.route_multi("cancel my order and check my balance", 0.3);
+        assert!(result.intents.len() >= 2);
+        let cancel = result.intents.iter().find(|i| i.id == "cancel_order").unwrap();
+        let balance = result.intents.iter().find(|i| i.id == "check_balance").unwrap();
+        assert_eq!(cancel.intent_type, IntentType::Action);
+        assert_eq!(balance.intent_type, IntentType::Context);
+    }
+
+    #[test]
+    fn metadata_set_and_get() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["cancel my order"]);
+        router.set_metadata("cancel_order", "context_intents", vec!["check_balance".into(), "track_order".into()]);
+        router.set_metadata("cancel_order", "action_intents", vec!["refund".into()]);
+
+        let meta = router.get_metadata("cancel_order").unwrap();
+        assert_eq!(meta.get("context_intents").unwrap(), &vec!["check_balance".to_string(), "track_order".to_string()]);
+        assert_eq!(meta.get("action_intents").unwrap(), &vec!["refund".to_string()]);
+    }
+
+    #[test]
+    fn metadata_key_lookup() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["cancel my order"]);
+        router.set_metadata("cancel_order", "context_intents", vec!["check_balance".into()]);
+
+        assert_eq!(router.get_metadata_key("cancel_order", "context_intents").unwrap(), &vec!["check_balance".to_string()]);
+        assert!(router.get_metadata_key("cancel_order", "nonexistent").is_none());
+        assert!(router.get_metadata_key("nonexistent", "context_intents").is_none());
+    }
+
+    #[test]
+    fn metadata_in_route_multi_output() {
         let mut router = Router::new();
         router.add_intent("cancel_order", &["cancel my order", "I want to cancel"]);
         router.add_intent("track_order", &["where is my package", "track my order"]);
-        router.set_prerequisites("cancel_order", &["get_user_profile", "get_order_status"]);
-        router.set_prerequisites("track_order", &["get_user_profile", "get_tracking_info"]);
+        router.set_metadata("cancel_order", "context_intents", vec!["check_balance".into()]);
+        router.set_metadata("track_order", "context_intents", vec!["get_shipping_info".into()]);
 
         let result = router.route_multi("cancel my order and track my package", 0.3);
         assert!(result.intents.len() >= 2);
-        // Prerequisites should be resolved and deduplicated
-        assert!(result.prerequisites.contains(&"get_user_profile".to_string()));
-        assert!(result.prerequisites.contains(&"get_order_status".to_string()));
-        assert!(result.prerequisites.contains(&"get_tracking_info".to_string()));
-        // get_user_profile appears only once
-        assert_eq!(result.prerequisites.iter().filter(|p| *p == "get_user_profile").count(), 1);
+        let cancel_meta = result.metadata.get("cancel_order").unwrap();
+        assert_eq!(cancel_meta.get("context_intents").unwrap(), &vec!["check_balance".to_string()]);
     }
 
     #[test]
-    fn prerequisites_persist_through_export_import() {
+    fn intent_type_and_metadata_persist_through_export_import() {
         let mut router = Router::new();
         router.add_intent("refund", &["refund my order"]);
-        router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
+        router.set_intent_type("refund", IntentType::Context);
+        router.set_metadata("refund", "context_intents", vec!["check_balance".into()]);
+        router.set_metadata("refund", "team", vec!["billing".into()]);
 
         let json = router.export_json();
         let restored = Router::import_json(&json).unwrap();
-        let prereqs = restored.get_prerequisites("refund").unwrap();
-        assert_eq!(prereqs, &["get_user_profile", "get_last_order"]);
+        assert_eq!(restored.get_intent_type("refund"), IntentType::Context);
+        assert_eq!(restored.get_metadata_key("refund", "context_intents").unwrap(), &vec!["check_balance".to_string()]);
+        assert_eq!(restored.get_metadata_key("refund", "team").unwrap(), &vec!["billing".to_string()]);
+    }
+
+    #[test]
+    fn remove_intent_cleans_type_and_metadata() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["cancel my order"]);
+        router.set_intent_type("cancel_order", IntentType::Context);
+        router.set_metadata("cancel_order", "team", vec!["ops".into()]);
+
+        router.remove_intent("cancel_order");
+        assert_eq!(router.get_intent_type("cancel_order"), IntentType::Action); // default
+        assert!(router.get_metadata("cancel_order").is_none());
+    }
+
+    #[test]
+    fn co_occurrence_tracking() {
+        let mut router = Router::new();
+        router.record_co_occurrence(&["cancel_order", "refund"]);
+        router.record_co_occurrence(&["cancel_order", "refund"]);
+        router.record_co_occurrence(&["cancel_order", "track_order"]);
+
+        let pairs = router.get_co_occurrence();
+        assert_eq!(pairs[0], ("cancel_order", "refund", 2));
+        assert_eq!(pairs[1], ("cancel_order", "track_order", 1));
     }
 }
