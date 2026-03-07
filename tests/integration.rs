@@ -163,6 +163,7 @@ fn phase3_teach_and_reroute() {
     router.learn("give me my cash back", "refund");
     router.learn("I want a reimbursement", "refund");
     router.learn("put the money back on my card", "refund");
+    router.learn("reimbursement for my purchase", "refund");
 
     // -- Teach billing paraphrases --
     router.learn("why did you take extra money", "billing");

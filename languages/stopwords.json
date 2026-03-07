@@ -1,63 +1,23 @@
 {
-  "en": [
-    "a", "an", "the", "i", "my", "me", "we", "our", "you", "your",
-    "it", "its", "he", "she", "they", "them",
-    "in", "on", "at", "to", "for", "of", "with", "from", "by", "as",
-    "and", "or", "but", "if", "then", "so",
-    "please", "can", "could", "would", "want", "need", "like",
-    "just", "also", "about", "how", "what", "which", "that", "this",
+  "_note": "MINIMAL stop words only. 'universal' covers Latin-script languages — only words safe across ALL Latin languages (no per-language lists due to cross-language collisions like German 'die'). 'unsegmented' covers scripts without word boundaries — each script has its own Unicode range so no collision risk. Let term weighting handle the rest.",
+
+  "universal": [
+    "a", "an", "the",
     "is", "are", "was", "were", "be", "been", "being",
-    "do", "does", "did", "have", "has", "had",
-    "will", "shall", "should", "may", "might", "must",
-    "not", "no", "yes", "all", "some", "any", "each", "every"
+    "in", "on", "at", "to", "of", "for", "with", "from", "by",
+    "and", "or", "but",
+    "i", "me", "my", "we", "our", "you", "your",
+    "it", "its", "he", "she", "they", "them",
+    "this", "that"
   ],
-  "es": [
-    "el", "la", "los", "las", "un", "una", "de", "en", "con", "por",
-    "para", "que", "y", "o", "no", "es", "mi", "tu", "su", "se",
-    "me", "te", "lo", "le", "nos", "al", "del"
-  ],
-  "fr": [
-    "le", "la", "les", "un", "une", "de", "du", "des", "en", "dans",
-    "avec", "pour", "par", "que", "qui", "et", "ou", "ne", "pas",
-    "je", "tu", "il", "elle", "nous", "vous", "mon", "ma", "mes"
-  ],
-  "de": [
-    "der", "die", "das", "ein", "eine", "und", "oder", "aber", "in",
-    "auf", "mit", "für", "von", "zu", "an", "ist", "war", "ich",
-    "du", "er", "sie", "es", "wir", "mein", "dein"
-  ],
-  "pt": [
-    "o", "a", "os", "as", "um", "uma", "de", "em", "com", "por",
-    "para", "que", "e", "ou", "eu", "meu", "seu", "me", "se"
-  ],
-  "hi": [
-    "ka", "ki", "ke", "ko", "se", "me", "par", "hai", "hain",
-    "aur", "ya", "nahi", "kya", "yeh", "woh", "hum", "tum", "aap",
-    "mera", "meri", "mere", "ek"
-  ],
-  "ta": [
-    "ஒரு", "இந்த", "அந்த", "என", "உன", "இது", "அது",
-    "மற்றும்", "போல", "என்ன", "எப்படி", "நான்", "நீ"
-  ],
-  "ar": [
-    "في", "من", "على", "إلى", "هذا", "هذه", "أنا", "أنت",
-    "هو", "هي", "نحن", "لا", "ما", "مع", "عن", "كل"
-  ],
-  "ru": [
-    "и", "в", "на", "с", "по", "к", "у", "за", "из", "не", "да",
-    "но", "я", "ты", "он", "она", "мы", "вы", "мой", "мне",
-    "что", "как", "это"
-  ],
-  "zh": [
-    "的", "了", "是", "在", "我", "有", "和", "这", "那",
-    "你", "他", "她", "它", "们", "着", "把", "被", "让", "给"
-  ],
-  "ja": [
-    "の", "は", "が", "を", "に", "で", "と", "も", "か", "よ",
-    "ね", "わ", "へ", "や"
-  ],
-  "ko": [
-    "은", "는", "이", "가", "을", "를", "에", "에서", "와", "과",
-    "도", "의", "로", "으로", "한", "하는"
-  ]
+
+  "unsegmented": {
+    "zh": ["的", "了", "着", "把", "被", "让", "给"],
+    "ja": ["の", "は", "が", "を", "に", "で", "と", "も", "か", "よ", "ね", "わ", "へ", "や"],
+    "ko": ["은", "는", "이", "가", "을", "를", "에", "에서", "와", "과", "도", "의", "로", "으로"],
+    "th": ["ที่", "ของ", "ใน", "จะ", "ได้", "ให้", "กับ", "อยู่", "ไม่", "เป็น", "มี", "ว่า", "แล้ว", "ก็"],
+    "lo": ["ທີ່", "ໃນ", "ຂອງ", "ໄດ້", "ເປັນ", "ກັບ", "ຈະ", "ບໍ່", "ມີ", "ແລ້ວ"],
+    "my": ["သည်", "ကို", "က", "တွင်", "နှင့်", "များ", "၏", "ဖြင့်", "သို့"],
+    "km": ["នៅ", "ដែល", "និង", "មាន", "ជា", "នេះ", "ត្រូវ", "ពី", "ក្នុង", "គឺ"]
+  }
 }

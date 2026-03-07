@@ -849,7 +849,7 @@ mod tests {
     fn all_stop_words_returns_empty() {
         let mut router = Router::new();
         router.add_intent("a", &["cancel"]);
-        assert!(router.route("can you please do this").is_empty());
+        assert!(router.route("the a an in on at to").is_empty());
     }
 
     #[test]

@@ -1,50 +1,60 @@
 {
-  "en": {
-    "name": "English",
-    "hint": null
-  },
-  "es": {
-    "name": "Spanish",
-    "hint": "Write how Spanish speakers actually type in chat. Use Latin American and Iberian variants. Include colloquial expressions."
-  },
-  "fr": {
-    "name": "French",
-    "hint": "Write how French speakers actually type in chat. Include informal tu-form and formal vous-form variants."
-  },
-  "de": {
-    "name": "German",
-    "hint": "Write how German speakers actually type in chat. Include informal du-form and formal Sie-form variants."
-  },
-  "pt": {
-    "name": "Portuguese",
-    "hint": "Write how Portuguese speakers actually type in chat. Include both Brazilian and European Portuguese variants."
-  },
-  "hi": {
-    "name": "Hindi",
-    "hint": "Write in Devanagari script as Hindi speakers actually type. Include casual and formal registers. Use natural Hindi, not English transliterations."
-  },
-  "ta": {
-    "name": "Tamil",
-    "hint": "Write in pure Tamil script (\u0ba4\u0bae\u0bbf\u0bb4\u0bcd). Do NOT use romanized/Tanglish. Write how Tamil speakers naturally type in Tamil script. Include casual and formal registers."
-  },
-  "ar": {
-    "name": "Arabic",
-    "hint": "Write in Arabic script as native speakers actually type in chat. Include both formal (MSA-influenced) and informal/dialectal variants."
-  },
-  "ru": {
-    "name": "Russian",
-    "hint": "Write in Cyrillic as Russian speakers actually type in chat. Include formal and informal variants."
-  },
-  "zh": {
-    "name": "Chinese",
-    "hint": "For Chinese: generate exactly 10 seed phrases, then render EACH phrase in BOTH simplified Chinese and traditional Chinese. The output array must contain exactly 20 strings: the same 10 seeds in simplified + the same 10 seeds in traditional. Do NOT generate 10 different simplified and 10 different traditional."
-  },
-  "ja": {
-    "name": "Japanese",
-    "hint": "Write how Japanese speakers actually type in chat. Use natural mix of kanji, hiragana, and katakana. Include polite and casual forms."
-  },
-  "ko": {
-    "name": "Korean",
-    "hint": "Write how Korean speakers actually type in chat. Include polite and casual speech levels."
-  }
+  "en": { "name": "English", "hint": null },
+  "es": { "name": "Spanish", "hint": "Write how Spanish speakers actually type in chat. Use Latin American and Iberian variants. Include colloquial expressions." },
+  "fr": { "name": "French", "hint": "Write how French speakers actually type in chat. Include informal tu-form and formal vous-form variants." },
+  "de": { "name": "German", "hint": "Write how German speakers actually type in chat. Include informal du-form and formal Sie-form variants." },
+  "pt": { "name": "Portuguese", "hint": "Write how Portuguese speakers actually type in chat. Include both Brazilian and European Portuguese variants." },
+  "it": { "name": "Italian", "hint": "Write how Italian speakers actually type in chat. Include informal and formal (Lei) registers." },
+  "nl": { "name": "Dutch", "hint": "Write how Dutch speakers actually type in chat." },
+  "pl": { "name": "Polish", "hint": "Write in Polish as native speakers actually type in chat." },
+  "ro": { "name": "Romanian", "hint": "Write in Romanian as native speakers actually type in chat." },
+  "hu": { "name": "Hungarian", "hint": "Write in Hungarian as native speakers actually type in chat." },
+  "cs": { "name": "Czech", "hint": "Write in Czech as native speakers actually type in chat." },
+  "sv": { "name": "Swedish", "hint": "Write in Swedish as native speakers actually type in chat." },
+  "da": { "name": "Danish", "hint": "Write in Danish as native speakers actually type in chat." },
+  "no": { "name": "Norwegian", "hint": "Write in Norwegian as native speakers actually type in chat." },
+  "fi": { "name": "Finnish", "hint": "Write in Finnish as native speakers actually type in chat." },
+  "ca": { "name": "Catalan", "hint": "Write in Catalan as native speakers actually type in chat." },
+  "hr": { "name": "Croatian", "hint": "Write in Croatian as native speakers actually type in chat." },
+  "tr": { "name": "Turkish", "hint": "Write in Turkish as native speakers actually type in chat. Include informal and formal registers." },
+  "az": { "name": "Azerbaijani", "hint": "Write in Azerbaijani as native speakers actually type in chat." },
+  "uz": { "name": "Uzbek", "hint": "Write in Uzbek (Latin script) as native speakers actually type in chat." },
+  "vi": { "name": "Vietnamese", "hint": "Write in Vietnamese with proper diacritics as native speakers actually type in chat." },
+  "id": { "name": "Indonesian", "hint": "Write how Indonesian speakers actually type in chat. Include informal/slang variants." },
+  "ms": { "name": "Malay", "hint": "Write how Malay speakers actually type in chat." },
+  "fil": { "name": "Filipino", "hint": "Write how Filipino speakers actually type in chat. Use natural Tagalog, not formal Filipino." },
+  "sw": { "name": "Swahili", "hint": "Write how Swahili speakers actually type in chat." },
+  "ha": { "name": "Hausa", "hint": "Write in Hausa (Latin script) as native speakers actually type in chat." },
+  "ru": { "name": "Russian", "hint": "Write in Cyrillic as Russian speakers actually type in chat. Include formal and informal variants." },
+  "uk": { "name": "Ukrainian", "hint": "Write in Ukrainian Cyrillic as native speakers actually type in chat." },
+  "sr": { "name": "Serbian", "hint": "Write in Serbian Cyrillic as native speakers actually type in chat." },
+  "bg": { "name": "Bulgarian", "hint": "Write in Bulgarian Cyrillic as native speakers actually type in chat." },
+  "el": { "name": "Greek", "hint": "Write in Greek script as native speakers actually type in chat." },
+  "ka": { "name": "Georgian", "hint": "Write in Georgian script as native speakers actually type in chat." },
+  "hy": { "name": "Armenian", "hint": "Write in Armenian script as native speakers actually type in chat." },
+  "hi": { "name": "Hindi", "hint": "Write in Devanagari script as Hindi speakers actually type. Use natural Hindi, not English transliterations." },
+  "mr": { "name": "Marathi", "hint": "Write in Devanagari script as Marathi speakers actually type in chat. Use natural Marathi, not Hindi." },
+  "ne": { "name": "Nepali", "hint": "Write in Devanagari script as Nepali speakers actually type in chat." },
+  "bn": { "name": "Bengali", "hint": "Write in Bengali script as native speakers actually type in chat. Use natural Bengali, not romanized." },
+  "pa": { "name": "Punjabi", "hint": "Write in Gurmukhi script as Punjabi speakers actually type in chat." },
+  "gu": { "name": "Gujarati", "hint": "Write in Gujarati script as native speakers actually type in chat." },
+  "ta": { "name": "Tamil", "hint": "Write in pure Tamil script (\u0ba4\u0bae\u0bbf\u0bb4\u0bcd). Do NOT use romanized/Tanglish." },
+  "te": { "name": "Telugu", "hint": "Write in Telugu script as native speakers actually type in chat." },
+  "kn": { "name": "Kannada", "hint": "Write in Kannada script as native speakers actually type in chat." },
+  "ml": { "name": "Malayalam", "hint": "Write in Malayalam script as native speakers actually type in chat." },
+  "or": { "name": "Odia", "hint": "Write in Odia script as native speakers actually type in chat." },
+  "si": { "name": "Sinhala", "hint": "Write in Sinhala script as native speakers actually type in chat." },
+  "ar": { "name": "Arabic", "hint": "Write in Arabic script as native speakers actually type in chat. Include both formal (MSA-influenced) and informal/dialectal variants." },
+  "he": { "name": "Hebrew", "hint": "Write in Hebrew script as native speakers actually type in chat." },
+  "fa": { "name": "Persian", "hint": "Write in Persian script as native speakers actually type in chat. Use colloquial Persian, not formal." },
+  "ur": { "name": "Urdu", "hint": "Write in Urdu (Nastaliq/Arabic script) as native speakers actually type in chat." },
+  "ps": { "name": "Pashto", "hint": "Write in Pashto script as native speakers actually type in chat." },
+  "zh": { "name": "Chinese", "hint": "For Chinese: generate exactly 10 seed phrases, then render EACH phrase in BOTH simplified Chinese and traditional Chinese. The output array must contain exactly 20 strings: the same 10 seeds in simplified + the same 10 seeds in traditional. Do NOT generate 10 different simplified and 10 different traditional." },
+  "ja": { "name": "Japanese", "hint": "Write how Japanese speakers actually type in chat. Use natural mix of kanji, hiragana, and katakana. Include polite and casual forms." },
+  "ko": { "name": "Korean", "hint": "Write how Korean speakers actually type in chat. Include polite and casual speech levels." },
+  "th": { "name": "Thai", "hint": "Write in Thai script as native speakers actually type in chat. Thai has no spaces between words — write naturally without artificial spacing." },
+  "lo": { "name": "Lao", "hint": "Write in Lao script as native speakers actually type in chat. Lao has no spaces between words — write naturally." },
+  "my": { "name": "Myanmar", "hint": "Write in Myanmar (Burmese) script as native speakers actually type in chat." },
+  "km": { "name": "Khmer", "hint": "Write in Khmer script as native speakers actually type in chat." },
+  "am": { "name": "Amharic", "hint": "Write in Ethiopic (Ge'ez) script as Amharic speakers actually type in chat." }
 }

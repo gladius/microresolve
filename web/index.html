@@ -569,20 +569,7 @@ main {
     <label for="modal-desc">Description (for AI seed generation)</label>
     <input type="text" id="modal-desc" placeholder="e.g. Customer wants to cancel their subscription" />
     <label>Languages</label>
-    <div class="lang-grid" id="lang-grid">
-      <label><input type="checkbox" value="en" checked /> English</label>
-      <label><input type="checkbox" value="es" /> Spanish</label>
-      <label><input type="checkbox" value="fr" /> French</label>
-      <label><input type="checkbox" value="ta" /> Tamil</label>
-      <label><input type="checkbox" value="de" /> German</label>
-      <label><input type="checkbox" value="pt" /> Portuguese</label>
-      <label><input type="checkbox" value="hi" /> Hindi</label>
-      <label><input type="checkbox" value="ar" /> Arabic</label>
-      <label><input type="checkbox" value="zh" /> Chinese</label>
-      <label><input type="checkbox" value="ja" /> Japanese</label>
-      <label><input type="checkbox" value="ko" /> Korean</label>
-      <label><input type="checkbox" value="ru" /> Russian</label>
-    </div>
+    <div class="lang-grid" id="lang-grid"></div>
     <button class="btn-generate" id="modal-generate">Generate Seeds with AI</button>
     <div class="generate-status" id="generate-status"></div>
     <div class="lang-panels-row" id="lang-panels"></div>
@@ -686,6 +673,11 @@ const DEFAULT_INTENTS = [
 async function main() {
   await init();
   router = new WasmRouter();
+
+  // Load supported languages from Rust and build UI
+  langNames = JSON.parse(router.get_languages());
+  buildLangGrid();
+
   loadDefaults();
 
   document.getElementById('loading').style.display = 'none';
@@ -1035,11 +1027,29 @@ function refreshIntents() {
 
 // ---- Modal ----
 const modal = document.getElementById('modal');
-const langNames = {
-  en: 'English', es: 'Spanish', fr: 'French', ta: 'Tamil',
-  de: 'German', pt: 'Portuguese', hi: 'Hindi', ar: 'Arabic',
-  zh: 'Chinese', ja: 'Japanese', ko: 'Korean', ru: 'Russian',
-};
+// Loaded from Rust via WASM — single source of truth
+let langNames = {};
+
+function buildLangGrid() {
+  const grid = document.getElementById('lang-grid');
+  grid.innerHTML = '';
+  const codes = Object.keys(langNames).sort((a, b) => {
+    if (a === 'en') return -1;
+    if (b === 'en') return 1;
+    return langNames[a].localeCompare(langNames[b]);
+  });
+  for (const code of codes) {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = code;
+    if (code === 'en') cb.checked = true;
+    cb.addEventListener('change', buildLangPanels);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + langNames[code]));
+    grid.appendChild(label);
+  }
+}
 
 function getSelectedLangs() {
   return Array.from(document.querySelectorAll('#lang-grid input:checked')).map(cb => cb.value);
@@ -1076,10 +1086,7 @@ function buildLangPanels() {
   syncLangPanels();
 }
 
-// Listen to checkbox changes to rebuild panels
-document.querySelectorAll('#lang-grid input').forEach(cb => {
-  cb.addEventListener('change', buildLangPanels);
-});
+// Checkbox change listeners are attached dynamically in buildLangGrid()
 
 document.getElementById('add-intent-btn').onclick = () => {
   modal.classList.remove('hidden');

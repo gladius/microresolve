@@ -78,45 +78,52 @@ fn find_negated_positions(words: &[&str], stop_set: &HashSet<String>) -> HashSet
 }
 
 /// Stop word data loaded from languages/stopwords.json.
+///
+/// Only two categories:
+/// - `universal`: minimal Latin function words safe across all languages
+/// - `cjk_chars`: script-specific CJK particles (zh/ja/ko in separate Unicode ranges)
+///
+/// Do NOT add per-language Latin stop lists — cross-language collisions
+/// make them unsafe (e.g. German "die" = "the" but also English "die").
 struct StopWordData {
-    /// English stop words (used for Latin text filtering).
-    english: HashSet<String>,
-    /// Combined CJK stop characters from zh, ja, ko.
+    universal: HashSet<String>,
     cjk_chars: HashSet<char>,
+}
+
+/// Raw JSON structure matching stopwords.json.
+#[derive(serde::Deserialize)]
+struct StopWordsJson {
+    universal: Vec<String>,
+    unsegmented: HashMap<String, Vec<String>>,
 }
 
 fn stop_data() -> &'static StopWordData {
     static DATA: OnceLock<StopWordData> = OnceLock::new();
     DATA.get_or_init(|| {
-        let json = include_str!("../languages/stopwords.json");
-        let all: HashMap<String, Vec<String>> =
-            serde_json::from_str(json).expect("invalid stopwords.json");
+        let json_str = include_str!("../languages/stopwords.json");
+        let raw: StopWordsJson = serde_json::from_str(json_str).expect("invalid stopwords.json");
 
-        let english: HashSet<String> = all.get("en")
-            .map(|v| v.iter().cloned().collect())
-            .unwrap_or_default();
+        let universal: HashSet<String> = raw.universal.into_iter().collect();
 
         let mut cjk_chars = HashSet::new();
-        for lang in &["zh", "ja", "ko"] {
-            if let Some(words) = all.get(*lang) {
-                for w in words {
-                    for c in w.chars() {
-                        cjk_chars.insert(c);
-                    }
+        for words in raw.unsegmented.values() {
+            for w in words {
+                for c in w.chars() {
+                    cjk_chars.insert(c);
                 }
             }
         }
 
-        StopWordData { english, cjk_chars }
+        StopWordData { universal, cjk_chars }
     })
 }
 
-/// Get the English stop word set.
-fn english_stop_set() -> &'static HashSet<String> {
-    &stop_data().english
+/// Get the universal stop word set (minimal, cross-language safe).
+fn universal_stop_set() -> &'static HashSet<String> {
+    &stop_data().universal
 }
 
-/// Get the combined CJK stop character set.
+/// Get the combined CJK stop character set (script-specific, no collision risk).
 pub fn cjk_stop_char_set() -> &'static HashSet<char> {
     &stop_data().cjk_chars
 }
@@ -144,7 +151,7 @@ pub fn tokenize(query: &str) -> Vec<String> {
         .collect();
 
     // Expand CJK tokens into character bigrams (and individual chars as unigrams)
-    let stop_set = english_stop_set();
+    let stop_set = universal_stop_set();
     let cjk_stop_set = cjk_stop_char_set();
 
     let mut words: Vec<String> = Vec::new();
@@ -342,7 +349,7 @@ pub fn tokenize_positioned(query: &str) -> (Vec<PositionedTerm>, Vec<char>) {
         }
     }
 
-    let stop_set = english_stop_set();
+    let stop_set = universal_stop_set();
     let word_strs: Vec<&str> = words_positions.iter().map(|(w, _, _)| w.as_str()).collect();
     let negated = find_negated_positions(&word_strs, stop_set);
 
@@ -361,11 +368,15 @@ pub fn tokenize_positioned(query: &str) -> (Vec<PositionedTerm>, Vec<char>) {
     (positioned, chars)
 }
 
-// --- CJK Support ---
+// --- Unsegmented Script Support ---
 
-/// Check if a character is in CJK Unicode ranges.
+/// Check if a character belongs to an unsegmented script (no spaces between words).
+///
+/// These scripts require automaton-based tokenization rather than whitespace splitting.
+/// Covers CJK (Chinese, Japanese, Korean), Thai, Myanmar (Burmese), Khmer, and Lao.
 pub fn is_cjk(c: char) -> bool {
     matches!(c,
+        // CJK
         '\u{4E00}'..='\u{9FFF}'   // CJK Unified Ideographs
         | '\u{3040}'..='\u{309F}' // Hiragana
         | '\u{30A0}'..='\u{30FF}' // Katakana
@@ -374,6 +385,11 @@ pub fn is_cjk(c: char) -> bool {
         | '\u{F900}'..='\u{FAFF}' // CJK Compatibility Ideographs
         | '\u{1100}'..='\u{11FF}' // Hangul Jamo
         | '\u{3130}'..='\u{318F}' // Hangul Compatibility Jamo
+        // Southeast Asian unsegmented scripts
+        | '\u{0E00}'..='\u{0E7F}' // Thai
+        | '\u{0E80}'..='\u{0EFF}' // Lao
+        | '\u{1000}'..='\u{109F}' // Myanmar (Burmese)
+        | '\u{1780}'..='\u{17FF}' // Khmer
     )
 }
 
@@ -602,7 +618,8 @@ mod tests {
 
     #[test]
     fn tokenize_all_stop_words() {
-        assert!(tokenize("can you please do this for me").is_empty());
+        // Only universal stops: "a", "the", "is", "in", "to", etc.
+        assert!(tokenize("the a an in on at to of for by").is_empty());
     }
 
     #[test]
@@ -763,11 +780,11 @@ mod tests {
 
     #[test]
     fn cjk_residual_bigrams_filters_stop_chars() {
-        // "我的订单" → stop chars 我,的 removed → only "订单" remains (1 char not enough for bigram)
-        // Wait: after removing 我 and 的, we have "订单" which is 2 chars → 1 bigram
+        // "我的订单" → 的 is a stop char (particle), 我 is NOT (appears in compounds)
+        // After removing 的: "我", "订", "单" → bigrams: "我订", "订单"
         let bigrams = generate_cjk_residual_bigrams("我的订单");
         assert!(bigrams.contains(&"订单".to_string()));
-        assert!(!bigrams.iter().any(|b| b.contains('我')));
+        assert!(!bigrams.iter().any(|b| b.contains('的'))); // 的 filtered out
     }
 
     #[test]
@@ -800,7 +817,8 @@ mod tests {
     fn learnable_cjk_bigram_checks() {
         assert!(is_learnable_cjk_bigram("取消"));
         assert!(is_learnable_cjk_bigram("订单"));
-        assert!(!is_learnable_cjk_bigram("我的")); // both stop chars
+        assert!(is_learnable_cjk_bigram("我的"));  // 我 is not a stop char, 的 is — one real char is enough
+        assert!(!is_learnable_cjk_bigram("的了"));  // both are stop chars (pure particles)
         assert!(!is_learnable_cjk_bigram("a"));     // too short
     }
 

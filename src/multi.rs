@@ -428,7 +428,7 @@ mod tests {
     #[test]
     fn all_stop_words_returns_empty() {
         let router = setup_router();
-        let result = router.route_multi("can you please do this for me", 0.5);
+        let result = router.route_multi("the a an in on at to of", 0.5);
         assert!(result.intents.is_empty());
     }
 
