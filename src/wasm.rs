@@ -44,6 +44,22 @@ impl WasmRouter {
         self.inner.remove_intent(id);
     }
 
+    /// Set ordered prerequisites for an intent.
+    /// prereqs_json is a JSON array: ["get_user_profile", "get_last_order"]
+    pub fn set_prerequisites(&mut self, intent_id: &str, prereqs_json: &str) {
+        let prereqs: Vec<String> = serde_json::from_str(prereqs_json).unwrap_or_default();
+        let refs: Vec<&str> = prereqs.iter().map(|s| s.as_str()).collect();
+        self.inner.set_prerequisites(intent_id, &refs);
+    }
+
+    /// Get prerequisites for an intent. Returns JSON array or "null".
+    pub fn get_prerequisites(&self, intent_id: &str) -> String {
+        match self.inner.get_prerequisites(intent_id) {
+            Some(prereqs) => serde_json::to_string(prereqs).unwrap_or_default(),
+            None => "null".to_string(),
+        }
+    }
+
     /// Route a query. Returns JSON array of {id, score}.
     pub fn route(&self, query: &str) -> String {
         let results = self.inner.route(query);
@@ -77,8 +93,11 @@ impl WasmRouter {
                     serde_json::json!({"type": "Negation", "do_this": do_this, "not_this": not_this}),
             }
         }).collect();
-        serde_json::to_string(&serde_json::json!({"intents": intents, "relations": relations}))
-            .unwrap_or_default()
+        serde_json::to_string(&serde_json::json!({
+            "intents": intents,
+            "relations": relations,
+            "prerequisites": output.prerequisites
+        })).unwrap_or_default()
     }
 
     pub fn learn(&mut self, query: &str, intent_id: &str) {

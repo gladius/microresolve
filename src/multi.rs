@@ -44,6 +44,10 @@ pub struct MultiRouteOutput {
     pub intents: Vec<MultiRouteResult>,
     /// Relations between consecutive intent pairs (`intents[i]` → `intents[i+1]`).
     pub relations: Vec<IntentRelation>,
+    /// Ordered prerequisites: actions/data fetches needed before fulfilling detected intents.
+    /// Deduplicated and ordered by dependency chain (earlier entries resolve first).
+    /// Populated by `Router::route_multi()` from configured prerequisites.
+    pub prerequisites: Vec<String>,
 }
 
 /// Run multi-intent greedy decomposition.
@@ -66,6 +70,7 @@ pub(crate) fn route_multi(
         return MultiRouteOutput {
             intents: vec![],
             relations: vec![],
+            prerequisites: vec![],
         };
     }
 
@@ -140,6 +145,7 @@ pub(crate) fn route_multi(
     MultiRouteOutput {
         intents: detected,
         relations,
+        prerequisites: vec![], // Populated by Router::route_multi()
     }
 }
 

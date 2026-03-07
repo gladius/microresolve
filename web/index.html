@@ -286,6 +286,21 @@ main {
   padding: 2px 0;
 }
 
+.msg-prereqs {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 6px 0 2px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 4px;
+}
+.prereq-item {
+  color: var(--cyan, #22d3ee);
+  background: rgba(34, 211, 238, 0.08);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
 .msg-system {
   font-size: 13px;
   color: var(--text-muted);
@@ -757,13 +772,10 @@ function handleInput(raw) {
     return;
   }
 
-  // Regular query — auto-detect multi if "and"/"but"/"then"/"or" present with enough words
+  // Always use multi-intent routing — it handles single intent fine
+  // and correctly decomposes multi-intent queries regardless of separator
   addQueryMessage(raw);
-  if (/\b(and|but|then|or)\b/i.test(raw) && raw.split(/\s+/).length > 5) {
-    runMulti(raw);
-  } else {
-    runRoute(raw);
-  }
+  runMulti(raw);
 }
 
 function runRoute(query) {
@@ -803,10 +815,36 @@ function runMulti(query) {
   const output = JSON.parse(json);
 
   if (output.intents.length === 0) {
-    addSystemMessage('No intents detected.');
+    addSystemMessage('No match found.');
     return;
   }
 
+  // Single intent — render like regular route results but include all scored intents
+  if (output.intents.length === 1) {
+    const div = document.createElement('div');
+    div.className = 'msg-results';
+    const intent = output.intents[0];
+    const row = document.createElement('div');
+    row.className = 'msg-result-row';
+    row.innerHTML =
+      '<span class="result-rank">→</span>' +
+      '<span class="result-id top">' + intent.id + '</span>' +
+      '<span class="result-score">' + intent.score.toFixed(2) + '</span>' +
+      '<span class="result-latency">' + elapsed.toFixed(0) + 'μs</span>';
+    div.appendChild(row);
+    if (output.prerequisites && output.prerequisites.length > 0) {
+      const prereqDiv = document.createElement('div');
+      prereqDiv.className = 'msg-prereqs';
+      prereqDiv.innerHTML = '⚡ Prerequisites: ' +
+        output.prerequisites.map(p => '<span class="prereq-item">' + p + '</span>').join(' → ');
+      div.appendChild(prereqDiv);
+    }
+    chatEl.appendChild(div);
+    scrollChat();
+    return;
+  }
+
+  // Multiple intents — show decomposition
   const div = document.createElement('div');
   div.className = 'msg-multi';
 
@@ -832,6 +870,14 @@ function runMulti(query) {
     row.textContent = '   Relation: ' + rel.type;
     div.appendChild(row);
   });
+
+  if (output.prerequisites && output.prerequisites.length > 0) {
+    const prereqDiv = document.createElement('div');
+    prereqDiv.className = 'msg-prereqs';
+    prereqDiv.innerHTML = '⚡ Prerequisites: ' +
+      output.prerequisites.map(p => '<span class="prereq-item">' + p + '</span>').join(' → ');
+    div.appendChild(prereqDiv);
+  }
 
   chatEl.appendChild(div);
   scrollChat();

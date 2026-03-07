@@ -100,6 +100,10 @@ pub struct Router {
     batch_mode: bool,
     /// Tracks whether the automaton needs rebuilding (dirty during batch mode).
     cjk_dirty: bool,
+    /// Ordered prerequisites per intent. When an intent is detected,
+    /// these are the actions/data fetches needed before fulfillment.
+    /// Order matters: earlier prerequisites should be resolved first.
+    prerequisites: HashMap<String, Vec<String>>,
 }
 
 impl Default for Router {
@@ -120,6 +124,7 @@ impl Router {
             cjk_patterns: Vec::new(),
             batch_mode: false,
             cjk_dirty: false,
+            prerequisites: HashMap::new(),
         }
     }
 
@@ -361,7 +366,11 @@ impl Router {
     /// ```
     pub fn route_multi(&self, query: &str, threshold: f32) -> MultiRouteOutput {
         let (positioned, query_chars) = self.extract_terms_positioned(query);
-        multi::route_multi(&self.index, &self.vectors, positioned, query_chars, threshold)
+        let mut output = multi::route_multi(&self.index, &self.vectors, positioned, query_chars, threshold);
+        // Resolve prerequisites for all detected intents
+        let ids: Vec<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
+        output.prerequisites = self.resolve_prerequisites(&ids);
+        output
     }
 
     /// Export router state as JSON for persistence.
@@ -370,6 +379,7 @@ impl Router {
             intents: self.vectors.clone(),
             training: self.training.clone(),
             top_k: self.top_k,
+            prerequisites: self.prerequisites.clone(),
         };
         serde_json::to_string(&state).unwrap_or_default()
     }
@@ -390,6 +400,7 @@ impl Router {
             cjk_patterns: Vec::new(),
             batch_mode: false,
             cjk_dirty: false,
+            prerequisites: state.prerequisites,
         };
         router.rebuild_cjk_automaton_now();
         Ok(router)
@@ -420,6 +431,50 @@ impl Router {
     /// Get training phrases grouped by language.
     pub fn get_training_by_lang(&self, intent_id: &str) -> Option<&HashMap<String, Vec<String>>> {
         self.training.get(intent_id)
+    }
+
+    /// Set ordered prerequisites for an intent.
+    ///
+    /// Prerequisites are actions or data fetches needed before fulfilling an intent.
+    /// Order matters: earlier entries should be resolved first (dependency chain).
+    ///
+    /// ```
+    /// use asv_router::Router;
+    ///
+    /// let mut router = Router::new();
+    /// router.add_intent("refund", &["refund my order", "give me my money back"]);
+    /// router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
+    /// ```
+    pub fn set_prerequisites(&mut self, intent_id: &str, prereqs: &[&str]) {
+        self.prerequisites.insert(
+            intent_id.to_string(),
+            prereqs.iter().map(|s| s.to_string()).collect(),
+        );
+    }
+
+    /// Get prerequisites for an intent.
+    pub fn get_prerequisites(&self, intent_id: &str) -> Option<&Vec<String>> {
+        self.prerequisites.get(intent_id)
+    }
+
+    /// Resolve prerequisites for a set of detected intents.
+    ///
+    /// Returns a deduplicated, ordered list of all prerequisites needed.
+    /// When multiple intents share prerequisites, each prerequisite appears
+    /// only once, at the earliest position it's needed.
+    pub fn resolve_prerequisites(&self, intent_ids: &[&str]) -> Vec<String> {
+        let mut seen = HashSet::new();
+        let mut result = Vec::new();
+        for id in intent_ids {
+            if let Some(prereqs) = self.prerequisites.get(*id) {
+                for p in prereqs {
+                    if seen.insert(p.clone()) {
+                        result.push(p.clone());
+                    }
+                }
+            }
+        }
+        result
     }
 
     fn rebuild_index(&mut self) {
@@ -737,6 +792,9 @@ struct RouterState {
     /// Training phrases grouped by language: { intent_id: { lang: [phrases] } }
     training: HashMap<String, HashMap<String, Vec<String>>>,
     top_k: usize,
+    /// Ordered prerequisites per intent.
+    #[serde(default)]
+    prerequisites: HashMap<String, Vec<String>>,
 }
 
 #[cfg(test)]
@@ -1034,5 +1092,79 @@ mod tests {
         let result = router.route("action_42 thing_42");
         assert!(!result.is_empty());
         assert_eq!(result[0].id, "intent_42");
+    }
+
+    // --- Prerequisite tests ---
+
+    #[test]
+    fn prerequisites_basic() {
+        let mut router = Router::new();
+        router.add_intent("refund", &["refund my order", "give me my money back"]);
+        router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
+
+        let prereqs = router.get_prerequisites("refund").unwrap();
+        assert_eq!(prereqs, &["get_user_profile", "get_last_order"]);
+    }
+
+    #[test]
+    fn prerequisites_resolve_single_intent() {
+        let mut router = Router::new();
+        router.add_intent("refund", &["refund my order"]);
+        router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
+
+        let resolved = router.resolve_prerequisites(&["refund"]);
+        assert_eq!(resolved, vec!["get_user_profile", "get_last_order"]);
+    }
+
+    #[test]
+    fn prerequisites_resolve_multi_intent_dedup() {
+        let mut router = Router::new();
+        router.add_intent("refund", &["refund my order"]);
+        router.add_intent("cancel_order", &["cancel my order"]);
+        router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
+        router.set_prerequisites("cancel_order", &["get_user_profile", "get_order_status"]);
+
+        // Both need get_user_profile — should appear only once, at earliest position
+        let resolved = router.resolve_prerequisites(&["refund", "cancel_order"]);
+        assert_eq!(resolved, vec!["get_user_profile", "get_last_order", "get_order_status"]);
+    }
+
+    #[test]
+    fn prerequisites_no_prereqs_returns_empty() {
+        let mut router = Router::new();
+        router.add_intent("greeting", &["hello", "hi"]);
+
+        assert!(router.get_prerequisites("greeting").is_none());
+        assert!(router.resolve_prerequisites(&["greeting"]).is_empty());
+    }
+
+    #[test]
+    fn prerequisites_in_route_multi_output() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["cancel my order", "I want to cancel"]);
+        router.add_intent("track_order", &["where is my package", "track my order"]);
+        router.set_prerequisites("cancel_order", &["get_user_profile", "get_order_status"]);
+        router.set_prerequisites("track_order", &["get_user_profile", "get_tracking_info"]);
+
+        let result = router.route_multi("cancel my order and track my package", 0.3);
+        assert!(result.intents.len() >= 2);
+        // Prerequisites should be resolved and deduplicated
+        assert!(result.prerequisites.contains(&"get_user_profile".to_string()));
+        assert!(result.prerequisites.contains(&"get_order_status".to_string()));
+        assert!(result.prerequisites.contains(&"get_tracking_info".to_string()));
+        // get_user_profile appears only once
+        assert_eq!(result.prerequisites.iter().filter(|p| *p == "get_user_profile").count(), 1);
+    }
+
+    #[test]
+    fn prerequisites_persist_through_export_import() {
+        let mut router = Router::new();
+        router.add_intent("refund", &["refund my order"]);
+        router.set_prerequisites("refund", &["get_user_profile", "get_last_order"]);
+
+        let json = router.export_json();
+        let restored = Router::import_json(&json).unwrap();
+        let prereqs = restored.get_prerequisites("refund").unwrap();
+        assert_eq!(prereqs, &["get_user_profile", "get_last_order"]);
     }
 }
