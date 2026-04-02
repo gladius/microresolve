@@ -88,6 +88,7 @@ pub(crate) fn route_multi(
     positioned: Vec<PositionedTerm>,
     query_chars: Vec<char>,
     threshold: f32,
+    max_intents: usize,
 ) -> MultiRouteOutput {
     if positioned.is_empty() {
         return MultiRouteOutput {
@@ -109,7 +110,7 @@ pub(crate) fn route_multi(
 
     // Greedy consumption: find best intent, consume its terms, repeat
     loop {
-        if remaining.is_empty() {
+        if remaining.is_empty() || detected.len() >= max_intents {
             break;
         }
 

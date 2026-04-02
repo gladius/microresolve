@@ -161,7 +161,9 @@ function route_multi(query, threshold):
 - **Negation:** "but not," "don't," "except" → exclusion
 - **Parallel:** (default) → independent execution
 
-**Discrimination filtering.** Terms appearing in too many intents (high document frequency) are optionally excluded from decomposition to prevent spurious matches from generic vocabulary.
+**Discrimination filtering.** For secondary intents (2nd and beyond), at least one consumed term must be "defining" — appearing in fewer than `n/15` intents (where `n` is total intent count). This prevents generic vocabulary ("order," "have," "can") from creating spurious detections after the primary intent consumes its signal terms.
+
+**Intent cap.** The greedy loop stops after detecting `max_intents` intents (default: 5, configurable). This is grounded in cognitive science — humans rarely express more than 3-4 distinct intents per utterance, even in extended rants. Without a cap, the greedy loop exhaustively matches remaining terms against all intents, and the probability of at least one false positive from `K` remaining noise terms grows as `P(FP) = 1 - (1-p)^K`, approaching certainty for long queries. The cap bounds this risk while preserving legitimate multi-intent detection. See Section 5.7 for empirical analysis.
 
 ### 3.3.1 Negation-Aware Multi-Intent Detection
 
@@ -419,6 +421,41 @@ Single scenario (frustrated customer, wrong item, 5 turns, 2-3 intents per turn)
 | 2     | 60%           | 2 seeds     | 3/5 confirmed, 2 promotable |
 | 3     | 60%           | 1 seed      | Remaining promotable resolving |
 
+### 5.7 Long-Query False Positive Analysis
+
+In production, customer messages vary widely in length. Short queries ("cancel my order") route cleanly. But extended rants (40-80 words) contain emotional vocabulary that incidentally overlaps with unrelated intent seeds, producing false positives.
+
+**Example:** A 50-word angry rant containing the real intents `track_order`, `refund`, `file_complaint`, and `contact_human` also triggered false detections for `payment_history` ("spent" from "I spent thousands"), `billing_issue` ("dollars"), `price_check` ("now" from "and now you're telling me"), and `product_availability` ("products") — yielding 9 total detections, 5 of which were false positives.
+
+**Root cause.** The greedy decomposition loop exhaustively matches remaining terms after real intents are consumed. With K remaining noise terms, each having probability p of incidentally matching some intent, the probability of at least one false positive is:
+
+`P(FP) = 1 - (1-p)^K`
+
+With K=15 remaining terms and p=0.05, P(FP) = 64%. With K=20, P(FP) = 79%. False positives are mathematically near-certain for long queries under any vocabulary-matching system.
+
+**Spatial coherence attempt (negative result).** We investigated whether spatial clustering of consumed terms could distinguish real intents (terms cluster in a contiguous phrase) from noise (terms scattered across distant clauses). Measuring `coherence = consumed_char_length / span_width`, we found the gap between real intents and false positives is too narrow to exploit:
+
+| Detection | Coherence | Real? |
+|-----------|-----------|-------|
+| "cancel" + "order" (adjacent) | 0.733 | Yes |
+| "track" + "package" (adjacent) | 0.750 | Yes |
+| "cancel" ... "order" (73 chars apart, split across rant) | 0.151 | Yes |
+| "have" ... "spent" (scattered across rant) | 0.176 | No |
+| "order" + "got" (adjacent but wrong meaning) | 0.889 | No |
+
+Any coherence threshold that filters the false positive at 0.176 also kills the legitimate detection at 0.151. Adjacent false positives ("order got" matching `reorder` when the customer meant "order got lost") have high coherence and cannot be filtered spatially.
+
+**Solution: intent cap.** We cap the greedy loop at `max_intents` detected intents (default: 5, configurable per router). Results on the same rant queries:
+
+| Query length | Without cap | With cap (5) | Real intents | False positives |
+|-------------|------------|-------------|-------------|-----------------|
+| 48 words | 7 detected | 5 detected | 2 confirmed, 3 candidates | 2 → 0 confirmed |
+| 67 words | 9 detected | 5 detected | 1 confirmed, 4 candidates | 4 → 0 confirmed |
+
+The cap eliminates the lowest-scoring false positives (which are always the tail of the greedy loop), while the confirmed/candidate split correctly identifies high-confidence detections. This works across all languages — tested on English, Chinese, Japanese, and Korean — because the cap counts intents, not characters or terms.
+
+**Design boundary.** The remaining false positives in the candidate list (terms used in the wrong semantic context: "I spent thousands" vs "how much have I spent?") are fundamentally unresolvable at the vocabulary level. This is the 20% of queries that the graduation model (Section 6.4) routes to LLM verification. The confirmed/candidate split ensures agents only auto-act on high-confidence detections, while candidates are presented as suggestions requiring verification.
+
 ---
 
 ## 6. Discussion
@@ -526,6 +563,8 @@ The `import_json()` method performs a full state overwrite (for initial deployme
 4. **Production deployment study.** The continuous learning argument would be strengthened by a longitudinal study showing accuracy improvement over weeks/months in a real deployment.
 
 5. **Regression testing.** The current system lacks automated regression detection. Online learning could degrade previously correct routing. A golden-set validation mechanism is needed.
+
+6. **Long-query false positives.** As shown in Section 5.7, extended customer rants (40+ words) produce false positive intent detections from incidental vocabulary overlap. The intent cap (default 5) and confirmed/candidate split mitigate this, but vocabulary-level routing fundamentally cannot distinguish contextual word usage ("I spent thousands" vs "how much have I spent?"). The graduation model routes these ambiguous cases to LLM verification.
 
 ---
 

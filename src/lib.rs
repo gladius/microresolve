@@ -129,6 +129,8 @@ pub struct Router {
     paraphrase_dirty: bool,
     /// Monotonic version counter. Incremented on every mutation (learn, correct, add_intent, merge).
     version: u64,
+    /// Maximum number of intents detected by route_multi. Default: 5.
+    max_intents: usize,
 }
 
 impl Default for Router {
@@ -157,6 +159,7 @@ impl Router {
             paraphrase_patterns: Vec::new(),
             paraphrase_dirty: false,
             version: 0,
+            max_intents: 5,
         }
     }
 
@@ -164,6 +167,16 @@ impl Router {
     pub fn with_top_k(mut self, top_k: usize) -> Self {
         self.top_k = top_k;
         self
+    }
+
+    /// Set the maximum number of intents detected by `route_multi()`. Default: 5.
+    pub fn set_max_intents(&mut self, max: usize) {
+        self.max_intents = max;
+    }
+
+    /// Get the current max intents setting.
+    pub fn max_intents(&self) -> usize {
+        self.max_intents
     }
 
     /// Begin batch mode: defers CJK automaton rebuilds until `end_batch()`.
@@ -457,7 +470,7 @@ impl Router {
     /// ```
     pub fn route_multi(&self, query: &str, threshold: f32) -> MultiRouteOutput {
         let (positioned, query_chars) = self.extract_terms_positioned(query);
-        let mut output = multi::route_multi(&self.index, &self.vectors, positioned, query_chars, threshold);
+        let mut output = multi::route_multi(&self.index, &self.vectors, positioned, query_chars, threshold, self.max_intents);
 
         // Paraphrase index: scan original message for phrase matches
         let paraphrase_hits = self.paraphrase_scan(query);
@@ -541,6 +554,7 @@ impl Router {
             paraphrases,
             co_occurrence,
             version: self.version,
+            max_intents: self.max_intents,
         };
         serde_json::to_string(&state).unwrap_or_default()
     }
@@ -581,6 +595,7 @@ impl Router {
             paraphrase_patterns: Vec::new(),
             paraphrase_dirty: false,
             version: state.version,
+            max_intents: state.max_intents,
         };
         router.rebuild_cjk_automaton_now();
         router.rebuild_paraphrase_automaton_now();
@@ -1242,7 +1257,7 @@ impl Router {
             .filter(|pt| self.index.df(&pt.term) <= max_df)
             .collect();
 
-        let mut output = multi::route_multi(&self.index, &self.vectors, filtered, query_chars, threshold);
+        let mut output = multi::route_multi(&self.index, &self.vectors, filtered, query_chars, threshold, self.max_intents);
         for intent in &mut output.intents {
             intent.intent_type = self.get_intent_type(&intent.id);
         }
@@ -1387,7 +1402,12 @@ struct RouterState {
     /// Monotonic version counter.
     #[serde(default)]
     version: u64,
+    /// Maximum intents detected by route_multi.
+    #[serde(default = "default_max_intents")]
+    max_intents: usize,
 }
+
+fn default_max_intents() -> usize { 5 }
 
 #[cfg(test)]
 mod tests {
@@ -1669,6 +1689,120 @@ mod tests {
         let result = restored.route("取消订单");
         assert!(!result.is_empty());
         assert_eq!(result[0].id, "cancel");
+    }
+
+    #[test]
+    fn cjk_multi_intent_chinese_long() {
+        // Chinese customer rant with multiple intents buried in complaint
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["取消 订单", "退订", "取消 购买"]);
+        router.add_intent("refund", &["退款", "退钱", "把 钱 退 给 我"]);
+        router.add_intent("track_order", &["查 订单", "物流 查询", "包裹 在 哪"]);
+        router.add_intent("complaint", &["投诉", "不满意", "差评"]);
+        router.add_intent("contact_human", &["转 人工", "找 客服", "人工 服务"]);
+        router.add_intent("check_balance", &["查看 余额", "账户 余额"]);
+
+        // Short: 2 intents
+        let r = router.route_multi("取消订单然后退款", 0.3);
+        let ids: Vec<&str> = r.intents.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.contains(&"cancel_order"), "short: missing cancel_order, got {:?}", ids);
+        assert!(ids.contains(&"refund"), "short: missing refund, got {:?}", ids);
+
+        // Medium: 3 intents
+        let r = router.route_multi("我要取消订单并且退款还要投诉你们的服务", 0.3);
+        let ids: Vec<&str> = r.intents.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.contains(&"cancel_order"), "medium: missing cancel_order, got {:?}", ids);
+        assert!(ids.contains(&"refund"), "medium: missing refund, got {:?}", ids);
+        assert!(ids.contains(&"complaint"), "medium: missing complaint, got {:?}", ids);
+
+        // Long rant: should not exceed max_intents (5)
+        let r = router.route_multi(
+            "你们这个服务太差了我等了一个星期包裹还没到现在我要退款而且我要取消所有的订单以后再也不买了我要投诉你们还要找你们的客服经理来处理这个问题查看一下我的账户余额",
+            0.3
+        );
+        assert!(r.intents.len() <= 5, "CJK long rant: {} intents exceeds cap of 5", r.intents.len());
+    }
+
+    #[test]
+    fn cjk_multi_intent_japanese() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["注文 キャンセル", "注文 取り消し"]);
+        router.add_intent("refund", &["返金", "払い戻し"]);
+        router.add_intent("track_order", &["配送 状況", "荷物 追跡"]);
+        router.add_intent("complaint", &["苦情", "クレーム"]);
+        router.add_intent("contact_human", &["オペレーター", "担当者"]);
+
+        // Short: 2 intents
+        let r = router.route_multi("注文キャンセルして返金してください", 0.3);
+        let ids: Vec<&str> = r.intents.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.contains(&"cancel_order"), "JP short: missing cancel_order, got {:?}", ids);
+        assert!(ids.contains(&"refund"), "JP short: missing refund, got {:?}", ids);
+
+        // Long: should not exceed cap
+        let r = router.route_multi(
+            "もう本当にひどいです一週間も待っているのに荷物がまだ届きません返金してください注文もキャンセルしたいですそれからクレームを入れたいのでオペレーターに繋いでください",
+            0.3
+        );
+        assert!(r.intents.len() <= 5, "JP long: {} intents exceeds cap of 5", r.intents.len());
+    }
+
+    #[test]
+    fn cjk_multi_intent_korean() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["주문 취소", "취소 하다"]);
+        router.add_intent("refund", &["환불", "돈 돌려주다"]);
+        router.add_intent("track_order", &["배송 조회", "택배 추적"]);
+        router.add_intent("complaint", &["불만", "항의"]);
+
+        // Short: 2 intents
+        let r = router.route_multi("주문취소하고 환불해주세요", 0.3);
+        let ids: Vec<&str> = r.intents.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.contains(&"cancel_order"), "KR short: missing cancel_order, got {:?}", ids);
+        assert!(ids.contains(&"refund"), "KR short: missing refund, got {:?}", ids);
+
+        // Long: cap applies
+        let r = router.route_multi(
+            "정말 화가 납니다 일주일이나 기다렸는데 배송조회도 안되고 환불도 안해주고 주문취소도 안되고 불만이 너무 많습니다",
+            0.3
+        );
+        assert!(r.intents.len() <= 5, "KR long: {} intents exceeds cap of 5", r.intents.len());
+    }
+
+    #[test]
+    fn cjk_mixed_multi_intent() {
+        // Mixed CJK + Latin in same query
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["取消 订单", "cancel order"]);
+        router.add_intent("refund", &["退款", "refund"]);
+        router.add_intent("track_order", &["查 物流", "track package"]);
+
+        let r = router.route_multi("我要cancel我的订单还要退款", 0.3);
+        let ids: Vec<&str> = r.intents.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.contains(&"cancel_order") || ids.contains(&"refund"),
+            "mixed: should detect at least one intent, got {:?}", ids);
+    }
+
+    #[test]
+    fn max_intents_configurable() {
+        let mut router = Router::new();
+        router.add_intent("a", &["alpha bravo"]);
+        router.add_intent("b", &["charlie delta"]);
+        router.add_intent("c", &["echo foxtrot"]);
+        router.add_intent("d", &["golf hotel"]);
+
+        // Default cap is 5, all 4 should be detected
+        let r = router.route_multi("alpha bravo charlie delta echo foxtrot golf hotel", 0.1);
+        assert_eq!(r.intents.len(), 4);
+
+        // Set cap to 2
+        router.set_max_intents(2);
+        let r = router.route_multi("alpha bravo charlie delta echo foxtrot golf hotel", 0.1);
+        assert_eq!(r.intents.len(), 2, "cap at 2 should limit to 2 intents, got {}", r.intents.len());
+
+        // Cap persists through export/import
+        let json = router.export_json();
+        let restored = Router::import_json(&json).unwrap();
+        assert_eq!(restored.max_intents(), 2);
     }
 
     #[test]
