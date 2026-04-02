@@ -502,6 +502,7 @@ impl MeshRouter {
                 intent_type: IntentType::Action,
                 confidence: "low".to_string(),
                 source: "routing".to_string(),
+                negated: false,
             }
         }).collect();
 

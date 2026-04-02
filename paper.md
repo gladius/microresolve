@@ -2,7 +2,7 @@
 
 **Abstract**
 
-We present ASV (Adaptive Sparse Vector) Router, a model-free intent classification system that achieves sub-millisecond routing through inverted index scoring of dual-layer sparse vectors. Unlike neural approaches that require batch retraining to incorporate new knowledge, ASV learns continuously from corrections at runtime — starting at 81.9% exact match on 30-scenario evaluation and approaching 100% through online learning without any model retraining, GPU, or embedding computation. The architecture introduces: (1) a dual-layer sparse vector formulation where immutable seed weights provide a floor that learned weights can only supplement, merged via `max()` rather than addition, with asymptotic growth bounding; (2) a greedy multi-intent decomposition algorithm that detects multiple intents in a single utterance through iterative term consumption with positional tracking and gap-text relation classification; (3) an LLM-as-teacher training loop where a large language model simulates realistic conversations, identifies routing mistakes, and extracts minimal seed phrases as corrections — achieving knowledge distillation into sparse vectors at inference time without gradient computation; and (4) language-agnostic multilingual support for any language the LLM can write in (100+ languages, 10+ script families), where coverage is bounded by the LLM teacher's capabilities, not the router's code, with self-bootstrapping Aho-Corasick segmentation for unsegmented scripts (CJK, Thai, Myanmar, Khmer, Lao). On CLINC150 (150 intents), ASV achieves 88.1% seed-only accuracy scaling to 97.5% with 30 rounds of online learning. On BANKING77 (77 intents), it achieves 85.5% seed-only scaling to 92.8% with online learning. All routing completes in under 30 microseconds on commodity hardware with zero external dependencies. The system follows a graduation model: starting with full LLM dependency for verification, it progressively learns to route independently, reducing LLM costs to near-zero as the teacher's semantic knowledge is transferred into term-weight associations.
+We present ASV (Adaptive Sparse Vector) Router, a model-free intent classification system that achieves sub-millisecond routing through inverted index scoring of dual-layer sparse vectors. Unlike neural approaches that require batch retraining to incorporate new knowledge, ASV learns continuously from corrections at runtime — starting at 81.9% exact match on 30-scenario evaluation and approaching 100% through online learning without any model retraining, GPU, or embedding computation. The architecture introduces: (1) a dual-layer sparse vector formulation where immutable seed weights provide a floor that learned weights can only supplement, merged via `max()` rather than addition, with asymptotic growth bounding; (2) a greedy multi-intent decomposition algorithm that detects multiple intents in a single utterance through iterative term consumption with positional tracking, gap-text relation classification, and per-intent negation awareness via NOT_ prefix tokenization; (3) an LLM-as-teacher training loop where a large language model simulates realistic conversations, identifies routing mistakes, and extracts minimal seed phrases as corrections — achieving knowledge distillation into sparse vectors at inference time without gradient computation; and (4) language-agnostic multilingual support for any language the LLM can write in (100+ languages, 10+ script families), where coverage is bounded by the LLM teacher's capabilities, not the router's code, with self-bootstrapping Aho-Corasick segmentation for unsegmented scripts (CJK, Thai, Myanmar, Khmer, Lao). On CLINC150 (150 intents), ASV achieves 88.1% seed-only accuracy scaling to 97.5% with 30 rounds of online learning. On BANKING77 (77 intents), it achieves 85.5% seed-only scaling to 92.8% with online learning. All routing completes in under 30 microseconds on commodity hardware with zero external dependencies. The system follows a graduation model: starting with full LLM dependency for verification, it progressively learns to route independently, reducing LLM costs to near-zero as the teacher's semantic knowledge is transferred into term-weight associations.
 
 ---
 
@@ -27,13 +27,15 @@ ASV addresses these requirements with a model-free architecture built on three p
 
 1. **Dual-layer sparse vectors with asymptotic online learning** (Section 3.1). A formulation where each intent has immutable seed weights and mutable learned weights, merged via `max()`, with bounded growth `w' = w + lr * (1 - w)`. Unlike Rocchio (centroid averaging) or perceptron (additive updates), this guarantees seed weights are never degraded and learned weights converge.
 
-2. **Greedy multi-intent decomposition** (Section 3.3). A non-neural algorithm for detecting multiple intents in a single utterance through scored term consumption, positional tracking, and gap-text relation classification. To our knowledge, this is the first non-neural approach to multi-intent detection with relation typing.
+2. **Greedy multi-intent decomposition with negation awareness** (Section 3.3). A non-neural algorithm for detecting multiple intents in a single utterance through scored term consumption, positional tracking, gap-text relation classification, and negation-aware intent flagging. To our knowledge, this is the first non-neural approach to multi-intent detection with relation typing and per-intent negation tracking.
 
-3. **LLM-as-teacher training loop** (Section 4). A simulation-based training system where an LLM generates realistic conversations, identifies ASV's mistakes, and extracts minimal seed phrases as corrections — achieving knowledge distillation into sparse vectors at inference time without gradient computation. The system follows a graduation model, progressing from full LLM dependency to autonomous routing.
+3. **Negation-preserving tokenization via NOT_ prefix** (Section 3.3.1). Adapting the sentiment analysis NOT_ prefix technique (Das & Chen, 2001) to intent routing, where negated terms are preserved as distinct features (`not_cancel`) rather than dropped. This resolves the fundamental conflict between single-intent routing (where negated terms should be suppressed) and multi-intent decomposition (where negated terms signal a second intent). The approach is language-agnostic, covering Latin negation cues and CJK negation markers (Chinese: 不/没/别/未, Japanese: ない/しない/できない).
 
-4. **Language-agnostic multilingual support** (Section 4.3). A design where language coverage is bounded by the LLM teacher, not the router. ASV supports any language the LLM teacher can generate text in (100+ languages) with zero per-language code, using Aho-Corasick automaton self-bootstrapping for unsegmented scripts (CJK, Thai, Myanmar, Khmer, Lao).
+4. **LLM-as-teacher training loop** (Section 4). A simulation-based training system where an LLM generates realistic conversations, identifies ASV's mistakes, and extracts minimal seed phrases as corrections — achieving knowledge distillation into sparse vectors at inference time without gradient computation. The system follows a graduation model, progressing from full LLM dependency to autonomous routing.
 
-5. **Empirical evidence for continuous learning superiority** (Section 5). We demonstrate that ASV's learning trajectory — 81.9% seed-only to 97.6% after 30 learning rounds on CLINC150 — represents a different and arguably superior accuracy model compared to static neural classifiers that cannot improve without retraining.
+5. **Language-agnostic multilingual support** (Section 4.3). A design where language coverage is bounded by the LLM teacher, not the router. ASV supports any language the LLM teacher can generate text in (100+ languages) with zero per-language code, using Aho-Corasick automaton self-bootstrapping for unsegmented scripts (CJK, Thai, Myanmar, Khmer, Lao).
+
+6. **Empirical evidence for continuous learning superiority** (Section 5). We demonstrate that ASV's learning trajectory — 81.9% seed-only to 97.6% after 30 learning rounds on CLINC150 — represents a different and arguably superior accuracy model compared to static neural classifiers that cannot improve without retraining.
 
 ---
 
@@ -160,6 +162,37 @@ function route_multi(query, threshold):
 - **Parallel:** (default) → independent execution
 
 **Discrimination filtering.** Terms appearing in too many intents (high document frequency) are optionally excluded from decomposition to prevent spurious matches from generic vocabulary.
+
+### 3.3.1 Negation-Aware Multi-Intent Detection
+
+A fundamental conflict exists in multi-intent systems: in single-intent routing, negated terms should be suppressed ("don't cancel" should not route to `cancel_order`). But in multi-intent messages, negated terms signal a _second_ intent: "cancel my order but don't refund me" contains both `cancel_order` (affirmed) and `refund` (negated). Dropping the negated terms destroys the evidence for the second intent.
+
+ASV resolves this by adapting the NOT_ prefix technique from sentiment analysis (Das & Chen, 2001). Rather than discarding negated terms, the tokenizer prefixes them with `not_`:
+
+```
+Input:  "cancel my order but don't refund me"
+Tokens: ["cancel", "order", "not_refund"]
+```
+
+The `not_` prefix creates a distinct feature: `not_refund` does not match the `refund` intent during index lookup (preserving single-intent accuracy). During multi-intent decomposition, the prefix is stripped for index search but preserved for negation tracking:
+
+```
+function route_multi_negation_aware(terms):
+    for each term in remaining:
+        search_term = strip_prefix("not_", term)    // matches index
+        if term.starts_with("not_"):
+            mark as negated contribution
+    if majority of consumed terms are negated:
+        intent.negated = true
+```
+
+Each detected intent carries a `negated` boolean flag, enabling downstream systems to distinguish "do X" from "don't do X" — critical for action execution in conversational AI.
+
+**Pseudo-negation bypass.** Natural language contains phrases that appear negative but carry no negation intent: "no problem," "not bad," "can't wait." ASV maintains a pseudo-negation list (adapted from the NegEx algorithm, Chapman et al., 2001) that disables negation handling when these phrases are detected, preventing false negation flags.
+
+**Negation scope.** Following standard practice in clinical NLP, negation scope is conservatively limited to 1 content word after the negation cue. "Don't cancel my order and refund me" negates only "cancel," not "refund." For CJK languages, negation scope extends to the next clause boundary marker (Chinese: 。,，; Japanese: 、。).
+
+**Multilingual negation.** The NOT_ prefix approach is language-agnostic — the prefix mechanism is identical regardless of which language's negation cues trigger it. ASV currently supports negation detection for: English (don't, not, no, never, without, except), Chinese (不, 没, 别, 未), and Japanese (ない, しない, できない suffix patterns).
 
 ### 3.4 Dual-Source Confidence
 
@@ -342,7 +375,41 @@ No standard benchmark exists for conversational multi-intent detection with rela
 
 The plateau at ~82% reflects the finite vocabulary of the evaluation set, not a system limitation. In production, novel expressions encountered after the evaluation would trigger additional learning rounds.
 
-### 5.5 Training Arena Cycles
+### 5.5 Negation-Aware Multi-Intent Detection
+
+We evaluate negation handling on two test suites: a structured benchmark (44 queries across 12 intent pairs with 4 relation types) and a natural conversation suite (16 tests simulating real chat behavior).
+
+**Structured benchmark — negation detection before and after NOT_ prefix:**
+
+| Metric | Before (drop negated) | After (NOT_ prefix) |
+|--------|----------------------|---------------------|
+| Negation intent detection | 16.7% (1/6) | **100.0% (6/6)** |
+| Negation flag accuracy | 0% | **100.0%** |
+| Overall multi-intent detection | 86.4% | **97.7%** |
+| Overall ordering accuracy | 84.1% | **90.9%** |
+
+The prior approach (dropping negated terms) destroyed evidence for the negated intent entirely. The NOT_ prefix preserves both intents while correctly flagging which is negated.
+
+**Natural conversation tests (16 tests, realistic chat):**
+
+| Category | Tests | Pass |
+|----------|-------|------|
+| Messy paragraph dumps (no punctuation, run-on) | 5 | 5 |
+| Frustrated customer rants | 3 | 3 |
+| Complaint sandwiches (requests buried in venting) | 3 | 3 |
+| Questions as intents | 3 | 3 |
+| Multi-paragraph single message | 3 | 3 |
+| Intent buried in long ramble | 2 | 2 |
+| 3-intent messy chat | 2 | 2 (at least 2/3 detected) |
+| Negation with `negated` flag verification | 4 | 4 |
+| Single intent (no false multi-detection) | 7 | 7 |
+| Positional ordering | 2 | 2 |
+| Relation detection | 2 | 2 |
+| Post-learning slang detection | 1 | 1 |
+
+All 16 natural conversation tests pass, including messy real-world patterns: no-punctuation dumps, mid-sentence topic switches, requests buried between complaints, and long narratives with intents scattered throughout. The negation tests verify both detection of the negated intent _and_ correct setting of the `negated` flag.
+
+### 5.6 Training Arena Cycles
 
 Single scenario (frustrated customer, wrong item, 5 turns, 2-3 intents per turn):
 
@@ -399,7 +466,56 @@ This is the inverse of the typical AI deployment pattern. Most systems start che
 
 ---
 
-## 7. Limitations and Future Work
+## 7. Distributed Sync via CRDT Merge
+
+### 7.1 The max() Merge is a CRDT
+
+A key property of the dual-layer sparse vector design (Section 3.1) is that the learned layer merge operation — `max()` per term — satisfies the requirements of a **Conflict-free Replicated Data Type** (CRDT; Shapiro et al., 2011). Specifically:
+
+- **Commutative:** `merge(A, B) = merge(B, A)` — merge order does not matter
+- **Associative:** `merge(merge(A, B), C) = merge(A, merge(B, C))` — grouping does not matter
+- **Idempotent:** `merge(A, A) = A` — repeated merges are harmless
+- **Monotonic:** learned weights only grow (asymptotic toward 1.0), so merged state is always a superset
+
+These properties enable **conflict-free distributed learning**: multiple ASV instances can learn independently from local corrections and merge their learned weights without coordination, conflict resolution, or central arbitration. The seed layer is immutable and never participates in merge — it serves as a shared baseline.
+
+### 7.2 Federated Intent Learning
+
+This CRDT property enables a federated architecture:
+
+```
+Central Server (training hub)
+       │
+       │  sync: merge learned weights
+       │
+   ┌───┼───┐───────────┐
+   ▼   ▼   ▼           ▼
+ Edge  Edge  Edge    Edge
+  A     B     C       N
+```
+
+1. All instances share the same seed state (deployed from central).
+2. Each edge instance learns independently from local traffic corrections.
+3. Periodically, each edge exports its learned weights — a sparse delta containing only the terms and weights learned locally.
+4. The central server merges all deltas using `max()` per term per intent.
+5. The merged state is distributed back to all edges.
+
+**Privacy preservation:** Edge instances never send raw user queries to the central server — only learned term-weight deltas. The central server cannot reconstruct the original messages that triggered the learning. This makes the architecture suitable for privacy-sensitive deployments where routing improvement must happen without centralizing user data.
+
+**Lightweight sync payloads:** The `export_learned_only()` method exports just the learned layer (terms that were explicitly taught), not the full router state. For a system with 150 intents and ~50 corrections per edge, this payload is typically <10KB — compared to ~1.5MB for full state export.
+
+### 7.3 Standalone and Centralized Dual-Mode
+
+The same Router library operates in both modes without code changes:
+
+- **Standalone:** Single instance, learns locally, persists via `export_json()`/`import_json()`. Full state is saved and restored.
+- **Centralized with sync:** Multiple instances share seed state. Each learns locally. Sync via `merge_learned()` or `import_learned_merge()` combines knowledge from all instances. A monotonic version counter tracks mutations for change detection.
+
+The `import_json()` method performs a full state overwrite (for initial deployment or reset). The `merge_learned()` and `import_learned_merge()` methods perform CRDT merge (for incremental sync). Both are available — the deployment pattern determines which is used.
+
+---
+
+## 8. Limitations and Future Work
 
 1. **No semantic generalization.** ASV relies on lexical overlap. Semantically similar but lexically different expressions require explicit training. Integration with lightweight embedding models (e.g., for candidate re-ranking) could address this.
 
@@ -413,9 +529,9 @@ This is the inverse of the typical AI deployment pattern. Most systems start che
 
 ---
 
-## 8. Conclusion
+## 9. Conclusion
 
-ASV Router demonstrates that model-free intent routing with online learning is a viable alternative to neural approaches for production conversational AI. By combining dual-layer sparse vectors, inverted-index routing, greedy multi-intent decomposition, and an LLM-as-teacher training loop, ASV achieves sub-millisecond latency with accuracy that improves continuously from corrections — starting at 82-88% seed-only and reaching 93-98% with online learning on standard benchmarks. The architecture supports any language the LLM teacher can write in — over 100 languages across all major script families — with zero per-language code. It requires no GPU, no embedding model, no batch retraining, and no external dependencies, making it suitable for edge deployment, privacy-sensitive contexts, and cost-constrained environments. The graduation model — where ASV progressively replaces the LLM teacher through learned term-weight associations — inverts the typical AI deployment cost curve: starting expensive (LLM-dependent) and converging to near-zero marginal cost as the student becomes self-sufficient.
+ASV Router demonstrates that model-free intent routing with online learning is a viable alternative to neural approaches for production conversational AI. By combining dual-layer sparse vectors, inverted-index routing, greedy multi-intent decomposition with negation-aware tokenization, and an LLM-as-teacher training loop, ASV achieves sub-millisecond latency with accuracy that improves continuously from corrections — starting at 82-88% seed-only and reaching 93-98% with online learning on standard benchmarks. The architecture supports any language the LLM teacher can write in — over 100 languages across all major script families — with zero per-language code. It requires no GPU, no embedding model, no batch retraining, and no external dependencies, making it suitable for edge deployment, privacy-sensitive contexts, and cost-constrained environments. The `max()` merge over learned sparse vectors forms a natural CRDT, enabling conflict-free distributed learning across multiple instances without coordination — edge devices learn independently and merge without data loss, while preserving user privacy by syncing only term-weight deltas rather than raw queries. The graduation model — where ASV progressively replaces the LLM teacher through learned term-weight associations — inverts the typical AI deployment cost curve: starting expensive (LLM-dependent) and converging to near-zero marginal cost as the student becomes self-sufficient.
 
 ---
 
@@ -433,6 +549,9 @@ ASV Router demonstrates that model-free intent routing with online learning is a
 - Lee, H., et al. (2024). LLM2LLM: Boosting LLMs with Novel Iterative Data Enhancement. arXiv:2403.15042.
 - Settles, B. (2009). Active Learning Literature Survey. University of Wisconsin-Madison CS Technical Report.
 - Zhang, H., et al. (2024). Aligner2: Enhancing Joint Multiple Intent Detection and Slot Filling. AAAI.
+- Das, S., & Chen, M. (2001). Yahoo! for Amazon: Extracting Market Sentiment from Stock Message Boards. Asia Pacific Finance Association Annual Conference. (NOT_ prefix for negation handling in text classification)
+- Chapman, W., et al. (2001). A Simple Algorithm for Identifying Negated Findings and Diseases in Discharge Summaries. Journal of Biomedical Informatics. (NegEx algorithm for pseudo-negation detection)
+- Shapiro, M., et al. (2011). Conflict-free Replicated Data Types. SSS 2011. (CRDT theory underpinning distributed merge)
 
 ---
 

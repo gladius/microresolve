@@ -166,6 +166,18 @@ impl LearnedVector {
     pub fn has_learned(&self) -> bool {
         !self.learned_terms.is_empty()
     }
+
+    /// Merge another vector's learned layer into this one using max() per term.
+    ///
+    /// This is a CRDT merge — commutative, associative, idempotent.
+    /// Seed layer is never touched. Only learned weights are combined.
+    /// For each term, the result is `max(self.learned, other.learned)`.
+    pub fn merge_learned(&mut self, other: &LearnedVector) {
+        for (term, &weight) in &other.learned_terms {
+            let existing = self.learned_terms.entry(term.clone()).or_insert(0.0);
+            *existing = existing.max(weight);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -297,5 +309,53 @@ mod tests {
         let mut v = LearnedVector::new();
         v.learn(&terms(&["", "valid", ""]));
         assert_eq!(v.learned_terms().len(), 1);
+    }
+
+    #[test]
+    fn merge_learned_takes_max() {
+        let mut v1 = LearnedVector::from_seed(seed(&[("charge", 0.5)]));
+        v1.learn_with_rate(&terms(&["bill"]), 0.3);
+        v1.learn_with_rate(&terms(&["payment"]), 0.8);
+
+        let mut v2 = LearnedVector::from_seed(seed(&[("charge", 0.5)]));
+        v2.learn_with_rate(&terms(&["bill"]), 0.7);
+        v2.learn_with_rate(&terms(&["refund"]), 0.4);
+
+        v1.merge_learned(&v2);
+
+        // bill: max(0.3, 0.7) = 0.7
+        assert!((*v1.learned_terms().get("bill").unwrap() - 0.7).abs() < 0.001);
+        // payment: only in v1, stays 0.8
+        assert!((*v1.learned_terms().get("payment").unwrap() - 0.8).abs() < 0.001);
+        // refund: only in v2, gets added as 0.4
+        assert!((*v1.learned_terms().get("refund").unwrap() - 0.4).abs() < 0.001);
+        // seed is untouched
+        assert_eq!(*v1.seed_terms().get("charge").unwrap(), 0.5);
+    }
+
+    #[test]
+    fn merge_learned_is_commutative() {
+        let mut v1a = LearnedVector::new();
+        v1a.learn_with_rate(&terms(&["a"]), 0.3);
+        v1a.learn_with_rate(&terms(&["b"]), 0.8);
+
+        let mut v2 = LearnedVector::new();
+        v2.learn_with_rate(&terms(&["a"]), 0.7);
+        v2.learn_with_rate(&terms(&["c"]), 0.5);
+
+        // merge(v1, v2)
+        let mut forward = v1a.clone();
+        forward.merge_learned(&v2);
+
+        // merge(v2, v1)
+        let mut reverse = v2.clone();
+        reverse.merge_learned(&v1a);
+
+        // Should be identical
+        for key in ["a", "b", "c"] {
+            let fw = forward.learned_terms().get(key).copied().unwrap_or(0.0);
+            let rv = reverse.learned_terms().get(key).copied().unwrap_or(0.0);
+            assert!((fw - rv).abs() < 0.001, "key '{}': forward={}, reverse={}", key, fw, rv);
+        }
     }
 }

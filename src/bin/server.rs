@@ -197,7 +197,8 @@ async fn route_multi(
                 "span": [i.span.0, i.span.1],
                 "intent_type": i.intent_type,
                 "confidence": i.confidence,
-                "source": i.source
+                "source": i.source,
+                "negated": i.negated
             })
         })
         .collect();
@@ -1671,6 +1672,7 @@ async fn training_run(
                 "score": (i.score * 100.0).round() / 100.0,
                 "confidence": i.confidence,
                 "source": i.source,
+                "negated": i.negated,
             })).collect::<Vec<_>>(),
         }));
     }

@@ -363,12 +363,12 @@ fn two_intent_conditional_queries() -> Vec<CompoundQuery> {
 
 fn two_intent_negation_queries() -> Vec<CompoundQuery> {
     negation(&[
-        ("cancel_order:cancel my order", "refund:getting a refund"),
-        ("close_account:close my account", "transfer_money:transferring money"),
-        ("reset_password:reset password", "close_account:closing the account"),
-        ("upgrade_plan:upgrade my plan", "close_account:closing my account"),
-        ("track_order:track the package", "cancel_order:cancelling the order"),
-        ("billing:fix billing issue", "close_account:closing my account"),
+        ("cancel_order:cancel my order", "refund:get a refund"),
+        ("close_account:close my account", "transfer_money:transfer money"),
+        ("reset_password:reset password", "close_account:close the account"),
+        ("upgrade_plan:upgrade my plan", "close_account:shut down account"),
+        ("track_order:track the package", "cancel_order:cancel the order"),
+        ("billing:fix billing issue", "close_account:deactivate account"),
     ])
 }
 

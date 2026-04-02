@@ -127,6 +127,8 @@ pub struct Router {
     paraphrase_patterns: Vec<String>,
     /// Tracks whether paraphrase automaton needs rebuild (dirty during batch mode).
     paraphrase_dirty: bool,
+    /// Monotonic version counter. Incremented on every mutation (learn, correct, add_intent, merge).
+    version: u64,
 }
 
 impl Default for Router {
@@ -154,6 +156,7 @@ impl Router {
             paraphrase_automaton: None,
             paraphrase_patterns: Vec::new(),
             paraphrase_dirty: false,
+            version: 0,
         }
     }
 
@@ -220,6 +223,7 @@ impl Router {
         lang_map.insert("en".to_string(), phrases);
         self.training.insert(id.to_string(), lang_map);
         self.rebuild_index();
+        self.version += 1;
     }
 
     /// Add an intent with seed phrases grouped by language.
@@ -244,6 +248,7 @@ impl Router {
         self.vectors.insert(id.to_string(), vector);
         self.training.insert(id.to_string(), seeds_by_lang);
         self.rebuild_index();
+        self.version += 1;
     }
 
     /// Add an intent with pre-computed term weights.
@@ -254,6 +259,7 @@ impl Router {
         let vector = LearnedVector::from_seed(seed_terms);
         self.vectors.insert(id.to_string(), vector);
         self.rebuild_index();
+        self.version += 1;
     }
 
     /// Remove an intent.
@@ -267,6 +273,7 @@ impl Router {
         // Remove paraphrase phrases pointing to this intent
         self.paraphrase_phrases.retain(|_, (intent, _)| intent != id);
         self.rebuild_paraphrase_automaton();
+        self.version += 1;
     }
 
     /// Route a query to matching intents, ranked by score.
@@ -331,6 +338,7 @@ impl Router {
         if query.chars().any(is_cjk) {
             self.rebuild_cjk_automaton();
         }
+        self.version += 1;
     }
 
     /// Correct a routing mistake: move query from wrong intent to right intent.
@@ -490,6 +498,7 @@ impl Router {
                         intent_type: self.get_intent_type(intent_id),
                         confidence: "medium".to_string(),
                         source: "paraphrase".to_string(),
+                        negated: false,
                     });
                 }
             }
@@ -520,6 +529,9 @@ impl Router {
         let paraphrases: Vec<(String, String, f32)> = self.paraphrase_phrases.iter()
             .map(|(phrase, (intent_id, weight))| (phrase.clone(), intent_id.clone(), *weight))
             .collect();
+        let co_occurrence: Vec<(String, String, u32)> = self.co_occurrence.iter()
+            .map(|((a, b), &count)| (a.clone(), b.clone(), count))
+            .collect();
         let state = RouterState {
             intents: self.vectors.clone(),
             training: self.training.clone(),
@@ -527,6 +539,8 @@ impl Router {
             intent_types: self.intent_types.clone(),
             metadata: self.metadata.clone(),
             paraphrases,
+            co_occurrence,
+            version: self.version,
         };
         serde_json::to_string(&state).unwrap_or_default()
     }
@@ -544,6 +558,12 @@ impl Router {
             paraphrase_phrases.insert(phrase.clone(), (intent_id.clone(), *weight));
         }
 
+        // Restore co-occurrence from serialized Vec
+        let mut co_occurrence_map: HashMap<(String, String), u32> = HashMap::new();
+        for (a, b, count) in state.co_occurrence {
+            co_occurrence_map.insert((a, b), count);
+        }
+
         let mut router = Self {
             vectors: state.intents,
             index,
@@ -555,11 +575,12 @@ impl Router {
             cjk_dirty: false,
             intent_types: state.intent_types,
             metadata: state.metadata,
-            co_occurrence: HashMap::new(),
+            co_occurrence: co_occurrence_map,
             paraphrase_phrases,
             paraphrase_automaton: None,
             paraphrase_patterns: Vec::new(),
             paraphrase_dirty: false,
+            version: state.version,
         };
         router.rebuild_cjk_automaton_now();
         router.rebuild_paraphrase_automaton_now();
@@ -669,6 +690,108 @@ impl Router {
     /// Clear co-occurrence data.
     pub fn clear_co_occurrence(&mut self) {
         self.co_occurrence.clear();
+    }
+
+    /// Get the current version number. Incremented on every mutation.
+    pub fn version(&self) -> u64 {
+        self.version
+    }
+
+    /// Merge learned weights from another router into this one.
+    ///
+    /// Uses max() per term per intent — this is a CRDT merge:
+    /// commutative, associative, idempotent, conflict-free.
+    ///
+    /// - Seed weights are never modified (immutable layer preserved)
+    /// - Only learned weights are combined
+    /// - New intents in `other` that don't exist here are ignored
+    ///   (they have no seed layer to anchor them)
+    /// - Co-occurrence counts are summed
+    /// - Paraphrase phrases are merged (other's phrases added if not present)
+    ///
+    /// After merge, the inverted index is rebuilt to reflect new weights.
+    pub fn merge_learned(&mut self, other: &Router) {
+        let mut changed = false;
+
+        // Merge learned weights per intent
+        for (intent_id, other_vector) in &other.vectors {
+            if let Some(self_vector) = self.vectors.get_mut(intent_id) {
+                if other_vector.has_learned() {
+                    self_vector.merge_learned(other_vector);
+                    changed = true;
+                }
+            }
+            // Intents only in `other` are skipped — no seed layer here to anchor them
+        }
+
+        // Merge co-occurrence (additive)
+        for ((a, b), &count) in &other.co_occurrence {
+            *self.co_occurrence.entry((a.clone(), b.clone())).or_insert(0) += count;
+        }
+
+        // Merge paraphrase phrases (keep existing if conflict, add new)
+        for (phrase, (intent_id, weight)) in &other.paraphrase_phrases {
+            self.paraphrase_phrases
+                .entry(phrase.clone())
+                .or_insert_with(|| (intent_id.clone(), *weight));
+        }
+
+        // Merge training phrases (union)
+        for (intent_id, other_lang_map) in &other.training {
+            let self_lang_map = self.training.entry(intent_id.clone()).or_default();
+            for (lang, other_phrases) in other_lang_map {
+                let self_phrases = self_lang_map.entry(lang.clone()).or_default();
+                let existing: HashSet<String> = self_phrases.iter().cloned().collect();
+                for phrase in other_phrases {
+                    if !existing.contains(phrase) {
+                        self_phrases.push(phrase.clone());
+                    }
+                }
+            }
+        }
+
+        if changed {
+            self.rebuild_index();
+            self.rebuild_paraphrase_automaton_now();
+            self.version += 1;
+        }
+    }
+
+    /// Export only the learned layer weights for lightweight sync.
+    ///
+    /// Returns a JSON object: { intent_id: { term: weight, ... }, ... }
+    /// Only includes intents that have learned weights.
+    /// Much smaller than full export — just the delta from seed state.
+    pub fn export_learned_only(&self) -> String {
+        let learned: HashMap<&str, &HashMap<String, f32>> = self.vectors.iter()
+            .filter(|(_, v)| v.has_learned())
+            .map(|(id, v)| (id.as_str(), v.learned_terms()))
+            .collect();
+        serde_json::to_string(&learned).unwrap_or_default()
+    }
+
+    /// Import and merge learned weights from a lightweight sync payload.
+    ///
+    /// Input format: { intent_id: { term: weight, ... }, ... }
+    /// Uses max() merge — safe to call multiple times with same data (idempotent).
+    pub fn import_learned_merge(&mut self, json: &str) -> Result<(), String> {
+        let learned: HashMap<String, HashMap<String, f32>> =
+            serde_json::from_str(json).map_err(|e| format!("invalid JSON: {}", e))?;
+
+        let mut changed = false;
+        for (intent_id, other_terms) in &learned {
+            if let Some(vector) = self.vectors.get_mut(intent_id) {
+                let other_vec = LearnedVector::from_parts(HashMap::new(), other_terms.clone());
+                vector.merge_learned(&other_vec);
+                changed = true;
+            }
+        }
+
+        if changed {
+            self.rebuild_index();
+            self.version += 1;
+        }
+        Ok(())
     }
 
     fn rebuild_index(&mut self) {
@@ -918,12 +1041,13 @@ impl Router {
                 let start_char = cjk_text[..mat.start()].chars().count();
                 let end_char = cjk_text[..mat.end()].chars().count();
 
-                // Check if this match falls in a negated region
-                if negated_regions.iter().any(|(ns, ne)| start_char >= *ns && start_char < *ne) {
-                    continue;
+                // Check if this match falls in a negated region — prefix instead of skip
+                let is_neg = negated_regions.iter().any(|(ns, ne)| start_char >= *ns && start_char < *ne);
+                if is_neg {
+                    matched_terms.push(format!("not_{}", term));
+                } else {
+                    matched_terms.push(term.clone());
                 }
-
-                matched_terms.push(term.clone());
                 for i in start_char..end_char {
                     covered.insert(i);
                 }
@@ -954,16 +1078,19 @@ impl Router {
                     continue;
                 }
 
-                // Check negation for residual bigrams
-                // Find position of this bigram in the original text
-                if let Some(pos) = cjk_text.find(&bg) {
+                // Check negation for residual bigrams — prefix instead of skip
+                let is_neg = if let Some(pos) = cjk_text.find(&bg) {
                     let char_pos = cjk_text[..pos].chars().count();
-                    if negated_regions.iter().any(|(ns, ne)| char_pos >= *ns && char_pos < *ne) {
-                        continue;
-                    }
-                }
+                    negated_regions.iter().any(|(ns, ne)| char_pos >= *ns && char_pos < *ne)
+                } else {
+                    false
+                };
 
-                matched_terms.push(bg);
+                if is_neg {
+                    matched_terms.push(format!("not_{}", bg));
+                } else {
+                    matched_terms.push(bg);
+                }
             }
         }
 
@@ -1026,12 +1153,15 @@ impl Router {
                 let start_char = cjk_text[..mat.start()].chars().count();
                 let end_char = cjk_text[..mat.end()].chars().count();
 
-                if negated_regions.iter().any(|(ns, ne)| start_char >= *ns && start_char < *ne) {
-                    continue;
-                }
+                let is_neg = negated_regions.iter().any(|(ns, ne)| start_char >= *ns && start_char < *ne);
+                let final_term = if is_neg {
+                    format!("not_{}", term)
+                } else {
+                    term.clone()
+                };
 
                 positioned.push(PositionedTerm {
-                    term: term.clone(),
+                    term: final_term,
                     offset: base_offset + start_char,
                     end_offset: base_offset + end_char,
                     is_cjk: true,
@@ -1198,6 +1328,7 @@ impl Router {
                     intent_type: self.get_intent_type(intent_id),
                     confidence: "low".to_string(),
                     source: "routing".to_string(),
+                    negated: false,
                 });
             }
         }
@@ -1250,6 +1381,12 @@ struct RouterState {
     /// Paraphrase phrases: Vec<(phrase, intent_id, weight)>.
     #[serde(default)]
     paraphrases: Vec<(String, String, f32)>,
+    /// Co-occurrence counts: Vec<(intent_a, intent_b, count)>.
+    #[serde(default)]
+    co_occurrence: Vec<(String, String, u32)>,
+    /// Monotonic version counter.
+    #[serde(default)]
+    version: u64,
 }
 
 #[cfg(test)]
@@ -1655,5 +1792,122 @@ mod tests {
         let pairs = router.get_co_occurrence();
         assert_eq!(pairs[0], ("cancel_order", "refund", 2));
         assert_eq!(pairs[1], ("cancel_order", "track_order", 1));
+    }
+
+    #[test]
+    fn version_increments_on_mutation() {
+        let mut router = Router::new();
+        assert_eq!(router.version(), 0);
+
+        router.add_intent("cancel", &["cancel my order"]);
+        assert_eq!(router.version(), 1);
+
+        router.learn("stop that", "cancel");
+        assert_eq!(router.version(), 2);
+
+        router.add_intent("track", &["track my order"]);
+        assert_eq!(router.version(), 3);
+
+        router.remove_intent("track");
+        assert_eq!(router.version(), 4);
+    }
+
+    #[test]
+    fn merge_learned_combines_weights() {
+        let mut router_a = Router::new();
+        router_a.add_intent("cancel", &["cancel my order"]);
+        router_a.add_intent("track", &["track my order"]);
+        router_a.learn("stop that purchase", "cancel");
+
+        let mut router_b = Router::new();
+        router_b.add_intent("cancel", &["cancel my order"]);
+        router_b.add_intent("track", &["track my order"]);
+        router_b.learn("where is my stuff", "track");
+
+        // Before merge: router_a doesn't know "stuff", router_b doesn't know "stop"
+        let before_a = router_a.route("where is my stuff");
+        let before_track_score = before_a.iter().find(|r| r.id == "track").map(|r| r.score).unwrap_or(0.0);
+
+        router_a.merge_learned(&router_b);
+
+        // After merge: router_a should know "stuff" from router_b's learning
+        let after_a = router_a.route("where is my stuff");
+        let after_track_score = after_a.iter().find(|r| r.id == "track").map(|r| r.score).unwrap_or(0.0);
+        assert!(after_track_score > before_track_score,
+            "merge should improve track score for 'stuff': before={}, after={}", before_track_score, after_track_score);
+    }
+
+    #[test]
+    fn merge_is_idempotent() {
+        let mut router_a = Router::new();
+        router_a.add_intent("cancel", &["cancel my order"]);
+        router_a.learn("stop it", "cancel");
+
+        let mut router_b = Router::new();
+        router_b.add_intent("cancel", &["cancel my order"]);
+        router_b.learn("halt order", "cancel");
+
+        router_a.merge_learned(&router_b);
+        let score_after_first = router_a.route("halt order")[0].score;
+
+        router_a.merge_learned(&router_b); // same merge again
+        let score_after_second = router_a.route("halt order")[0].score;
+
+        assert!((score_after_first - score_after_second).abs() < 0.001,
+            "merge should be idempotent: first={}, second={}", score_after_first, score_after_second);
+    }
+
+    #[test]
+    fn export_learned_only_is_lightweight() {
+        let mut router = Router::new();
+        router.add_intent("cancel", &["cancel my order"]);
+        router.add_intent("track", &["track my order"]);
+        router.learn("stop it", "cancel");
+
+        let learned_json = router.export_learned_only();
+        let parsed: HashMap<String, HashMap<String, f32>> =
+            serde_json::from_str(&learned_json).unwrap();
+
+        // Only "cancel" should appear (it has learned terms), not "track"
+        assert!(parsed.contains_key("cancel"));
+        assert!(!parsed.contains_key("track"));
+    }
+
+    #[test]
+    fn import_learned_merge_roundtrip() {
+        let mut router_a = Router::new();
+        router_a.add_intent("cancel", &["cancel my order"]);
+        router_a.learn("stop it", "cancel");
+
+        let learned_json = router_a.export_learned_only();
+
+        let mut router_b = Router::new();
+        router_b.add_intent("cancel", &["cancel my order"]);
+
+        // Before import: router_b doesn't know "stop"
+        let before = router_b.route("stop it");
+        let before_score = before.iter().find(|r| r.id == "cancel").map(|r| r.score).unwrap_or(0.0);
+
+        router_b.import_learned_merge(&learned_json).unwrap();
+
+        // After import: router_b should know "stop" from router_a
+        let after = router_b.route("stop it");
+        let after_score = after.iter().find(|r| r.id == "cancel").map(|r| r.score).unwrap_or(0.0);
+        assert!(after_score > before_score,
+            "import_learned_merge should improve score: before={}, after={}", before_score, after_score);
+    }
+
+    #[test]
+    fn co_occurrence_survives_export_import() {
+        let mut router = Router::new();
+        router.record_co_occurrence(&["cancel_order", "refund"]);
+        router.record_co_occurrence(&["cancel_order", "refund"]);
+
+        let json = router.export_json();
+        let restored = Router::import_json(&json).unwrap();
+
+        let pairs = restored.get_co_occurrence();
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("cancel_order", "refund", 2));
     }
 }

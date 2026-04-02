@@ -26,6 +26,8 @@ pub struct MultiRouteResult {
     pub confidence: String,
     /// Detection source: "dual" (both indexes), "paraphrase" (phrase match only), "routing" (term match only).
     pub source: String,
+    /// Whether this intent was negated in the query (e.g. "don't cancel" → cancel_order with negated=true).
+    pub negated: bool,
 }
 
 /// Relationship between two consecutive detected intents.
@@ -111,11 +113,16 @@ pub(crate) fn route_multi(
             break;
         }
 
-        // Build search terms (unigrams + adjacency bigrams) from remaining
+        // Build search terms from remaining.
+        // Strip not_ prefix for index search so negated terms still match intents.
+        // The prefix is preserved in the positioned terms for negation tracking.
         let search_terms = build_search_terms(&remaining);
+        let search_terms_stripped: Vec<String> = search_terms.iter()
+            .map(|t| strip_negation_prefix(t))
+            .collect();
 
-        // Score all intents
-        let results = index.search(&search_terms, 10);
+        // Score all intents using stripped terms
+        let results = index.search(&search_terms_stripped, 10);
 
         // Find best intent we haven't already detected
         let best = results
@@ -133,9 +140,13 @@ pub(crate) fn route_multi(
             None => break,
         };
 
-        // Identify which positioned terms would be consumed
+        // Identify which positioned terms would be consumed.
+        // Match against effective terms using the stripped (un-negated) form.
         let consumed_indices: Vec<usize> = remaining.iter().enumerate()
-            .filter(|(_, pt)| effective.contains_key(&pt.term))
+            .filter(|(_, pt)| {
+                let bare = strip_negation_prefix(&pt.term);
+                effective.contains_key(&bare)
+            })
             .map(|(i, _)| i)
             .collect();
 
@@ -149,7 +160,8 @@ pub(crate) fn route_multi(
         // creating false detections after the strongest intent consumes its terms.
         if !detected.is_empty() {
             let has_defining_term = consumed_indices.iter().any(|&i| {
-                index.df(&remaining[i].term) < disc_max_df
+                let bare = strip_negation_prefix(&remaining[i].term);
+                index.df(&bare) < disc_max_df
             });
             if !has_defining_term {
                 // All consumed terms are generic — skip this intent
@@ -157,6 +169,12 @@ pub(crate) fn route_multi(
                 continue;
             }
         }
+
+        // Check if this intent is negated: majority of consumed content terms have not_ prefix
+        let negated_count = consumed_indices.iter()
+            .filter(|&&i| remaining[i].term.starts_with("not_"))
+            .count();
+        let is_negated = negated_count > 0 && negated_count >= consumed_indices.len() / 2;
 
         // Commit: consume matched terms, track positions
         let consumed_set: HashSet<usize> = consumed_indices.into_iter().collect();
@@ -183,6 +201,7 @@ pub(crate) fn route_multi(
             intent_type: crate::IntentType::Action, // Default; overridden by Router::route_multi()
             confidence: "low".to_string(),
             source: "routing".to_string(),
+            negated: is_negated,
         });
 
         remaining = new_remaining;
@@ -199,6 +218,17 @@ pub(crate) fn route_multi(
         relations,
         metadata: HashMap::new(), // Populated by Router::route_multi()
     }
+}
+
+/// Strip the `not_` prefix from a negated term, returning the bare form.
+/// Non-negated terms are returned as-is.
+fn strip_negation_prefix(term: &str) -> String {
+    term.strip_prefix("not_").unwrap_or(term).to_string()
+}
+
+/// Check if a term carries a negation prefix.
+pub fn is_negated_term(term: &str) -> bool {
+    term.starts_with("not_")
 }
 
 /// Build search terms (unigrams + adjacency bigrams) from remaining positioned terms.
