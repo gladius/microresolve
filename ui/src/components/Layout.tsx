@@ -5,6 +5,7 @@ const links = [
   { to: '/', label: 'Router' },
   { to: '/intents', label: 'Intents' },
   { to: '/projections', label: 'Projections' },
+  { to: '/scenarios', label: 'Training' },
   { to: '/debug', label: 'Debug' },
   { to: '/settings', label: 'Settings' },
 ];

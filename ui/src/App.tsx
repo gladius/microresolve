@@ -6,6 +6,7 @@ import IntentsPage from '@/pages/IntentsPage';
 import DebugPage from '@/pages/DebugPage';
 import SettingsPage from '@/pages/SettingsPage';
 import ProjectionsPage from '@/pages/ProjectionsPage';
+import ScenariosPage from '@/pages/ScenariosPage';
 import { AppContext, loadSettings, saveSettings, type AppMode, type AppSettings } from '@/store';
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/" element={<RouterPage />} />
             <Route path="/intents" element={<IntentsPage />} />
             <Route path="/projections" element={<ProjectionsPage />} />
+            <Route path="/scenarios" element={<ScenariosPage />} />
             <Route path="/debug" element={<DebugPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

@@ -569,6 +569,126 @@ pub fn generate_cjk_residual_bigrams(text: &str) -> Vec<String> {
     bigrams
 }
 
+/// Segment a query into clause boundaries for independent scoring.
+///
+/// Splits at sentence-ending punctuation (. ? !), semicolons,
+/// comma+conjunction patterns, and bare conjunctions between clauses.
+/// Returns character positions where breaks occur.
+///
+/// Each segment is scored independently in route_multi to prevent
+/// noise term accumulation across clause boundaries.
+pub fn segment_breaks(query: &str) -> Vec<usize> {
+    let chars: Vec<char> = query.chars().collect();
+    let len = chars.len();
+    let mut breaks: Vec<usize> = Vec::new();
+
+    let lower: String = query.to_lowercase();
+    let lower_chars: Vec<char> = lower.chars().collect();
+
+    // Phase 1: Sentence boundaries and semicolons
+    for (i, &c) in chars.iter().enumerate() {
+        match c {
+            '.' | '?' | '!' => breaks.push(i + 1),
+            ';' => breaks.push(i),
+            _ => {}
+        }
+    }
+
+    // Phase 2: Comma + conjunction
+    for (i, &c) in chars.iter().enumerate() {
+        if c == ',' {
+            let remaining_start = i + 1;
+            if remaining_start < len {
+                let end = len.min(remaining_start + 15);
+                let rest: String = lower_chars[remaining_start..end].iter().collect();
+                let trimmed = rest.trim_start();
+                if trimmed.starts_with("and ")
+                    || trimmed.starts_with("but ")
+                    || trimmed.starts_with("or ")
+                    || trimmed.starts_with("so ")
+                    || trimmed.starts_with("because ")
+                    || trimmed.starts_with("also ")
+                    || trimmed.starts_with("then ")
+                    || trimmed.starts_with("however ")
+                {
+                    breaks.push(i);
+                }
+            }
+        }
+    }
+
+    // Phase 3: Bare conjunctions between clauses.
+    // Split on "and", "but", "or", "because", "however", "also" when
+    // they appear as standalone words with sufficient context on both sides.
+    // This catches the common case: "I was charged twice and I still haven't..."
+    let words: Vec<&str> = query.split_whitespace().collect();
+    if words.len() >= 5 {
+        // Build word-to-char-offset map
+        let mut word_offsets: Vec<usize> = Vec::new();
+        let mut pos = 0;
+        for &word in &words {
+            // Find this word's position in the original string
+            if let Some(idx) = query[pos..].find(word) {
+                word_offsets.push(pos + idx);
+                pos = pos + idx + word.len();
+            }
+        }
+
+        let conjunctions = ["and", "but", "or", "because", "however", "also"];
+        for (wi, &word) in words.iter().enumerate() {
+            let lower_word = word.to_lowercase();
+            // Strip trailing punctuation for matching
+            let clean = lower_word.trim_end_matches(|c: char| !c.is_alphabetic());
+            if conjunctions.contains(&clean) {
+                // Require at least 3 words before and 2 words after
+                if wi >= 3 && wi + 2 < words.len() {
+                    if let Some(&offset) = word_offsets.get(wi) {
+                        breaks.push(offset);
+                    }
+                }
+            }
+        }
+    }
+
+    breaks.sort();
+    breaks.dedup();
+
+    // Phase 4: Merge tiny segments. If a segment has < 3 characters of content,
+    // remove the break that created it.
+    if !breaks.is_empty() {
+        let mut filtered = Vec::new();
+        let mut prev = 0usize;
+        for &brk in &breaks {
+            let seg = &query[byte_offset_from_char(&chars, prev)..byte_offset_from_char(&chars, brk)];
+            let content_chars = seg.chars().filter(|c| c.is_alphanumeric()).count();
+            if content_chars >= 6 {
+                filtered.push(brk);
+                prev = brk;
+            }
+            // else: skip this break, merge segment with next
+        }
+        // Check last segment
+        if let Some(&last_brk) = filtered.last() {
+            let seg = &query[byte_offset_from_char(&chars, last_brk)..];
+            let content_chars = seg.chars().filter(|c| c.is_alphanumeric()).count();
+            if content_chars < 6 {
+                filtered.pop(); // merge last tiny segment back
+            }
+        }
+        breaks = filtered;
+    }
+
+    breaks
+}
+
+/// Convert character offset to byte offset in a string.
+fn byte_offset_from_char(chars: &[char], char_pos: usize) -> usize {
+    chars[..char_pos.min(chars.len())]
+        .iter()
+        .map(|c| c.len_utf8())
+        .sum()
+}
+
 /// Check if a CJK residual bigram is clean enough to learn.
 ///
 /// Returns false for bigrams that are entirely stop characters or negation markers.

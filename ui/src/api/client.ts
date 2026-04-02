@@ -27,12 +27,17 @@ export interface RouteResult {
   score: number;
 }
 
+export type ConfidenceTier = 'high' | 'medium' | 'low';
+export type DetectionSource = 'dual' | 'paraphrase' | 'routing';
+
 export interface MultiRouteResult {
   id: string;
   score: number;
   position: number;
   span: [number, number];
   intent_type: IntentType;
+  confidence: ConfidenceTier;
+  source: DetectionSource;
 }
 
 export interface ProjectedContext {
@@ -42,7 +47,8 @@ export interface ProjectedContext {
 }
 
 export interface MultiRouteOutput {
-  intents: MultiRouteResult[];
+  confirmed: MultiRouteResult[];
+  candidates: MultiRouteResult[];
   relations: { type: string; [key: string]: unknown }[];
   metadata: Record<string, Record<string, string[]>>;
   projected_context: ProjectedContext[];
@@ -62,12 +68,12 @@ export interface ReviewAnalysis {
   false_positives: { id: string; reason: string }[];
   missed: { id: string; reason: string }[];
   suggestions: {
-    action: 'learn' | 'correct' | 'add_seed';
-    query: string;
+    action: 'add_seed';
     intent_id: string;
-    wrong_intent?: string;
-    seed?: string;
+    seed: string;
     reason: string;
+    query?: string;
+    wrong_intent?: string;
   }[];
   confidence: 'high' | 'medium' | 'low';
   summary: string;
@@ -159,4 +165,56 @@ export const api = {
   // Seed generation (server-side LLM call)
   generateSeeds: (intent_id: string, description: string, languages: string[]) =>
     post<{ seeds_by_lang: Record<string, string[]>; total: number }>('/seed/generate', { intent_id, description, languages }),
+
+  // Training Arena
+  trainingGenerate: (config: {
+    personality: string;
+    sophistication: string;
+    verbosity: string;
+    turns: number;
+    scenario?: string;
+  }) => post<{ turns: { customer_message: string; ground_truth: string[]; intent_description: string; agent_response: string }[] }>('/training/generate', config),
+
+  trainingRun: (turns: { message: string; ground_truth: string[] }[]) =>
+    post<{
+      results: {
+        message: string;
+        ground_truth: string[];
+        confirmed: string[];
+        candidates: string[];
+        matched: string[];
+        missed: string[];
+        extra: string[];
+        status: 'pass' | 'partial' | 'fail';
+        details: { id: string; score: number; confidence: string; source: string }[];
+      }[];
+      pass_count: number;
+      total: number;
+      accuracy: number;
+    }>('/training/run', { turns }),
+
+  trainingReview: (message: string, detected: { id: string; score: number }[], ground_truth: string[]) =>
+    post<{
+      analysis: string;
+      corrections: { action: string; query?: string; intent?: string; from?: string; phrase?: string }[];
+    }>('/training/review', { message, detected, ground_truth }),
+
+  trainingApply: (corrections: { action: string; query?: string; intent?: string; from?: string; phrase?: string }[]) =>
+    post<{ applied: number; errors: string[] }>('/training/apply', { corrections }),
+
+  // Simulation
+  simulateTurn: (config: {
+    personality: string;
+    sophistication: string;
+    verbosity: string;
+    history: { role: string; message: string }[];
+    intents: string[];
+    mode: string;
+  }) => post<{ message: string; ground_truth: string[]; intent_description: string }>('/simulate/turn', config),
+
+  simulateRespond: (config: {
+    query: string;
+    routed_intents: { id: string; score: number; intent_type: string }[];
+    history: { role: string; message: string }[];
+  }) => post<{ message: string }>('/simulate/respond', config),
 };

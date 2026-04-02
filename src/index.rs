@@ -124,6 +124,11 @@ impl InvertedIndex {
         self.intent_count
     }
 
+    /// Document frequency: number of intents containing this term.
+    pub fn df(&self, term: &str) -> usize {
+        self.postings.get(term).map_or(0, |v| v.len())
+    }
+
     /// Check if the index is empty.
     pub fn is_empty(&self) -> bool {
         self.postings.is_empty()

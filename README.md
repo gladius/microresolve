@@ -19,10 +19,12 @@ ASV builds sparse vectors from seed phrases and routes queries using BM25-inspir
 
 Tested on standard intent classification datasets:
 
-| Dataset | Intents | Seed-only (50/intent) | + Learning | Top-3 | Latency |
-|---|---|---|---|---|---|
-| CLINC150 | 150 | 83.9% | 93.6% | 95.9% | 22μs avg |
-| BANKING77 | 77 | 81.9% | 92.8% | 95.9% | 21μs avg |
+| Dataset | Intents | Seeds/intent | Seed-only | + Learning | Top-3 | Latency |
+|---|---|---|---|---|---|---|
+| CLINC150 | 150 | 50 | 84.0% | 85.8% | 94.2% | 22μs avg |
+| CLINC150 | 150 | 100 | 87.5% | 96.4% | 95.9% | 24μs avg |
+| BANKING77 | 77 | 50 | 81.9% | 85.0% | 94.1% | 21μs avg |
+| BANKING77 | 77 | 130 | 85.5% | 92.8% | 96.0% | 23μs avg |
 
 Zero ML training. Zero GPU. Just seed phrases and incremental learning.
 

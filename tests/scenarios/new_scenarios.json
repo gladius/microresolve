@@ -1,0 +1,244 @@
+[
+  {
+    "id": "code_switching_bilingual",
+    "category": "multilingual",
+    "persona": { "personality": "bilingual", "sophistication": "medium", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "Hola, I need help con mi order. Lo ordene hace like two weeks y todavia no me llega. Can you check el tracking por favor?",
+        "ground_truth": ["track_order", "delivery_estimate"]
+      },
+      {
+        "message": "Dice que esta in transit pero ya lleva muchos dias asi. Honestly I think se perdio. Is there a way to get a refund o me mandan otro? Porque lo necesito ya.",
+        "ground_truth": ["refund", "reorder"]
+      },
+      {
+        "message": "OK mejor just give me the refund. Tambien quiero saber if I can use un coupon code que me dieron last time que tuve problemas. El codigo es SORRY15 pero no se si todavia sirve.",
+        "ground_truth": ["refund", "apply_coupon"]
+      },
+      {
+        "message": "Perfecto gracias. Una cosa mas - necesito cambiar mi address porque me mude recently. La nueva direccion es 4521 Oak Lane, Houston TX. Quiero que todos mis future orders vayan ahi.",
+        "ground_truth": ["update_address"]
+      }
+    ]
+  },
+  {
+    "id": "formal_business_procurement",
+    "category": "formal",
+    "persona": { "personality": "formal", "sophistication": "high", "verbosity": "long" },
+    "turns": [
+      {
+        "message": "Good afternoon. I am writing on behalf of Meridian Technologies, Inc. regarding purchase order PO-2026-0481. It has come to our attention that the bulk order of 250 units placed on February 15th has not yet been fulfilled. We would be most appreciative if the current shipping status and revised delivery estimate could be provided at your earliest convenience, as our deployment timeline is contingent upon receipt of these materials.",
+        "ground_truth": ["track_order", "delivery_estimate"]
+      },
+      {
+        "message": "Furthermore, it is requested that a formal invoice inclusive of all applicable taxes, freight charges, and volume discount adjustments be generated and forwarded to our accounts payable department at ap@meridiantech.com. Additionally, we wish to inquire whether the negotiated 12% enterprise discount reflected in contract CTR-8834 has been properly applied to this transaction, as a preliminary review of the charge suggests a discrepancy.",
+        "ground_truth": ["request_invoice", "billing_issue"]
+      },
+      {
+        "message": "Upon further review of our procurement records, it has been determined that 30 of the 250 units should be redirected to our satellite office. Accordingly, the shipping address for those 30 units would need to be amended. Could you also confirm whether partial shipment splitting is accommodated under our current service agreement, and whether additional shipping fees would be incurred as a result?",
+        "ground_truth": ["update_address", "shipping_options"]
+      },
+      {
+        "message": "In light of the aforementioned delivery delays, we would respectfully request that expedited shipping be applied to the remaining fulfillment at no additional charge, as this delay constitutes a breach of the agreed-upon service level commitment. Should this accommodation not be feasible, we may find it necessary to escalate this matter through formal dispute channels. Please advise on the appropriate course of action.",
+        "ground_truth": ["upgrade_shipping", "file_complaint"]
+      }
+    ]
+  },
+  {
+    "id": "teen_slang_chaos",
+    "category": "slang",
+    "persona": { "personality": "casual", "sophistication": "low", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "bruh this aint working lol i been trying to use this gift card for like an hour and it keeps saying error tf is wrong with ur site",
+        "ground_truth": ["gift_card_redeem"]
+      },
+      {
+        "message": "nah fr tho i got this card from my aunt for my bday and its got $50 on it supposedly but when i put the code in it says not recognized like wdym not recognized its literally from ur store smh",
+        "ground_truth": ["gift_card_redeem", "check_balance"]
+      },
+      {
+        "message": "ok whatever forget the gift card ig can u just check if the shoes i want r even in stock still bc if theyre gone then theres no point also how much r they now bc my friend said they went on sale",
+        "ground_truth": ["product_availability", "price_check"]
+      },
+      {
+        "message": "ight bet theyre still there imma just pay regular then ship it to me asap whats the fastest shipping u got cuz i need them by saturday no cap",
+        "ground_truth": ["shipping_options", "delivery_estimate"]
+      }
+    ]
+  },
+  {
+    "id": "technical_user_api_issue",
+    "category": "technical",
+    "persona": { "personality": "precise", "sophistication": "high", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "I'm getting a 403 Forbidden response when hitting your /api/v2/payments endpoint with a valid Bearer token. My token was issued 20 minutes ago so it shouldn't be expired. The response body contains error_code: AUTH_SCOPE_INSUFFICIENT. I need to add a payment method to my account programmatically - which OAuth scope is required beyond payments:read?",
+        "ground_truth": ["add_payment_method", "account_status"]
+      },
+      {
+        "message": "Confirmed I now have payments:write scope but I'm hitting a different issue. POST to /api/v2/payments/methods returns 422 with validation_error on the billing_address.postal_code field. The payload I'm sending has postal_code as an integer 90210 instead of string - is your API strict about type coercion? Also I need to check if my current subscription tier even allows multiple payment methods.",
+        "ground_truth": ["add_payment_method", "subscription_status", "account_limits"]
+      },
+      {
+        "message": "Got it working. While I'm here, I'm seeing a webhook delivery failure on event type invoice.created - my endpoint at https://hooks.myapp.io/billing returns 200 but your dashboard shows delivery_status: failed with a TLS handshake timeout. Can you check if your webhook service has issues with TLS 1.3 on non-standard ports? Also pull up my last 5 transaction records so I can verify my webhook handler actually received them.",
+        "ground_truth": ["request_invoice", "transaction_details"]
+      },
+      {
+        "message": "Last thing. I want to programmatically pause my subscription during our maintenance windows. The PATCH /api/v2/subscriptions/{id} endpoint docs say it accepts status: paused but I'm getting a 400 with error plan_type_ineligible. Is pause only available on certain plans? If so what's my eligibility status and what plan do I need to upgrade to?",
+        "ground_truth": ["pause_subscription", "eligibility_check", "change_plan"]
+      }
+    ]
+  },
+  {
+    "id": "sarcastic_everything_broken",
+    "category": "sarcastic",
+    "persona": { "personality": "sarcastic", "sophistication": "high", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "Oh good, my favorite part of the week - spending my lunch break dealing with your company's latest creative interpretation of my order. I ordered three items. I received one. But hey, at least you charged me for all three, so that's consistent.",
+        "ground_truth": ["track_order", "billing_issue"]
+      },
+      {
+        "message": "You want the order number? Sure, it's 44829. I'm sure that'll really crack this case wide open. The missing items are a laptop stand and a USB hub. The mousepad arrived though, so congratulations on getting that right, truly an achievement for the ages.",
+        "ground_truth": ["track_order", "order_history"]
+      },
+      {
+        "message": "A partial shipment? How innovative. So you're telling me the rest will arrive eventually, possibly, if the stars align? Cool cool cool. Can I at least get the shipping upgraded to something from this century since I've already waited two weeks? Or is punctuality a premium feature?",
+        "ground_truth": ["upgrade_shipping", "delivery_estimate"]
+      },
+      {
+        "message": "You know what, just refund the two missing items. I'll spend my money somewhere that can count to three. And while you're at it, I had a 20% off coupon that I used on this order - make sure the refund reflects the full pre-discount price since the coupon was supposed to apply to the whole order, not just the one thing you actually managed to send me.",
+        "ground_truth": ["refund", "apply_coupon"]
+      }
+    ]
+  },
+  {
+    "id": "rambling_confused_tangents",
+    "category": "rambling",
+    "persona": { "personality": "rambling", "sophistication": "low", "verbosity": "very_long" },
+    "turns": [
+      {
+        "message": "Hi there so I was at the store the other day, well not your store but the grocery store down on 5th street, the one next to the old bank that they turned into a coffee shop, you know the one right, anyway I was there and I ran into my friend Deborah who told me that you guys have a loyalty program and she said she gets discounts all the time and I thought well I've been ordering from you for years and nobody ever told me about any loyalty program so I want to know how many points I have if I even have any because that seems like something someone should have mentioned",
+        "ground_truth": ["loyalty_points", "eligibility_check"]
+      },
+      {
+        "message": "Oh and while I'm thinking about it I also got a package yesterday or was it Tuesday no it was definitely yesterday because I remember I was watching that cooking show the one with the British guy not Gordon Ramsay the other one and the doorbell rang and it was a delivery but the thing is I didn't order anything recently or at least I don't think I did unless maybe it was that thing my husband ordered he uses my account sometimes without telling me which really annoys me but anyway can you check what was ordered on my account in the last week because I honestly have no idea what's in this box I haven't opened it yet",
+        "ground_truth": ["order_history"]
+      },
+      {
+        "message": "OK so I opened the box and it's a set of those fancy storage containers and my husband says he didn't order them either so now I'm worried maybe someone hacked into my account because you hear about that all the time on the news my sister-in-law had her identity stolen last year and it was a whole nightmare she had to cancel all her cards and everything so can you check if anyone else has been using my account and also I want to see the charges because if I didn't order this someone else did and I shouldn't have to pay for it obviously",
+        "ground_truth": ["report_fraud", "account_status", "payment_history"]
+      },
+      {
+        "message": "Well actually now that I think about it my daughter mentioned something about sending me a gift a few weeks ago but she lives in Oregon and she's terrible about following through on things bless her heart so I didn't think anything of it but maybe she did actually send it I should call her but anyway just in case it wasn't her I still want to reset my password because now I'm all paranoid about it and also can you tell me what my return policy options are if it turns out I need to send these containers back",
+        "ground_truth": ["reset_password", "return_policy"]
+      },
+      {
+        "message": "OK so I called my daughter and she did order them for me as an early birthday present which is sweet but she got the wrong size I need the large ones not the medium ones so I guess I need to return these and reorder the right ones and she said to use her gift card to pay for the new ones the code is something like GC-BIRTHDAY-2026 or something let me find the text she sent me actually can you just look it up maybe it's attached to my account somehow",
+        "ground_truth": ["return_policy", "reorder", "gift_card_redeem"]
+      }
+    ]
+  },
+  {
+    "id": "angry_profanity_meltdown",
+    "category": "angry",
+    "persona": { "personality": "aggressive", "sophistication": "low", "verbosity": "short" },
+    "turns": [
+      {
+        "message": "What the hell is wrong with you people?? I've been charged TWICE and nobody gives a damn. Fix this crap right now.",
+        "ground_truth": ["billing_issue", "refund"]
+      },
+      {
+        "message": "Don't give me that scripted BS about 5-7 business days. I want my freaking money back TODAY. $89 is not pocket change. Get a supervisor on the line NOW.",
+        "ground_truth": ["refund", "contact_human"]
+      },
+      {
+        "message": "You know what, screw it. Cancel my whole damn account. I'm done with this garbage company. Every single month there's some new BS to deal with.",
+        "ground_truth": ["close_account"]
+      },
+      {
+        "message": "Before you close it give me my money back for this month AND the duplicate charge. I want every last cent. And send me proof that the account is closed so you clowns can't keep charging me.",
+        "ground_truth": ["refund", "close_account", "request_invoice"]
+      }
+    ]
+  },
+  {
+    "id": "indecisive_plan_paralysis",
+    "category": "indecisive",
+    "persona": { "personality": "indecisive", "sophistication": "medium", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "I want to upgrade to the premium plan. Actually wait, first tell me what the difference is between premium and the one I have now. I might not even need premium. Maybe the mid-tier one is enough?",
+        "ground_truth": ["price_check", "subscription_status"]
+      },
+      {
+        "message": "Hmm those features do sound nice but it's a lot more money. What if I just kept my current plan and added the cloud storage as a standalone add-on? Is that possible? Or would it be cheaper to just go premium? Actually show me my usage history so I can see if I even need more storage.",
+        "ground_truth": ["change_plan", "price_check", "account_status"]
+      },
+      {
+        "message": "OK you're right premium would be cheaper than add-ons. Let me do that. No wait, my billing cycle resets in 3 days, should I wait? Or do you prorate it? Actually maybe I should wait till next month. But then I won't have the storage... ugh. Can I just pause my current plan and sign up fresh on the premium?",
+        "ground_truth": ["change_plan", "pause_subscription"]
+      },
+      {
+        "message": "No that's dumb forget the pause. Just upgrade me to premium starting now. Actually no, one more question - can I cancel the upgrade within 30 days if I don't like it? I want to make sure I'm not locked in. What's the cancellation policy for premium?",
+        "ground_truth": ["change_plan", "return_policy", "account_limits"]
+      },
+      {
+        "message": "OK I've decided. Don't upgrade me. I'm going to keep my current plan for now and think about it more. But can you at least apply that promotional code SAVE20 to my current subscription? My coworker said it works for any plan level.",
+        "ground_truth": ["apply_coupon", "subscription_status"]
+      }
+    ]
+  },
+  {
+    "id": "gift_situation_mixup",
+    "category": "gift",
+    "persona": { "personality": "polite", "sophistication": "medium", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "I received a gift from someone but it's the wrong item. The problem is I don't want the sender to know I'm returning it because I don't want to hurt their feelings. Can I exchange it without them being notified? Also is there a way to see what they paid so I know the credit value?",
+        "ground_truth": ["return_policy", "transaction_details"]
+      },
+      {
+        "message": "Perfect, gift receipts work then. I also have two gift cards I'd like to combine and use toward the replacement item. One is a physical card from last Christmas and the other is a digital code I got by email. Can I check the balances on both? The physical one is GC-7712 and the digital is EGIFT-44291.",
+        "ground_truth": ["gift_card_redeem", "check_balance"]
+      },
+      {
+        "message": "Great, so $25 on each for $50 total. The item I want costs $72, so I'll need to pay the difference. Can I use both gift cards on the same order and put the remaining $22 on my debit card? Also I want to make sure this item is actually available before I go through all this.",
+        "ground_truth": ["gift_card_redeem", "add_payment_method", "product_availability"]
+      },
+      {
+        "message": "OK it's in stock. Go ahead and place the order - apply both gift cards and charge the rest to the card on file. Ship it to my address with standard shipping. Oh and I want to send a separate gift to the person who sent me the original one as a thank you. Can you check if gift wrapping is available and what the shipping options are for sending it directly to them?",
+        "ground_truth": ["reorder", "shipping_options"]
+      }
+    ]
+  },
+  {
+    "id": "multiple_issues_kitchen_sink",
+    "category": "multiple",
+    "persona": { "personality": "organized", "sophistication": "high", "verbosity": "long" },
+    "turns": [
+      {
+        "message": "I have several things I need to deal with today so let me get through all of them. First, order 89012 shows delivered but I never got it - either find it or refund me. Second, my subscription renewed yesterday at $49.99 but I downgraded to the $29.99 plan last week so I was overcharged by $20. Third, I have a $15 coupon code WELCOME15 that I want applied as credit to my account.",
+        "ground_truth": ["track_order", "refund", "billing_issue", "change_plan", "apply_coupon"]
+      },
+      {
+        "message": "Next issue. I recently moved and need my address updated to 1823 Birch Court, Apt 4, Denver CO 80202. Also my old credit card was compromised so I need to remove it and add my new Visa ending in 8834. And while you're in the payment section, can you show me my last 5 transactions? I want to verify nothing fraudulent happened before I caught the compromised card.",
+        "ground_truth": ["update_address", "add_payment_method", "payment_history", "report_fraud"]
+      },
+      {
+        "message": "For the missing package from issue one - looks like tracking says it went to my old address. That explains it. Can you reship it to my new address with expedited shipping since this was your system's fault for not updating? Also I need to check my loyalty points balance because I want to use points to cover the expedited shipping cost if possible.",
+        "ground_truth": ["reorder", "upgrade_shipping", "loyalty_points"]
+      },
+      {
+        "message": "Two more things. I need a detailed invoice for all purchases from January through March for my tax records. And can you check whether I'm eligible for the annual billing discount? My accountant says it would be better for our records to pay yearly instead of monthly, but I want to make sure I don't lose my current promotional rate if I switch billing cycles.",
+        "ground_truth": ["request_invoice", "eligibility_check", "change_plan", "price_check"]
+      },
+      {
+        "message": "Last items. I want to file a formal complaint about the address not being updated which caused the lost package - that's a system error on your end. I also need to schedule a callback with a senior rep to discuss my business account limits because I'm hitting transaction caps and I may need to upgrade. Please have them call me Tuesday between 2-4 PM EST.",
+        "ground_truth": ["file_complaint", "schedule_callback", "account_limits", "contact_human"]
+      }
+    ]
+  }
+]

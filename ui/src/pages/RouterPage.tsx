@@ -111,9 +111,10 @@ export default function RouterPage() {
 
   const runReview = async (msgIndex: number, query: string, result: MultiRouteOutput) => {
     try {
+      const allResults = [...(result.confirmed || []), ...(result.candidates || [])];
       const review = await api.review(
         query,
-        result.intents.map(i => ({ id: i.id, score: i.score, intent_type: i.intent_type, span: i.span })),
+        allResults.map(i => ({ id: i.id, score: i.score, intent_type: i.intent_type, span: i.span })),
         0.3,
       );
       updateMessage(msgIndex, { review, reviewing: false });
@@ -125,16 +126,8 @@ export default function RouterPage() {
 
   const applySuggestion = async (suggestion: ReviewAnalysis['suggestions'][0]) => {
     try {
-      if (suggestion.action === 'learn') {
-        await api.learn(suggestion.query, suggestion.intent_id);
-        push({ type: 'learn', text: `Applied: learn "${suggestion.query}" → ${suggestion.intent_id}` });
-      } else if (suggestion.action === 'correct' && suggestion.wrong_intent) {
-        await api.correct(suggestion.query, suggestion.wrong_intent, suggestion.intent_id);
-        push({ type: 'learn', text: `Applied: correct "${suggestion.query}" from ${suggestion.wrong_intent} → ${suggestion.intent_id}` });
-      } else if (suggestion.action === 'add_seed' && suggestion.seed) {
-        await api.addSeed(suggestion.intent_id, suggestion.seed);
-        push({ type: 'learn', text: `Applied: added seed "${suggestion.seed}" to ${suggestion.intent_id}` });
-      }
+      await api.learn(suggestion.seed, suggestion.intent_id);
+      push({ type: 'learn', text: `Applied: seed "${suggestion.seed}" → ${suggestion.intent_id}` });
     } catch (err) {
       push({ type: 'error', text: `Failed: ${err}` });
     }
@@ -222,50 +215,48 @@ function MessageBubble({ msg, onApplySuggestion }: {
 
   // Result card
   const { result, latency, query, review, reviewing } = msg;
-  if (!result || result.intents.length === 0) {
+  const allIntents = [...(result?.confirmed || []), ...(result?.candidates || [])];
+  if (!result || allIntents.length === 0) {
     return <div className="text-zinc-500 text-sm pl-5">No match found.</div>;
   }
 
-  const bestScore = Math.max(...result.intents.map(i => i.score));
-  const actions = result.intents.filter(i => i.intent_type === 'action');
-  const contexts = result.intents.filter(i => i.intent_type === 'context');
+  const confirmed = result.confirmed || [];
+  const candidates = result.candidates || [];
+  const bestScore = Math.max(...allIntents.map(i => i.score));
 
   return (
     <div className="pl-5 mb-3">
       {/* Highlighted query card */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-2">
-        <HighlightedQuery query={query} intents={result.intents} />
+        <HighlightedQuery query={query} intents={allIntents} />
       </div>
 
-      {/* E4: Group by action vs context */}
-      {actions.length > 0 && (
+      {/* Confirmed intents */}
+      {confirmed.length > 0 && (
         <div className="mb-1">
-          {actions.length > 0 && contexts.length > 0 && (
-            <div className="text-[10px] text-emerald-400/60 uppercase font-semibold tracking-wide mb-0.5 pl-1">Actions</div>
+          {candidates.length > 0 && (
+            <div className="text-[10px] text-emerald-400/60 uppercase font-semibold tracking-wide mb-0.5 pl-1">Confirmed</div>
           )}
-          {actions.map((intent, i) => (
-            <IntentRow key={intent.id} intent={intent} index={result.intents.indexOf(intent)} bestScore={bestScore} isMulti={result.intents.length > 1} latency={latency} />
-          ))}
-        </div>
-      )}
-      {contexts.length > 0 && (
-        <div className="mb-1">
-          {actions.length > 0 && (
-            <div className="text-[10px] text-cyan-400/60 uppercase font-semibold tracking-wide mb-0.5 pl-1 mt-1">Context</div>
-          )}
-          {contexts.map((intent, i) => (
-            <IntentRow key={intent.id} intent={intent} index={result.intents.indexOf(intent)} bestScore={bestScore} isMulti={result.intents.length > 1} latency={latency} />
+          {confirmed.map((intent, i) => (
+            <IntentRow key={intent.id} intent={intent} index={i} bestScore={bestScore} isMulti={allIntents.length > 1} latency={latency} />
           ))}
         </div>
       )}
 
-      {/* Timing for single intent */}
-      {result.intents.length === 1 && (
-        <div className="text-zinc-600 text-xs pl-2">{latency.toFixed(0)}ms</div>
+      {/* Candidate intents */}
+      {candidates.length > 0 && (
+        <div className="mb-1">
+          <div className="text-[10px] text-zinc-500 uppercase font-semibold tracking-wide mb-0.5 pl-1 mt-1">Candidates</div>
+          {candidates.map((intent, i) => (
+            <IntentRow key={intent.id} intent={intent} index={confirmed.length + i} bestScore={bestScore} isMulti={allIntents.length > 1} latency={latency} />
+          ))}
+        </div>
       )}
-      {result.intents.length > 1 && (
-        <div className="text-zinc-600 text-xs pl-2">{result.intents.length} intents ({latency.toFixed(0)}ms)</div>
-      )}
+
+      {/* Timing */}
+      <div className="text-zinc-600 text-xs pl-2">
+        {confirmed.length} confirmed{candidates.length > 0 ? `, ${candidates.length} candidates` : ''} ({latency.toFixed(0)}ms)
+      </div>
 
       {/* Relations */}
       {result.relations.length > 0 &&
@@ -324,8 +315,20 @@ function MessageBubble({ msg, onApplySuggestion }: {
 
 // --- Intent row ---
 
+const CONFIDENCE_STYLES: Record<string, string> = {
+  high: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10',
+  medium: 'text-amber-400 border-amber-400/40 bg-amber-400/10',
+  low: 'text-zinc-400 border-zinc-500/40 bg-zinc-500/10',
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  dual: 'dual',
+  paraphrase: 'phrase',
+  routing: 'route',
+};
+
 function IntentRow({ intent, index, bestScore, isMulti, latency }: {
-  intent: { id: string; score: number; intent_type: string; span: [number, number] };
+  intent: { id: string; score: number; intent_type: string; span: [number, number]; confidence?: string; source?: string };
   index: number;
   bestScore: number;
   isMulti: boolean;
@@ -335,9 +338,16 @@ function IntentRow({ intent, index, bestScore, isMulti, latency }: {
   const isWeak = isMulti && relativeScore < 0.3;
   const color = INTENT_COLORS[index % INTENT_COLORS.length];
   const bgColor = INTENT_BG_COLORS[index % INTENT_BG_COLORS.length];
+  const confidence = intent.confidence || 'low';
+  const source = intent.source || 'routing';
+  const confStyle = CONFIDENCE_STYLES[confidence] || CONFIDENCE_STYLES.low;
 
   return (
     <div className={`flex items-center gap-2.5 font-mono text-sm px-2 py-1 rounded ${bgColor} ${isWeak ? 'opacity-40' : ''}`}>
+      {/* Confidence badge */}
+      <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase ${confStyle}`}>
+        {confidence}
+      </span>
       <span className={`font-semibold ${color}`}>{intent.id}</span>
       <span className="text-amber-400">{intent.score.toFixed(2)}</span>
       <span className={`text-[9px] px-1 py-0.5 rounded border font-semibold uppercase ${
@@ -347,6 +357,8 @@ function IntentRow({ intent, index, bestScore, isMulti, latency }: {
       }`}>
         {intent.intent_type}
       </span>
+      {/* Source indicator */}
+      <span className="text-zinc-500 text-[10px]">{SOURCE_LABELS[source] || source}</span>
       {isMulti && (
         <span className="text-zinc-600 text-xs">[{intent.span[0]},{intent.span[1]}]</span>
       )}
@@ -411,16 +423,8 @@ function ReviewCard({ review, onApply }: {
           {review.suggestions.map((s, i) => (
             <div key={i} className="flex items-start gap-2 text-xs pl-2 py-1">
               <div className="flex-1">
-                <span className="text-violet-400 font-mono">{s.action}</span>
-                {s.action === 'learn' && (
-                  <span className="text-zinc-400"> "{s.query}" → <span className="text-emerald-400">{s.intent_id}</span></span>
-                )}
-                {s.action === 'correct' && (
-                  <span className="text-zinc-400"> "{s.query}" from <span className="text-red-400">{s.wrong_intent}</span> → <span className="text-emerald-400">{s.intent_id}</span></span>
-                )}
-                {s.action === 'add_seed' && (
-                  <span className="text-zinc-400"> "{s.seed}" → <span className="text-emerald-400">{s.intent_id}</span></span>
-                )}
+                <span className="text-violet-400 font-mono">add_seed</span>
+                <span className="text-zinc-400"> "{s.seed}" → <span className="text-emerald-400">{s.intent_id}</span></span>
                 <div className="text-zinc-600 mt-0.5">{s.reason}</div>
               </div>
               <button

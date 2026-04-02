@@ -22,6 +22,10 @@ pub struct MultiRouteResult {
     pub span: (usize, usize),
     /// Whether this is an action or context intent.
     pub intent_type: crate::IntentType,
+    /// Detection confidence tier: "high" (dual-source), "medium" (paraphrase-only), "low" (routing-only).
+    pub confidence: String,
+    /// Detection source: "dual" (both indexes), "paraphrase" (phrase match only), "routing" (term match only).
+    pub source: String,
 }
 
 /// Relationship between two consecutive detected intents.
@@ -95,6 +99,12 @@ pub(crate) fn route_multi(
     let mut detected: Vec<MultiRouteResult> = Vec::new();
     let mut seen_intents: HashSet<String> = HashSet::new();
 
+    // Term discrimination: a term is "defining" if it appears in a small
+    // fraction of intents. Generic vocabulary (shared across many intents)
+    // should not be enough to detect an intent in multi-intent decomposition.
+    let n = index.intent_count();
+    let disc_max_df = (n / 15).max(3);
+
     // Greedy consumption: find best intent, consume its terms, repeat
     loop {
         if remaining.is_empty() {
@@ -123,20 +133,42 @@ pub(crate) fn route_multi(
             None => break,
         };
 
-        // Consume matching terms, track positions
-        let mut consumed_offsets: Vec<(usize, usize)> = Vec::new(); // (offset, end_offset)
+        // Identify which positioned terms would be consumed
+        let consumed_indices: Vec<usize> = remaining.iter().enumerate()
+            .filter(|(_, pt)| effective.contains_key(&pt.term))
+            .map(|(i, _)| i)
+            .collect();
+
+        if consumed_indices.is_empty() {
+            break;
+        }
+
+        // Discrimination check for secondary intents: at least one consumed
+        // term must be "defining" — appearing in fewer than disc_max_df intents.
+        // This prevents noise from generic vocabulary (e.g. "order", "have")
+        // creating false detections after the strongest intent consumes its terms.
+        if !detected.is_empty() {
+            let has_defining_term = consumed_indices.iter().any(|&i| {
+                index.df(&remaining[i].term) < disc_max_df
+            });
+            if !has_defining_term {
+                // All consumed terms are generic — skip this intent
+                seen_intents.insert(best.id.clone());
+                continue;
+            }
+        }
+
+        // Commit: consume matched terms, track positions
+        let consumed_set: HashSet<usize> = consumed_indices.into_iter().collect();
+        let mut consumed_offsets: Vec<(usize, usize)> = Vec::new();
         let mut new_remaining: Vec<PositionedTerm> = Vec::new();
 
-        for pt in remaining {
-            if effective.contains_key(&pt.term) {
+        for (i, pt) in remaining.into_iter().enumerate() {
+            if consumed_set.contains(&i) {
                 consumed_offsets.push((pt.offset, pt.end_offset));
             } else {
                 new_remaining.push(pt);
             }
-        }
-
-        if consumed_offsets.is_empty() {
-            break;
         }
 
         let min_offset = consumed_offsets.iter().map(|(s, _)| *s).min().unwrap();
@@ -149,6 +181,8 @@ pub(crate) fn route_multi(
             position: min_offset,
             span: (min_offset, max_end),
             intent_type: crate::IntentType::Action, // Default; overridden by Router::route_multi()
+            confidence: "low".to_string(),
+            source: "routing".to_string(),
         });
 
         remaining = new_remaining;
@@ -196,6 +230,14 @@ fn build_search_terms(remaining: &[PositionedTerm]) -> Vec<String> {
     }
 
     terms
+}
+
+/// Public entry point for relation detection (used by segmented route_multi).
+pub fn detect_relations_public(
+    intents: &[MultiRouteResult],
+    query_chars: &[char],
+) -> Vec<IntentRelation> {
+    detect_relations(intents, query_chars)
 }
 
 /// Detect relations between consecutive intents by examining gap text.

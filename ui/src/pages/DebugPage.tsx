@@ -208,16 +208,23 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
 
       {expanded && (
         <div className="mt-2 pl-16 space-y-0.5">
-          {entry.results.map((r, i) => (
-            <div key={i} className="text-xs font-mono flex gap-3">
-              <span className="text-zinc-400 w-28 truncate">{r.id}</span>
-              <span className="text-amber-400 w-10">{r.score.toFixed(2)}</span>
-              <span className={`text-[10px] ${r.intent_type === 'context' ? 'text-cyan-400' : 'text-emerald-400'}`}>
-                {r.intent_type}
-              </span>
-              <span className="text-zinc-600">[{r.span[0]},{r.span[1]}]</span>
-            </div>
-          ))}
+          {entry.results.map((r, i) => {
+            const conf = (r as any).confidence || 'low';
+            const src = (r as any).source || 'routing';
+            const confColor = conf === 'high' ? 'text-emerald-400' : conf === 'medium' ? 'text-amber-400' : 'text-zinc-500';
+            return (
+              <div key={i} className="text-xs font-mono flex gap-3">
+                <span className={`${confColor} w-10 font-bold uppercase text-[9px]`}>{conf}</span>
+                <span className="text-zinc-400 w-28 truncate">{r.id}</span>
+                <span className="text-amber-400 w-10">{r.score.toFixed(2)}</span>
+                <span className={`text-[10px] ${r.intent_type === 'context' ? 'text-cyan-400' : 'text-emerald-400'}`}>
+                  {r.intent_type}
+                </span>
+                <span className="text-zinc-600 text-[10px]">{src}</span>
+                <span className="text-zinc-600">[{r.span[0]},{r.span[1]}]</span>
+              </div>
+            );
+          })}
           <div className="text-[10px] text-zinc-600 mt-1">
             threshold: {entry.threshold.toFixed(2)} | latency: {entry.latency_us}μs
           </div>

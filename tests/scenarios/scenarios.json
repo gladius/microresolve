@@ -1,0 +1,769 @@
+[
+  {
+    "id": "frustrated_double_billing",
+    "category": "frustrated_verbose",
+    "persona": { "personality": "frustrated", "sophistication": "medium", "verbosity": "long" },
+    "turns": [
+      {
+        "message": "I was charged twice for the same order last week and I still haven't received my package. Can you please check what's going on with my order and fix this billing error? This is really frustrating.",
+        "ground_truth": ["billing_issue", "track_order"]
+      },
+      {
+        "message": "Look I already called about this three days ago and the agent said they would fix it but nothing happened. I'm seeing two charges of $47.99 on my credit card statement for order number 8834. I need someone to actually resolve this not just tell me they're working on it.",
+        "ground_truth": ["billing_issue"]
+      },
+      {
+        "message": "Fine just give me my money back for the duplicate charge. And while you're at it can you tell me when my actual order is going to arrive because the tracking hasn't updated in five days.",
+        "ground_truth": ["refund", "track_order"]
+      },
+      {
+        "message": "You know what, if this isn't resolved by end of day I'm going to dispute both charges with my bank and file a complaint with the BBB. I've been a customer for four years and this is how you treat people.",
+        "ground_truth": ["file_complaint"]
+      },
+      {
+        "message": "Just cancel the whole order and refund everything. I'll buy it somewhere else. I'm done with this.",
+        "ground_truth": ["cancel_order", "refund"]
+      }
+    ]
+  },
+  {
+    "id": "frustrated_service_outage",
+    "category": "frustrated_verbose",
+    "persona": { "personality": "frustrated", "sophistication": "medium", "verbosity": "long" },
+    "turns": [
+      {
+        "message": "My internet has been down for three days now and nobody seems to care. I work from home and this is costing me real money. I need this fixed immediately or I want a credit on my bill for the downtime.",
+        "ground_truth": ["billing_issue", "contact_human"]
+      },
+      {
+        "message": "The last tech support person told me to restart my router which I've already done fifteen times. I need an actual technician to come look at this. Can someone call me back today? I can't keep waiting on hold for an hour.",
+        "ground_truth": ["schedule_callback"]
+      },
+      {
+        "message": "I'm paying $89 a month for a service that doesn't work. At this point I want to either downgrade to a cheaper plan since I'm not getting what I pay for, or just cancel the whole thing entirely.",
+        "ground_truth": ["change_plan", "close_account"]
+      },
+      {
+        "message": "Before I cancel though, I need to know if there's an early termination fee on my contract. Also what's my current balance because I don't want any surprise charges.",
+        "ground_truth": ["check_balance", "account_limits"]
+      },
+      {
+        "message": "This whole experience has been a nightmare. I want to file a formal complaint and I want a manager to review my case. Document everything I've told you today.",
+        "ground_truth": ["file_complaint", "contact_human"]
+      }
+    ]
+  },
+  {
+    "id": "frustrated_wrong_item",
+    "category": "frustrated_verbose",
+    "persona": { "personality": "frustrated", "sophistication": "high", "verbosity": "long" },
+    "turns": [
+      {
+        "message": "I ordered a blue wireless keyboard and instead received a pink phone case. These aren't even in the same category. How does this happen? I need the correct item sent immediately and a return label for this wrong one.",
+        "ground_truth": ["refund", "track_order"]
+      },
+      {
+        "message": "I already checked my order history and the order clearly shows a wireless keyboard. The packing slip also says keyboard but the item in the box is definitely not a keyboard. Someone in your warehouse messed up.",
+        "ground_truth": ["order_history"]
+      },
+      {
+        "message": "I don't want a replacement anymore. Just refund my money and I'll buy it locally. Also I shouldn't have to pay for shipping to return something that was your mistake.",
+        "ground_truth": ["refund", "return_policy"]
+      },
+      {
+        "message": "How long will the refund take to process? My card was charged $129 and I need that money back within this billing cycle.",
+        "ground_truth": ["refund", "transaction_details"]
+      },
+      {
+        "message": "Send me a prepaid return label to the email on my account. And I want written confirmation that my refund has been approved.",
+        "ground_truth": ["refund", "request_invoice"]
+      }
+    ]
+  },
+  {
+    "id": "frustrated_failed_refund",
+    "category": "frustrated_verbose",
+    "persona": { "personality": "frustrated", "sophistication": "medium", "verbosity": "long" },
+    "turns": [
+      {
+        "message": "I returned a product three weeks ago and was told my refund would be processed in 5-7 business days. It's been twenty one days and I still don't see the money back on my card. What is going on?",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "I have the return tracking number and it shows the package was delivered to your warehouse on the 15th. Someone signed for it. So where is my refund? Don't tell me to wait longer.",
+        "ground_truth": ["refund", "track_order"]
+      },
+      {
+        "message": "Can you check the payment history on my account? There should be a pending credit but I'm not seeing anything. The original charge was $89.95 on February 2nd.",
+        "ground_truth": ["payment_history", "transaction_details"]
+      },
+      {
+        "message": "This is absolutely unacceptable. I want to speak to a supervisor right now. If I don't get my refund today I'm going to dispute this with my credit card company.",
+        "ground_truth": ["contact_human", "refund"]
+      },
+      {
+        "message": "Forget the supervisor. Just process my refund right now and send me an email confirmation with a reference number. I'm documenting everything for my bank dispute.",
+        "ground_truth": ["refund", "request_invoice"]
+      }
+    ]
+  },
+  {
+    "id": "frustrated_hacked_account",
+    "category": "frustrated_verbose",
+    "persona": { "personality": "frustrated", "sophistication": "high", "verbosity": "long" },
+    "turns": [
+      {
+        "message": "I just noticed several transactions on my account that I did not authorize. Someone has gotten into my account and made purchases totaling over $500. I need you to lock my account immediately and investigate this.",
+        "ground_truth": ["report_fraud"]
+      },
+      {
+        "message": "There are five separate charges from yesterday between midnight and 3am. I was asleep. The transactions are to merchants I've never heard of. I need every single one of these reversed.",
+        "ground_truth": ["report_fraud", "transaction_details"]
+      },
+      {
+        "message": "I need to reset my password right away and also change the payment method on file because whoever got in has my card number. Can you remove the compromised card?",
+        "ground_truth": ["reset_password", "add_payment_method"]
+      },
+      {
+        "message": "Has anyone else on your platform reported similar unauthorized access? I want to know if this was a data breach on your end. Also please check if my personal information was accessed or changed.",
+        "ground_truth": ["report_fraud", "account_status"]
+      },
+      {
+        "message": "Send me a full statement of all account activity for the past 30 days. I need it for the police report I'm filing.",
+        "ground_truth": ["payment_history", "request_invoice"]
+      }
+    ]
+  },
+
+  {
+    "id": "confused_cant_login",
+    "category": "confused_elderly",
+    "persona": { "personality": "confused", "sophistication": "low", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "The thing won't let me in anymore. I put in my name and the secret word but it keeps saying no. I don't understand what changed.",
+        "ground_truth": ["reset_password"]
+      },
+      {
+        "message": "I don't remember what my password is. My grandson set it up for me. Is there a way to make a new one? I don't want to lose all my stuff in there.",
+        "ground_truth": ["reset_password"]
+      },
+      {
+        "message": "OK so you sent me an email to change it but I can't find the email. Where would it go? I use the Yahoo mail.",
+        "ground_truth": ["reset_password"]
+      },
+      {
+        "message": "I found it! I changed the password but now it's asking me about two factor something. I don't know what that means. Can you just let me in?",
+        "ground_truth": ["reset_password", "account_status"]
+      },
+      {
+        "message": "Thank you dearie. While I have you on the line, can you check if my account is OK? I want to make sure nobody messed with it.",
+        "ground_truth": ["account_status"]
+      }
+    ]
+  },
+  {
+    "id": "confused_plan_change",
+    "category": "confused_elderly",
+    "persona": { "personality": "confused", "sophistication": "low", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "My bill seems really high this month. Am I on the right plan? I think my neighbor pays less for the same thing.",
+        "ground_truth": ["subscription_status", "billing_issue"]
+      },
+      {
+        "message": "I don't really understand all these plan names. I just need the basic one that lets me do the regular stuff. Not the fancy one with all the extras.",
+        "ground_truth": ["change_plan"]
+      },
+      {
+        "message": "How much would I save if I go to the cheaper one? And would I lose anything I already have saved?",
+        "ground_truth": ["price_check", "change_plan"]
+      },
+      {
+        "message": "Let me think about it. Can you just show me what I'm currently paying and what all these charges are? Some of these items on the bill I don't understand.",
+        "ground_truth": ["subscription_status", "payment_history"]
+      },
+      {
+        "message": "OK just switch me to the basic plan please. And make sure I don't get charged for the expensive one next month.",
+        "ground_truth": ["change_plan"]
+      }
+    ]
+  },
+  {
+    "id": "confused_mystery_order",
+    "category": "confused_elderly",
+    "persona": { "personality": "confused", "sophistication": "low", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "I got a box delivered today but I don't remember ordering anything. Did someone send me something? I'm worried maybe someone used my account.",
+        "ground_truth": ["order_history", "report_fraud"]
+      },
+      {
+        "message": "It says it's from your company but I really don't think I ordered this. Can you look up what orders are on my account?",
+        "ground_truth": ["order_history"]
+      },
+      {
+        "message": "Oh wait my daughter might have ordered this for me as a gift. Can you tell me who placed the order? It has my address but I'm not sure it's mine.",
+        "ground_truth": ["order_history", "transaction_details"]
+      },
+      {
+        "message": "OK she says she didn't order it either. I want to send it back. How do I do that? Do I need to go to the post office?",
+        "ground_truth": ["refund", "return_policy"]
+      },
+      {
+        "message": "Also check if my card was charged for this because if someone is ordering things on my account that's very concerning.",
+        "ground_truth": ["payment_history", "report_fraud"]
+      }
+    ]
+  },
+  {
+    "id": "confused_tracking",
+    "category": "confused_elderly",
+    "persona": { "personality": "confused", "sophistication": "low", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "Where is the thing I ordered? The email said it would be here by Tuesday and it's Thursday now. I need it for my grandson's birthday.",
+        "ground_truth": ["track_order", "delivery_estimate"]
+      },
+      {
+        "message": "I got a number in the email for tracking but when I put it in the website it doesn't show anything. Maybe I'm doing it wrong?",
+        "ground_truth": ["track_order"]
+      },
+      {
+        "message": "Can you just tell me where it is? Is it still coming or did something happen? I'm really worried it got lost.",
+        "ground_truth": ["track_order"]
+      },
+      {
+        "message": "If it's lost can I get another one sent? Or should I just get my money back and buy it at the store instead?",
+        "ground_truth": ["reorder", "refund"]
+      },
+      {
+        "message": "Please make sure the new one gets here faster this time. Is there a way to pay extra for quicker delivery?",
+        "ground_truth": ["upgrade_shipping", "shipping_options"]
+      }
+    ]
+  },
+  {
+    "id": "confused_payment_update",
+    "category": "confused_elderly",
+    "persona": { "personality": "confused", "sophistication": "low", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "My bank gave me a new card because the old one expired. I need to put the new card number somewhere but I can't figure out how.",
+        "ground_truth": ["add_payment_method"]
+      },
+      {
+        "message": "The website is confusing. I click on my account but I don't see where the card information is. Can you walk me through it?",
+        "ground_truth": ["add_payment_method"]
+      },
+      {
+        "message": "Will my automatic payments still work? I don't want my service to get cut off because the old card doesn't work anymore.",
+        "ground_truth": ["subscription_status", "add_payment_method"]
+      },
+      {
+        "message": "Actually can you just do it for me? My new card number is... wait, is it safe to give you my card number over chat?",
+        "ground_truth": ["add_payment_method"]
+      },
+      {
+        "message": "OK I'll try on the website again. But if my subscription gets canceled because the payment doesn't go through, will I lose my history and everything?",
+        "ground_truth": ["subscription_status", "pause_subscription"]
+      }
+    ]
+  },
+
+  {
+    "id": "terse_refund",
+    "category": "terse_impatient",
+    "persona": { "personality": "impatient", "sophistication": "medium", "verbosity": "short" },
+    "turns": [
+      {
+        "message": "refund please",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "order 4421, wrong item",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "how long?",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "need it faster, talking to bank tomorrow",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "email me confirmation",
+        "ground_truth": ["request_invoice"]
+      }
+    ]
+  },
+  {
+    "id": "terse_cancel",
+    "category": "terse_impatient",
+    "persona": { "personality": "impatient", "sophistication": "medium", "verbosity": "short" },
+    "turns": [
+      {
+        "message": "cancel my order",
+        "ground_truth": ["cancel_order"]
+      },
+      {
+        "message": "the one from yesterday, order 7712",
+        "ground_truth": ["cancel_order"]
+      },
+      {
+        "message": "full refund too",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "when does the money come back",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "fine. done.",
+        "ground_truth": []
+      }
+    ]
+  },
+  {
+    "id": "terse_password",
+    "category": "terse_impatient",
+    "persona": { "personality": "impatient", "sophistication": "high", "verbosity": "short" },
+    "turns": [
+      {
+        "message": "locked out",
+        "ground_truth": ["reset_password"]
+      },
+      {
+        "message": "password reset not working, no email received",
+        "ground_truth": ["reset_password"]
+      },
+      {
+        "message": "check if my email is right on the account",
+        "ground_truth": ["account_status"]
+      },
+      {
+        "message": "ok fix it and send reset link again",
+        "ground_truth": ["reset_password"]
+      },
+      {
+        "message": "works now thanks",
+        "ground_truth": []
+      }
+    ]
+  },
+  {
+    "id": "terse_tracking",
+    "category": "terse_impatient",
+    "persona": { "personality": "impatient", "sophistication": "medium", "verbosity": "short" },
+    "turns": [
+      {
+        "message": "where's my package",
+        "ground_truth": ["track_order"]
+      },
+      {
+        "message": "order 9901, ordered last week",
+        "ground_truth": ["track_order"]
+      },
+      {
+        "message": "says in transit since monday. when does it arrive",
+        "ground_truth": ["delivery_estimate"]
+      },
+      {
+        "message": "can I upgrade to express at this point",
+        "ground_truth": ["upgrade_shipping"]
+      },
+      {
+        "message": "just want it before friday",
+        "ground_truth": ["delivery_estimate"]
+      }
+    ]
+  },
+  {
+    "id": "terse_billing",
+    "category": "terse_impatient",
+    "persona": { "personality": "impatient", "sophistication": "medium", "verbosity": "short" },
+    "turns": [
+      {
+        "message": "wrong amount charged",
+        "ground_truth": ["billing_issue"]
+      },
+      {
+        "message": "should be $29 not $58. double charge",
+        "ground_truth": ["billing_issue"]
+      },
+      {
+        "message": "reverse the extra charge now",
+        "ground_truth": ["billing_issue", "refund"]
+      },
+      {
+        "message": "when will I see the credit",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "send proof of the adjustment",
+        "ground_truth": ["request_invoice"]
+      }
+    ]
+  },
+
+  {
+    "id": "email_billing_complaint",
+    "category": "email_longform",
+    "persona": { "personality": "formal", "sophistication": "high", "verbosity": "very_long" },
+    "turns": [
+      {
+        "message": "Dear Customer Service, I am writing to bring to your attention a serious billing discrepancy on my account. For the past three months, I have been charged $149.99 per month instead of the $99.99 per month that was quoted to me when I signed up for the Premium plan in October. I have attached screenshots of the original promotional offer as well as my last three billing statements showing the incorrect amount. I would like a full credit for the $150 overcharge ($50 x 3 months) and I want my account corrected to reflect the proper rate going forward. Please respond within 48 hours or I will escalate this matter.",
+        "ground_truth": ["billing_issue", "refund"]
+      },
+      {
+        "message": "I received your automated response but it does not address my concern. To reiterate: I signed up under a promotional rate of $99.99/month. My contract, which I still have a copy of, explicitly states this rate for 12 months. I am only 3 months into the contract period. The fact that I am being charged $149.99 is a breach of the agreed terms. I would appreciate a response from someone with the authority to issue the credit and correct the billing going forward. Additionally, I would like an itemized breakdown of all charges on my account for the past 6 months so I can verify there are no other discrepancies.",
+        "ground_truth": ["billing_issue", "payment_history"]
+      },
+      {
+        "message": "Thank you for looking into this. I would also like to request a copy of my original contract showing the promotional rate, and I need an official invoice or statement that shows the corrected charges after the credit is applied. This documentation is needed for my records and potential legal review if the issue is not resolved satisfactorily. I trust we can resolve this amicably but I need paper trail.",
+        "ground_truth": ["request_invoice", "billing_issue"]
+      }
+    ]
+  },
+  {
+    "id": "email_multi_issue",
+    "category": "email_longform",
+    "persona": { "personality": "detailed", "sophistication": "high", "verbosity": "very_long" },
+    "turns": [
+      {
+        "message": "Hello, I have several issues I need help with on my account (Account #44281). First, my order #78234 which was placed on February 12th still shows as processing even though it's been over two weeks. The estimated delivery was February 18th. I need an update on the shipping status. Second, I noticed that I was charged $34.99 for a subscription renewal that I thought I had canceled last month. I do not want to continue with this subscription and I want a refund for the renewal charge. Third, I have a $25 gift card that I want to apply to my next purchase but the redemption page gives me an error when I try to enter the code.",
+        "ground_truth": ["track_order", "billing_issue", "pause_subscription", "refund", "gift_card_redeem"]
+      },
+      {
+        "message": "Regarding the shipping issue, I just checked and the tracking number still shows no movement. At this point I would like to either have the order reshipped via express delivery at no extra cost, or receive a full refund including the original shipping charge. For the subscription, please confirm in writing that it has been canceled and that no further charges will occur. For the gift card issue, the code is GC-2024-ABCDE and the error message says invalid code format. Can you verify if this gift card is still valid and has a balance?",
+        "ground_truth": ["track_order", "upgrade_shipping", "refund", "pause_subscription", "gift_card_redeem"]
+      },
+      {
+        "message": "One more thing I forgot to mention. I also need to update the shipping address on my account because I recently moved. My new address should be used for any future orders and for the reshipped package if you decide to resend it. The new address is 742 Maple Street, Unit 3B, Portland OR 97201. Please confirm the address change was successful.",
+        "ground_truth": ["update_address"]
+      }
+    ]
+  },
+  {
+    "id": "email_account_closure",
+    "category": "email_longform",
+    "persona": { "personality": "formal", "sophistication": "high", "verbosity": "very_long" },
+    "turns": [
+      {
+        "message": "I am writing to request the permanent closure of my account effective immediately. I have been a customer since 2019 but over the past year the quality of service has declined significantly. Between the constant billing errors, the poor customer support response times, and the recent price increases with no improvement in service, I no longer wish to maintain this relationship. Before closing the account, I need to ensure the following: all pending orders are either delivered or refunded, any remaining account balance or loyalty points are transferred to a payment method of my choosing, and that all my personal data is deleted per your privacy policy. Please confirm these steps and provide a timeline.",
+        "ground_truth": ["close_account", "refund", "loyalty_points"]
+      },
+      {
+        "message": "Thank you for the response. Yes, I am certain I want to close the account. Regarding my remaining balance of $42.17 and my 8,500 loyalty points, please issue a check or direct deposit for the cash balance and convert the loyalty points to their cash equivalent as stated in your terms of service Section 8.3. I also need a final account statement showing all transactions from account opening to closure, and written confirmation that my personal data has been queued for deletion. Can you also confirm there are no early termination fees given that my original contract period ended in 2022?",
+        "ground_truth": ["close_account", "transfer_funds", "loyalty_points", "payment_history", "account_limits"]
+      }
+    ]
+  },
+  {
+    "id": "email_warranty_claim",
+    "category": "email_longform",
+    "persona": { "personality": "detailed", "sophistication": "high", "verbosity": "very_long" },
+    "turns": [
+      {
+        "message": "I purchased a TechPro Wireless Router (Model WR-5000) from your platform on September 15th, order number 66201. The product came with a 2-year manufacturer warranty. As of last week, the device stopped functioning properly. It drops the WiFi connection every 30 minutes and the 5GHz band no longer works at all. I have already performed factory resets, firmware updates, and tried different power supplies as suggested in the troubleshooting guide. None of these resolved the issue. I would like to initiate a warranty claim and either receive a replacement unit or a full refund. The product is well within the warranty period and has been used normally. I have the original receipt and packaging.",
+        "ground_truth": ["warranty_info", "refund"]
+      },
+      {
+        "message": "Per your request, here are the details for the warranty claim: purchase date September 15th 2024, order number 66201, product serial number WR5K-2024-78903. The defect first appeared approximately two weeks ago. I can provide photos of the device showing the status lights that indicate the 5GHz radio failure. I would prefer a replacement over a refund if possible, but if the same model is no longer available then a refund to the original payment method would be acceptable. How long does the warranty replacement process typically take? I need a working router for my home office.",
+        "ground_truth": ["warranty_info", "reorder"]
+      },
+      {
+        "message": "I've been waiting a week since submitting the warranty claim and haven't heard back. Can I get a status update? Also, in the meantime, can I purchase a temporary replacement at a discounted rate or use store credit? I literally cannot work without internet and this is becoming urgent. I checked my loyalty points and it looks like I have some balance that might help offset the cost.",
+        "ground_truth": ["warranty_info", "price_check", "loyalty_points"]
+      }
+    ]
+  },
+  {
+    "id": "email_service_feedback",
+    "category": "email_longform",
+    "persona": { "personality": "detailed", "sophistication": "high", "verbosity": "very_long" },
+    "turns": [
+      {
+        "message": "I want to provide detailed feedback about several issues I have experienced over the past month. On March 1st, I tried to use the promotional code SPRING25 which was advertised on your homepage but the system rejected it at checkout. I contacted chat support and waited 45 minutes only to be told the code had expired, even though the banner was still showing. On March 5th, my auto-renewal was processed at the old higher rate despite the fact that I had changed to the basic plan two weeks prior. I have the confirmation email showing the plan change. On March 10th, I attempted to transfer funds from my rewards balance to my bank account and the transfer failed with no error message. The funds are now in limbo. Each of these incidents required multiple contacts with your support team and none have been fully resolved.",
+        "ground_truth": ["file_complaint", "apply_coupon", "billing_issue", "transfer_funds"]
+      },
+      {
+        "message": "To summarize the resolution I need for each issue: 1) Honor the SPRING25 promotional code on my next order or provide equivalent store credit. 2) Refund the difference between the old plan rate and the basic plan rate for the March billing cycle. 3) Complete the rewards transfer to my bank account and confirm the funds are no longer held. 4) I want all of this documented as a formal complaint. Please provide a case number and the name of the representative handling this. I expect a complete resolution within 5 business days.",
+        "ground_truth": ["apply_coupon", "refund", "transfer_funds", "file_complaint"]
+      }
+    ]
+  },
+
+  {
+    "id": "shifting_track_to_refund_to_loyalty",
+    "category": "topic_shifting",
+    "persona": { "personality": "neutral", "sophistication": "medium", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "Can you check where my package is? Order number 5523, it was supposed to arrive yesterday.",
+        "ground_truth": ["track_order"]
+      },
+      {
+        "message": "It says it was delivered but I never received it. It's not at my door or with any neighbors. I think it was stolen or delivered to the wrong address.",
+        "ground_truth": ["track_order"]
+      },
+      {
+        "message": "OK at this point I'd like a refund since I never got the item. Can you process that?",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "Actually before the refund, how many loyalty points do I have? Maybe I should use points to reorder instead of getting a refund.",
+        "ground_truth": ["loyalty_points"]
+      },
+      {
+        "message": "I have enough points. Use my loyalty points to reorder the same item. Ship it to the same address but require a signature this time.",
+        "ground_truth": ["reorder", "loyalty_points"]
+      }
+    ]
+  },
+  {
+    "id": "shifting_password_to_billing_to_plan",
+    "category": "topic_shifting",
+    "persona": { "personality": "neutral", "sophistication": "medium", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "Hi I need to reset my password. I haven't logged in for a while and forgot it.",
+        "ground_truth": ["reset_password"]
+      },
+      {
+        "message": "Thanks that worked. Now that I'm logged in I see some charges I don't recognize from last month. Can you explain these?",
+        "ground_truth": ["billing_issue", "payment_history"]
+      },
+      {
+        "message": "One of those charges is for a premium add-on I never signed up for. Remove it and refund that charge.",
+        "ground_truth": ["billing_issue", "refund", "change_plan"]
+      },
+      {
+        "message": "While we're at it, what plan am I on currently? I want to make sure there aren't other add-ons I'm paying for.",
+        "ground_truth": ["subscription_status"]
+      },
+      {
+        "message": "Switch me to the basic plan with no add-ons. Just the core service, nothing extra.",
+        "ground_truth": ["change_plan"]
+      }
+    ]
+  },
+  {
+    "id": "shifting_cancel_to_track_to_coupon",
+    "category": "topic_shifting",
+    "persona": { "personality": "neutral", "sophistication": "medium", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "I want to cancel order 3344. I found it cheaper somewhere else.",
+        "ground_truth": ["cancel_order"]
+      },
+      {
+        "message": "Wait, I have another order 3345 that shipped already. Where is that one?",
+        "ground_truth": ["track_order"]
+      },
+      {
+        "message": "OK that one's fine. For the canceled order, I got a promo code as an apology last time. Can I apply it to a new order?",
+        "ground_truth": ["apply_coupon"]
+      },
+      {
+        "message": "The code LOYALTY20 isn't working. It says invalid. Can you check if it's expired?",
+        "ground_truth": ["apply_coupon"]
+      },
+      {
+        "message": "Fine, just give me a store credit then. I want to reorder the same item when it goes on sale.",
+        "ground_truth": ["refund", "reorder"]
+      }
+    ]
+  },
+  {
+    "id": "shifting_balance_to_transfer_to_close",
+    "category": "topic_shifting",
+    "persona": { "personality": "neutral", "sophistication": "high", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "What's my current account balance? I want to see how much is in there before making any changes.",
+        "ground_truth": ["check_balance"]
+      },
+      {
+        "message": "I want to transfer $200 from my account to my savings. What are the transfer fees?",
+        "ground_truth": ["transfer_funds", "account_limits"]
+      },
+      {
+        "message": "Also what's my daily transfer limit? I might need to move more than $200.",
+        "ground_truth": ["account_limits"]
+      },
+      {
+        "message": "Actually I've been thinking about closing this account entirely. What's the process? Are there any fees?",
+        "ground_truth": ["close_account"]
+      },
+      {
+        "message": "Before I close it, make sure all my rewards points are cashed out and transferred. Then go ahead and close it.",
+        "ground_truth": ["loyalty_points", "transfer_funds", "close_account"]
+      }
+    ]
+  },
+  {
+    "id": "shifting_invoice_to_dispute_to_complaint",
+    "category": "topic_shifting",
+    "persona": { "personality": "neutral", "sophistication": "high", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "Can you send me a detailed invoice for my last three purchases? I need them for expense reporting.",
+        "ground_truth": ["request_invoice"]
+      },
+      {
+        "message": "Wait, looking at the amounts, the second purchase shows $299 but I only approved $199. There's a $100 discrepancy.",
+        "ground_truth": ["billing_issue", "transaction_details"]
+      },
+      {
+        "message": "This keeps happening. Last quarter I had a similar issue with order 2201. How many times do I have to report billing errors?",
+        "ground_truth": ["billing_issue", "file_complaint"]
+      },
+      {
+        "message": "I want the $100 difference refunded to my card immediately and I want this documented as a formal billing complaint.",
+        "ground_truth": ["refund", "file_complaint"]
+      },
+      {
+        "message": "Also send me corrected invoices for all affected orders. I need accurate documentation for my records.",
+        "ground_truth": ["request_invoice"]
+      }
+    ]
+  },
+
+  {
+    "id": "adversarial_negation",
+    "category": "adversarial",
+    "persona": { "personality": "specific", "sophistication": "high", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "I don't want to cancel my order. I just want a refund for the shipping charge because it arrived late.",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "No I said DON'T cancel it. The order is fine, I received the items. I only want the shipping cost refunded because it was supposed to be two-day delivery and it took eight days.",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "And no I don't need to speak to anyone. Don't transfer me. Just process the shipping refund.",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "I'm not filing a complaint, I'm not reporting fraud, I'm not disputing anything. I simply want $12.99 shipping refund back on my card.",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "Thank you. Please don't change anything else on my account. Just the refund.",
+        "ground_truth": ["refund"]
+      }
+    ]
+  },
+  {
+    "id": "adversarial_sarcasm",
+    "category": "adversarial",
+    "persona": { "personality": "sarcastic", "sophistication": "high", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "Oh wonderful, another mysterious charge on my statement. What a delightful surprise. Can someone please explain what $45 was for?",
+        "ground_truth": ["billing_issue", "transaction_details"]
+      },
+      {
+        "message": "How lovely that you can't find the charge either. Really inspires confidence. Can you at least check my payment history so we can both be confused together?",
+        "ground_truth": ["payment_history"]
+      },
+      {
+        "message": "Oh fantastic, it was an accidental duplicate charge. Shocking. Nobody could have predicted that. Please reverse it before I lose any more faith in your billing system.",
+        "ground_truth": ["refund", "billing_issue"]
+      },
+      {
+        "message": "Sure, 5-7 business days for a refund on YOUR mistake. That seems totally fair and not at all one-sided. Fine, whatever, just do it.",
+        "ground_truth": ["refund"]
+      },
+      {
+        "message": "And maybe while you're at it, you could hire someone to audit your billing system so this stops happening to every customer every month. Just a thought.",
+        "ground_truth": ["file_complaint"]
+      }
+    ]
+  },
+  {
+    "id": "adversarial_vague",
+    "category": "adversarial",
+    "persona": { "personality": "vague", "sophistication": "low", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "Something's wrong with my thing. It's not working right.",
+        "ground_truth": []
+      },
+      {
+        "message": "The thing I bought from you guys. It stopped doing what it's supposed to do.",
+        "ground_truth": ["warranty_info"]
+      },
+      {
+        "message": "I don't know the order number. I bought it a few months ago. It was the electronic one.",
+        "ground_truth": ["order_history"]
+      },
+      {
+        "message": "Can you just look at my account and see what I ordered recently? Maybe that'll help us figure out which one it is.",
+        "ground_truth": ["order_history"]
+      },
+      {
+        "message": "OK that's the one. The second one on the list. What can I do about it? Can I get a new one or my money back?",
+        "ground_truth": ["warranty_info", "refund", "reorder"]
+      }
+    ]
+  },
+  {
+    "id": "adversarial_contradictory",
+    "category": "adversarial",
+    "persona": { "personality": "indecisive", "sophistication": "medium", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "I want to cancel my subscription... actually wait, no, I just want to pause it for a month.",
+        "ground_truth": ["pause_subscription"]
+      },
+      {
+        "message": "Hmm actually can I downgrade instead of pausing? What would the cheaper plan cost? But actually if I pause do I keep my data?",
+        "ground_truth": ["change_plan", "price_check"]
+      },
+      {
+        "message": "OK let me think... just pause it for now. No wait, what if I upgrade to the annual plan instead? That might be cheaper per month.",
+        "ground_truth": ["pause_subscription", "change_plan"]
+      },
+      {
+        "message": "You know what, forget all that. Just cancel it entirely. I'll sign up again if I need it later. Will I get a prorated refund?",
+        "ground_truth": ["close_account", "refund"]
+      },
+      {
+        "message": "Wait no don't cancel. Sorry. Just keep it as is. Can you check what plan I'm on? I'll figure it out myself later.",
+        "ground_truth": ["subscription_status"]
+      }
+    ]
+  },
+  {
+    "id": "adversarial_multi_intent_negation",
+    "category": "adversarial",
+    "persona": { "personality": "precise", "sophistication": "high", "verbosity": "medium" },
+    "turns": [
+      {
+        "message": "I need to update my shipping address for future orders but do NOT change it on any pending orders. Those should still go to my current address.",
+        "ground_truth": ["update_address"]
+      },
+      {
+        "message": "Also I want to add a new credit card as backup payment but don't remove the existing one. Keep both on file.",
+        "ground_truth": ["add_payment_method"]
+      },
+      {
+        "message": "I'm interested in the premium plan pricing but I'm not ready to upgrade yet. Don't change my plan, just tell me the price difference.",
+        "ground_truth": ["price_check"]
+      },
+      {
+        "message": "One more thing. Check my order history but only for the last 30 days. I don't need the full history, just the recent stuff.",
+        "ground_truth": ["order_history"]
+      },
+      {
+        "message": "And please don't send me promotional emails about any of this. I'm just gathering information today, not making changes except for the address and card.",
+        "ground_truth": ["update_address", "add_payment_method"]
+      }
+    ]
+  }
+]

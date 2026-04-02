@@ -1,0 +1,121 @@
+{
+  "conjunction_pronoun": [
+    "and I", "and my", "and we", "and the", "and it", "and he", "and she", "and they",
+    "and this", "and that", "and there", "and also", "and then", "and now", "and maybe",
+    "but I", "but my", "but we", "but the", "but it", "but he", "but she", "but they",
+    "but this", "but that", "but there", "but then", "but now", "but also", "but maybe",
+    "so I", "so my", "so we", "so the", "so it", "so they", "so this", "so that",
+    "so then", "so now", "so can", "so maybe",
+    "because I", "because my", "because we", "because the", "because it", "because they",
+    "because this", "because that",
+    "since I", "since my", "since we", "since the", "since it", "since they",
+    "plus I", "plus my", "plus we", "plus the", "plus it", "plus they",
+    "also I", "also my", "also we", "also the", "also it", "also they", "also this",
+    "or I", "or my", "or we", "or the", "or it", "or they", "or maybe", "or else",
+    "yet I", "yet my", "yet the", "yet it", "yet they", "yet this",
+    "however I", "however my", "however the", "however it", "however they", "however this",
+    "although I", "although my", "although the", "although it", "although they",
+    "anyway I", "anyway my", "anyway the", "anyway just"
+  ],
+  "conjunction_adverb": [
+    "and actually", "but actually", "and really", "but really",
+    "and like", "but like", "so like",
+    "and literally", "but literally",
+    "and basically", "but basically",
+    "and maybe", "but maybe", "or maybe", "or perhaps",
+    "and probably", "but probably",
+    "and honestly", "but honestly",
+    "and seriously", "but seriously",
+    "and definitely", "but definitely",
+    "and obviously", "but obviously",
+    "and clearly", "but clearly",
+    "and apparently", "but apparently",
+    "and frankly", "but frankly",
+    "and unfortunately", "but unfortunately",
+    "and hopefully", "but hopefully",
+    "or otherwise", "or alternatively",
+    "and essentially", "and ideally", "and supposedly"
+  ],
+  "question_starters": [
+    "can you", "could you", "will you", "would you",
+    "how do", "how can", "how long", "how much", "how many",
+    "what is", "what are", "what about", "what does", "what was", "what will",
+    "when will", "when does", "when is", "when can", "when did",
+    "where is", "where do", "where can",
+    "is there", "do you", "does it", "does this", "does my",
+    "are there", "are you", "have you", "has it", "has my", "has this",
+    "should I", "do I", "can I", "is it", "is my", "is the",
+    "was it", "was my", "why is", "why does", "why did",
+    "who can", "who do", "did you", "didn't you",
+    "don't you", "won't you", "isn't it", "isn't there", "isn't my",
+    "wasn't it", "haven't you", "am I",
+    "shall I", "shall we", "may I", "might I",
+    "would my", "could my", "should my", "will my"
+  ],
+  "imperative_please": [
+    "please check", "please fix", "please send", "please cancel", "please update",
+    "please help", "please give", "please tell", "please look", "please find",
+    "please confirm", "please process", "please resolve", "please adjust", "please remove",
+    "please add", "please change", "please verify", "please stop", "please explain",
+    "please transfer", "please refund", "please track", "please show", "please email",
+    "please call", "please make", "please set", "please apply", "please reset",
+    "please return", "please report", "please file", "please forward"
+  ],
+  "imperative_just": [
+    "just cancel", "just give", "just send", "just fix", "just tell",
+    "just show", "just check", "just help", "just do", "just make",
+    "just let", "just stop", "just remove", "just add", "just change",
+    "just take", "just put", "just get", "just find", "just keep",
+    "just set", "just apply", "just reset", "just return", "just report",
+    "just file", "just update", "just track", "just refund", "just transfer",
+    "just explain", "just verify", "just process", "just confirm"
+  ],
+  "topic_shift": [
+    "by the way", "one more thing", "also wanted", "another thing",
+    "oh and", "oh wait", "before I forget", "while you're at it",
+    "while I have you", "on a separate note", "on another note",
+    "speaking of which", "also need", "also want",
+    "one other thing", "almost forgot", "real quick", "quick question",
+    "in addition", "additionally", "furthermore",
+    "not to mention", "aside from that", "apart from that",
+    "on top of that", "separate issue", "different question",
+    "unrelated but", "different topic", "also wondering"
+  ],
+  "casual_transition": [
+    "look I", "listen I", "fine just", "whatever just",
+    "honestly I", "basically I", "seriously I",
+    "regardless I", "wait actually", "hold on I",
+    "now I", "ok so", "okay so", "alright so",
+    "well I", "like I", "you know I",
+    "thing is I", "problem is I", "issue is I",
+    "meanwhile I", "actually I", "wait I",
+    "look just", "honestly just", "seriously just",
+    "come on", "for real", "ugh I",
+    "dude I", "man I", "yo I", "bro I"
+  ],
+  "time_condition": [
+    "after that", "before that", "then I", "next I",
+    "first I", "finally I", "lastly I",
+    "if so", "if not", "once that", "when that",
+    "now that", "after this", "before this",
+    "until then", "since then", "in the meantime",
+    "going forward", "at the same time",
+    "first of all", "second of all",
+    "on the other hand", "as for", "as to",
+    "regarding my", "concerning my"
+  ],
+  "cjk": [
+    "\u4f46\u662f", "\u7136\u540e", "\u800c\u4e14", "\u6216\u8005",
+    "\u56e0\u4e3a", "\u6240\u4ee5", "\u4e0d\u8fc7", "\u53e6\u5916",
+    "\u540c\u65f6", "\u53ef\u662f", "\u90a3\u4e48", "\u4e8e\u662f",
+    "\u8fd8\u6709", "\u63a5\u7740", "\u6700\u540e", "\u9996\u5148",
+    "\u5176\u6b21", "\u518d\u8bf4", "\u51b5\u4e14", "\u4e0d\u7136"
+  ],
+  "spanish": [
+    "pero yo", "y tambi\u00e9n", "por favor", "adem\u00e1s",
+    "tambi\u00e9n quiero", "otra cosa", "y aparte",
+    "pero tambi\u00e9n", "y luego", "pero antes",
+    "sin embargo", "mientras tanto", "primero que",
+    "no obstante", "necesito que"
+  ]
+}

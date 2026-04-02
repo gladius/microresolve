@@ -336,6 +336,7 @@ fn run_benchmark(dataset: &Dataset, config: &Config) -> BenchmarkResult {
             round + 1, round, batch
         );
 
+        router.begin_batch();
         for intent in &dataset.intents {
             let mut learned = 0usize;
 
@@ -357,6 +358,7 @@ fn run_benchmark(dataset: &Dataset, config: &Config) -> BenchmarkResult {
                 }
             }
         }
+        router.end_batch();
 
         let label = format!("After learn round {} (~{}/intent)", round, batch);
         let (phase, _) = evaluate(&router, &dataset.test, &label);
@@ -504,6 +506,7 @@ fn run_sweep(dataset: &Dataset) {
             }
         }
 
+        router.begin_batch();
         for intent in &dataset.intents {
             let mut learned = 0usize;
             if let Some(examples) = train_by_intent.get(intent) {
@@ -520,6 +523,7 @@ fn run_sweep(dataset: &Dataset) {
                 }
             }
         }
+        router.end_batch();
 
         let (learn_phase, _) = evaluate(&router, &dataset.test, "");
 
