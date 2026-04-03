@@ -55,6 +55,10 @@ name = "svd_attention"
 path = "src/bin/svd_attention.rs"
 
 [[bin]]
+name = "neocortex_lm"
+path = "src/bin/neocortex_lm.rs"
+
+[[bin]]
 name = "auto_discover_v5"
 path = "src/bin/auto_discover_v5.rs"
 
