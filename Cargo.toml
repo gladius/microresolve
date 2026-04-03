@@ -38,4 +38,24 @@ name = "server"
 path = "src/bin/server.rs"
 required-features = ["server"]
 
+[[bin]]
+name = "reasoning_experiment"
+path = "src/bin/reasoning_experiment.rs"
+
+[[bin]]
+name = "pmi_attention_sim"
+path = "src/bin/pmi_attention_sim.rs"
+
+[[bin]]
+name = "pmi_residual_sim"
+path = "src/bin/pmi_residual_sim.rs"
+
+[[bin]]
+name = "svd_attention"
+path = "src/bin/svd_attention.rs"
+
+[[bin]]
+name = "auto_discover_v5"
+path = "src/bin/auto_discover_v5.rs"
+
 [dev-dependencies]
