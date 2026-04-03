@@ -212,6 +212,22 @@ fn evaluate_pmi_only(
     c as f64 / data.len() as f64 * 100.0
 }
 
+fn full_eval(data: &[(SparseVec, usize)], mat: &Mat, centroids: &[Vec<f64>]) -> f64 {
+    let dim = mat.rows;
+    let c = data.iter().filter(|(q, t)| {
+        let mut proj = vec![0.0; dim];
+        for &(j, qj) in q.iter() {
+            for i in 0..dim { proj[i] += mat.get(i, j) * qj; }
+        }
+        let pred = centroids.iter().enumerate()
+            .map(|(k, c)| (k, dot(c, &proj)))
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .unwrap().0;
+        pred == *t
+    }).count();
+    c as f64 / data.len() as f64 * 100.0
+}
+
 fn main() {
     let t0 = Instant::now();
 
@@ -523,6 +539,298 @@ fn main() {
         }
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // EXPERIMENT 2: SVD + Online Corrections (Perceptron-style)
+    //
+    // Start from SVD solution. For each mistake, apply a rank-1
+    // correction: push output toward correct intent, away from wrong.
+    // No loss function. No gradient. Just "fix this mistake."
+    // Periodically re-project to low rank via SVD.
+    // ══════════════════════════════════════════════════════════════
+
+    println!();
+    println!("╔═══════════════════════════════════════════════════════════════════╗");
+    println!("║  EXPERIMENT 2: SVD + Online Corrections (no gradients)           ║");
+    println!("║  Perceptron-style: fix each mistake with a rank-1 update         ║");
+    println!("╚═══════════════════════════════════════════════════════════════════╝");
+    println!();
+
+    // Build the full residual matrix from SVD at rank=32 (starting point)
+    // A = PMI + U · diag(Σ) · V^T
+    let start_rank = 32;
+    let mut attn = Mat::zeros(dim, dim);
+    for i in 0..dim {
+        for j in 0..dim {
+            let mut residual_val = 0.0;
+            for r in 0..start_rank {
+                residual_val += u_full.get(i, r) * sigmas[r] * v_full.get(j, r);
+            }
+            attn.set(i, j, pmi.get(i, j) + residual_val);
+        }
+    }
+
+    let svd_start_acc = full_eval(&test, &attn, &centroids);
+    println!("  Starting from SVD rank-{}: {:.1}%", start_rank, svd_start_acc);
+    println!("  Applying perceptron corrections (no gradients)...");
+    println!();
+
+    let correction_lr = 0.01;
+    let n_passes = 5; // passes through training data
+    let eval_every_pass = 1;
+
+    println!("  {:>6} | {:>10} | {:>8} | {:>10}",
+        "Pass", "Mistakes", "Accuracy", "Corrections");
+    println!("  ─────────────────────────────────────────────────");
+
+    let t_corr = Instant::now();
+    let mut total_corrections = 0usize;
+
+    for pass in 0..n_passes {
+        let mut mistakes = 0;
+
+        // Shuffle order each pass
+        let mut order: Vec<usize> = (0..train.len()).collect();
+        for i in (1..order.len()).rev() {
+            rng_state ^= rng_state << 13; rng_state ^= rng_state >> 7; rng_state ^= rng_state << 17;
+            let j = rng_state as usize % (i + 1);
+            order.swap(i, j);
+        }
+
+        for &idx in &order {
+            let (ref q, true_intent) = train[idx];
+
+            // Classify with current attention matrix
+            let mut proj = vec![0.0; dim];
+            for &(j, qj) in q {
+                for i in 0..dim { proj[i] += attn.get(i, j) * qj; }
+            }
+            let scores: Vec<f64> = centroids.iter().map(|c| dot(c, &proj)).collect();
+            let pred = scores.iter().enumerate()
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .unwrap().0;
+
+            if pred != true_intent {
+                mistakes += 1;
+                total_corrections += 1;
+
+                // Perceptron correction:
+                // Push output toward correct centroid, away from wrong centroid
+                // correction_direction = centroid[correct] - centroid[wrong]
+                // A += lr * correction_direction ⊗ query
+                let c_correct = &centroids[true_intent];
+                let c_wrong = &centroids[pred];
+
+                for &(j, qj) in q {
+                    let lrq = correction_lr * qj;
+                    for i in 0..dim {
+                        let correction = lrq * (c_correct[i] - c_wrong[i]);
+                        attn.add(i, j, correction);
+                    }
+                }
+            }
+        }
+
+        let acc = full_eval(&test, &attn, &centroids);
+        println!("  {:>6} | {:>10} | {:>7.1}% | {:>10}",
+            pass + 1, mistakes, acc, total_corrections);
+    }
+
+    let corr_time = t_corr.elapsed().as_secs_f64();
+    let final_corr_acc = full_eval(&test, &attn, &centroids);
+
+    println!();
+    println!("  Correction time: {:.2}s ({} total corrections)", corr_time, total_corrections);
+
+    // ── Now project corrected matrix back to low rank ──
+    println!();
+    println!("  Projecting corrected matrix back to low rank via SVD...");
+
+    // Extract the learned residual
+    let mut learned_residual = Mat::zeros(dim, dim);
+    for i in 0..dim {
+        for j in 0..dim {
+            learned_residual.set(i, j, attn.get(i, j) - pmi.get(i, j));
+        }
+    }
+
+    let (u_corr, sig_corr, v_corr) = svd_top_k(&learned_residual, 32, 200);
+
+    println!();
+    println!("  Post-correction accuracy at each rank:");
+    println!("  {:>6} | {:>13} | {:>13} | {:>10}", "Rank", "SVD-only", "SVD+Correct", "Δ");
+    println!("  ──────────────────────────────────────────────────────");
+
+    for &r in &[1, 2, 4, 8, 16, 32] {
+        let svd_only = evaluate_svd(&test, &pmi, &u_full, &sigmas[..r], &v_full, &centroids);
+        let svd_corr = evaluate_svd(&test, &pmi, &u_corr, &sig_corr[..r], &v_corr, &centroids);
+        let delta = svd_corr - svd_only;
+        println!("  {:>6} | {:>12.1}% | {:>12.1}% | {:>+9.1}%", r, svd_only, svd_corr, delta);
+    }
+
+    // ── Final summary ──
+    println!();
+    println!("═══════════════════════════════════════════════════════════════════");
+    println!("  FINAL COMPARISON");
+    println!("═══════════════════════════════════════════════════════════════════");
+    println!();
+    println!("  Method                              | Accuracy | Gradients?");
+    println!("  ──────────────────────────────────────────────────────────────");
+    println!("  PMI only (counting)                 | {:>7.1}% | No", pmi_only_acc);
+    println!("  SVD rank-8 (factorization)          | {:>7.1}% | No", evaluate_svd(&test, &pmi, &u_full, &sigmas[..8], &v_full, &centroids));
+    println!("  SVD rank-32 (factorization)         | {:>7.1}% | No", evaluate_svd(&test, &pmi, &u_full, &sigmas[..32], &v_full, &centroids));
+    println!("  SVD + corrections (full matrix)     | {:>7.1}% | No", final_corr_acc);
+
+    let corr_r8 = evaluate_svd(&test, &pmi, &u_corr, &sig_corr[..8], &v_corr, &centroids);
+    let corr_r32 = evaluate_svd(&test, &pmi, &u_corr, &sig_corr[..32], &v_corr, &centroids);
+    println!("  SVD + corrections → rank-8          | {:>7.1}% | No", corr_r8);
+    println!("  SVD + corrections → rank-32         | {:>7.1}% | No", corr_r32);
+    println!("  ──────────────────────────────────────────────────────────────");
+    println!("  SGD rank-8 (gradient descent)       | {:>7.1}% | YES", 98.2);
+    println!("  SGD full matrix (gradient descent)  | {:>7.1}% | YES", 93.8);
+    println!();
+
+    let total_time = t0.elapsed().as_secs_f64();
+
+    if corr_r8 > 95.0 {
+        println!("  SVD + corrections at rank-8: {:.1}% — CLOSES THE GAP.", corr_r8);
+        println!("  No gradients. No loss function. No backpropagation.");
+        println!("  Just: counting → factorizing → correcting mistakes.");
+    } else if final_corr_acc > 95.0 {
+        println!("  Full-matrix corrections reach {:.1}% — gap closed!", final_corr_acc);
+        println!("  But low-rank projection loses accuracy ({:.1}% at rank-8).", corr_r8);
+        println!("  The discriminative corrections don't compress as well as SGD's.");
+    } else {
+        println!("  Best gradient-free: {:.1}%. SGD still leads at 98.2%.", final_corr_acc.max(corr_r8));
+        println!("  The discriminative refinement helps but doesn't fully close the gap.");
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // EXPERIMENT 3: Rank-Constrained Corrections
+    // Correct U and V directly instead of the full matrix.
+    // ══════════════════════════════════════════════════════════════
+
+    println!();
+    println!("╔═══════════════════════════════════════════════════════════════════╗");
+    println!("║  EXPERIMENT 3: Rank-Constrained Corrections                     ║");
+    println!("║  Update U/V directly — keep everything in rank-K subspace       ║");
+    println!("╚═══════════════════════════════════════════════════════════════════╝");
+    println!();
+
+    for &test_rank in &[8, 16, 32] {
+        // Start from SVD at this rank
+        let mut u_r = Mat::zeros(dim, test_rank);
+        let mut v_r = Mat::zeros(dim, test_rank);
+        for i in 0..dim {
+            for r in 0..test_rank {
+                u_r.set(i, r, u_full.get(i, r) * sigmas[r].sqrt());
+                v_r.set(i, r, v_full.get(i, r) * sigmas[r].sqrt());
+            }
+        }
+        // A = PMI + U_r · V_r^T
+
+        let eval_rank = |u: &Mat, v: &Mat| -> f64 {
+            let c = test.iter().filter(|(q, t)| {
+                let mut proj = vec![0.0; dim];
+                // PMI part
+                for &(j, qj) in q.iter() {
+                    for i in 0..dim { proj[i] += pmi.get(i, j) * qj; }
+                }
+                // Low-rank part: U · V^T · q
+                let mut z = vec![0.0; test_rank];
+                for &(j, qj) in q.iter() {
+                    for r in 0..test_rank { z[r] += v.get(j, r) * qj; }
+                }
+                for i in 0..dim {
+                    for r in 0..test_rank { proj[i] += u.get(i, r) * z[r]; }
+                }
+                let pred = centroids.iter().enumerate()
+                    .map(|(k, c)| (k, dot(c, &proj)))
+                    .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                    .unwrap().0;
+                pred == *t
+            }).count();
+            c as f64 / test.len() as f64 * 100.0
+        };
+
+        let start_acc = eval_rank(&u_r, &v_r);
+        let corr_lr = 0.01;
+        let mut total_corr = 0usize;
+
+        for pass in 0..5 {
+            let mut order: Vec<usize> = (0..train.len()).collect();
+            for i in (1..order.len()).rev() {
+                rng_state ^= rng_state << 13; rng_state ^= rng_state >> 7; rng_state ^= rng_state << 17;
+                let j = rng_state as usize % (i + 1);
+                order.swap(i, j);
+            }
+
+            for &idx in &order {
+                let (ref q, true_intent) = train[idx];
+
+                // Classify: proj = (PMI + U·V^T) · q
+                let mut proj = vec![0.0; dim];
+                for &(j, qj) in q {
+                    for i in 0..dim { proj[i] += pmi.get(i, j) * qj; }
+                }
+                let mut z = vec![0.0; test_rank];
+                for &(j, qj) in q {
+                    for r in 0..test_rank { z[r] += v_r.get(j, r) * qj; }
+                }
+                for i in 0..dim {
+                    for r in 0..test_rank { proj[i] += u_r.get(i, r) * z[r]; }
+                }
+
+                let scores: Vec<f64> = centroids.iter().map(|c| dot(c, &proj)).collect();
+                let pred = scores.iter().enumerate()
+                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                    .unwrap().0;
+
+                if pred != true_intent {
+                    total_corr += 1;
+                    let c_correct = &centroids[true_intent];
+                    let c_wrong = &centroids[pred];
+
+                    // Correction direction: d = c_correct - c_wrong
+                    // We want: (U + ΔU)·V^T·q to move toward d
+                    // Project d onto U-space: d_proj = d (update U rows)
+                    // Project q onto V-space: q is already projected as z = V^T·q
+                    //
+                    // ΔU: for each rank dimension r, update U[:,r] += lr * d[i] * z[r]
+                    // ΔV: for each rank dimension r, update V[:,r] += lr * q[j] * (U^T·d)[r]
+
+                    // U^T · d
+                    let mut utd = vec![0.0; test_rank];
+                    for i in 0..dim {
+                        let di = c_correct[i] - c_wrong[i];
+                        for r in 0..test_rank { utd[r] += u_r.get(i, r) * di; }
+                    }
+
+                    // Update U: U += lr * d · z^T
+                    for i in 0..dim {
+                        let di = corr_lr * (c_correct[i] - c_wrong[i]);
+                        for r in 0..test_rank {
+                            u_r.add(i, r, di * z[r]);
+                        }
+                    }
+
+                    // Update V: V += lr * q · (U^T·d)^T
+                    for &(j, qj) in q {
+                        let lrq = corr_lr * qj;
+                        for r in 0..test_rank {
+                            v_r.add(j, r, lrq * utd[r]);
+                        }
+                    }
+                }
+            }
+        }
+
+        let final_acc = eval_rank(&u_r, &v_r);
+        println!("  Rank {:>2}: {:.1}% → {:.1}%  ({} corrections, {} params)",
+            test_rank, start_acc, final_acc, total_corr, 2 * dim * test_rank);
+    }
+
+    println!();
+    println!("  Reference: SGD rank-8 = 98.2%, SGD full = 93.8%");
     println!();
     println!("Total time: {:.2}s", t0.elapsed().as_secs_f64());
 }
