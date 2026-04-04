@@ -59,6 +59,14 @@ name = "neocortex_lm"
 path = "src/bin/neocortex_lm.rs"
 
 [[bin]]
+name = "neocortex_lm2"
+path = "src/bin/neocortex_lm2.rs"
+
+[[bin]]
+name = "neocortex_lm_rust"
+path = "src/bin/neocortex_lm_rust.rs"
+
+[[bin]]
 name = "auto_discover_v5"
 path = "src/bin/auto_discover_v5.rs"
 
