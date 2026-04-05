@@ -67,6 +67,42 @@ name = "neocortex_lm_rust"
 path = "src/bin/neocortex_lm_rust.rs"
 
 [[bin]]
+name = "corrections_only"
+path = "src/bin/corrections_only.rs"
+
+[[bin]]
+name = "candidate_coverage"
+path = "src/bin/candidate_coverage.rs"
+
+[[bin]]
+name = "candidate_discriminate"
+path = "src/bin/candidate_discriminate.rs"
+
+[[bin]]
+name = "coverage_multi"
+path = "src/bin/coverage_multi.rs"
+
+[[bin]]
+name = "coverage_deep"
+path = "src/bin/coverage_deep.rs"
+
+[[bin]]
+name = "coverage_wiki"
+path = "src/bin/coverage_wiki.rs"
+
+[[bin]]
+name = "candidate_generate"
+path = "src/bin/candidate_generate.rs"
+
+[[bin]]
+name = "multiwindow_gen"
+path = "src/bin/multiwindow_gen.rs"
+
+[[bin]]
+name = "combined_gen"
+path = "src/bin/combined_gen.rs"
+
+[[bin]]
 name = "auto_discover_v5"
 path = "src/bin/auto_discover_v5.rs"
 

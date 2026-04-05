@@ -1,0 +1,143 @@
+╔══════════════════════════════════════════════════════════╗
+║  Auto-Discovery v3: PMI + Post-Clustering Split        ║
+╚══════════════════════════════════════════════════════════╝
+
+Dataset: Bitext (26872 queries, 27 ground truth intents)
+
+Step 1: Building term statistics...
+  Total unique terms: 2799
+  Discriminating terms (df 26-5374): 338
+
+Step 2: Computing PMI...
+  Strong PMI edges: 1868
+
+Step 3: Anchor-based term clustering...
+  Anchors selected: 40
+  Non-trivial term clusters: 27
+
+Step 4: Assigning queries to term clusters...
+  Assigned: 22688 | Unassigned: 4184
+
+Step 5: Detecting impure clusters...
+  Impure clusters detected: 12
+    Cluster 12 (1212 queries, terms ["free", "talk", "service", "customer"])
+      Splitter candidates: ["customer", "service", "support", "talk", "hours", "call", "time", "contact"]
+    Cluster 26 (711 queries, terms ["resetting", "profile", "user"])
+      Splitter candidates: ["profile", "user", "use", "password", "reset", "pwd", "retrieve", "category"]
+    Cluster 11 (888 queries, terms ["subscribing", "newsletter", "corporate"])
+      Splitter candidates: ["newsletter", "subscription", "company", "corporate", "unsubscribe", "cancel", "sign", "receive"]
+    Cluster 20 (2985 queries, terms ["usually", "long", "refunds", "see"])
+      Splitter candidates: ["see", "check", "payment", "long", "arrive", "cases", "refunds", "ask"]
+    Cluster 10 (918 queries, terms ["periods", "find", "shipping"])
+      Splitter candidates: ["shipping", "find", "trying", "options", "methods", "enter", "name", "person"]
+    Cluster 15 (1334 queries, terms ["ship", "ya", "delivery", "country"])
+      Splitter candidates: ["delivery", "ya", "city", "country", "methods", "place", "possible", "options"]
+    Cluster 16 (835 queries, terms ["signing", "up"])
+      Splitter candidates: ["up", "sign", "set", "setting", "secondary", "new", "notify", "inform"]
+    Cluster 9 (3164 queries, terms ["adding", "order", "number", "purchase"])
+      Splitter candidates: ["order", "number", "purchase", "status", "cancel", "eta", "canceling", "cancelling"]
+    Cluster 7 (2707 queries, terms ["closing", "account"])
+      Splitter candidates: ["account", "category", "change", "standard", "create", "platinum", "freemium", "pro"]
+    Cluster 22 (1054 queries, terms ["ordering", "assistance", "article"])
+      Splitter candidates: ["assistance", "article", "payment", "checking", "seeing", "payments", "online", "soon"]
+    Cluster 17 (611 queries, terms ["restitutions", "money"])
+      Splitter candidates: ["money", "back", "request", "ask", "obtain", "rebate", "guarantee", "receive"]
+    Cluster 25 (612 queries, terms ["helpful", "speak", "agent"])
+      Splitter candidates: ["agent", "speak", "human", "live", "chat", "contact", "somebody", "helpful"]
+
+Step 6: Splitting impure clusters...
+    Cluster 20 → split into 2 sub-clusters (sizes: [2484, 501])
+    Cluster 25 → split into 2 sub-clusters (sizes: [499, 113])
+    Cluster 11 → split into 2 sub-clusters (sizes: [731, 157])
+    Cluster 16 → split into 3 sub-clusters (sizes: [381, 268, 186])
+  Total clusters after split: 33
+
+Step 7: Evaluation
+
+  ┌─────────────────────────────────────────────────────┐
+  │ v3 Results (PMI + Post-Clustering Split)           │
+  ├─────────────────────────────────────────────────────┤
+  │ Clusters discovered:    33                         │
+  │ Ground truth intents:   27                         │
+  │ Purity:                47.0%                       │
+  │ Coverage:             17/27 ( 63%)                  │
+  │ NMI:                  0.612                        │
+  │ Time:                 0.06s                        │
+  └─────────────────────────────────────────────────────┘
+
+  Comparison:
+  ┌──────────────┬──────────┬──────────┐
+  │ Metric       │  v2      │  v3      │
+  ├──────────────┼──────────┼──────────┤
+  │ NMI          │  0.589   │  0.612   │
+  │ Purity       │  48.4%   │   47.0%  │
+  │ Clusters     │  27      │    33    │
+  └──────────────┴──────────┴──────────┘
+
+  Top clusters:
+     ID   Size  Purity  Dominant label (count) | Others
+  ------------------------------------------------------------------------------------------
+     32   4184     19%  payment_issue(808) | track_refund(602), registration_problems(503), get_refund(316)
+      9   3164     31%  cancel_order(988) | track_order(983), change_order(972), place_order(105)
+      7   2707     30%  delete_account(805) | edit_account(670), switch_account(656), create_account(525)
+     20   2484     26%  check_cancellation_fee(649) | delivery_period(525), check_payment_methods(432), track_refund(359)
+     21   1394     50%  get_invoice(702) | check_invoice(692)
+     15   1334     47%  delivery_options(625) | change_shipping_address(258), set_up_shipping_address(192), delivery_period(54)
+     12   1212     74%  contact_customer_service(900) | contact_human_agent(147), complaint(133), review(30)
+     22   1054     17%  place_order(178) | payment_issue(167), delivery_period(111), check_payment_methods(79)
+     10    918     30%  change_shipping_address(276) | delivery_options(186), set_up_shipping_address(181), check_invoice(125)
+     11    731    100%  newsletter_subscription(731) | pure
+     26    711     37%  recover_password(261) | switch_account(240), edit_account(161), registration_problems(40)
+     17    611     73%  get_refund(444) | check_refund_policy(167)
+     27    501     93%  check_refund_policy(466) | get_refund(35)
+     25    499     86%  contact_human_agent(430) | contact_customer_service(69)
+     24    431     48%  review(209) | delivery_period(109), place_order(95), get_refund(15)
+      0    409    100%  complaint(409) | pure
+     16    381     88%  registration_problems(337) | newsletter_subscription(28), create_account(8), set_up_shipping_address(8)
+     19    377     98%  change_shipping_address(368) | set_up_shipping_address(9)
+      3    375     38%  check_payment_methods(143) | complaint(122), check_refund_policy(44), review(34)
+      6    337     80%  create_account(271) | registration_problems(26), edit_account(16), delete_account(12)
+      4    334     89%  review(296) | get_invoice(38)
+     23    329     28%  edit_account(92) | delete_account(62), change_shipping_address(55), delivery_period(33)
+     18    325    100%  recover_password(325) | pure
+      8    291     99%  place_order(289) | change_order(2)
+      5    281     54%  set_up_shipping_address(152) | review(129)
+     13    279    100%  review(279) | pure
+     30    268    100%  set_up_shipping_address(268) | pure
+     14    267    100%  recover_password(267) | pure
+     31    186    100%  set_up_shipping_address(186) | pure
+     29    157    100%  newsletter_subscription(157) | pure
+      2    141     99%  place_order(140) | check_cancellation_fee(1)
+     28    113    100%  contact_human_agent(113) | pure
+      1     87     90%  create_account(78) | edit_account(3), delete_account(3), switch_account(2)
+
+  Ground truth → best cluster:
+    cancel_order                        → cluster   9 (99% captured, 5 fragments)
+    track_order                         → cluster   9 (99% captured, 4 fragments)
+    change_order                        → cluster   9 (97% captured, 5 fragments)
+    contact_customer_service            → cluster  12 (90% captured, 7 fragments)
+    delete_account                      → cluster   7 (81% captured, 9 fragments)
+    payment_issue                       → cluster  32 (81% captured, 4 fragments)
+    newsletter_subscription             → cluster  11 (73% captured, 9 fragments)
+    get_invoice                         → cluster  21 (70% captured, 7 fragments)
+    check_invoice                       → cluster  21 (69% captured, 7 fragments)
+    check_cancellation_fee              → cluster  20 (68% captured, 6 fragments)
+    edit_account                        → cluster   7 (67% captured, 8 fragments)
+    switch_account                      → cluster   7 (66% captured, 7 fragments)
+    delivery_options                    → cluster  15 (63% captured, 6 fragments)
+    track_refund                        → cluster  32 (60% captured, 4 fragments)
+    create_account                      → cluster   7 (53% captured, 10 fragments)
+    delivery_period                     → cluster  20 (53% captured, 8 fragments)
+    registration_problems               → cluster  32 (50% captured, 7 fragments)
+    check_refund_policy                 → cluster  27 (47% captured, 8 fragments)
+    get_refund                          → cluster  17 (45% captured, 8 fragments)
+    check_payment_methods               → cluster  20 (43% captured, 5 fragments)
+    contact_human_agent                 → cluster  25 (43% captured, 6 fragments)
+    complaint                           → cluster   0 (41% captured, 6 fragments)
+    change_shipping_address             → cluster  19 (38% captured, 5 fragments)
+    recover_password                    → cluster  18 (33% captured, 10 fragments)
+    review                              → cluster   4 (30% captured, 8 fragments)
+    place_order                         → cluster   8 (29% captured, 8 fragments)
+    set_up_shipping_address             → cluster  30 (27% captured, 8 fragments)
+
+  Intents with >50% in one cluster: 17/27 (v2: 16/27)

@@ -109,6 +109,9 @@ async fn main() {
         .route("/api/training/run", post(training_run))
         .route("/api/training/review", post(training_review))
         .route("/api/training/apply", post(training_apply))
+        .route("/api/workflows", get(get_workflows))
+        .route("/api/temporal_order", get(get_temporal_order))
+        .route("/api/escalation_patterns", get(get_escalation_patterns))
         .layer(CorsLayer::permissive())
         .with_state(state);
 
@@ -178,11 +181,11 @@ async fn route_multi(
     };
     let latency_us = t0.elapsed().as_micros() as u64;
 
-    // Record co-occurrence if multiple intents detected
+    // Record intent sequence (co-occurrence + temporal order + full sequence)
     if output.intents.len() > 1 {
         let ids: Vec<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
         if let Ok(mut router) = state.router.write() {
-            router.record_co_occurrence(&ids);
+            router.record_intent_sequence(&ids);
         }
     }
 
@@ -294,12 +297,22 @@ async fn route_multi(
         .filter(|i| i["confidence"].as_str() == Some("low"))
         .collect();
 
+    let suggestions: Vec<serde_json::Value> = output.suggestions.iter()
+        .map(|s| serde_json::json!({
+            "id": s.id,
+            "probability": (s.probability * 100.0).round() / 100.0,
+            "observations": s.observations,
+            "because_of": s.because_of
+        }))
+        .collect();
+
     let result = serde_json::json!({
         "confirmed": confirmed,
         "candidates": candidates,
         "relations": relations,
         "metadata": output.metadata,
-        "projected_context": projected_context
+        "projected_context": projected_context,
+        "suggestions": suggestions
     });
 
     // Log this query
@@ -1016,6 +1029,75 @@ async fn get_co_occurrence(State(state): State<AppState>) -> Json<serde_json::Va
         serde_json::json!({"a": a, "b": b, "count": count})
     }).collect();
     Json(serde_json::json!(out))
+}
+
+// --- Workflows: emergent cluster discovery ---
+
+#[derive(serde::Deserialize)]
+struct WorkflowQuery {
+    #[serde(default = "default_min_obs")]
+    min_observations: u32,
+}
+fn default_min_obs() -> u32 { 3 }
+
+async fn get_workflows(
+    State(state): State<AppState>,
+    Query(params): Query<WorkflowQuery>,
+) -> Json<serde_json::Value> {
+    let router = state.router.read().unwrap();
+    let workflows = router.discover_workflows(params.min_observations);
+    let out: Vec<serde_json::Value> = workflows.iter().map(|cluster| {
+        let intents: Vec<serde_json::Value> = cluster.iter().map(|wi| {
+            serde_json::json!({
+                "id": wi.id,
+                "connections": wi.connections,
+                "neighbors": wi.neighbors,
+            })
+        }).collect();
+        serde_json::json!({"intents": intents, "size": cluster.len()})
+    }).collect();
+    Json(serde_json::json!({"workflows": out, "count": out.len()}))
+}
+
+// --- Temporal ordering ---
+
+async fn get_temporal_order(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let router = state.router.read().unwrap();
+    let order = router.get_temporal_order();
+    let out: Vec<serde_json::Value> = order.iter().map(|(first, second, prob, count)| {
+        serde_json::json!({
+            "first": first,
+            "second": second,
+            "probability": (prob * 100.0).round() / 100.0,
+            "count": count,
+        })
+    }).collect();
+    Json(serde_json::json!(out))
+}
+
+// --- Escalation patterns ---
+
+#[derive(serde::Deserialize)]
+struct EscalationQuery {
+    #[serde(default = "default_min_occ")]
+    min_occurrences: u32,
+}
+fn default_min_occ() -> u32 { 2 }
+
+async fn get_escalation_patterns(
+    State(state): State<AppState>,
+    Query(params): Query<EscalationQuery>,
+) -> Json<serde_json::Value> {
+    let router = state.router.read().unwrap();
+    let patterns = router.detect_escalation_patterns(params.min_occurrences);
+    let out: Vec<serde_json::Value> = patterns.iter().map(|p| {
+        serde_json::json!({
+            "sequence": p.sequence,
+            "occurrences": p.occurrences,
+            "frequency": (p.frequency * 1000.0).round() / 1000.0,
+        })
+    }).collect();
+    Json(serde_json::json!({"patterns": out, "count": out.len()}))
 }
 
 // --- Projections: full action → context map ---

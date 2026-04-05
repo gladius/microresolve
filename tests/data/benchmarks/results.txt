@@ -1,0 +1,162 @@
+╔══════════════════════════════════════════════════════════╗
+║     ASV Router — Multi-Dataset Benchmark Suite          ║
+╚══════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BENCHMARK 1: MixSNIPS (Voice Assistant, 7 intents)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Intents: 7 | Test examples: 2199 | Threshold: 0.2
+  Single-intent: 450 | Multi-intent: 1749
+
+  Single-intent accuracy (top-1): 407/450 = 90.4%
+  Avg latency: 24.7 µs/query
+
+  Multi-intent decomposition (1749 examples):
+    Exact match:     660/1749 = 37.7%
+    Partial match:   1744/1749 = 99.7%
+    Avg recall:      90.0%
+    Avg precision:   77.8%
+    F1:              83.5%
+    Avg latency:     145.8 µs/query
+
+  Per-intent recall (multi-intent):
+    AddToPlaylist                  580/590 = 98%
+    SearchScreeningEvent           551/579 = 95%
+    BookRestaurant                 572/576 = 99%
+    GetWeather                     489/571 = 86%
+    PlayMusic                      502/569 = 88%
+    SearchCreativeWork             365/564 = 65%
+    RateBook                       542/549 = 99%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BENCHMARK 2: MixATIS (Airline Travel, 18 intents)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Intents: 17 | Test examples: 828 | Threshold: 0.2
+  Single-intent: 143 | Multi-intent: 685
+
+  Single-intent accuracy (top-1): 108/143 = 75.5%
+  Avg latency: 6.3 µs/query
+
+  Multi-intent decomposition (685 examples):
+    Exact match:     37/685 = 5.4%
+    Partial match:   655/685 = 95.6%
+    Avg recall:      74.0%
+    Avg precision:   49.4%
+    F1:              59.3%
+    Avg latency:     52.2 µs/query
+
+  Per-intent recall (multi-intent):
+    atis_meal                      97/113 = 86%
+    atis_city                      63/108 = 58%
+    atis_day_name                  0/106 = 0%
+    atis_airfare                   82/102 = 80%
+    atis_ground_service            88/101 = 87%
+    atis_aircraft                  91/101 = 90%
+    atis_ground_fare               84/99 = 85%
+    atis_capacity                  89/99 = 90%
+    atis_abbreviation              75/98 = 77%
+    atis_distance                  96/96 = 100%
+    atis_flight                    42/96 = 44%
+    atis_quantity                  72/95 = 76%
+    atis_flight_no                 76/91 = 84%
+    atis_airport                   68/91 = 75%
+    atis_flight_time               88/89 = 99%
+    atis_airline                   44/85 = 52%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BENCHMARK 3: Bitext (Customer Support, 27 intents)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Intents: 27 | Total examples: 26872
+  Test sample: 2688 (every 10th)
+
+  Top-1 accuracy:  2372/2688 = 88.2%
+  Top-3 accuracy:  2632/2688 = 97.9%
+  Avg latency:     23.9 µs/query
+
+  Per-intent accuracy (top-1, sample):
+    delete_account                      75/100 = 75%
+    complaint                           99/100 = 99%
+    track_refund                        95/100 = 95%
+    switch_account                      71/100 = 71%
+    get_invoice                         73/100 = 73%
+    newsletter_subscription             98/100 = 98%
+    change_order                        80/100 = 80%
+    cancel_order                        91/100 = 91%
+    place_order                         95/100 = 95%
+    registration_problems               94/100 = 94%
+    review                              100/100 = 100%
+    track_order                         94/100 = 94%
+    get_refund                          67/100 = 67%
+    contact_human_agent                 86/100 = 86%
+    check_payment_methods               97/100 = 97%
+    check_refund_policy                 82/100 = 82%
+    check_invoice                       85/100 = 85%
+    contact_customer_service            95/100 = 95%
+    delivery_period                     99/100 = 99%
+    payment_issue                       81/100 = 81%
+    edit_account                        68/100 = 68%
+    delivery_options                    98/99 = 99%
+    create_account                      89/99 = 90%
+    set_up_shipping_address             93/99 = 94%
+    recover_password                    96/99 = 97%
+    change_shipping_address             80/97 = 82%
+    check_cancellation_fee              92/95 = 97%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BENCHMARK 4: SGD (Workflow Discovery, 34 intents)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Dialogues: 4201 | Unique intents: 34
+  Multi-intent dialogues: 3455 (82%)
+
+  Sequence recording: 3224 µs (0.8 µs/dialogue)
+
+  --- Temporal Ordering (top 15) ---
+
+    FindProvider → BookAppointment  (P=100%, n=707, GT=348)
+    LookupMusic → PlayMedia  (P=100%, n=559, GT=157)
+    SearchHotel → ReserveHotel  (P=100%, n=511, GT=85)
+    FindMovies → PlayMedia  (P=91%, n=493, GT=175)
+    SearchRoundtripFlights → FindAttractions  (P=91%, n=481, NOT IN GT)
+    FindRestaurants → ReserveRestaurant  (P=100%, n=447, GT=309)
+    FindMovies → FindMovies  (P=100%, n=413, NOT IN GT)
+    GetCarsAvailable → ReserveCar  (P=100%, n=401, GT=199)
+    FindEvents → BuyEventTickets  (P=100%, n=382, GT=66)
+    SearchRoundtripFlights → ReserveHotel  (P=85%, n=366, GT=132)
+    FindMovies → LookupMusic  (P=61%, n=353, GT=150)
+    FindMovies → PlayMovie  (P=100%, n=341, GT=161)
+    FindAttractions → FindAttractions  (P=100%, n=340, NOT IN GT)
+    SearchHouse → BookHouse  (P=100%, n=309, GT=151)
+    SearchHotel → SearchRoundtripFlights  (P=52%, n=298, GT=169)
+
+    Temporal ordering precision: 102/171 = 59.6% (matches ground truth transitions)
+
+  --- Discovered Workflow Clusters (min 10 co-occurrences) ---
+
+    Found 1 clusters
+    Cluster 1 (34 intents): ["FindAttractions", "FindMovies", "SearchHotel", "SearchRoundtripFlights", "FindProvider", "GetWeather", "FindRestaurants", "FindEvents", "SearchHouse", "BookAppointment", "FindBus", "ShareLocation", "BuyEventTickets", "PlayMedia", "LookupMusic", "GetCarsAvailable", "ReserveCar", "ReserveHotel", "FindTrains", "GetAlarms", "ReserveRestaurant", "SearchOnewayFlight", "RequestPayment", "PlayMovie", "BookHouse", "GetTrainTickets", "ScheduleVisit", "GetRide", "MakePayment", "BuyBusTicket", "GetTimesForMovie", "AddAlarm", "FindHomeByArea", "BuyMovieTickets"]
+
+  --- Top Escalation Patterns (min 20 occurrences) ---
+
+    SearchRoundtripFlights → ReserveHotel → FindAttractions (533x, 53.3% of traffic, compound)
+    SearchHotel → SearchRoundtripFlights → ReserveHotel (508x, 50.8% of traffic, compound)
+    SearchHotel → ReserveHotel → FindAttractions (390x, 39.0% of traffic, compound)
+    SearchHotel → SearchRoundtripFlights → FindAttractions (381x, 38.1% of traffic, compound)
+    SearchRoundtripFlights → ReserveHotel (366x, 36.6% of traffic, GT=132)
+    SearchHotel → ReserveHotel (352x, 35.2% of traffic, GT=85)
+    FindProvider → BookAppointment (337x, 33.7% of traffic, GT=348)
+    SearchHotel → FindAttractions (295x, 29.5% of traffic, GT=89)
+    SearchRoundtripFlights → FindAttractions (271x, 27.1% of traffic, no direct GT)
+    SearchRoundtripFlights → ReserveHotel → ReserveHotel (262x, 26.2% of traffic, compound)
+    ReserveHotel → FindAttractions (258x, 25.8% of traffic, GT=112)
+    SearchRoundtripFlights → SearchRoundtripFlights → ReserveHotel (245x, 24.5% of traffic, compound)
+    SearchHouse → FindBus → BuyEventTickets (237x, 23.7% of traffic, compound)
+    SearchHotel → SearchRoundtripFlights (232x, 23.2% of traffic, GT=169)
+    SearchHotel → ReserveHotel → ReserveHotel (222x, 22.2% of traffic, compound)
+
+  --- Suggestion Quality ---
+
+    Suggestions that match ground truth transitions: 56/65 = 86.2%

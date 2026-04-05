@@ -80,6 +80,44 @@ pub enum IntentType {
     Context,
 }
 
+/// An intent within a discovered workflow cluster.
+#[derive(Debug, Clone)]
+pub struct WorkflowIntent {
+    /// The intent ID.
+    pub id: String,
+    /// Total co-occurrence weight with other intents in this workflow.
+    pub connections: u32,
+    /// Other intents in this workflow that co-occur with this one.
+    pub neighbors: Vec<String>,
+}
+
+/// A recurring sequence pattern (potential escalation or workflow).
+#[derive(Debug, Clone)]
+pub struct EscalationPattern {
+    /// The intent sequence in temporal order.
+    pub sequence: Vec<String>,
+    /// How many times this sequence was observed.
+    pub occurrences: u32,
+    /// Frequency: occurrences / total sequences observed.
+    pub frequency: f32,
+}
+
+/// A suggested intent based on co-occurrence patterns.
+///
+/// Returned by `Router::suggest_intents()` when detected intents frequently
+/// co-occur with other intents that were NOT detected in the current query.
+#[derive(Debug, Clone)]
+pub struct IntentSuggestion {
+    /// The suggested intent ID.
+    pub id: String,
+    /// Conditional probability: P(this intent | triggering intent).
+    pub probability: f32,
+    /// Number of times this co-occurrence was observed.
+    pub observations: u32,
+    /// Which detected intent triggered this suggestion.
+    pub because_of: String,
+}
+
 use aho_corasick::AhoCorasick;
 use index::InvertedIndex;
 use std::collections::{HashMap, HashSet};
@@ -118,6 +156,13 @@ pub struct Router {
     /// Co-occurrence counts: how often intent pairs fire together in route_multi.
     /// Key: (intent_a, intent_b) where a < b lexicographically. Value: count.
     co_occurrence: HashMap<(String, String), u32>,
+    /// Temporal ordering: how often intent A appears BEFORE intent B in positional order.
+    /// Key: (first_intent, second_intent) — NOT lexicographic, actual temporal order. Value: count.
+    temporal_order: HashMap<(String, String), u32>,
+    /// Full intent sequences observed in route_multi, for workflow/cluster discovery.
+    /// Each entry is a sorted-by-position sequence of intent IDs from a single query.
+    /// Capped at last 1000 observations to bound memory.
+    intent_sequences: Vec<Vec<String>>,
     /// Paraphrase index: phrase (lowercase) -> (intent_id, weight).
     /// Multi-word phrase matching via Aho-Corasick automaton for dual-source confidence.
     paraphrase_phrases: HashMap<String, (String, f32)>,
@@ -154,6 +199,8 @@ impl Router {
             intent_types: HashMap::new(),
             metadata: HashMap::new(),
             co_occurrence: HashMap::new(),
+            temporal_order: HashMap::new(),
+            intent_sequences: Vec::new(),
             paraphrase_phrases: HashMap::new(),
             paraphrase_automaton: None,
             paraphrase_patterns: Vec::new(),
@@ -534,6 +581,12 @@ impl Router {
                 }
             }
         }
+
+        // Suggest intents based on co-occurrence patterns.
+        // "You detected cancel_order. 73% of customers also want refund."
+        let detected_ids: Vec<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
+        output.suggestions = self.suggest_intents(&detected_ids, 3, 0.2);
+
         output
     }
 
@@ -545,6 +598,9 @@ impl Router {
         let co_occurrence: Vec<(String, String, u32)> = self.co_occurrence.iter()
             .map(|((a, b), &count)| (a.clone(), b.clone(), count))
             .collect();
+        let temporal_order: Vec<(String, String, u32)> = self.temporal_order.iter()
+            .map(|((a, b), &count)| (a.clone(), b.clone(), count))
+            .collect();
         let state = RouterState {
             intents: self.vectors.clone(),
             training: self.training.clone(),
@@ -553,6 +609,8 @@ impl Router {
             metadata: self.metadata.clone(),
             paraphrases,
             co_occurrence,
+            temporal_order,
+            intent_sequences: self.intent_sequences.clone(),
             version: self.version,
             max_intents: self.max_intents,
         };
@@ -578,6 +636,12 @@ impl Router {
             co_occurrence_map.insert((a, b), count);
         }
 
+        // Restore temporal ordering from serialized Vec
+        let mut temporal_order_map: HashMap<(String, String), u32> = HashMap::new();
+        for (a, b, count) in state.temporal_order {
+            temporal_order_map.insert((a, b), count);
+        }
+
         let mut router = Self {
             vectors: state.intents,
             index,
@@ -590,6 +654,8 @@ impl Router {
             intent_types: state.intent_types,
             metadata: state.metadata,
             co_occurrence: co_occurrence_map,
+            temporal_order: temporal_order_map,
+            intent_sequences: state.intent_sequences,
             paraphrase_phrases,
             paraphrase_automaton: None,
             paraphrase_patterns: Vec::new(),
@@ -705,6 +771,246 @@ impl Router {
     /// Clear co-occurrence data.
     pub fn clear_co_occurrence(&mut self) {
         self.co_occurrence.clear();
+        self.temporal_order.clear();
+        self.intent_sequences.clear();
+    }
+
+    /// Record a full intent sequence from route_multi (in positional order).
+    /// This records co-occurrence, temporal ordering, and the full sequence.
+    pub fn record_intent_sequence(&mut self, ordered_intent_ids: &[&str]) {
+        if ordered_intent_ids.len() < 2 {
+            return;
+        }
+
+        // Record pairwise co-occurrence (lexicographic keys)
+        for i in 0..ordered_intent_ids.len() {
+            for j in (i + 1)..ordered_intent_ids.len() {
+                let (a, b) = if ordered_intent_ids[i] < ordered_intent_ids[j] {
+                    (ordered_intent_ids[i].to_string(), ordered_intent_ids[j].to_string())
+                } else {
+                    (ordered_intent_ids[j].to_string(), ordered_intent_ids[i].to_string())
+                };
+                *self.co_occurrence.entry((a, b)).or_insert(0) += 1;
+            }
+        }
+
+        // Record temporal ordering (positional order, not lexicographic)
+        for i in 0..ordered_intent_ids.len() {
+            for j in (i + 1)..ordered_intent_ids.len() {
+                let key = (ordered_intent_ids[i].to_string(), ordered_intent_ids[j].to_string());
+                *self.temporal_order.entry(key).or_insert(0) += 1;
+            }
+        }
+
+        // Record full sequence (capped at 1000)
+        let seq: Vec<String> = ordered_intent_ids.iter().map(|s| s.to_string()).collect();
+        self.intent_sequences.push(seq);
+        if self.intent_sequences.len() > 1000 {
+            self.intent_sequences.remove(0);
+        }
+    }
+
+    /// Get temporal ordering: P(B appears after A | A and B co-occur).
+    /// Returns (first, second, probability, count) sorted by count desc.
+    pub fn get_temporal_order(&self) -> Vec<(&str, &str, f32, u32)> {
+        let mut result: Vec<(&str, &str, f32, u32)> = Vec::new();
+        // For each co-occurrence pair, check temporal direction
+        for ((a, b), &total) in &self.co_occurrence {
+            let a_before_b = self.temporal_order.get(&(a.clone(), b.clone())).copied().unwrap_or(0);
+            let b_before_a = self.temporal_order.get(&(b.clone(), a.clone())).copied().unwrap_or(0);
+
+            if a_before_b >= b_before_a && a_before_b > 0 {
+                let prob = a_before_b as f32 / total as f32;
+                result.push((a.as_str(), b.as_str(), prob, a_before_b));
+            }
+            if b_before_a > a_before_b {
+                let prob = b_before_a as f32 / total as f32;
+                result.push((b.as_str(), a.as_str(), prob, b_before_a));
+            }
+        }
+        result.sort_by(|a, b| b.3.cmp(&a.3));
+        result
+    }
+
+    /// Discover intent workflows (clusters) from co-occurrence data.
+    ///
+    /// Uses connected-component analysis on the co-occurrence graph.
+    /// Only includes edges with at least `min_observations` co-occurrences.
+    /// Returns clusters sorted by size (largest first), each cluster sorted by
+    /// most-connected intent first.
+    pub fn discover_workflows(&self, min_observations: u32) -> Vec<Vec<WorkflowIntent>> {
+        // Build adjacency list from co-occurrence pairs above threshold
+        let mut adj: HashMap<&str, Vec<(&str, u32)>> = HashMap::new();
+        for ((a, b), &count) in &self.co_occurrence {
+            if count < min_observations {
+                continue;
+            }
+            adj.entry(a.as_str()).or_default().push((b.as_str(), count));
+            adj.entry(b.as_str()).or_default().push((a.as_str(), count));
+        }
+
+        // Connected components via BFS
+        let mut visited: HashSet<&str> = HashSet::new();
+        let mut clusters: Vec<Vec<WorkflowIntent>> = Vec::new();
+
+        for &start in adj.keys() {
+            if visited.contains(start) {
+                continue;
+            }
+            let mut component: Vec<&str> = Vec::new();
+            let mut queue: Vec<&str> = vec![start];
+
+            while let Some(node) = queue.pop() {
+                if visited.contains(node) {
+                    continue;
+                }
+                visited.insert(node);
+                component.push(node);
+                if let Some(neighbors) = adj.get(node) {
+                    for &(neighbor, _) in neighbors {
+                        if !visited.contains(neighbor) {
+                            queue.push(neighbor);
+                        }
+                    }
+                }
+            }
+
+            if component.len() >= 2 {
+                // Build WorkflowIntent entries with connection strength
+                let mut workflow: Vec<WorkflowIntent> = component.iter().map(|&id| {
+                    let connections: u32 = adj.get(id)
+                        .map(|n| n.iter().filter(|(nid, _)| component.contains(nid)).map(|(_, c)| c).sum())
+                        .unwrap_or(0);
+                    let neighbors: Vec<String> = adj.get(id)
+                        .map(|n| n.iter().filter(|(nid, _)| component.contains(nid)).map(|(nid, _)| nid.to_string()).collect())
+                        .unwrap_or_default();
+                    WorkflowIntent {
+                        id: id.to_string(),
+                        connections,
+                        neighbors,
+                    }
+                }).collect();
+                workflow.sort_by(|a, b| b.connections.cmp(&a.connections));
+                clusters.push(workflow);
+            }
+        }
+
+        clusters.sort_by(|a, b| b.len().cmp(&a.len()));
+        clusters
+    }
+
+    /// Detect escalation patterns: sequences where intents progress from
+    /// routine to urgent (e.g., track → complaint → contact_human).
+    ///
+    /// Returns sequences that occur at least `min_occurrences` times,
+    /// sorted by frequency.
+    pub fn detect_escalation_patterns(&self, min_occurrences: u32) -> Vec<EscalationPattern> {
+        // Count subsequences of length 2 and 3 from recorded sequences
+        let mut subseq_counts: HashMap<Vec<String>, u32> = HashMap::new();
+
+        for seq in &self.intent_sequences {
+            // Length-2 subsequences (pairs in order)
+            for i in 0..seq.len() {
+                for j in (i + 1)..seq.len() {
+                    let sub = vec![seq[i].clone(), seq[j].clone()];
+                    *subseq_counts.entry(sub).or_insert(0) += 1;
+                }
+                // Length-3 subsequences (triples in order)
+                for j in (i + 1)..seq.len() {
+                    for k in (j + 1)..seq.len() {
+                        let sub = vec![seq[i].clone(), seq[j].clone(), seq[k].clone()];
+                        *subseq_counts.entry(sub).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+
+        let total_sequences = self.intent_sequences.len() as f32;
+        let mut patterns: Vec<EscalationPattern> = subseq_counts.into_iter()
+            .filter(|(_, count)| *count >= min_occurrences)
+            .map(|(sequence, count)| {
+                let frequency = if total_sequences > 0.0 { count as f32 / total_sequences } else { 0.0 };
+                EscalationPattern {
+                    sequence,
+                    occurrences: count,
+                    frequency,
+                }
+            })
+            .collect();
+        patterns.sort_by(|a, b| b.occurrences.cmp(&a.occurrences));
+        patterns
+    }
+
+    /// Get total co-occurrence count for a specific intent (how many times it appeared with ANY other intent).
+    fn co_occurrence_total(&self, intent_id: &str) -> u32 {
+        self.co_occurrence.iter()
+            .filter(|((a, b), _)| a == intent_id || b == intent_id)
+            .map(|(_, &count)| count)
+            .sum()
+    }
+
+    /// Get suggested intents based on co-occurrence patterns.
+    ///
+    /// Given a set of detected intent IDs, returns intents that frequently co-occur
+    /// but were NOT detected in this query. Each suggestion includes the conditional
+    /// probability P(suggested | detected) and the observation count.
+    ///
+    /// Only returns suggestions with at least `min_observations` co-occurrences
+    /// and conditional probability >= `min_probability`.
+    ///
+    /// This enables proactive routing: "You asked to cancel. 73% of customers
+    /// also want a refund — would you like me to process that too?"
+    pub fn suggest_intents(
+        &self,
+        detected_ids: &[&str],
+        min_observations: u32,
+        min_probability: f32,
+    ) -> Vec<IntentSuggestion> {
+        let detected_set: HashSet<&str> = detected_ids.iter().copied().collect();
+        let mut suggestions: HashMap<String, (f32, u32, String)> = HashMap::new(); // id -> (max_prob, max_count, because_of)
+
+        for &detected_id in detected_ids {
+            let total = self.co_occurrence_total(detected_id);
+            if total == 0 {
+                continue;
+            }
+
+            for ((a, b), &count) in &self.co_occurrence {
+                let other = if a == detected_id {
+                    b.as_str()
+                } else if b == detected_id {
+                    a.as_str()
+                } else {
+                    continue;
+                };
+
+                if detected_set.contains(other) || count < min_observations {
+                    continue;
+                }
+
+                let probability = count as f32 / total as f32;
+                if probability < min_probability {
+                    continue;
+                }
+
+                let entry = suggestions.entry(other.to_string())
+                    .or_insert((0.0, 0, String::new()));
+                if probability > entry.0 {
+                    *entry = (probability, count, detected_id.to_string());
+                }
+            }
+        }
+
+        let mut result: Vec<IntentSuggestion> = suggestions.into_iter()
+            .map(|(id, (probability, count, because_of))| IntentSuggestion {
+                id,
+                probability,
+                observations: count,
+                because_of,
+            })
+            .collect();
+        result.sort_by(|a, b| b.probability.partial_cmp(&a.probability).unwrap_or(std::cmp::Ordering::Equal));
+        result
     }
 
     /// Get the current version number. Incremented on every mutation.
@@ -742,6 +1048,20 @@ impl Router {
         // Merge co-occurrence (additive)
         for ((a, b), &count) in &other.co_occurrence {
             *self.co_occurrence.entry((a.clone(), b.clone())).or_insert(0) += count;
+        }
+
+        // Merge temporal ordering (additive)
+        for ((a, b), &count) in &other.temporal_order {
+            *self.temporal_order.entry((a.clone(), b.clone())).or_insert(0) += count;
+        }
+
+        // Merge intent sequences (append, cap at 1000)
+        for seq in &other.intent_sequences {
+            self.intent_sequences.push(seq.clone());
+        }
+        if self.intent_sequences.len() > 1000 {
+            let excess = self.intent_sequences.len() - 1000;
+            self.intent_sequences.drain(0..excess);
         }
 
         // Merge paraphrase phrases (keep existing if conflict, add new)
@@ -1270,7 +1590,7 @@ impl Router {
     pub fn route_multi_anchored(&self, query: &str, threshold: f32, window: usize) -> MultiRouteOutput {
         let (positioned, query_chars) = self.extract_terms_positioned(query);
         if positioned.is_empty() {
-            return MultiRouteOutput { intents: vec![], relations: vec![], metadata: HashMap::new() };
+            return MultiRouteOutput { intents: vec![], relations: vec![], metadata: HashMap::new(), suggestions: vec![] };
         }
 
         let n = self.index.intent_count();
@@ -1351,7 +1671,7 @@ impl Router {
         results.sort_by_key(|r| r.position);
         let relations = multi::detect_relations_public(&results, &query_chars);
 
-        MultiRouteOutput { intents: results, relations, metadata: HashMap::new() }
+        MultiRouteOutput { intents: results, relations, metadata: HashMap::new(), suggestions: vec![] }
     }
 
     /// Query coverage: (known_terms, total_terms) — fraction of terms in the index.
@@ -1399,6 +1719,12 @@ struct RouterState {
     /// Co-occurrence counts: Vec<(intent_a, intent_b, count)>.
     #[serde(default)]
     co_occurrence: Vec<(String, String, u32)>,
+    /// Temporal ordering counts: Vec<(first_intent, second_intent, count)>.
+    #[serde(default)]
+    temporal_order: Vec<(String, String, u32)>,
+    /// Full intent sequences observed in route_multi.
+    #[serde(default)]
+    intent_sequences: Vec<Vec<String>>,
     /// Monotonic version counter.
     #[serde(default)]
     version: u64,
@@ -1929,6 +2255,72 @@ mod tests {
     }
 
     #[test]
+    fn suggest_intents_from_co_occurrence() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["cancel my order"]);
+        router.add_intent("refund", &["get a refund", "money back"]);
+        router.add_intent("track_order", &["track my package", "where is my order"]);
+        router.add_intent("complaint", &["file a complaint"]);
+
+        // Simulate traffic: cancel+refund appear together 10 times,
+        // cancel+track 3 times, cancel+complaint 1 time
+        for _ in 0..10 {
+            router.record_co_occurrence(&["cancel_order", "refund"]);
+        }
+        for _ in 0..3 {
+            router.record_co_occurrence(&["cancel_order", "track_order"]);
+        }
+        router.record_co_occurrence(&["cancel_order", "complaint"]);
+
+        // When cancel_order is detected, suggest refund (high prob) and track_order (moderate)
+        let suggestions = router.suggest_intents(&["cancel_order"], 3, 0.2);
+        assert!(!suggestions.is_empty(), "should have suggestions");
+
+        // refund should be top suggestion (10/14 = 0.71)
+        assert_eq!(suggestions[0].id, "refund");
+        assert!(suggestions[0].probability > 0.6, "refund probability should be >0.6, got {}", suggestions[0].probability);
+        assert_eq!(suggestions[0].observations, 10);
+        assert_eq!(suggestions[0].because_of, "cancel_order");
+
+        // track_order should be second (3/14 = 0.21)
+        assert_eq!(suggestions[1].id, "track_order");
+        assert!(suggestions[1].probability > 0.15);
+
+        // complaint should NOT appear (only 1 observation, below min_observations=3)
+        assert!(suggestions.iter().all(|s| s.id != "complaint"),
+            "complaint should not be suggested (only 1 observation)");
+
+        // Already-detected intents should not be suggested
+        let suggestions = router.suggest_intents(&["cancel_order", "refund"], 3, 0.2);
+        assert!(suggestions.iter().all(|s| s.id != "refund"),
+            "refund should not be suggested when already detected");
+    }
+
+    #[test]
+    fn suggestions_in_route_multi() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &["cancel my order", "stop my order"]);
+        router.add_intent("refund", &["get a refund", "money back", "refund my purchase"]);
+        router.add_intent("track_order", &["track my package", "where is my order"]);
+
+        // Build co-occurrence: cancel_order + refund always together
+        for _ in 0..20 {
+            router.record_co_occurrence(&["cancel_order", "refund"]);
+        }
+
+        // Route a query that only triggers cancel_order
+        let result = router.route_multi("cancel my order please", 0.3);
+        let detected_ids: Vec<&str> = result.intents.iter().map(|i| i.id.as_str()).collect();
+        assert!(detected_ids.contains(&"cancel_order"), "should detect cancel_order");
+
+        // refund should appear as a suggestion since it wasn't detected but co-occurs
+        if !detected_ids.contains(&"refund") {
+            assert!(!result.suggestions.is_empty(), "should suggest refund when cancel_order is detected alone");
+            assert_eq!(result.suggestions[0].id, "refund");
+        }
+    }
+
+    #[test]
     fn version_increments_on_mutation() {
         let mut router = Router::new();
         assert_eq!(router.version(), 0);
@@ -2043,5 +2435,139 @@ mod tests {
         let pairs = restored.get_co_occurrence();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("cancel_order", "refund", 2));
+    }
+
+    #[test]
+    fn temporal_ordering_tracks_direction() {
+        let mut router = Router::new();
+        // "cancel" appears before "refund" 3 times
+        router.record_intent_sequence(&["cancel_order", "refund"]);
+        router.record_intent_sequence(&["cancel_order", "refund"]);
+        router.record_intent_sequence(&["cancel_order", "refund"]);
+        // "refund" appears before "cancel" 1 time
+        router.record_intent_sequence(&["refund", "cancel_order"]);
+
+        let order = router.get_temporal_order();
+        // cancel_order → refund should dominate (3 vs 1)
+        let cancel_first = order.iter().find(|(a, b, _, _)| *a == "cancel_order" && *b == "refund");
+        assert!(cancel_first.is_some(), "should find cancel_order → refund ordering");
+        let (_, _, prob, count) = cancel_first.unwrap();
+        assert_eq!(*count, 3);
+        // Probability = 3/4 co-occurrences (lexicographic key stores total=4)
+        assert!(*prob > 0.5, "cancel_order should appear before refund with high probability: {}", prob);
+    }
+
+    #[test]
+    fn temporal_order_survives_export_import() {
+        let mut router = Router::new();
+        router.record_intent_sequence(&["cancel_order", "refund", "contact_human"]);
+        router.record_intent_sequence(&["cancel_order", "refund"]);
+
+        let json = router.export_json();
+        let restored = Router::import_json(&json).unwrap();
+
+        let order = restored.get_temporal_order();
+        assert!(!order.is_empty(), "temporal ordering should survive export/import");
+        // cancel_order → refund should exist
+        let cancel_refund = order.iter().find(|(a, b, _, _)| *a == "cancel_order" && *b == "refund");
+        assert!(cancel_refund.is_some());
+    }
+
+    #[test]
+    fn discover_workflows_finds_clusters() {
+        let mut router = Router::new();
+        // Cluster 1: cancel + refund + complaint (frequent)
+        for _ in 0..5 {
+            router.record_intent_sequence(&["cancel_order", "refund"]);
+            router.record_intent_sequence(&["refund", "complaint"]);
+            router.record_intent_sequence(&["cancel_order", "complaint"]);
+        }
+        // Cluster 2: track + shipping_status (separate)
+        for _ in 0..5 {
+            router.record_intent_sequence(&["track_order", "shipping_status"]);
+        }
+
+        let workflows = router.discover_workflows(3);
+        assert!(workflows.len() >= 2, "should find at least 2 clusters, got {}", workflows.len());
+
+        // Largest cluster should have 3 intents (cancel, refund, complaint)
+        let largest = &workflows[0];
+        assert_eq!(largest.len(), 3, "largest cluster should have 3 intents: {:?}",
+            largest.iter().map(|w| &w.id).collect::<Vec<_>>());
+
+        // Each intent in largest cluster should have neighbors
+        for wi in largest {
+            assert!(!wi.neighbors.is_empty(), "{} should have neighbors", wi.id);
+        }
+    }
+
+    #[test]
+    fn detect_escalation_patterns_finds_sequences() {
+        let mut router = Router::new();
+        // Recurring escalation: track → complaint → contact_human
+        for _ in 0..5 {
+            router.record_intent_sequence(&["track_order", "complaint", "contact_human"]);
+        }
+        // Another pattern: cancel → refund
+        for _ in 0..3 {
+            router.record_intent_sequence(&["cancel_order", "refund"]);
+        }
+        // Noise
+        router.record_intent_sequence(&["check_balance"]);
+
+        let patterns = router.detect_escalation_patterns(3);
+        assert!(!patterns.is_empty(), "should find escalation patterns");
+
+        // The track → complaint → contact_human triple should appear
+        let escalation = patterns.iter().find(|p|
+            p.sequence == vec!["track_order", "complaint", "contact_human"]
+        );
+        assert!(escalation.is_some(), "should find track→complaint→contact_human pattern");
+        assert_eq!(escalation.unwrap().occurrences, 5);
+
+        // cancel → refund pair should appear
+        let cancel_refund = patterns.iter().find(|p|
+            p.sequence == vec!["cancel_order", "refund"]
+        );
+        assert!(cancel_refund.is_some(), "should find cancel→refund pattern");
+        assert_eq!(cancel_refund.unwrap().occurrences, 3);
+    }
+
+    #[test]
+    fn intent_sequences_capped_at_1000() {
+        let mut router = Router::new();
+        for _ in 0..1050 {
+            router.record_intent_sequence(&["a", "b"]);
+        }
+        assert_eq!(router.intent_sequences.len(), 1000, "should cap at 1000 sequences");
+    }
+
+    #[test]
+    fn merge_preserves_temporal_and_sequences() {
+        let mut router_a = Router::new();
+        router_a.add_intent("cancel", &["cancel order"]);
+        router_a.add_intent("refund", &["get refund"]);
+        router_a.record_intent_sequence(&["cancel", "refund"]);
+        router_a.record_intent_sequence(&["cancel", "refund"]);
+
+        let mut router_b = Router::new();
+        router_b.add_intent("cancel", &["cancel order"]);
+        router_b.add_intent("refund", &["get refund"]);
+        router_b.record_intent_sequence(&["refund", "cancel"]);
+
+        router_a.merge_learned(&router_b);
+
+        // Co-occurrence should be merged (2 + 1 = 3)
+        let pairs = router_a.get_co_occurrence();
+        let cancel_refund = pairs.iter().find(|(a, b, _)| *a == "cancel" && *b == "refund");
+        assert!(cancel_refund.is_some());
+        assert_eq!(cancel_refund.unwrap().2, 3);
+
+        // Temporal order should be merged
+        let order = router_a.get_temporal_order();
+        assert!(!order.is_empty());
+
+        // Sequences should be merged (2 + 1 = 3)
+        assert_eq!(router_a.intent_sequences.len(), 3);
     }
 }

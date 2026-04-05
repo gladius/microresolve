@@ -1,0 +1,141 @@
+  --> src/bin/auto_discover_v5.rs:16:42
+   |
+16 | use std::collections::{HashMap, HashSet, BTreeMap};
+   |                                          ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+   --> src/bin/auto_discover_v5.rs:366:17
+    |
+366 |             let mut anti_terms = String::new();
+    |                 ^^^^^^^^^^^^^^
+    |
+    = note: consider using `_anti_terms` instead
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+   --> src/bin/auto_discover_v5.rs:377:29
+    |
+377 | ...                   anti_terms = format!("{} ↔ {}", ti, tj);
+    |                       ^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+╔══════════════════════════════════════════════════════════════════╗
+║  Auto-Discovery v5: PMI Anchors + Substitution Frame Merge     ║
+╚══════════════════════════════════════════════════════════════════╝
+Dataset: Bitext (26872 queries, 27 ground truth intents)
+Phase 1: Term statistics + v2 baseline clustering
+─────────────────────────────────────────────────
+  Discriminating terms: 338
+  Strong PMI edges: 1868
+  Anchors: 40
+  Assigned: 22762 | Unassigned: 4110
+  v2 baseline: 16/27 intents at >50% capture
+Phase 2: Distributional substitution detection
+──────────────────────────────────────────────
+  Terms with PMI neighborhoods: 313
+  Terms with substitutes: 251
+    using ↔ ["remove", "removal", "creating", "dad", "info", "switch", "open", "opening", "use", "daughter"] (+2)
+    switch ↔ ["data", "using", "daughter", "use", "info", "creating", "opening", "delete", "close", "open"] (+1)
+    news ↔ ["status", "amount", "waiting", "currency", "current", "i'm", "symbol", "obtain", "track", "anything"] (+1)
+    close ↔ ["open", "dad", "removal", "wife", "creating", "switch", "using", "opening", "create", "daughter"] (+1)
+    create ↔ ["using", "open", "data", "creating", "opening", "use", "switch", "close", "details", "delete"] (+1)
+    creating ↔ ["data", "info", "removal", "create", "wife", "close", "switch", "open", "using", "use"] (+1)
+    use ↔ ["details", "using", "switch", "data", "info", "open", "dad", "create", "creating", "opening"]
+    open ↔ ["info", "create", "close", "using", "opening", "use", "switch", "details", "data", "creating"]
+    info ↔ ["data", "creating", "switch", "use", "open", "using", "create", "opening", "details"]
+    locate ↔ ["give", "downloading", "find", "download", "take", "look", "looking", "quick", "getting"]
+    opening ↔ ["creating", "switch", "data", "close", "open", "use", "create", "using", "info"]
+    edit ↔ ["correct", "modify", "correcting", "update", "modifying", "change", "editing", "changing", "updating"]
+    daughter ↔ ["fiance", "registered", "using", "dad", "switch", "close", "acount", "wife"]
+    update ↔ ["updating", "edit", "modifying", "modify", "editing", "changing", "correct", "correcting"]
+    modify ↔ ["correcting", "correct", "updating", "changing", "update", "modifying", "editing", "edit"]
+Phase 2b: Skipping split (merge-only approach)
+──────────────────────────────────────────────
+  Clusters: 40 (no splitting)
+Phase 3: Post-clustering merge with substitution anti-affinity
+──────────────────────────────────────────────────────────────
+  Merge candidates: 34
+    c5 (27) + c7 (29)  score=0.676  jaccard=0.70 shared=["item", "ur", "several", "assistance", "product"]
+    c18 (30) + c0 (22)  score=0.578  jaccard=0.67 shared=["compensations", "rebate", "money", "assistance", "compensation"]
+    c16 (337) + c17 (2701)  score=0.321  jaccard=0.57 shared=["standard", "account", "type", "category"]
+    c5 (27) + c11 (134)  score=0.257  jaccard=0.43 shared=["item", "ur", "assistance", "product", "few"]
+    c11 (134) + c7 (29)  score=0.243  jaccard=0.40 shared=["item", "few", "ur", "article", "assistance"]
+    c39 (711) + c35 (1010)  score=0.213  jaccard=0.25 shared=["assistance", "account"]
+    c32 (364) + c2 (21)  score=0.192  jaccard=0.36 shared=["edit", "modify", "address", "update"]
+    c6 (87) + c17 (2701)  score=0.188  jaccard=0.36 shared=["standard", "account", "type", "category"]
+    c38 (591) + c12 (29)  score=0.175  jaccard=0.33 shared=["live", "human", "agent", "assistance"]
+    c14 (275) + c24 (278)  score=0.166  jaccard=0.17 shared=["product", "assistance", "ur", "products"]
+    c32 (364) + c23 (915)  score=0.155  jaccard=0.22 shared=["address", "trying"]
+    c26 (28) + c17 (2701)  score=0.152  jaccard=0.30 shared=["standard", "change", "account"]
+    c9 (333) + c1 (409)  score=0.151  jaccard=0.17 shared=["ur", "assistance", "company"]
+    c23 (915) + c36 (323)  score=0.150  jaccard=0.22 shared=["address", "shipping"]
+    c34 (35) + c4 (21)  score=0.150  jaccard=0.19 shared=["order", "invoice", "invoices"]
+  ✓ MERGE c5 (27) + c7 (29) [same-intent] jaccard=0.70 shared=["item", "ur", "several", "assistance", "product"]
+  ✓ MERGE c18 (30) + c0 (22) [same-intent] jaccard=0.67 shared=["compensations", "rebate", "money", "assistance", "compensation"]
+  ✓ MERGE c5 (56) + c11 (134) [same-intent] jaccard=0.43 shared=["item", "ur", "assistance", "product", "few"]
+  ✓ MERGE c32 (364) + c2 (21) [same-intent] jaccard=0.36 shared=["edit", "modify", "address", "update"]
+  ✓ MERGE c6 (87) + c17 (2701) [small-absorb] jaccard=0.36 shared=["standard", "account", "type", "category"]
+  ✓ MERGE c38 (591) + c12 (29) [same-intent] jaccard=0.33 shared=["live", "human", "agent", "assistance"]
+  ✓ MERGE c32 (385) + c23 (915) [same-intent] jaccard=0.22 shared=["address", "trying"]
+  ✓ MERGE c26 (28) + c17 (2788) [small-absorb] jaccard=0.30 shared=["standard", "change", "account"]
+  ✓ MERGE c34 (35) + c4 (21) [small-absorb] jaccard=0.19 shared=["order", "invoice", "invoices"]
+  ✓ MERGE c34 (56) + c15 (3133) [small-absorb] jaccard=0.23 shared=["purchase", "order", "cancel"]
+  ✓ MERGE c5 (190) + c35 (1010) [small-absorb] jaccard=0.20 shared=["assistance", "article"]
+  ✓ MERGE c19 (1206) + c30 (32) [small-absorb] jaccard=0.17 shared=["customer", "assistance", "support"]
+  Merges performed: 12
+Phase 4: Evaluation
+───────────────────
+  ┌──────────────────────────────────────────────────────────┐
+  │ v5 Results (PMI + Substitution Frame Merge)             │
+  ├──────────────────────────────────────────────────────────┤
+  │ Clusters:               29                              │
+  │ Ground truth intents:   27                              │
+  │ Purity:                44.1%                            │
+  │ NMI:                  0.602                             │
+  │ Time:                 0.11s                             │
+  └──────────────────────────────────────────────────────────┘
+  Comparison:
+  ┌──────────────┬──────────┬──────────┬──────────┬──────────┐
+  │ Metric       │  v2      │  v3      │  v4      │  v5      │
+  ├──────────────┼──────────┼──────────┼──────────┼──────────┤
+  │ NMI          │  0.589   │  0.613   │  0.641   │  0.602   │
+  │ Purity       │  48.4%   │  47.7%   │  56.1%   │   44.1%  │
+  │ Clusters     │  27      │  34      │    51    │    29    │
+  │ >50% capture │  16      │  16      │    15    │    20    │
+  └──────────────┴──────────┴──────────┴──────────┴──────────┘
+  Ground truth → best cluster:
+  ✓ cancel_order                             → c 15 ( 99.1% +2nd: 99.8%, 4 frags)
+  ✓ track_order                              → c 15 ( 99.0% +2nd: 99.7%, 4 frags)
+  ✓ change_order                             → c 15 ( 96.6% +2nd: 98.1%, 7 frags)
+  ✓ contact_customer_service                 → c 19 ( 90.1% +2nd: 96.9%, 8 frags)
+  ✓ newsletter_subscription                  → c 20 ( 88.8% +2nd: 91.6%, 9 frags)
+  ✓ delete_account                           → c 17 ( 81.3% +2nd: 87.5%, 8 frags)
+  ✓ payment_issue                            → c 40 ( 80.9% +2nd: 97.6%, 4 frags)
+  ✓ get_invoice                              → c 33 ( 69.7% +2nd: 90.0%, 7 frags)
+  ✓ check_cancellation_fee                   → c 31 ( 68.1% +2nd: 86.1%, 6 frags)
+  ✓ check_invoice                            → c 33 ( 67.8% +2nd: 80.3%, 7 frags)
+  ✓ edit_account                             → c 17 ( 67.3% +2nd: 83.4%, 7 frags)
+  ✓ change_shipping_address                  → c 23 ( 66.2% +2nd: 92.6%, 5 frags)
+  ✓ switch_account                           → c 17 ( 65.8% +2nd: 89.8%, 6 frags)
+  ✓ check_refund_policy                      → c 31 ( 64.6% +2nd: 81.3%, 7 frags)
+  ✓ delivery_options                         → c 27 ( 62.8% +2nd: 81.5%, 6 frags)
+  ✓ create_account                           → c 17 ( 60.5% +2nd: 87.7%, 9 frags)
+  ✓ track_refund                             → c 40 ( 60.3% +2nd: 96.3%, 4 frags)
+  ✓ contact_human_agent                      → c 38 ( 55.3% +2nd: 77.5%, 6 frags)
+  ✓ delivery_period                          → c 31 ( 52.5% +2nd: 63.6%, 9 frags)
+  ✓ registration_problems                    → c 40 ( 50.4% +2nd: 84.1%, 7 frags)
+    set_up_shipping_address                  → c 25 ( 46.3% +2nd: 65.6%, 5 frags)
+    check_payment_methods                    → c 31 ( 43.2% +2nd: 74.8%, 5 frags)
+    complaint                                → c  1 ( 40.9% +2nd: 70.5%, 7 frags)
+    get_refund                               → c 29 ( 40.5% +2nd: 69.9%, 10 frags)
+    place_order                              → c 35 ( 34.9% +2nd: 62.2%, 8 frags)
+    recover_password                         → c 28 ( 31.9% +2nd: 58.1%, 11 frags)
+    review                                   → c  9 ( 29.6% +2nd: 57.5%, 9 frags)
+  Intents with >50% in one cluster: 20/27 (v2: 16, v4: 15)
+  Intents with >50% in top-2 clusters: 27/27
+  Changes vs v2 baseline:
+    ↑ payment_issue: 16.7% → 80.9% (+64.2%)
+    ↑ change_shipping_address: 36.5% → 66.2% (+29.7%)
+    ↑ create_account: 52.7% → 60.5% (+7.8%)
+    ↑ track_refund: 36.0% → 60.3% (+24.3%)
+    ↑ registration_problems: 33.7% → 50.4% (+16.6%)
+    ↑ place_order: 27.4% → 34.9% (+7.5%)

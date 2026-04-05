@@ -512,6 +512,7 @@ impl MeshRouter {
                 intents: results,
                 relations: vec![],
                 metadata: HashMap::new(),
+                suggestions: vec![],
             }, self.soft_mode);
         }
 

@@ -55,6 +55,10 @@ pub struct MultiRouteOutput {
     /// Opaque metadata per detected intent, keyed by intent id.
     /// Populated by `Router::route_multi()` from configured metadata.
     pub metadata: HashMap<String, HashMap<String, Vec<String>>>,
+    /// Suggested intents based on co-occurrence patterns — intents that frequently
+    /// co-occur with detected intents but were NOT found in this query.
+    /// Populated by `Router::route_multi()` from accumulated co-occurrence data.
+    pub suggestions: Vec<crate::IntentSuggestion>,
 }
 
 impl MultiRouteOutput {
@@ -95,6 +99,7 @@ pub(crate) fn route_multi(
             intents: vec![],
             relations: vec![],
             metadata: HashMap::new(),
+            suggestions: vec![],
         };
     }
 
@@ -218,6 +223,7 @@ pub(crate) fn route_multi(
         intents: detected,
         relations,
         metadata: HashMap::new(), // Populated by Router::route_multi()
+        suggestions: vec![],      // Populated by Router::route_multi()
     }
 }
 

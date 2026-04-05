@@ -1,0 +1,5 @@
+# Raw downloads (can be regenerated with download_datasets.py)
+mixatis_raw/
+
+# Large dataset files (> 1MB, re-downloadable)
+bitext_all.json
