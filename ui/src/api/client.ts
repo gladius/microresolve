@@ -1,9 +1,23 @@
 const BASE = '/api';
 
+let currentAppId = 'default';
+
+export function setApiAppId(appId: string) {
+  currentAppId = appId;
+}
+
+function appHeaders(): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (currentAppId && currentAppId !== 'default') {
+    h['X-App-ID'] = currentAppId;
+  }
+  return h;
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: appHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
@@ -13,7 +27,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+  const res = await fetch(`${BASE}${path}`, { headers: appHeaders() });
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
   return res.json();
 }
@@ -131,11 +145,11 @@ export const api = {
   loadDefaults: () => post<void>('/intents/load_defaults', {}),
   reset: () => post<void>('/reset', {}),
   exportState: async () => {
-    const res = await fetch(`${BASE}/export`);
+    const res = await fetch(`${BASE}/export`, { headers: appHeaders() });
     return res.text();
   },
   importState: (data: string) =>
-    fetch(`${BASE}/import`, { method: 'POST', body: data }).then(r => {
+    fetch(`${BASE}/import`, { method: 'POST', headers: appHeaders(), body: data }).then(r => {
       if (!r.ok) throw new Error('Import failed');
     }),
 
@@ -217,4 +231,36 @@ export const api = {
     routed_intents: { id: string; score: number; intent_type: string }[];
     history: { role: string; message: string }[];
   }) => post<{ message: string }>('/simulate/respond', config),
+
+  // Apps
+  listApps: () => get<string[]>('/apps'),
+  createApp: (app_id: string) => post<{ created: string }>('/apps', { app_id }),
+  deleteApp: (app_id: string) =>
+    fetch(`${BASE}/apps`, {
+      method: 'DELETE',
+      headers: appHeaders(),
+      body: JSON.stringify({ app_id }),
+    }).then(r => { if (!r.ok) throw new Error('Delete failed'); }),
+
+  // Discovery
+  discover: (queries: string[], expected_intents = 0) =>
+    post<DiscoverResult>('/discover', { queries, expected_intents }),
+  discoverApply: (clusters: { name: string; representative_queries: string[] }[]) =>
+    post<{ created: string[]; count: number }>('/discover/apply', { clusters }),
 };
+
+// Discovery types
+export interface DiscoveredCluster {
+  suggested_name: string;
+  top_terms: string[];
+  representative_queries: string[];
+  size: number;
+  confidence: number;
+}
+
+export interface DiscoverResult {
+  clusters: DiscoveredCluster[];
+  total_clusters: number;
+  total_assigned: number;
+  total_queries: number;
+}

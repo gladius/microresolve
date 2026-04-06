@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import RouterPage from '@/pages/RouterPage';
@@ -7,7 +7,9 @@ import DebugPage from '@/pages/DebugPage';
 import SettingsPage from '@/pages/SettingsPage';
 import ProjectionsPage from '@/pages/ProjectionsPage';
 import ScenariosPage from '@/pages/ScenariosPage';
+import DiscoveryPage from '@/pages/DiscoveryPage';
 import { AppContext, loadSettings, saveSettings, type AppMode, type AppSettings } from '@/store';
+import { setApiAppId } from '@/api/client';
 
 export default function App() {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
@@ -20,10 +22,16 @@ export default function App() {
     });
   }, []);
 
+  // Sync API client with selected app
+  useEffect(() => {
+    setApiAppId(settings.selectedAppId);
+  }, [settings.selectedAppId]);
+
   const store = {
     settings,
     setMode: (mode: AppMode) => update({ mode }),
     setThreshold: (threshold: number) => update({ threshold }),
+    setSelectedAppId: (selectedAppId: string) => update({ selectedAppId }),
   };
 
   return (
@@ -35,6 +43,7 @@ export default function App() {
             <Route path="/intents" element={<IntentsPage />} />
             <Route path="/projections" element={<ProjectionsPage />} />
             <Route path="/scenarios" element={<ScenariosPage />} />
+            <Route path="/discovery" element={<DiscoveryPage />} />
             <Route path="/debug" element={<DebugPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
