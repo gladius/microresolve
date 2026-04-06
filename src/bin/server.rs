@@ -7,7 +7,7 @@
 use asv_router::{Router, IntentType};
 use axum::{
     extract::{State, Query},
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
     routing::{get, post, delete},
     Json,
 };
@@ -20,7 +20,8 @@ use tower_http::cors::CorsLayer;
 const LOG_FILE: &str = "asv_queries.jsonl";
 
 struct ServerState {
-    router: RwLock<Router>,
+    routers: RwLock<HashMap<String, Router>>,
+    data_dir: Option<String>,
     log: Mutex<std::fs::File>,
     http: reqwest::Client,
     anthropic_key: Option<String>,
@@ -40,8 +41,36 @@ fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
 
+/// Extract app ID from X-App-ID header, defaulting to "default".
+fn app_id_from_headers(headers: &HeaderMap) -> String {
+    headers.get("X-App-ID")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("default")
+        .to_string()
+}
+
+/// Persist a router's state to the data directory if configured.
+fn maybe_persist(state: &ServerState, app_id: &str, router: &Router) {
+    if let Some(ref dir) = state.data_dir {
+        let path = format!("{}/{}.json", dir, app_id);
+        let json = router.export_json();
+        let _ = std::fs::write(&path, json);
+    }
+}
+
 #[tokio::main]
 async fn main() {
+    // Parse --data <dir> CLI argument
+    let mut data_dir: Option<String> = None;
+    let args: Vec<String> = std::env::args().collect();
+    for i in 0..args.len() {
+        if args[i] == "--data" {
+            if let Some(dir) = args.get(i + 1) {
+                data_dir = Some(dir.clone());
+            }
+        }
+    }
+
     let port = std::env::var("PORT").unwrap_or_else(|_| "3001".to_string());
     let addr = format!("0.0.0.0:{}", port);
 
@@ -67,8 +96,37 @@ async fn main() {
         println!("Anthropic API key: not set (LLM features disabled)");
     }
 
+    // Initialize routers
+    let mut routers = HashMap::new();
+
+    // Auto-load from data directory
+    if let Some(ref dir) = data_dir {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().map(|e| e == "json").unwrap_or(false) {
+                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                        if let Ok(json) = std::fs::read_to_string(&path) {
+                            match Router::import_json(&json) {
+                                Ok(r) => {
+                                    println!("Loaded app: {}", stem);
+                                    routers.insert(stem.to_string(), r);
+                                }
+                                Err(e) => eprintln!("Failed to load {}: {}", stem, e),
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Ensure default app exists
+    routers.entry("default".to_string()).or_insert_with(Router::new);
+
     let state: AppState = Arc::new(ServerState {
-        router: RwLock::new(Router::new()),
+        routers: RwLock::new(routers),
+        data_dir,
         log: Mutex::new(open_log()),
         http: reqwest::Client::new(),
         anthropic_key,
@@ -112,11 +170,19 @@ async fn main() {
         .route("/api/workflows", get(get_workflows))
         .route("/api/temporal_order", get(get_temporal_order))
         .route("/api/escalation_patterns", get(get_escalation_patterns))
+        .route("/api/apps", get(list_apps))
+        .route("/api/apps", post(create_app))
+        .route("/api/apps", delete(delete_app))
+        .route("/api/discover", post(discover))
+        .route("/api/discover/apply", post(discover_apply))
         .layer(CorsLayer::permissive())
-        .with_state(state);
+        .with_state(state.clone());
 
     println!("ASV Router server listening on {}", addr);
     println!("Query log: {}", LOG_FILE);
+    if let Some(ref dir) = state.data_dir {
+        println!("Data directory: {}", dir);
+    }
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
@@ -143,9 +209,15 @@ struct RouteRequest {
 
 async fn route_query(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<RouteRequest>,
 ) -> Json<serde_json::Value> {
-    let router = state.router.read().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(&app_id) {
+        Some(r) => r,
+        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+    };
     let results = router.route(&req.query);
     let out: Vec<serde_json::Value> = results
         .iter()
@@ -172,11 +244,17 @@ fn default_threshold() -> f32 {
 
 async fn route_multi(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<RouteMultiRequest>,
 ) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
     let t0 = std::time::Instant::now();
     let output = {
-        let router = state.router.read().unwrap();
+        let routers = state.routers.read().unwrap();
+        let router = match routers.get(&app_id) {
+            Some(r) => r,
+            None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+        };
         router.route_multi(&req.query, req.threshold)
     };
     let latency_us = t0.elapsed().as_micros() as u64;
@@ -184,8 +262,11 @@ async fn route_multi(
     // Record intent sequence (co-occurrence + temporal order + full sequence)
     if output.intents.len() > 1 {
         let ids: Vec<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
-        if let Ok(mut router) = state.router.write() {
-            router.record_intent_sequence(&ids);
+        if let Ok(mut routers) = state.routers.write() {
+            if let Some(router) = routers.get_mut(&app_id) {
+                router.record_intent_sequence(&ids);
+                maybe_persist(&state, &app_id, router);
+            }
         }
     }
 
@@ -233,7 +314,11 @@ async fn route_multi(
 
     // Compute projected_context from co-occurrence
     let projected_context = {
-        let router = state.router.read().unwrap();
+        let routers = state.routers.read().unwrap();
+        let router = match routers.get(&app_id) {
+            Some(r) => r,
+            None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+        };
         let co_pairs = router.get_co_occurrence();
         let matched_ids: std::collections::HashSet<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
 
@@ -329,8 +414,16 @@ async fn route_multi(
 
 // --- Intents ---
 
-async fn list_intents(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let router = state.router.read().unwrap();
+async fn list_intents(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(&app_id) {
+        Some(r) => r,
+        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+    };
     let mut ids = router.intent_ids();
     ids.sort();
     let intents: Vec<serde_json::Value> = ids
@@ -369,9 +462,15 @@ struct AddIntentRequest {
 
 async fn add_intent(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<AddIntentRequest>,
 ) -> StatusCode {
-    let mut router = state.router.write().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
     let seed_refs: Vec<&str> = req.seeds.iter().map(|s| s.as_str()).collect();
     router.add_intent(&req.id, &seed_refs);
     if let Some(t) = req.intent_type {
@@ -382,6 +481,7 @@ async fn add_intent(
             router.set_metadata(&req.id, &key, values);
         }
     }
+    maybe_persist(&state, &app_id, router);
     StatusCode::CREATED
 }
 
@@ -393,9 +493,13 @@ struct AddSeedRequest {
 
 async fn add_seed(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<AddSeedRequest>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    let mut router = state.router.write().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&app_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
     let phrases = router
         .get_training(&req.intent_id)
         .ok_or_else(|| {
@@ -408,6 +512,7 @@ async fn add_seed(
     all.push(req.seed);
     let refs: Vec<&str> = all.iter().map(|s| s.as_str()).collect();
     router.add_intent(&req.intent_id, &refs);
+    maybe_persist(&state, &app_id, router);
     Ok(StatusCode::OK)
 }
 
@@ -423,9 +528,15 @@ struct AddIntentMultilingualRequest {
 
 async fn add_intent_multilingual(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<AddIntentMultilingualRequest>,
 ) -> StatusCode {
-    let mut router = state.router.write().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
     router.add_intent_multilingual(&req.id, req.seeds_by_lang);
     if let Some(t) = req.intent_type {
         router.set_intent_type(&req.id, t);
@@ -435,6 +546,7 @@ async fn add_intent_multilingual(
             router.set_metadata(&req.id, &key, values);
         }
     }
+    maybe_persist(&state, &app_id, router);
     StatusCode::CREATED
 }
 
@@ -446,10 +558,17 @@ struct SetIntentTypeRequest {
 
 async fn set_intent_type(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<SetIntentTypeRequest>,
 ) -> StatusCode {
-    let mut router = state.router.write().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
     router.set_intent_type(&req.intent_id, req.intent_type);
+    maybe_persist(&state, &app_id, router);
     StatusCode::OK
 }
 
@@ -460,10 +579,17 @@ struct DeleteIntentRequest {
 
 async fn delete_intent(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<DeleteIntentRequest>,
 ) -> StatusCode {
-    let mut router = state.router.write().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
     router.remove_intent(&req.id);
+    maybe_persist(&state, &app_id, router);
     StatusCode::OK
 }
 
@@ -475,9 +601,15 @@ struct LearnRequest {
     intent_id: String,
 }
 
-async fn learn(State(state): State<AppState>, Json(req): Json<LearnRequest>) -> StatusCode {
-    let mut router = state.router.write().unwrap();
+async fn learn(State(state): State<AppState>, headers: HeaderMap, Json(req): Json<LearnRequest>) -> StatusCode {
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
     router.learn(&req.query, &req.intent_id);
+    maybe_persist(&state, &app_id, router);
     StatusCode::OK
 }
 
@@ -488,9 +620,15 @@ struct CorrectRequest {
     correct_intent: String,
 }
 
-async fn correct(State(state): State<AppState>, Json(req): Json<CorrectRequest>) -> StatusCode {
-    let mut router = state.router.write().unwrap();
+async fn correct(State(state): State<AppState>, headers: HeaderMap, Json(req): Json<CorrectRequest>) -> StatusCode {
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
     router.correct(&req.query, &req.wrong_intent, &req.correct_intent);
+    maybe_persist(&state, &app_id, router);
     StatusCode::OK
 }
 
@@ -505,10 +643,17 @@ struct SetMetadataRequest {
 
 async fn set_metadata(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<SetMetadataRequest>,
 ) -> StatusCode {
-    let mut router = state.router.write().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
     router.set_metadata(&req.intent_id, &req.key, req.values);
+    maybe_persist(&state, &app_id, router);
     StatusCode::OK
 }
 
@@ -519,9 +664,15 @@ struct GetMetadataRequest {
 
 async fn get_metadata(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<GetMetadataRequest>,
 ) -> Json<serde_json::Value> {
-    let router = state.router.read().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(&app_id) {
+        Some(r) => r,
+        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+    };
     let meta = router.get_metadata(&req.intent_id).cloned().unwrap_or_default();
     Json(serde_json::json!(meta))
 }
@@ -615,16 +766,24 @@ async fn parse_seed_response(
 
 // --- Reset ---
 
-async fn reset(State(state): State<AppState>) -> StatusCode {
-    let mut router = state.router.write().unwrap();
-    *router = Router::new();
+async fn reset(State(state): State<AppState>, headers: HeaderMap) -> StatusCode {
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = Router::new();
+    maybe_persist(&state, &app_id, &router);
+    routers.insert(app_id, router);
     StatusCode::OK
 }
 
 // --- Load defaults ---
 
-async fn load_defaults(State(state): State<AppState>) -> StatusCode {
-    let mut router = state.router.write().unwrap();
+async fn load_defaults(State(state): State<AppState>, headers: HeaderMap) -> StatusCode {
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
 
     let actions: &[(&str, &[&str])] = &[
         // --- Original 6 ---
@@ -991,24 +1150,32 @@ async fn load_defaults(State(state): State<AppState>) -> StatusCode {
         }
     }
 
+    maybe_persist(&state, &app_id, router);
     StatusCode::OK
 }
 
 // --- Export / Import ---
 
-async fn export_state(State(state): State<AppState>) -> String {
-    let router = state.router.read().unwrap();
-    router.export_json()
+async fn export_state(State(state): State<AppState>, headers: HeaderMap) -> String {
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    match routers.get(&app_id) {
+        Some(router) => router.export_json(),
+        None => format!("{{\"error\": \"app '{}' not found\"}}", app_id),
+    }
 }
 
 async fn import_state(
     State(state): State<AppState>,
+    headers: HeaderMap,
     body: String,
 ) -> Result<StatusCode, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
     let new_router =
         Router::import_json(&body).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    let mut router = state.router.write().unwrap();
-    *router = new_router;
+    maybe_persist(&state, &app_id, &new_router);
+    let mut routers = state.routers.write().unwrap();
+    routers.insert(app_id, new_router);
     Ok(StatusCode::OK)
 }
 
@@ -1022,8 +1189,13 @@ async fn get_languages() -> Json<serde_json::Value> {
 
 // --- Co-occurrence ---
 
-async fn get_co_occurrence(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let router = state.router.read().unwrap();
+async fn get_co_occurrence(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(&app_id) {
+        Some(r) => r,
+        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+    };
     let pairs = router.get_co_occurrence();
     let out: Vec<serde_json::Value> = pairs.iter().map(|(a, b, count)| {
         serde_json::json!({"a": a, "b": b, "count": count})
@@ -1042,9 +1214,15 @@ fn default_min_obs() -> u32 { 3 }
 
 async fn get_workflows(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(params): Query<WorkflowQuery>,
 ) -> Json<serde_json::Value> {
-    let router = state.router.read().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(&app_id) {
+        Some(r) => r,
+        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+    };
     let workflows = router.discover_workflows(params.min_observations);
     let out: Vec<serde_json::Value> = workflows.iter().map(|cluster| {
         let intents: Vec<serde_json::Value> = cluster.iter().map(|wi| {
@@ -1061,8 +1239,13 @@ async fn get_workflows(
 
 // --- Temporal ordering ---
 
-async fn get_temporal_order(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let router = state.router.read().unwrap();
+async fn get_temporal_order(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(&app_id) {
+        Some(r) => r,
+        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+    };
     let order = router.get_temporal_order();
     let out: Vec<serde_json::Value> = order.iter().map(|(first, second, prob, count)| {
         serde_json::json!({
@@ -1086,9 +1269,15 @@ fn default_min_occ() -> u32 { 2 }
 
 async fn get_escalation_patterns(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(params): Query<EscalationQuery>,
 ) -> Json<serde_json::Value> {
-    let router = state.router.read().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(&app_id) {
+        Some(r) => r,
+        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+    };
     let patterns = router.detect_escalation_patterns(params.min_occurrences);
     let out: Vec<serde_json::Value> = patterns.iter().map(|p| {
         serde_json::json!({
@@ -1102,8 +1291,13 @@ async fn get_escalation_patterns(
 
 // --- Projections: full action → context map ---
 
-async fn get_projections(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let router = state.router.read().unwrap();
+async fn get_projections(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(&app_id) {
+        Some(r) => r,
+        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+    };
     let co_pairs = router.get_co_occurrence();
     let ids = router.intent_ids();
 
@@ -1174,9 +1368,15 @@ struct ReviewPromptRequest {
 
 async fn build_review_prompt(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<ReviewPromptRequest>,
 ) -> Json<serde_json::Value> {
-    let router = state.router.read().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(&app_id) {
+        Some(r) => r,
+        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+    };
 
     // Build intent definitions for the prompt
     let mut intent_defs = Vec::new();
@@ -1291,10 +1491,14 @@ async fn call_anthropic(
 
 async fn review(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<ReviewPromptRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
     let prompt = {
-        let router = state.router.read().unwrap();
+        let routers = state.routers.read().unwrap();
+        let router = routers.get(&app_id)
+            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
         let mut intent_defs = Vec::new();
         let mut ids = router.intent_ids();
         ids.sort();
@@ -1420,10 +1624,14 @@ struct SimulateTurnRequest {
 
 async fn simulate_turn(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<SimulateTurnRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
     let intent_defs = {
-        let router = state.router.read().unwrap();
+        let routers = state.routers.read().unwrap();
+        let router = routers.get(&app_id)
+            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
         let mut defs = Vec::new();
         // Use client-provided intent list to scope simulation
         let filter: std::collections::HashSet<&str> = req.intents.iter().map(|s| s.as_str()).collect();
@@ -1530,10 +1738,14 @@ struct SimulateRespondRequest {
 
 async fn simulate_respond(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<SimulateRespondRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
     let intent_defs = {
-        let router = state.router.read().unwrap();
+        let routers = state.routers.read().unwrap();
+        let router = routers.get(&app_id)
+            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
         let mut defs = Vec::new();
         for intent in &req.routed_intents {
             let id = intent["id"].as_str().unwrap_or("");
@@ -1605,10 +1817,14 @@ struct TrainingGenerateRequest {
 
 async fn training_generate(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<TrainingGenerateRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
     let intent_defs = {
-        let router = state.router.read().unwrap();
+        let routers = state.routers.read().unwrap();
+        let router = routers.get(&app_id)
+            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
         let mut defs = Vec::new();
         let mut ids = router.intent_ids();
         ids.sort();
@@ -1696,9 +1912,13 @@ struct TrainingTurn {
 
 async fn training_run(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<TrainingRunRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let router = state.router.read().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let router = routers.get(&app_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
     let mut results = Vec::new();
 
     for turn in &req.turns {
@@ -1783,10 +2003,14 @@ struct TrainingReviewRequest {
 
 async fn training_review(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<TrainingReviewRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
     let intent_seeds = {
-        let router = state.router.read().unwrap();
+        let routers = state.routers.read().unwrap();
+        let router = routers.get(&app_id)
+            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
         let mut relevant_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
         for gt in &req.ground_truth {
             relevant_ids.insert(gt.clone());
@@ -1879,9 +2103,13 @@ struct TrainingApplyRequest {
 
 async fn training_apply(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<TrainingApplyRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let mut router = state.router.write().unwrap();
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&app_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
     router.begin_batch();
 
     let mut applied = 0;
@@ -1907,9 +2135,141 @@ async fn training_apply(
     }
 
     router.end_batch();
+    maybe_persist(&state, &app_id, router);
 
     Ok(Json(serde_json::json!({
         "applied": applied,
         "errors": errors,
+    })))
+}
+
+// =============================================================================
+// Multi-app management endpoints
+// =============================================================================
+
+async fn list_apps(
+    State(state): State<AppState>,
+) -> Json<serde_json::Value> {
+    let routers = state.routers.read().unwrap();
+    let apps: Vec<&String> = routers.keys().collect();
+    Json(serde_json::json!(apps))
+}
+
+#[derive(serde::Deserialize)]
+struct CreateAppRequest {
+    app_id: String,
+}
+
+async fn create_app(
+    State(state): State<AppState>,
+    Json(req): Json<CreateAppRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let mut routers = state.routers.write().unwrap();
+    if routers.contains_key(&req.app_id) {
+        return Err((StatusCode::CONFLICT, format!("app '{}' already exists", req.app_id)));
+    }
+    let router = Router::new();
+    maybe_persist(&state, &req.app_id, &router);
+    routers.insert(req.app_id.clone(), router);
+    Ok(Json(serde_json::json!({"created": req.app_id})))
+}
+
+#[derive(serde::Deserialize)]
+struct DeleteAppRequest {
+    app_id: String,
+}
+
+async fn delete_app(
+    State(state): State<AppState>,
+    Json(req): Json<DeleteAppRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    if req.app_id == "default" {
+        return Err((StatusCode::BAD_REQUEST, "cannot delete default app".to_string()));
+    }
+    let mut routers = state.routers.write().unwrap();
+    if routers.remove(&req.app_id).is_none() {
+        return Err((StatusCode::NOT_FOUND, format!("app '{}' not found", req.app_id)));
+    }
+    // Remove persisted file
+    if let Some(ref dir) = state.data_dir {
+        let path = format!("{}/{}.json", dir, req.app_id);
+        let _ = std::fs::remove_file(&path);
+    }
+    Ok(Json(serde_json::json!({"deleted": req.app_id})))
+}
+
+// =============================================================================
+// Discovery endpoints
+// =============================================================================
+
+#[derive(serde::Deserialize)]
+struct DiscoverRequest {
+    queries: Vec<String>,
+    #[serde(default)]
+    expected_intents: usize,
+}
+
+async fn discover(
+    Json(req): Json<DiscoverRequest>,
+) -> Json<serde_json::Value> {
+    let config = asv_router::discovery::DiscoveryConfig {
+        expected_intents: req.expected_intents,
+        ..Default::default()
+    };
+    let clusters = asv_router::discovery::discover_intents(&req.queries, &config);
+    let clusters_json: Vec<serde_json::Value> = clusters.iter().map(|c| {
+        serde_json::json!({
+            "suggested_name": c.suggested_name,
+            "top_terms": c.top_terms,
+            "representative_queries": c.representative_queries,
+            "size": c.size,
+            "confidence": (c.confidence * 100.0).round() / 100.0,
+        })
+    }).collect();
+
+    let total: usize = clusters.iter().map(|c| c.size).sum();
+    Json(serde_json::json!({
+        "clusters": clusters_json,
+        "total_clusters": clusters.len(),
+        "total_assigned": total,
+        "total_queries": req.queries.len(),
+    }))
+}
+
+#[derive(serde::Deserialize)]
+struct DiscoverApplyRequest {
+    clusters: Vec<DiscoverApplyCluster>,
+}
+
+#[derive(serde::Deserialize)]
+struct DiscoverApplyCluster {
+    name: String,
+    representative_queries: Vec<String>,
+}
+
+async fn discover_apply(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<DiscoverApplyRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&app_id)
+        .ok_or((StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
+
+    let mut created = Vec::new();
+    router.begin_batch();
+    for cluster in &req.clusters {
+        let seeds: Vec<&str> = cluster.representative_queries.iter().map(|s| s.as_str()).collect();
+        router.add_intent(&cluster.name, &seeds);
+        created.push(cluster.name.clone());
+    }
+    router.end_batch();
+
+    maybe_persist(&state, &app_id, router);
+
+    Ok(Json(serde_json::json!({
+        "created": created,
+        "count": created.len(),
     })))
 }
