@@ -4,7 +4,7 @@
 //! tracks character positions to recover the user's original ordering, and detects
 //! relationships (sequential, conditional, negation) from gap text between spans.
 
-use crate::index::InvertedIndex;
+use crate::index::{InvertedIndex, ScoredIntent};
 use crate::tokenizer::PositionedTerm;
 use crate::vector::LearnedVector;
 use std::collections::{HashMap, HashSet};
@@ -128,7 +128,12 @@ pub(crate) fn route_multi(
             .collect();
 
         // Score all intents using stripped terms
-        let results = index.search(&search_terms_stripped, 10);
+        let mut results = index.search(&search_terms_stripped, 10);
+
+        // Adjacency coherence: boost intents whose matching terms cluster
+        // together in the query. Scattered matches get no boost.
+        // Transparent for short queries (all terms adjacent → uniform boost).
+        apply_adjacency_boost(&mut results, &remaining, vectors);
 
         // Find best intent we haven't already detected
         let best = results
@@ -225,6 +230,67 @@ pub(crate) fn route_multi(
         metadata: HashMap::new(), // Populated by Router::route_multi()
         suggestions: vec![],      // Populated by Router::route_multi()
     }
+}
+
+/// Adjacency coherence boost: intents whose matching terms are positionally
+/// clustered in the query get a score bonus. This helps long multi-intent
+/// queries where scattered term overlap would otherwise create false signals.
+///
+/// For short queries, all competing intents see similar adjacency patterns,
+/// so relative rankings are unchanged.
+fn apply_adjacency_boost(
+    results: &mut Vec<ScoredIntent>,
+    remaining: &[PositionedTerm],
+    vectors: &HashMap<String, LearnedVector>,
+) {
+    if remaining.len() < 3 {
+        return;
+    }
+
+    // Sort remaining by position for adjacency checks
+    let mut by_pos: Vec<&PositionedTerm> = remaining.iter().collect();
+    by_pos.sort_by_key(|pt| pt.offset);
+
+    for r in results.iter_mut() {
+        let effective = match vectors.get(&r.id) {
+            Some(v) => v.effective_terms(),
+            None => continue,
+        };
+
+        // Find which positional slots match this intent
+        let matching_seq: Vec<usize> = by_pos
+            .iter()
+            .enumerate()
+            .filter(|(_, pt)| {
+                let bare = strip_negation_prefix(&pt.term);
+                effective.contains_key(&bare)
+            })
+            .map(|(i, _)| i)
+            .collect();
+
+        if matching_seq.len() < 2 {
+            continue;
+        }
+
+        // Count adjacent pairs among matching positions
+        let adjacent = matching_seq
+            .windows(2)
+            .filter(|w| w[1] - w[0] == 1)
+            .count();
+
+        let max_pairs = matching_seq.len() - 1;
+        let ratio = adjacent as f32 / max_pairs as f32;
+
+        // Up to 30% boost for fully clustered matches
+        r.score *= 1.0 + 0.3 * ratio;
+    }
+
+    // Re-sort by adjusted scores
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 }
 
 /// Strip the `not_` prefix from a negated term, returning the bare form.
@@ -648,5 +714,246 @@ mod tests {
             classify_relation("或者", 0),
             IntentRelation::Conditional { primary: 0, fallback: 1 }
         ));
+    }
+
+    // --- adjacency boost tests ---
+
+    #[test]
+    fn adjacency_boost_long_confused_query() {
+        // Scenario: user mentions "order food delivery" early in the message
+        // but actually wants to cancel an order and track a delivery.
+        // Without adjacency boost, "order_food" could outscore "cancel_order"
+        // because it matches scattered terms across the whole query.
+        let mut router = Router::new();
+        router.add_intent("order_food", &[
+            "order food", "order meal", "food delivery", "order pizza",
+        ]);
+        router.add_intent("cancel_order", &[
+            "cancel order", "cancel my purchase", "stop my order",
+        ]);
+        router.add_intent("track_delivery", &[
+            "track delivery", "delivery status", "where is delivery",
+        ]);
+
+        let query = "I ordered some food yesterday and the delivery has not \
+                      arrived so I want to cancel my order and track the delivery";
+        let result = router.route_multi(query, 0.3);
+        let ids: Vec<&str> = result.intents.iter().map(|i| i.id.as_str()).collect();
+
+        // cancel_order and track_delivery should be detected (user's actual intent)
+        assert!(ids.contains(&"cancel_order"),
+            "should detect cancel_order in {:?}", ids);
+        assert!(ids.contains(&"track_delivery"),
+            "should detect track_delivery in {:?}", ids);
+    }
+
+    #[test]
+    fn adjacency_boost_scattered_vs_clustered() {
+        // "account" and "order" appear in multiple intents.
+        // The user wants to cancel their order and close their account.
+        // Terms for each intent cluster together in the query.
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &[
+            "cancel order", "cancel my order", "stop order",
+        ]);
+        router.add_intent("close_account", &[
+            "close account", "close my account", "delete account",
+        ]);
+        router.add_intent("check_order", &[
+            "check order", "order status", "order details",
+        ]);
+
+        let query = "I am so frustrated right now I need to cancel my order \
+                      immediately and then I also want to close my account \
+                      because your service is terrible";
+        let result = router.route_multi(query, 0.3);
+        let ids: Vec<&str> = result.intents.iter().map(|i| i.id.as_str()).collect();
+
+        assert!(ids.contains(&"cancel_order"),
+            "should detect cancel_order in {:?}", ids);
+        assert!(ids.contains(&"close_account"),
+            "should detect close_account in {:?}", ids);
+        // check_order should NOT appear — "order" is near "cancel", not "check"
+        assert!(!ids.contains(&"check_order"),
+            "should NOT detect check_order in {:?}", ids);
+    }
+
+    #[test]
+    fn adjacency_boost_four_intents_long_ramble() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &[
+            "cancel my order", "cancel order", "stop my order",
+        ]);
+        router.add_intent("track_order", &[
+            "track my order", "where is my package", "shipping status",
+        ]);
+        router.add_intent("refund", &[
+            "get a refund", "money back", "refund my purchase",
+        ]);
+        router.add_intent("contact_service", &[
+            "talk to someone", "speak to agent", "customer service",
+            "talk to a human",
+        ]);
+
+        let query = "this is absolutely ridiculous I have been waiting for \
+                      two weeks and I need to cancel my order because it is \
+                      taking forever and I also want to track my other package \
+                      that should have arrived and I want a refund for the \
+                      broken item and honestly I just want to talk to someone \
+                      who can actually help me with this terrible service";
+        let result = router.route_multi(query, 0.3);
+        let ids: Vec<&str> = result.intents.iter().map(|i| i.id.as_str()).collect();
+
+        assert!(ids.contains(&"cancel_order"),
+            "should detect cancel_order in {:?}", ids);
+        assert!(ids.contains(&"track_order"),
+            "should detect track_order in {:?}", ids);
+        assert!(ids.contains(&"refund"),
+            "should detect refund in {:?}", ids);
+        assert!(ids.contains(&"contact_service"),
+            "should detect contact_service in {:?}", ids);
+    }
+
+    #[test]
+    fn adjacency_boost_short_query_unchanged() {
+        // Short queries should work exactly as before
+        let router = setup_router();
+        let result = router.route_multi("cancel my order", 0.5);
+        assert_eq!(result.intents.len(), 1);
+        assert_eq!(result.intents[0].id, "cancel_order");
+    }
+
+    #[test]
+    fn adjacency_boost_comparison() {
+        // Side-by-side: index.search (no boost) vs route_multi (with boost)
+        // Shows how adjacency changes scoring for long queries
+        let mut router = Router::new();
+        router.add_intent("order_food", &[
+            "order food", "order meal", "food delivery", "order pizza",
+        ]);
+        router.add_intent("cancel_order", &[
+            "cancel order", "cancel my purchase", "stop my order",
+        ]);
+        router.add_intent("track_delivery", &[
+            "track delivery", "delivery status", "where is delivery",
+        ]);
+
+        let query = "I ordered some food yesterday and the delivery has not \
+                      arrived so I want to cancel my order and track the delivery";
+
+        // Raw index scores (no adjacency boost)
+        let terms = router.extract_terms(query);
+        let raw = router.route(query);
+        let raw_ids: Vec<(&str, f32)> = raw.iter()
+            .map(|r| (r.id.as_str(), r.score)).collect();
+
+        // Full route_multi (with adjacency boost)
+        let multi = router.route_multi(query, 0.1);
+        let multi_ids: Vec<(&str, f32)> = multi.intents.iter()
+            .map(|i| (i.id.as_str(), i.score)).collect();
+
+        println!("\n  Query: {}", query);
+        println!("  Terms: {:?}", terms);
+        println!("\n  RAW index scores (no adjacency):");
+        for (id, score) in &raw_ids {
+            println!("    {:<20} {:.3}", id, score);
+        }
+        println!("\n  MULTI route (with adjacency boost):");
+        for (id, score) in &multi_ids {
+            println!("    {:<20} {:.3}", id, score);
+        }
+
+        // cancel_order and track_delivery should be detected, NOT order_food
+        assert!(multi_ids.iter().any(|(id, _)| *id == "cancel_order"),
+            "cancel_order should be in multi results");
+        assert!(multi_ids.iter().any(|(id, _)| *id == "track_delivery"),
+            "track_delivery should be in multi results");
+    }
+
+    #[test]
+    fn adjacency_boost_edge_cases() {
+        let mut router = Router::new();
+        router.add_intent("cancel_order", &[
+            "cancel my order", "cancel order", "stop my order",
+        ]);
+        router.add_intent("track_order", &[
+            "track my order", "where is my package", "shipping status",
+        ]);
+        router.add_intent("refund", &[
+            "get a refund", "money back", "refund my purchase",
+        ]);
+        router.add_intent("close_account", &[
+            "close my account", "delete account", "deactivate account",
+        ]);
+        router.add_intent("change_address", &[
+            "change my address", "update shipping address", "new address",
+        ]);
+        router.add_intent("billing", &[
+            "billing issue", "charged twice", "wrong charge", "payment problem",
+        ]);
+
+        let cases: Vec<(&str, Vec<&str>, Vec<&str>)> = vec![
+            // (query, must_contain, must_not_contain)
+
+            // Edge 1: negation + adjacency — "don't cancel" should still detect cancel as negated
+            ("I want to track my order but don't cancel it",
+             vec!["track_order", "cancel_order"], vec![]),
+
+            // Edge 2: single word query — should not crash or behave weird
+            ("refund", vec!["refund"], vec![]),
+
+            // Edge 3: 5 intents in one ramble (max_intents default = 5)
+            ("I need to cancel my order and track my other package and \
+              get a refund and close my account and change my address",
+             vec!["cancel_order", "track_order", "refund", "close_account", "change_address"], vec![]),
+
+            // Edge 4: repeated word "order" in different contexts
+            ("cancel my first order and track my second order",
+             vec!["cancel_order", "track_order"], vec![]),
+
+            // Edge 5: filler-heavy — lots of noise words between intent terms
+            ("so basically what happened is that I really really need to \
+              like cancel the order I placed and also maybe get a refund \
+              if that is even possible at this point",
+             vec!["cancel_order", "refund"], vec![]),
+
+            // Edge 6: adjacent terms for WRONG intent — "close order" not a real intent
+            ("I want to close my account",
+             vec!["close_account"], vec!["cancel_order"]),
+        ];
+
+        println!("\n  ═══ ADJACENCY BOOST EDGE CASE PROBES ═══\n");
+        let mut pass = 0;
+        let mut fail = 0;
+
+        for (i, (query, must, must_not)) in cases.iter().enumerate() {
+            let result = router.route_multi(query, 0.3);
+            let ids: Vec<&str> = result.intents.iter().map(|r| r.id.as_str()).collect();
+            let scores: Vec<String> = result.intents.iter()
+                .map(|r| format!("{}({:.2})", r.id, r.score)).collect();
+
+            let mut ok = true;
+            for &m in must {
+                if !ids.contains(&m) {
+                    println!("  FAIL #{}: missing '{}' in {:?}", i+1, m, scores);
+                    ok = false;
+                }
+            }
+            for &m in must_not {
+                if ids.contains(&m) {
+                    println!("  FAIL #{}: unwanted '{}' in {:?}", i+1, m, scores);
+                    ok = false;
+                }
+            }
+            if ok {
+                println!("  OK   #{}: {} → {:?}", i+1, &query[..query.len().min(60)], scores);
+                pass += 1;
+            } else {
+                fail += 1;
+            }
+        }
+
+        println!("\n  Results: {}/{} passed\n", pass, pass + fail);
+        assert_eq!(fail, 0, "{} edge cases failed", fail);
     }
 }
