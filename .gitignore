@@ -20,10 +20,21 @@ Thumbs.db
 # Runtime data
 .env
 
-# Claude Code
-.claude/
+# Python
+__pycache__/
+*.pyc
+*.pyo
 python/.venv/
 python/target/
+
+# Node
 node/node_modules/
 node/target/
+examples/node/node_modules/
 *.node
+
+# Logs
+*.jsonl
+
+# Claude Code
+.claude/

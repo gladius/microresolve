@@ -13,7 +13,7 @@ const express = require('express');
 // Local build: require from the node/ build output
 // After npm publish: change to require('asv-router')
 const path = require('path');
-const { Router } = require(path.join(__dirname, '..', 'node', 'asv-router.node'));
+const { Router } = require(path.join(__dirname, '..', '..', 'node', 'asv-router.node'));
 
 const app = express();
 app.use(express.json());
