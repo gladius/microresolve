@@ -1,0 +1,15 @@
+{
+  "name": "asv-router",
+  "version": "0.1.0",
+  "description": "Sub-millisecond intent routing. No embeddings, no GPU, no neural network.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "asv-router",
+    "triples": {}
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@napi-rs/cli": "^3.0.0"
+  }
+}

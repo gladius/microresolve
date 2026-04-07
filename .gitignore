@@ -24,3 +24,6 @@ Thumbs.db
 .claude/
 python/.venv/
 python/target/
+node/node_modules/
+node/target/
+*.node
