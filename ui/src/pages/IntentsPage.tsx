@@ -160,6 +160,7 @@ function IntentDetailPanel({
   intent: IntentInfo; allIntentIds: string[]; onRefresh: () => void; onDeleted: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<DetailTab>('seeds');
+  const [seedSearch, setSeedSearch] = useState('');
 
   const handleTypeChange = async (newType: IntentType) => {
     await api.setIntentType(intent.id, newType);
@@ -218,31 +219,47 @@ function IntentDetailPanel({
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0 border-b border-zinc-800">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'text-white border-violet-500'
-                  : 'text-zinc-500 border-transparent hover:text-zinc-300'
-              }`}
-            >
-              {tab.label}
-              {tab.count !== undefined && (
-                <span className="ml-1.5 text-xs text-zinc-600">{tab.count}</span>
+        {/* Tabs + search (search in tab bar area) */}
+        <div className="flex items-center border-b border-zinc-800">
+          <div className="flex gap-0">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'text-white border-violet-500'
+                    : 'text-zinc-500 border-transparent hover:text-zinc-300'
+                }`}
+              >
+                {tab.label}
+                {tab.count !== undefined && (
+                  <span className="ml-1.5 text-xs text-zinc-600">{tab.count}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          {activeTab === 'seeds' && (
+            <div className="ml-auto relative">
+              <input
+                value={seedSearch}
+                onChange={e => setSeedSearch(e.target.value)}
+                placeholder="Search..."
+                autoComplete="off"
+                className="w-40 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white focus:border-violet-500 focus:outline-none"
+              />
+              {seedSearch && (
+                <button onClick={() => setSeedSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs">×</button>
               )}
-            </button>
-          ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {activeTab === 'seeds' && (
-          <SeedsTab intent={intent} onRefresh={onRefresh} />
+          <SeedsTab intent={intent} onRefresh={onRefresh} seedSearch={seedSearch} />
         )}
         {activeTab === 'metadata' && (
           <MetadataTab intent={intent} allIntentIds={allIntentIds} onRefresh={onRefresh} />
@@ -257,9 +274,8 @@ function IntentDetailPanel({
 
 // --- Seeds Tab ---
 
-function SeedsTab({ intent, onRefresh }: { intent: IntentInfo; onRefresh: () => void }) {
+function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRefresh: () => void; seedSearch: string }) {
   const [newSeed, setNewSeed] = useState('');
-  const [seedSearch, setSeedSearch] = useState('');
   const [showBulk, setShowBulk] = useState(false);
   const [bulkText, setBulkText] = useState('');
 
@@ -301,51 +317,9 @@ function SeedsTab({ intent, onRefresh }: { intent: IntentInfo; onRefresh: () => 
   };
 
   return (
-    <div className="space-y-3">
-      {/* Search + actions */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-xs">
-          <input
-            value={seedSearch}
-            onChange={e => setSeedSearch(e.target.value)}
-            placeholder="Search seeds..."
-            autoComplete="off"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-violet-500 focus:outline-none"
-          />
-          {seedSearch && (
-            <button onClick={() => setSeedSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs">×</button>
-          )}
-        </div>
-        <button
-          onClick={() => setShowBulk(!showBulk)}
-          className="text-xs text-zinc-400 hover:text-white px-2 py-1.5 border border-zinc-700 rounded transition-colors"
-        >
-          {showBulk ? 'Cancel bulk' : 'Bulk paste'}
-        </button>
-      </div>
-
-      {/* Bulk paste area */}
-      {showBulk && (
-        <div className="space-y-2">
-          <textarea
-            value={bulkText}
-            onChange={e => setBulkText(e.target.value)}
-            placeholder="Paste multiple seeds, one per line..."
-            rows={5}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white font-mono resize-y focus:border-violet-500 focus:outline-none"
-          />
-          <button
-            onClick={handleBulkAdd}
-            disabled={!bulkText.trim()}
-            className="text-xs px-3 py-1.5 bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30"
-          >
-            Add {bulkText.split('\n').filter(s => s.trim()).length} seeds
-          </button>
-        </div>
-      )}
-
+    <div className="flex flex-col h-full gap-3">
       {/* Seed list */}
-      <div className="border border-zinc-800 rounded-lg bg-zinc-900/50 divide-y divide-zinc-800/50">
+      <div className="flex-1 border border-zinc-800 rounded-lg bg-zinc-900/50 divide-y divide-zinc-800/50 overflow-y-auto">
         {filtered.length === 0 && (
           <div className="text-zinc-600 text-xs text-center py-6">
             {seedSearch ? 'No seeds match search' : 'No seeds yet'}
@@ -363,28 +337,59 @@ function SeedsTab({ intent, onRefresh }: { intent: IntentInfo; onRefresh: () => 
         ))}
       </div>
 
-      {/* Inline add */}
-      <div className="flex gap-2">
-        <input
-          value={newSeed}
-          onChange={e => setNewSeed(e.target.value)}
-          placeholder="Type a seed and press Enter..."
-          autoComplete="off"
-          className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white font-mono focus:border-violet-500 focus:outline-none"
-          onKeyDown={e => { if (e.key === 'Enter') handleAddSeed(); }}
-        />
-        <button
-          onClick={handleAddSeed}
-          disabled={!newSeed.trim()}
-          className="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 text-violet-400 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors"
-        >
-          + Add
-        </button>
+      {/* Add area: single input OR bulk paste (toggle) */}
+      <div className="flex-shrink-0 space-y-2">
+        {showBulk ? (
+          <>
+            <textarea
+              value={bulkText}
+              onChange={e => setBulkText(e.target.value)}
+              placeholder="Paste multiple seeds, one per line..."
+              rows={4}
+              autoFocus
+              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white font-mono resize-y focus:border-violet-500 focus:outline-none"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleBulkAdd}
+                disabled={!bulkText.trim()}
+                className="text-xs px-3 py-1.5 bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30"
+              >
+                Add {bulkText.split('\n').filter(s => s.trim()).length} seeds
+              </button>
+              <button onClick={() => setShowBulk(false)} className="text-xs text-zinc-500 hover:text-white">Cancel</button>
+            </div>
+          </>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              value={newSeed}
+              onChange={e => setNewSeed(e.target.value)}
+              placeholder="Type a seed and press Enter..."
+              autoComplete="off"
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white font-mono focus:border-violet-500 focus:outline-none"
+              onKeyDown={e => { if (e.key === 'Enter') handleAddSeed(); }}
+            />
+            <button
+              onClick={handleAddSeed}
+              disabled={!newSeed.trim()}
+              className="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 text-violet-400 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors"
+            >
+              + Add
+            </button>
+            <button
+              onClick={() => setShowBulk(true)}
+              className="px-2 py-1.5 text-xs text-zinc-500 hover:text-white border border-zinc-700 rounded transition-colors"
+              title="Bulk paste"
+            >
+              Bulk
+            </button>
+          </div>
+        )}
+        {intent.learned_count > 0 && (
+          <p className="text-xs text-emerald-400/50">+{intent.learned_count} terms learned from corrections</p>
+        )}
       </div>
-
-      {intent.learned_count > 0 && (
-        <p className="text-xs text-emerald-400/50">+{intent.learned_count} terms learned from corrections</p>
-      )}
     </div>
   );
 }
