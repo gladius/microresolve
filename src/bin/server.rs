@@ -183,8 +183,10 @@ async fn main() {
     if let Some(ref dir) = state.data_dir {
         println!("Data directory: {}", dir);
     }
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&addr).await
+        .expect(&format!("Failed to bind to {} — is the port already in use?", addr));
+    axum::serve(listener, app).await
+        .expect("Server error");
 }
 
 async fn health() -> &'static str {
