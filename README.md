@@ -147,20 +147,36 @@ let router = Router::import_json(&json).unwrap();
 # Set API key for LLM features (optional)
 echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
 
-# Run server
-cargo run --release --bin server --features server
+# Run server with auto-persistence
+cargo run --release --bin server --features server -- --data ./data
 ```
 
+Multi-app support: send `X-App-ID: my-bot` header to isolate intents per app. No header defaults to `"default"`. Per-app state auto-saves to the data directory.
+
 Endpoints:
-- `POST /api/route_multi` — route with multi-intent decomposition + projected context
+- `POST /api/route_multi` — multi-intent decomposition + projected context
 - `POST /api/route` — single best-match routing
-- `GET /api/intents` — list all intents with seeds, types, metadata
+- `GET/POST/DELETE /api/apps` — create, list, delete apps
+- `GET /api/intents` — list intents with seeds, types, metadata
 - `POST /api/intents` — add intent
 - `POST /api/learn` — teach the router
 - `POST /api/correct` — fix misroutes
+- `POST /api/discover` — auto-discover intents from unlabeled queries
+- `POST /api/discover/apply` — create intents from discovered clusters
 - `POST /api/review` — LLM-powered routing review (requires API key)
 - `GET /api/co_occurrence` — intent co-occurrence matrix
 - `GET /api/export` / `POST /api/import` — state persistence
+
+## Why Server-Side
+
+ASV is designed for server-side deployment. While a WASM build exists for demos and edge use cases, production routing should run on the server:
+
+- **Seed phrases are your business logic.** Shipping them to the browser exposes your entire intent taxonomy — competitors can inspect it, attackers can game it. Server-side routing keeps seeds private.
+- **Learned weights contain user data.** If the router learned from corrections, those patterns reflect real user behavior. They belong on your server, not in client memory.
+- **The hybrid pattern works best server-side.** Route the easy 80% with ASV ($0, 30μs), send the hard 20% to your LLM. This decision logic lives on the server where you control the fallback.
+- **Multi-app isolation.** The server supports multiple apps via `X-App-ID` headers, each with isolated intents and persistence. This doesn't translate to client-side.
+
+WASM is appropriate for: public demos, open-source intent sets, offline-capable personal tools, and IoT/edge devices where no server is available.
 
 ## Interactive UI
 
@@ -175,7 +191,39 @@ Web dashboard at `http://localhost:5173` with:
 - Co-occurrence matrix and query log viewer
 - AI-powered seed phrase generation
 
+## Python
+
+```bash
+cd python && pip install maturin && maturin develop --release
+```
+
+```python
+from asv_router import Router
+
+r = Router()
+r.add_intent("cancel_order", ["cancel my order", "stop my order"])
+r.route("cancel this")  # [{"id": "cancel_order", "score": 1.28}]
+r.learn("stop charging me", "cancel_order")
+```
+
+## Node.js
+
+```bash
+cd node && npm install && npx napi build --release
+```
+
+```javascript
+const { Router } = require('./asv-router.node');
+
+const r = new Router();
+r.addIntent("cancel_order", ["cancel my order", "stop my order"]);
+r.route("cancel this");  // [{id: "cancel_order", score: 1.28}]
+r.learn("stop charging me", "cancel_order");
+```
+
 ## WASM
+
+For demos and edge deployment only (see [Why Server-Side](#why-server-side)):
 
 ```bash
 wasm-pack build --target web --out-dir web/pkg
