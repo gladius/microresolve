@@ -2210,6 +2210,7 @@ struct DiscoverRequest {
 }
 
 async fn discover(
+    State(state): State<AppState>,
     Json(req): Json<DiscoverRequest>,
 ) -> Json<serde_json::Value> {
     let config = asv_router::discovery::DiscoveryConfig {
@@ -2217,15 +2218,45 @@ async fn discover(
         ..Default::default()
     };
     let clusters = asv_router::discovery::discover_intents(&req.queries, &config);
-    let clusters_json: Vec<serde_json::Value> = clusters.iter().map(|c| {
-        serde_json::json!({
-            "suggested_name": c.suggested_name,
+
+    // LLM naming: send representative queries to Claude for each cluster
+    let mut clusters_json: Vec<serde_json::Value> = Vec::new();
+    for c in &clusters {
+        let samples: Vec<&str> = c.representative_queries.iter().take(5).map(|s| s.as_str()).collect();
+        let mut name = c.suggested_name.clone();
+        let mut description = String::new();
+
+        if state.anthropic_key.is_some() {
+            let prompt = format!(
+                "These user queries all belong to the same intent category:\n{}\n\n\
+                 Respond with ONLY a JSON object (no markdown, no explanation):\n\
+                 {{\"name\": \"snake_case_intent_name\", \"description\": \"one sentence description of what the user wants\"}}",
+                samples.iter().enumerate()
+                    .map(|(i, q)| format!("{}. {}", i + 1, q))
+                    .collect::<Vec<_>>().join("\n")
+            );
+            if let Ok(response) = call_anthropic(&state, &prompt, 100).await {
+                // Parse the JSON response
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&response) {
+                    if let Some(n) = parsed["name"].as_str() {
+                        name = n.to_string();
+                    }
+                    if let Some(d) = parsed["description"].as_str() {
+                        description = d.to_string();
+                    }
+                }
+            }
+        }
+
+        clusters_json.push(serde_json::json!({
+            "suggested_name": name,
+            "description": description,
             "top_terms": c.top_terms,
             "representative_queries": c.representative_queries,
             "size": c.size,
             "confidence": (c.confidence * 100.0).round() / 100.0,
-        })
-    }).collect();
+        }));
+    }
 
     let total: usize = clusters.iter().map(|c| c.size).sum();
     Json(serde_json::json!({

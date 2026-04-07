@@ -26,7 +26,11 @@ export default function DiscoveryPage() {
     try {
       const result = await api.discover(queries);
       setClusters(
-        result.clusters.map(c => ({ ...c, selected: true, editName: c.suggested_name }))
+        result.clusters.map(c => ({
+          ...c,
+          selected: c.confidence >= 0.2,
+          editName: c.suggested_name,
+        }))
       );
       setStats({ total_queries: result.total_queries, total_assigned: result.total_assigned });
     } catch (e) {
@@ -215,6 +219,11 @@ export default function DiscoveryPage() {
                         {Math.round(cluster.confidence * 100)}%
                       </span>
                     </div>
+
+                    {/* Description from LLM */}
+                    {cluster.description && (
+                      <p className="text-xs text-zinc-400 mt-1">{cluster.description}</p>
+                    )}
 
                     {/* Top terms */}
                     <div className="flex flex-wrap gap-1 mt-2">

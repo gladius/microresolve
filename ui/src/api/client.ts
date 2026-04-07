@@ -252,6 +252,7 @@ export const api = {
 // Discovery types
 export interface DiscoveredCluster {
   suggested_name: string;
+  description: string;
   top_terms: string[];
   representative_queries: string[];
   size: number;
