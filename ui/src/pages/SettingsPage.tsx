@@ -39,25 +39,6 @@ export default function SettingsPage() {
         </p>
       </section>
 
-      {/* Threshold */}
-      <section className="space-y-3">
-        <h2 className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">Default Threshold</h2>
-        <p className="text-xs text-zinc-600">
-          Minimum score for multi-intent detection. Lower catches more but risks false positives.
-        </p>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min="0"
-            max="5"
-            step="0.1"
-            value={settings.threshold}
-            onChange={e => setThreshold(parseFloat(e.target.value))}
-            className="w-48 accent-violet-500"
-          />
-          <span className="text-white font-mono text-sm w-10">{settings.threshold.toFixed(1)}</span>
-        </div>
-      </section>
 
       {/* Query Log */}
       <section className="space-y-3">

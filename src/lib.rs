@@ -71,6 +71,41 @@ pub mod wasm;
 
 pub use multi::{IntentRelation, MultiRouteOutput, MultiRouteResult};
 
+/// Router configuration. Pass to `Router::with_config()`.
+///
+/// ```
+/// use asv_router::RouterConfig;
+/// let config = RouterConfig { top_k: 5, max_intents: 10, ..Default::default() };
+/// ```
+#[derive(Debug, Clone)]
+pub struct RouterConfig {
+    /// Maximum results from `route()`. Default: 10.
+    pub top_k: usize,
+    /// Maximum intents from `route_multi()`. Default: 5.
+    pub max_intents: usize,
+    /// Server URL for connected mode. None = local mode.
+    pub server: Option<String>,
+    /// App ID for connected mode. Default: "default".
+    pub app_id: String,
+    /// Local file path for standalone mode. None = in-memory only.
+    pub data_path: Option<String>,
+    /// Sync interval in seconds (connected mode). Default: 30.
+    pub sync_interval_secs: u64,
+}
+
+impl Default for RouterConfig {
+    fn default() -> Self {
+        Self {
+            top_k: 10,
+            max_intents: 5,
+            server: None,
+            app_id: "default".to_string(),
+            data_path: None,
+            sync_interval_secs: 30,
+        }
+    }
+}
+
 /// The type of an intent — whether it represents a user action or supporting context.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -177,6 +212,9 @@ pub struct Router {
     version: u64,
     /// Maximum number of intents detected by route_multi. Default: 5.
     max_intents: usize,
+    /// When true, write operations (add_intent, learn, correct) are blocked.
+    /// Set in connected mode where the server manages state.
+    connected: bool,
 }
 
 impl Default for Router {
@@ -186,7 +224,7 @@ impl Default for Router {
 }
 
 impl Router {
-    /// Create a new empty router.
+    /// Create a new empty router in local mode.
     pub fn new() -> Self {
         Self {
             vectors: HashMap::new(),
@@ -208,7 +246,50 @@ impl Router {
             paraphrase_dirty: false,
             version: 0,
             max_intents: 5,
+            connected: false,
         }
+    }
+
+    /// Create a router with configuration.
+    ///
+    /// ```
+    /// use asv_router::{Router, RouterConfig};
+    /// let r = Router::with_config(RouterConfig {
+    ///     top_k: 5,
+    ///     max_intents: 10,
+    ///     ..Default::default()
+    /// });
+    /// ```
+    pub fn with_config(config: RouterConfig) -> Self {
+        let mut r = Self::new();
+        r.top_k = config.top_k;
+        r.max_intents = config.max_intents;
+        if config.server.is_some() {
+            r.connected = true;
+        }
+        r
+    }
+
+    /// Load router state from a JSON file. Returns error if file not found or invalid.
+    pub fn load(path: &str) -> Result<Self, String> {
+        let json = std::fs::read_to_string(path)
+            .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+        Self::import_json(&json)
+    }
+
+    /// Save router state to a JSON file.
+    pub fn save(&self, path: &str) -> Result<(), String> {
+        if self.connected {
+            return Err("Cannot save in connected mode — server manages state".to_string());
+        }
+        let json = self.export_json();
+        std::fs::write(path, json)
+            .map_err(|e| format!("Failed to write {}: {}", path, e))
+    }
+
+    /// Returns true if this router is in connected (read-only) mode.
+    pub fn is_connected(&self) -> bool {
+        self.connected
     }
 
     /// Set the maximum number of results returned by `route()`.
@@ -225,6 +306,14 @@ impl Router {
     /// Get the current max intents setting.
     pub fn max_intents(&self) -> usize {
         self.max_intents
+    }
+
+    /// Guard: panics if router is in connected (read-only) mode.
+    fn require_local(&self) {
+        if self.connected {
+            panic!("Cannot modify router in connected mode — server manages state. \
+                    Use the server UI or API to make changes.");
+        }
     }
 
     /// Begin batch mode: defers CJK automaton rebuilds until `end_batch()`.
@@ -276,6 +365,7 @@ impl Router {
     /// router.add_intent("greeting", &["hello", "hi there", "hey"]);
     /// ```
     pub fn add_intent(&mut self, id: &str, seed_phrases: &[&str]) {
+        self.require_local();
         let phrases: Vec<String> = seed_phrases.iter().map(|s| s.to_string()).collect();
         let terms = training_to_terms(&phrases);
         let vector = LearnedVector::from_seed(terms);
@@ -303,6 +393,7 @@ impl Router {
     /// router.add_intent_multilingual("cancel_order", seeds);
     /// ```
     pub fn add_intent_multilingual(&mut self, id: &str, seeds_by_lang: HashMap<String, Vec<String>>) {
+        self.require_local();
         let all_phrases: Vec<String> = seeds_by_lang.values().flat_map(|v| v.clone()).collect();
         let terms = training_to_terms(&all_phrases);
         let vector = LearnedVector::from_seed(terms);
@@ -317,6 +408,7 @@ impl Router {
     /// Use this when you have term weights from an external source
     /// (e.g., LLM-generated, imported from another system).
     pub fn add_intent_with_weights(&mut self, id: &str, seed_terms: HashMap<String, f32>) {
+        self.require_local();
         let vector = LearnedVector::from_seed(seed_terms);
         self.vectors.insert(id.to_string(), vector);
         self.rebuild_index();
@@ -325,6 +417,7 @@ impl Router {
 
     /// Remove an intent.
     pub fn remove_intent(&mut self, id: &str) {
+        self.require_local();
         self.vectors.remove(id);
         self.training.remove(id);
         self.index.remove_intent(id);
@@ -372,6 +465,7 @@ impl Router {
     /// learned term weights. Weights grow asymptotically toward 1.0.
     /// For CJK queries, only learns clean automaton matches and filtered residual bigrams.
     pub fn learn(&mut self, query: &str, intent_id: &str) {
+        self.require_local();
         let terms = self.extract_terms_for_learning(query);
         if terms.is_empty() {
             return;
@@ -407,6 +501,7 @@ impl Router {
     /// Unlearns the query from the wrong intent's routing index and paraphrase index,
     /// then learns it into the correct intent for both indexes.
     pub fn correct(&mut self, query: &str, wrong_intent: &str, correct_intent: &str) {
+        self.require_local();
         let terms = self.extract_terms(query);
         if terms.is_empty() {
             return;
@@ -456,6 +551,7 @@ impl Router {
     /// This mirrors the clean experiment's behavior where correct detections were
     /// reinforced through `paraphrase_index.learn_from_message()`.
     pub fn reinforce(&mut self, query: &str, intent_id: &str) {
+        self.require_local();
         self.learn_paraphrases(query, intent_id);
     }
 
@@ -663,6 +759,7 @@ impl Router {
             paraphrase_dirty: false,
             version: state.version,
             max_intents: state.max_intents,
+            connected: false,
         };
         router.rebuild_cjk_automaton_now();
         router.rebuild_paraphrase_automaton_now();
@@ -707,6 +804,7 @@ impl Router {
     /// assert_eq!(router.get_intent_type("check_balance"), IntentType::Context);
     /// ```
     pub fn set_intent_type(&mut self, intent_id: &str, intent_type: IntentType) {
+        self.require_local();
         self.intent_types.insert(intent_id.to_string(), intent_type);
     }
 
@@ -728,6 +826,7 @@ impl Router {
     /// router.set_metadata("cancel_order", "context_intents", vec!["check_balance".into(), "track_order".into()]);
     /// ```
     pub fn set_metadata(&mut self, intent_id: &str, key: &str, values: Vec<String>) {
+        self.require_local();
         self.metadata
             .entry(intent_id.to_string())
             .or_default()
@@ -1187,6 +1286,7 @@ impl Router {
     /// ]);
     /// ```
     pub fn add_paraphrases(&mut self, intent_id: &str, phrases: &[&str]) {
+        self.require_local();
         for phrase in phrases {
             let lower = phrase.to_lowercase();
             if lower.split_whitespace().count() >= 2 && lower.len() >= 5 {
@@ -1198,6 +1298,7 @@ impl Router {
 
     /// Add paraphrases from a map of intent_id -> phrases (for bulk loading).
     pub fn add_paraphrases_bulk(&mut self, data: &HashMap<String, Vec<String>>) {
+        self.require_local();
         for (intent_id, phrases) in data {
             for phrase in phrases {
                 let lower = phrase.to_lowercase();
@@ -2570,5 +2671,101 @@ mod tests {
 
         // Sequences should be merged (2 + 1 = 3)
         assert_eq!(router_a.intent_sequences.len(), 3);
+    }
+
+    #[test]
+    fn router_config_defaults() {
+        let config = RouterConfig::default();
+        assert_eq!(config.top_k, 10);
+        assert_eq!(config.max_intents, 5);
+        assert!(config.server.is_none());
+        assert_eq!(config.app_id, "default");
+        assert!(config.data_path.is_none());
+        assert_eq!(config.sync_interval_secs, 30);
+    }
+
+    #[test]
+    fn router_with_config() {
+        let r = Router::with_config(RouterConfig {
+            top_k: 3,
+            max_intents: 8,
+            ..Default::default()
+        });
+        assert_eq!(r.top_k, 3);
+        assert_eq!(r.max_intents, 8);
+        assert!(!r.is_connected());
+    }
+
+    #[test]
+    fn connected_mode_blocks_writes() {
+        let r = Router::with_config(RouterConfig {
+            server: Some("http://localhost:3001".to_string()),
+            ..Default::default()
+        });
+        assert!(r.is_connected());
+    }
+
+    #[test]
+    #[should_panic(expected = "connected mode")]
+    fn connected_mode_panics_on_add_intent() {
+        let mut r = Router::with_config(RouterConfig {
+            server: Some("http://localhost:3001".to_string()),
+            ..Default::default()
+        });
+        r.add_intent("test", &["test phrase"]);
+    }
+
+    #[test]
+    #[should_panic(expected = "connected mode")]
+    fn connected_mode_panics_on_learn() {
+        let mut r = Router::with_config(RouterConfig {
+            server: Some("http://localhost:3001".to_string()),
+            ..Default::default()
+        });
+        r.learn("test query", "test_intent");
+    }
+
+    #[test]
+    fn connected_mode_allows_routing() {
+        // Import some state first, then set connected
+        let mut r = Router::new();
+        r.add_intent("cancel", &["cancel my order"]);
+        let json = r.export_json();
+
+        // Import into a new router and set connected
+        let mut r2 = Router::import_json(&json).unwrap();
+        r2.connected = true;
+
+        // Routing should work
+        let results = r2.route("cancel my order");
+        assert!(!results.is_empty());
+        assert_eq!(results[0].id, "cancel");
+    }
+
+    #[test]
+    fn save_and_load_file() {
+        let mut r = Router::new();
+        r.add_intent("test", &["test phrase"]);
+
+        let path = "/tmp/asv_test_save.json";
+        r.save(path).unwrap();
+
+        let r2 = Router::load(path).unwrap();
+        let results = r2.route("test phrase");
+        assert!(!results.is_empty());
+        assert_eq!(results[0].id, "test");
+
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn connected_mode_blocks_save() {
+        let r = Router::with_config(RouterConfig {
+            server: Some("http://localhost:3001".to_string()),
+            ..Default::default()
+        });
+        let result = r.save("/tmp/should_not_exist.json");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("connected mode"));
     }
 }

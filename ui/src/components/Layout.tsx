@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { api } from '@/api/client';
 
 const links = [
-  { to: '/', label: 'Router' },
+  { to: '/', label: 'Playground' },
   { to: '/intents', label: 'Intents' },
   { to: '/projections', label: 'Projections' },
   { to: '/scenarios', label: 'Training' },

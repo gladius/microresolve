@@ -134,6 +134,7 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/api/health", get(health))
+        .route("/api/version", get(get_version))
         .route("/api/route", post(route_query))
         .route("/api/route_multi", post(route_multi))
         .route("/api/intents", get(list_intents))
@@ -191,6 +192,18 @@ async fn main() {
 
 async fn health() -> &'static str {
     "ok"
+}
+
+async fn get_version(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let version = routers.get(&app_id)
+        .map(|r| r.version())
+        .unwrap_or(0);
+    Json(serde_json::json!({"version": version, "app_id": app_id}))
 }
 
 // --- Logging helper ---
