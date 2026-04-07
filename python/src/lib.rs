@@ -127,6 +127,7 @@ impl Router {
 
     /// Discover intent clusters from unlabeled queries.
     #[staticmethod]
+    #[pyo3(signature = (queries, expected_intents=None))]
     fn discover<'py>(py: Python<'py>, queries: Vec<String>, expected_intents: Option<usize>) -> PyResult<Vec<Bound<'py, PyDict>>> {
         let config = asv_router_core::discovery::DiscoveryConfig {
             expected_intents: expected_intents.unwrap_or(0),
