@@ -1,8 +1,11 @@
 """
 ASV Router + FastAPI: production intent routing endpoint.
 
-Run: pip install fastapi uvicorn && maturin develop --release && uvicorn python_fastapi:app
-Test: curl -X POST localhost:8000/route -H 'Content-Type: application/json' -d '{"query": "cancel my order"}'
+Setup: cd python && python -m venv .venv && source .venv/bin/activate && maturin develop --release
+Run:   pip install fastapi uvicorn && uvicorn examples.python_fastapi:app
+Test:  curl -X POST localhost:8000/route -H 'Content-Type: application/json' -d '{"query": "cancel my order"}'
+
+After PyPI publish: just `pip install asv-router` — no maturin needed.
 """
 
 from fastapi import FastAPI, HTTPException

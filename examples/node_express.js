@@ -1,12 +1,19 @@
 /**
  * ASV Router + Express: production intent routing endpoint.
  *
- * Run: npm install express && npx napi build --release && node node_express.js
- * Test: curl -X POST localhost:3000/route -H 'Content-Type: application/json' -d '{"query": "cancel my order"}'
+ * Setup: cd node && npm install && npx napi build --release
+ * Run:   cd examples && npm install express && node node_express.js
+ * Test:  curl -X POST localhost:3000/route -H 'Content-Type: application/json' -d '{"query": "cancel my order"}'
+ *
+ * After publishing to npm: just `npm install asv-router` and change the require to 'asv-router'.
  */
 
 const express = require('express');
-const { Router } = require('../node/asv-router.node');
+
+// Local build: require from the node/ build output
+// After npm publish: change to require('asv-router')
+const path = require('path');
+const { Router } = require(path.join(__dirname, '..', 'node', 'asv-router.node'));
 
 const app = express();
 app.use(express.json());
