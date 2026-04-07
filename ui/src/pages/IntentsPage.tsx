@@ -150,49 +150,19 @@ function IntentListItem({
   );
 }
 
-// --- Right detail panel ---
+// --- Right detail panel with tabs ---
+
+type DetailTab = 'seeds' | 'metadata' | 'stats';
 
 function IntentDetailPanel({
   intent, allIntentIds, onRefresh, onDeleted,
 }: {
   intent: IntentInfo; allIntentIds: string[]; onRefresh: () => void; onDeleted: () => void;
 }) {
-  const [newSeed, setNewSeed] = useState('');
-  const [seedSearch, setSeedSearch] = useState('');
-
-  // Metadata editing
-  const [contextIntents, setContextIntents] = useState<string[]>(intent.metadata?.context_intents || []);
-  const [actionIntents, setActionIntents] = useState<string[]>(intent.metadata?.action_intents || []);
-  const [metaDirty, setMetaDirty] = useState(false);
-
-  useEffect(() => {
-    setContextIntents(intent.metadata?.context_intents || []);
-    setActionIntents(intent.metadata?.action_intents || []);
-    setMetaDirty(false);
-    setNewSeed('');
-    setSeedSearch('');
-  }, [intent.id, intent.metadata]);
-
-  const handleAddSeed = async () => {
-    if (!newSeed.trim()) return;
-    await api.addSeed(intent.id, newSeed.trim());
-    setNewSeed('');
-    onRefresh();
-  };
+  const [activeTab, setActiveTab] = useState<DetailTab>('seeds');
 
   const handleTypeChange = async (newType: IntentType) => {
     await api.setIntentType(intent.id, newType);
-    onRefresh();
-  };
-
-  const handleSaveMetadata = async () => {
-    if (contextIntents.length > 0) {
-      await api.setMetadata(intent.id, 'context_intents', contextIntents.filter(Boolean));
-    }
-    if (actionIntents.length > 0) {
-      await api.setMetadata(intent.id, 'action_intents', actionIntents.filter(Boolean));
-    }
-    setMetaDirty(false);
     onRefresh();
   };
 
@@ -203,182 +173,326 @@ function IntentDetailPanel({
   };
 
   const langKeys = Object.keys(intent.seeds_by_lang).filter(k => k !== '_learned');
+  const metaKeyCount = Object.keys(intent.metadata || {}).length;
 
-  const filteredSeedsByLang = useMemo(() => {
-    if (!seedSearch.trim()) return intent.seeds_by_lang;
-    const q = seedSearch.toLowerCase();
-    const result: Record<string, string[]> = {};
-    for (const lang of langKeys) {
-      const filtered = (intent.seeds_by_lang[lang] || []).filter(s => s.toLowerCase().includes(q));
-      if (filtered.length > 0) result[lang] = filtered;
-    }
-    return result;
-  }, [intent.seeds_by_lang, seedSearch, langKeys]);
-
-  const filteredLangKeys = Object.keys(filteredSeedsByLang).filter(k => k !== '_learned');
-  const availableIntentIds = allIntentIds.filter(id => id !== intent.id);
+  const tabs: { id: DetailTab; label: string; count?: number }[] = [
+    { id: 'seeds', label: 'Seeds', count: intent.seeds.length },
+    { id: 'metadata', label: 'Metadata', count: metaKeyCount },
+    { id: 'stats', label: 'Stats' },
+  ];
 
   return (
-    <div className="p-5 space-y-6">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold text-emerald-400 font-mono">{intent.id}</h2>
-          {/* Type toggle */}
-          <div className="flex rounded overflow-hidden border border-zinc-700">
-            {(['action', 'context'] as IntentType[]).map(t => (
-              <button
-                key={t}
-                onClick={() => handleTypeChange(t)}
-                className={`text-[10px] px-2 py-1 font-semibold uppercase transition-colors ${
-                  intent.intent_type === t
-                    ? t === 'action' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-cyan-400/20 text-cyan-400'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+      <div className="px-5 pt-5 pb-0">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold text-emerald-400 font-mono">{intent.id}</h2>
+            <div className="flex rounded overflow-hidden border border-zinc-700">
+              {(['action', 'context'] as IntentType[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => handleTypeChange(t)}
+                  className={`text-[10px] px-2 py-1 font-semibold uppercase transition-colors ${
+                    intent.intent_type === t
+                      ? t === 'action' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-cyan-400/20 text-cyan-400'
+                      : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            {langKeys.length > 1 && (
+              <div className="flex gap-1">
+                {langKeys.map(lang => (
+                  <span key={lang} className="text-[10px] font-semibold text-violet-400 bg-zinc-800 border border-zinc-700 rounded px-1.5 py-0.5 uppercase">
+                    {lang}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex gap-1">
-            {langKeys.map(lang => (
-              <span key={lang} className="text-[10px] font-semibold text-violet-400 bg-zinc-800 border border-zinc-700 rounded px-1.5 py-0.5 uppercase tracking-wide">
-                {lang}
-              </span>
-            ))}
-          </div>
-          {intent.learned_count > 0 && (
-            <span className="text-emerald-400/70 text-xs bg-emerald-400/10 px-2 py-0.5 rounded">
-              +{intent.learned_count} learned
-            </span>
+          <button onClick={handleDelete} className="text-xs text-red-400 hover:text-red-300 px-2 py-1 border border-red-400/20 rounded hover:border-red-400/50 transition-colors">
+            Delete
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-0 border-b border-zinc-800">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'text-white border-violet-500'
+                  : 'text-zinc-500 border-transparent hover:text-zinc-300'
+              }`}
+            >
+              {tab.label}
+              {tab.count !== undefined && (
+                <span className="ml-1.5 text-xs text-zinc-600">{tab.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        {activeTab === 'seeds' && (
+          <SeedsTab intent={intent} onRefresh={onRefresh} />
+        )}
+        {activeTab === 'metadata' && (
+          <MetadataTab intent={intent} allIntentIds={allIntentIds} onRefresh={onRefresh} />
+        )}
+        {activeTab === 'stats' && (
+          <StatsTab intent={intent} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Seeds Tab ---
+
+function SeedsTab({ intent, onRefresh }: { intent: IntentInfo; onRefresh: () => void }) {
+  const [newSeed, setNewSeed] = useState('');
+  const [seedSearch, setSeedSearch] = useState('');
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+
+  const langKeys = Object.keys(intent.seeds_by_lang).filter(k => k !== '_learned');
+
+  // Build flat list with language tags
+  const allSeeds = useMemo(() => {
+    const result: { lang: string; seed: string }[] = [];
+    for (const lang of langKeys) {
+      for (const seed of intent.seeds_by_lang[lang] || []) {
+        result.push({ lang, seed });
+      }
+    }
+    return result;
+  }, [intent.seeds_by_lang, langKeys]);
+
+  const filtered = useMemo(() => {
+    if (!seedSearch.trim()) return allSeeds;
+    const q = seedSearch.toLowerCase();
+    return allSeeds.filter(s => s.seed.toLowerCase().includes(q));
+  }, [allSeeds, seedSearch]);
+
+  const handleAddSeed = async () => {
+    if (!newSeed.trim()) return;
+    await api.addSeed(intent.id, newSeed.trim());
+    setNewSeed('');
+    onRefresh();
+  };
+
+  const handleBulkAdd = async () => {
+    const lines = bulkText.split('\n').map(s => s.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+    for (const line of lines) {
+      await api.addSeed(intent.id, line);
+    }
+    setBulkText('');
+    setShowBulk(false);
+    onRefresh();
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Search + actions */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-xs">
+          <input
+            value={seedSearch}
+            onChange={e => setSeedSearch(e.target.value)}
+            placeholder="Search seeds..."
+            autoComplete="off"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-violet-500 focus:outline-none"
+          />
+          {seedSearch && (
+            <button onClick={() => setSeedSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs">×</button>
           )}
         </div>
-        <button onClick={handleDelete} className="text-xs text-red-400 hover:text-red-300 px-2 py-1 border border-red-400/20 rounded hover:border-red-400/50 transition-colors">
-          Delete
+        <button
+          onClick={() => setShowBulk(!showBulk)}
+          className="text-xs text-zinc-400 hover:text-white px-2 py-1.5 border border-zinc-700 rounded transition-colors"
+        >
+          {showBulk ? 'Cancel bulk' : 'Bulk paste'}
         </button>
       </div>
 
-      {/* Seeds section */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">
-            Seed Phrases ({intent.seeds.length})
-          </h3>
-          <div className="relative w-48">
-            <input
-              value={seedSearch}
-              onChange={e => setSeedSearch(e.target.value)}
-              placeholder="Search seeds..."
-              autoComplete="off"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1 text-xs text-white focus:border-violet-500 focus:outline-none"
-            />
-            {seedSearch && (
-              <button
-                onClick={() => setSeedSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs"
-              >
-                ×
-              </button>
-            )}
+      {/* Bulk paste area */}
+      {showBulk && (
+        <div className="space-y-2">
+          <textarea
+            value={bulkText}
+            onChange={e => setBulkText(e.target.value)}
+            placeholder="Paste multiple seeds, one per line..."
+            rows={5}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white font-mono resize-y focus:border-violet-500 focus:outline-none"
+          />
+          <button
+            onClick={handleBulkAdd}
+            disabled={!bulkText.trim()}
+            className="text-xs px-3 py-1.5 bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30"
+          >
+            Add {bulkText.split('\n').filter(s => s.trim()).length} seeds
+          </button>
+        </div>
+      )}
+
+      {/* Seed list */}
+      <div className="border border-zinc-800 rounded-lg bg-zinc-900/50 divide-y divide-zinc-800/50">
+        {filtered.length === 0 && (
+          <div className="text-zinc-600 text-xs text-center py-6">
+            {seedSearch ? 'No seeds match search' : 'No seeds yet'}
           </div>
-        </div>
-
-        <div className="max-h-60 overflow-y-auto space-y-3 border border-zinc-800 rounded-lg p-3 bg-zinc-900/50">
-          {filteredLangKeys.map(lang => {
-            const seeds = filteredSeedsByLang[lang] || [];
-            return (
-              <div key={lang}>
-                {langKeys.length > 1 && (
-                  <div className="text-[11px] text-violet-400/70 font-semibold uppercase tracking-wide mb-1.5">{lang}</div>
-                )}
-                <div className="space-y-0.5">
-                  {seeds.map((seed, i) => (
-                    <div key={i} className="text-sm text-zinc-300 font-mono px-2 py-1 rounded hover:bg-zinc-800/80 transition-colors">
-                      {seed}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          {filteredLangKeys.length === 0 && (
-            <div className="text-zinc-600 text-xs text-center py-2">
-              {seedSearch ? 'No seeds match search' : 'No seeds'}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-3 flex gap-2">
-          <input
-            value={newSeed}
-            onChange={e => setNewSeed(e.target.value)}
-            placeholder="Add a seed phrase..."
-            autoComplete="off"
-            className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white font-mono focus:border-violet-500 focus:outline-none"
-            onKeyDown={e => { if (e.key === 'Enter') handleAddSeed(); }}
-          />
-          <button
-            onClick={handleAddSeed}
-            disabled={!newSeed.trim()}
-            className="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 text-violet-400 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors"
-          >
-            + Add
-          </button>
-        </div>
-      </section>
-
-      {/* Metadata section — context & action intent suggestions */}
-      <section>
-        <h3 className="text-xs text-zinc-500 font-semibold uppercase tracking-wide mb-3">Metadata</h3>
-        <p className="text-xs text-zinc-600 mb-3">
-          Opaque data returned alongside routing results. ASV stores it, your app interprets it.
-        </p>
-
-        <div className="space-y-4">
-          <MetadataListEditor
-            label="Context Intents"
-            description="Supporting intents that provide useful data when this intent fires"
-            values={contextIntents}
-            availableIds={availableIntentIds}
-            onChange={v => { setContextIntents(v); setMetaDirty(true); }}
-          />
-          <MetadataListEditor
-            label="Action Intents"
-            description="Related action intents commonly needed alongside this one"
-            values={actionIntents}
-            availableIds={availableIntentIds}
-            onChange={v => { setActionIntents(v); setMetaDirty(true); }}
-          />
-        </div>
-
-        {metaDirty && (
-          <button
-            onClick={handleSaveMetadata}
-            className="mt-3 px-4 py-2 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors"
-          >
-            Save Metadata
-          </button>
         )}
-      </section>
+        {filtered.map((s, i) => (
+          <div key={`${s.lang}-${i}`} className="flex items-center gap-2 px-3 py-1.5 hover:bg-zinc-800/50 transition-colors group">
+            {langKeys.length > 1 && (
+              <span className="text-[9px] text-violet-400/60 bg-zinc-800 rounded px-1 uppercase w-6 text-center flex-shrink-0">
+                {s.lang}
+              </span>
+            )}
+            <span className="text-sm text-zinc-300 font-mono flex-1 truncate">{s.seed}</span>
+          </div>
+        ))}
+      </div>
 
-      {/* Stats */}
-      <section className="border-t border-zinc-800 pt-4">
-        <h3 className="text-xs text-zinc-500 font-semibold uppercase tracking-wide mb-2">Info</h3>
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <div>
-            <div className="text-zinc-500 text-xs">Total Seeds</div>
-            <div className="text-white font-mono">{intent.seeds.length}</div>
-          </div>
-          <div>
-            <div className="text-zinc-500 text-xs">Languages</div>
-            <div className="text-white font-mono">{langKeys.length}</div>
-          </div>
-          <div>
-            <div className="text-zinc-500 text-xs">Learned Terms</div>
-            <div className="text-white font-mono">{intent.learned_count}</div>
-          </div>
+      {/* Inline add */}
+      <div className="flex gap-2">
+        <input
+          value={newSeed}
+          onChange={e => setNewSeed(e.target.value)}
+          placeholder="Type a seed and press Enter..."
+          autoComplete="off"
+          className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white font-mono focus:border-violet-500 focus:outline-none"
+          onKeyDown={e => { if (e.key === 'Enter') handleAddSeed(); }}
+        />
+        <button
+          onClick={handleAddSeed}
+          disabled={!newSeed.trim()}
+          className="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 text-violet-400 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors"
+        >
+          + Add
+        </button>
+      </div>
+
+      {intent.learned_count > 0 && (
+        <p className="text-xs text-emerald-400/50">+{intent.learned_count} terms learned from corrections</p>
+      )}
+    </div>
+  );
+}
+
+// --- Metadata Tab ---
+
+function MetadataTab({
+  intent, allIntentIds, onRefresh,
+}: {
+  intent: IntentInfo; allIntentIds: string[]; onRefresh: () => void;
+}) {
+  const [contextIntents, setContextIntents] = useState<string[]>(intent.metadata?.context_intents || []);
+  const [actionIntents, setActionIntents] = useState<string[]>(intent.metadata?.action_intents || []);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setContextIntents(intent.metadata?.context_intents || []);
+    setActionIntents(intent.metadata?.action_intents || []);
+    setDirty(false);
+  }, [intent.id, intent.metadata]);
+
+  const handleSave = async () => {
+    if (contextIntents.length > 0) {
+      await api.setMetadata(intent.id, 'context_intents', contextIntents.filter(Boolean));
+    }
+    if (actionIntents.length > 0) {
+      await api.setMetadata(intent.id, 'action_intents', actionIntents.filter(Boolean));
+    }
+    setDirty(false);
+    onRefresh();
+  };
+
+  const availableIds = allIntentIds.filter(id => id !== intent.id);
+
+  return (
+    <div className="space-y-5">
+      <p className="text-xs text-zinc-600">
+        Opaque key-value data returned alongside routing results. Your app interprets it.
+      </p>
+
+      <MetadataListEditor
+        label="Context Intents"
+        description="Supporting intents that provide data when this intent fires"
+        values={contextIntents}
+        availableIds={availableIds}
+        onChange={v => { setContextIntents(v); setDirty(true); }}
+      />
+      <MetadataListEditor
+        label="Action Intents"
+        description="Related action intents commonly needed alongside this one"
+        values={actionIntents}
+        availableIds={availableIds}
+        onChange={v => { setActionIntents(v); setDirty(true); }}
+      />
+
+      {dirty && (
+        <button
+          onClick={handleSave}
+          className="px-4 py-2 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors"
+        >
+          Save Metadata
+        </button>
+      )}
+    </div>
+  );
+}
+
+// --- Stats Tab ---
+
+function StatsTab({ intent }: { intent: IntentInfo }) {
+  const langKeys = Object.keys(intent.seeds_by_lang).filter(k => k !== '_learned');
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-6">
+        <div>
+          <div className="text-zinc-500 text-xs mb-1">Total Seeds</div>
+          <div className="text-white font-mono text-2xl">{intent.seeds.length}</div>
         </div>
-      </section>
+        <div>
+          <div className="text-zinc-500 text-xs mb-1">Languages</div>
+          <div className="text-white font-mono text-2xl">{langKeys.length}</div>
+          <div className="text-zinc-600 text-xs mt-1">{langKeys.join(', ')}</div>
+        </div>
+        <div>
+          <div className="text-zinc-500 text-xs mb-1">Learned Terms</div>
+          <div className="text-white font-mono text-2xl">{intent.learned_count}</div>
+          <div className="text-zinc-600 text-xs mt-1">from corrections</div>
+        </div>
+      </div>
+
+      <div className="border-t border-zinc-800 pt-4">
+        <div className="text-zinc-500 text-xs mb-2">Seeds per Language</div>
+        {langKeys.map(lang => {
+          const count = (intent.seeds_by_lang[lang] || []).length;
+          return (
+            <div key={lang} className="flex items-center gap-3 py-1">
+              <span className="text-xs text-violet-400 uppercase w-8">{lang}</span>
+              <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-violet-500/50 rounded-full"
+                  style={{ width: `${Math.min(100, (count / Math.max(1, intent.seeds.length)) * 100)}%` }}
+                />
+              </div>
+              <span className="text-xs text-zinc-500 w-8 text-right">{count}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -423,12 +537,7 @@ function MetadataListEditor({
           {values.map((v, i) => (
             <span key={i} className="inline-flex items-center gap-1 text-xs font-mono text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded">
               {v}
-              <button
-                onClick={() => removeValue(i)}
-                className="text-cyan-400/50 hover:text-red-400 ml-0.5"
-              >
-                ×
-              </button>
+              <button onClick={() => removeValue(i)} className="text-cyan-400/50 hover:text-red-400 ml-0.5">×</button>
             </span>
           ))}
         </div>
@@ -463,7 +572,7 @@ function MetadataListEditor({
   );
 }
 
-// --- Add Intent Panel ---
+// --- Add Intent Panel (simplified two-step) ---
 
 function AddIntentPanel({
   allIntentIds, onDone, onCancel,
@@ -472,65 +581,37 @@ function AddIntentPanel({
 }) {
   const [id, setId] = useState('');
   const [intentType, setIntentType] = useState<IntentType>('action');
+  const [seedText, setSeedText] = useState('');
+  const [showAI, setShowAI] = useState(false);
   const [description, setDescription] = useState('');
   const [languages, setLanguages] = useState<Record<string, string>>({});
   const [selectedLangs, setSelectedLangs] = useState<Set<string>>(new Set(['en']));
-  const [seedsByLang, setSeedsByLang] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState('');
-  const [genStatusColor, setGenStatusColor] = useState('text-zinc-500');
 
   useEffect(() => {
     api.getLanguages().then(setLanguages).catch(() => {});
   }, []);
 
-  const toggleLang = (code: string) => {
-    setSelectedLangs(prev => {
-      const next = new Set(prev);
-      if (next.has(code)) next.delete(code);
-      else next.add(code);
-      return next;
-    });
-  };
-
-  const sortedLangs = Object.keys(languages).sort((a, b) => {
-    if (a === 'en') return -1;
-    if (b === 'en') return 1;
-    return languages[a].localeCompare(languages[b]);
-  });
-
   const handleGenerate = async () => {
-    if (!description.trim()) {
-      setGenStatusColor('text-red-400');
-      setGenStatus('Enter a description first.');
-      return;
-    }
+    if (!description.trim()) { setGenStatus('Enter a description first.'); return; }
     const langs = Array.from(selectedLangs);
-    if (langs.length === 0) {
-      setGenStatusColor('text-red-400');
-      setGenStatus('Select at least one language.');
-      return;
-    }
+    if (langs.length === 0) { setGenStatus('Select at least one language.'); return; }
 
     setGenerating(true);
-    setGenStatusColor('text-zinc-500');
-    setGenStatus('Generating diverse seeds via Claude Haiku...');
-
+    setGenStatus('Generating...');
     try {
       const parsed = await api.generateSeeds(id || 'new_intent', description, langs);
-
-      const newSeeds = { ...seedsByLang };
+      const allSeeds: string[] = [];
       for (const lang of langs) {
-        const langSeeds = parsed.seeds_by_lang[lang] || [];
-        const prev = (newSeeds[lang] || '').trim();
-        newSeeds[lang] = prev ? prev + '\n' + langSeeds.join('\n') : langSeeds.join('\n');
+        for (const seed of parsed.seeds_by_lang[lang] || []) {
+          allSeeds.push(seed);
+        }
       }
-      setSeedsByLang(newSeeds);
-
-      setGenStatusColor('text-emerald-400');
-      setGenStatus(`Generated ${parsed.total} seeds${langs.length > 1 ? ` across ${langs.length} languages` : ''}`);
+      const prev = seedText.trim();
+      setSeedText(prev ? prev + '\n' + allSeeds.join('\n') : allSeeds.join('\n'));
+      setGenStatus(`Generated ${parsed.total} seeds`);
     } catch (e) {
-      setGenStatusColor('text-red-400');
       setGenStatus('Error: ' + (e as Error).message);
     } finally {
       setGenerating(false);
@@ -540,33 +621,24 @@ function AddIntentPanel({
   const handleAdd = async () => {
     const intentId = id.trim();
     if (!intentId) return;
-
-    const finalSeeds: Record<string, string[]> = {};
-    let total = 0;
-    for (const lang of selectedLangs) {
-      const lines = (seedsByLang[lang] || '').split('\n').map(s => s.trim()).filter(Boolean);
-      if (lines.length > 0) {
-        finalSeeds[lang] = lines;
-        total += lines.length;
-      }
-    }
-    if (total === 0) return;
-
-    await api.addIntentMultilingual(intentId, finalSeeds, intentType);
+    const seeds = seedText.split('\n').map(s => s.trim()).filter(Boolean);
+    if (seeds.length === 0) return;
+    await api.addIntent(intentId, seeds, intentType);
     onDone(intentId);
   };
 
+  const seedCount = seedText.split('\n').filter(s => s.trim()).length;
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-w-2xl">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-white">New Intent</h2>
-        <button onClick={onCancel} className="text-sm text-zinc-500 hover:text-white transition-colors">
-          Cancel
-        </button>
+        <button onClick={onCancel} className="text-sm text-zinc-500 hover:text-white">Cancel</button>
       </div>
 
+      {/* Name + Type */}
       <div className="flex gap-4 items-end">
-        <div className="flex-1 max-w-sm">
+        <div className="flex-1">
           <label className="text-xs text-zinc-500 block mb-1">Intent ID</label>
           <input
             value={id}
@@ -597,75 +669,80 @@ function AddIntentPanel({
         </div>
       </div>
 
+      {/* Seeds */}
       <div>
-        <label className="text-xs text-zinc-500 block mb-1">Description (for AI seed generation)</label>
+        <label className="text-xs text-zinc-500 block mb-1">
+          Seed Phrases {seedCount > 0 && <span className="text-zinc-600">({seedCount})</span>}
+        </label>
         <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          placeholder="e.g. Customer wants to cancel their subscription or order. They may express frustration, urgency, or simply want the process explained."
-          rows={3}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm resize-y focus:border-violet-500 focus:outline-none"
+          value={seedText}
+          onChange={e => setSeedText(e.target.value)}
+          placeholder={"One seed phrase per line:\ncancel my order\nI want to cancel\nstop my order"}
+          rows={6}
+          className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white font-mono resize-y focus:border-violet-500 focus:outline-none"
         />
       </div>
 
-      {/* Languages */}
+      {/* AI Generation (expandable) */}
       <div>
-        <label className="text-xs text-zinc-500 block mb-2">Languages</label>
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 max-h-28 overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-lg p-2">
-          {sortedLangs.map(code => (
-            <label key={code} className="inline-flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer py-0.5">
-              <input
-                type="checkbox"
-                checked={selectedLangs.has(code)}
-                onChange={() => toggleLang(code)}
-                className="accent-violet-500"
-              />
-              {languages[code]}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Generate */}
-      <div className="flex items-center gap-3">
         <button
-          onClick={handleGenerate}
-          disabled={generating}
-          className="px-4 py-2 text-sm border border-violet-500 text-violet-400 rounded hover:bg-violet-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => setShowAI(!showAI)}
+          className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1"
         >
-          {generating ? 'Generating...' : 'Generate Seeds with AI'}
+          <svg className={`w-3 h-3 transition-transform ${showAI ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          Generate seeds with AI
         </button>
-        {genStatus && <span className={`text-xs ${genStatusColor}`}>{genStatus}</span>}
+
+        {showAI && (
+          <div className="mt-3 space-y-3 pl-4 border-l-2 border-violet-500/20">
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Describe the intent: e.g. Customer wants to cancel their order or subscription"
+              rows={2}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm resize-y focus:border-violet-500 focus:outline-none"
+            />
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(languages).slice(0, 12).map(([code, name]) => (
+                <label key={code} className="inline-flex items-center gap-1 text-xs text-zinc-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedLangs.has(code)}
+                    onChange={() => {
+                      setSelectedLangs(prev => {
+                        const next = new Set(prev);
+                        next.has(code) ? next.delete(code) : next.add(code);
+                        return next;
+                      });
+                    }}
+                    className="accent-violet-500"
+                  />
+                  {name}
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                className="text-xs px-3 py-1.5 border border-violet-500 text-violet-400 rounded hover:bg-violet-500 hover:text-white disabled:opacity-50"
+              >
+                {generating ? 'Generating...' : 'Generate'}
+              </button>
+              {genStatus && <span className="text-xs text-zinc-500">{genStatus}</span>}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Language seed panels */}
-      {Array.from(selectedLangs).length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
-          {Array.from(selectedLangs).map(lang => {
-            const count = (seedsByLang[lang] || '').split('\n').filter(s => s.trim()).length;
-            return (
-              <div key={lang}>
-                <div className="text-[11px] font-semibold text-violet-400 uppercase tracking-wide mb-1 bg-zinc-800 rounded px-2 py-1">
-                  {languages[lang] || lang} {count > 0 && `(${count})`}
-                </div>
-                <textarea
-                  value={seedsByLang[lang] || ''}
-                  onChange={e => setSeedsByLang(prev => ({ ...prev, [lang]: e.target.value }))}
-                  placeholder={`One seed per line...`}
-                  rows={6}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-2 text-sm text-white font-mono resize-y focus:border-violet-500 focus:outline-none"
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Submit */}
+      {/* Create */}
       <div className="flex justify-end pt-2 border-t border-zinc-800">
         <button
           onClick={handleAdd}
-          className="px-5 py-2 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium"
+          disabled={!id.trim() || seedCount === 0}
+          className="px-5 py-2 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-30"
         >
           Create Intent
         </button>
