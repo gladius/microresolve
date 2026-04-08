@@ -1,180 +1,194 @@
-# ASV Architecture & Implementation Plan
+# ASV Architecture
+
+## Overview
+
+ASV is an intent extraction system with a library (fast local routing) and
+a server (central management, review, learning). Both run inside the
+company's infrastructure. Nothing leaves the company network.
+
+```
+Company's Infrastructure
+┌──────────────────────────────────────────────────────────┐
+│                                                          │
+│  Service A ──→ ASV Library ──→ routes locally (30μs)     │
+│  Service B ──→ ASV Library ──→ routes locally (30μs)     │
+│  Service C ──→ ASV Library ──→ routes locally (30μs)     │
+│       │              │              │                     │
+│       └──────────────┼──────────────┘                     │
+│                      ↓                                    │
+│              ASV Server (central)                         │
+│              - Receives ALL queries + results             │
+│              - Flags failures (low confidence, miss)      │
+│              - LLM auto-learning or human review          │
+│              - Pushes updated intents to all libraries    │
+│              - Dashboard, analytics, workflows            │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
 
 ## Two Modes
 
-### Local Mode (standalone)
-- `Router(data_path="./asv.json")`
-- Full control: add intents, remove intents, add seeds, learn, correct
-- Saves to local JSON file
-- No network, no server, no dependencies
-- User manages everything
+### Local Mode (dev/testing/edge)
+- `Router::new()` or `Router::load("asv.json")`
+- Full control: add intents, seeds, learn, save
+- No server, no network
+- For: getting started, development, edge/IoT, simple use cases
 
-### Connected Mode (server URL configured)
-- `Router(server="http://central:3001", app_id="support-bot")`
-- READ-ONLY routing node
-- Pulls intent data from server on startup
-- Periodically pulls updates (server may have new intents/seeds)
+### Connected Mode (production)
+- `Router::with_config(RouterConfig { server: "http://asv-server:3001", app_id: "my-app" })`
 - Routes locally at full speed (30μs)
-- NO local writes: no add_intent, no learn, no correct, no add_seed
-- All intent management happens on the server via UI or API
-- Client is a pure routing engine
+- Sends EVERY query + results to server (full text, full results)
+- Server manages intents, reviews failures, pushes updates
+- Library pulls updated config periodically
 
-### Why no writes in connected mode?
-- Server is single source of truth — no conflicts, no merge, no CRDT
-- Privacy: queries stay on the client, never sent to server
-- Simplicity: sync is one-directional pull, nothing to coordinate
-- LLM features (seed generation, review) live on server where the API key is
+## Failure Detection
 
----
-
-## Components
-
-### 1. Library (`asv`)
-**What it does:** Routes queries to intents. Fast. Local.
-
-**Local mode API:**
-```
-Router::new(config)           → create empty router
-Router::load(path)            → load from JSON file
-router.save(path)             → save to JSON file
-router.add_intent(id, seeds)  → add intent
-router.remove_intent(id)      → remove intent  
-router.learn(query, intent)   → learn from correction
-router.correct(query, wrong, right) → fix misroute
-router.route(query)           → route, returns matches
-router.route_multi(query)     → multi-intent routing
-router.export_json()          → serialize to string
-Router::import_json(string)   → deserialize from string
-```
-
-**Connected mode API:**
-```
-Router::connect(server_url, app_id) → pull state from server
-router.pull()                       → refresh from server
-router.route(query)                 → route locally
-router.route_multi(query)           → multi-intent locally
-
-# These are BLOCKED in connected mode (return error):
-router.add_intent()    → Error: "managed by server"
-router.learn()         → Error: "managed by server"  
-router.correct()       → Error: "managed by server"
-router.save()          → Error: "managed by server"
-```
-
-**Single package. Mode determined by constructor args.**
-
-### 2. Server (`asv-server`)
-**What it does:** Centralized intent management + UI.
-
-- Multi-app support (X-App-ID)
-- Full CRUD: intents, seeds, metadata
-- LLM features: seed generation, routing review, training
-- Auto-persistence to disk
-- Discovery: upload queries, get clusters, apply as intents
-- Serves config to connected library instances via existing export API
-
-**Endpoints used by connected clients:**
-```
-GET /api/export          → full router state as JSON (client pulls this)
-GET /api/health          → check server is alive
-```
-That's it. Connected clients only need these two endpoints.
-Everything else (add_intent, learn, review, discover) is for the UI/admin.
-
-### 3. UI (React dashboard)
-**What it does:** Visual management of intents for the server.
-
-Pages:
-- Router: test queries interactively
-- Intents: add/edit/delete intents and seeds
-- Discovery: upload queries, auto-discover clusters
-- Projections: visualize intent relationships
-- Training: LLM-powered scenario testing
-- Debug: query logs
-- Settings: mode, app selector
-
----
-
-## Package Structure (single repo)
+The library already computes confidence. A query is flagged as "failed" when:
 
 ```
-asv/
-├── src/
-│   ├── lib.rs          ← core library (routing, learning, export/import)
-│   ├── connected.rs    ← connected mode (pull from server, block writes)  [NEW]
-│   ├── discovery.rs    ← auto-discovery
-│   ├── index.rs        ← inverted index
-│   ├── multi.rs        ← multi-intent decomposition
-│   ├── tokenizer.rs    ← tokenization
-│   ├── vector.rs       ← sparse vectors
-│   ├── seed.rs         ← LLM prompt building
-│   └── bin/
-│       └── server.rs   ← HTTP server
-├── python/             ← PyO3 bindings
-├── node/               ← napi-rs bindings
-├── ui/                 ← React dashboard
-├── examples/           ← per-language examples
-├── tests/
-└── docs/
+MISS:      route_multi returns empty confirmed list
+LOW_CONF:  best score < threshold
+AMBIGUOUS: top 2 scores within 10% of each other
 ```
 
----
+In connected mode, ALL queries are sent to the server, but flagged queries
+are prioritized for review.
 
-## Sync Protocol (connected mode)
+```json
+POST /api/report
+{
+  "query": "I ordered a blue jacket and got a red hoodie",
+  "session_id": "S003",
+  "results": {
+    "confirmed": [],
+    "candidates": [{"id": "change_order", "score": 0.4}]
+  },
+  "flag": "miss",           // miss | low_confidence | ambiguous | ok
+  "expected_intents": null,  // null until reviewed
+  "timestamp": "2026-04-08T12:34:56Z"
+}
+```
 
-### On startup:
-1. Client calls `GET /api/export` with `X-App-ID` header
-2. Server returns full router JSON
-3. Client deserializes into local Router instance
-4. Client is ready to route
+## Three Review Modes (server-side setting)
 
-### Periodic refresh:
-1. Every N seconds (configurable, default 30s):
-   - Client calls `GET /api/export`
-   - If server version > local version → replace local state
-   - Routing continues uninterrupted during refresh (read lock / swap)
+### Auto-Learn
+```
+Library flags low confidence query → sends to server
+Server calls LLM: "This query was routed to change_order but confidence is low.
+  Here are all intents: [cancel_order, return_item, refund, ...].
+  What is the correct intent? Generate a seed phrase."
+LLM responds: { intent: "return_item", seed: "received wrong item" }
+Server adds seed automatically
+All library instances get updated on next pull
+```
+No human involved. Fast. Risk: LLM makes mistakes.
 
-### Server pushes new intent/seed:
-1. Admin adds intent via UI
-2. Server state updated immediately
-3. Connected clients pick it up on next pull (within 30s)
+### Auto-Review
+```
+Same as auto-learn, but LLM prepares the fix
+Fix is queued in the UI for human approval
+Human clicks "Approve" or "Reject" or edits
+Approved fixes are applied, pushed to all instances
+```
+Human in the loop. Slower but safer.
 
-### No push from client to server. Ever.
-- Client never sends queries, never sends learned data
-- Client only pulls config
-- Server only serves config
+### Manual
+```
+Failed queries appear in the Review tab
+Human reads the query, decides the correct intent
+Human adds seed phrases manually
+Changes pushed to all instances
+```
+Full human control. Slowest but most accurate.
 
----
+## Server Components
+
+### Endpoints for connected libraries
+```
+POST /api/report         — library sends query + results + flag
+GET  /api/version        — cheap version check (returns version number)
+GET  /api/export         — full config pull (when version changed)
+```
+
+### Endpoints for UI/admin
+```
+GET  /api/review/queue   — flagged queries pending review
+POST /api/review/approve — approve LLM-suggested fix
+POST /api/review/reject  — reject suggestion
+POST /api/review/fix     — manually assign intent + seed
+GET  /api/review/stats   — how many pending, auto-fixed, rejected
+```
+
+### Existing endpoints (unchanged)
+```
+POST /api/route_multi    — test routing from UI
+GET  /api/intents        — list intents
+POST /api/intents        — add intent
+POST /api/learn          — add seed
+GET  /api/co_occurrence  — analytics
+GET  /api/projections    — analytics
+GET  /api/workflows      — analytics
+GET  /api/temporal_order — analytics
+GET  /api/escalation_patterns — analytics
+POST /api/discover       — auto-discover from uploaded queries
+```
+
+## Data Flow
+
+```
+1. Customer sends message to Service A
+2. Service A calls ASV Library: route_multi("I got the wrong item")
+3. Library returns: {confirmed: [], candidates: [{id: "change_order", score: 0.4}]}
+   Library flags: "miss" (empty confirmed)
+4. Service A uses the result (even if low confidence)
+5. Library sends report to ASV Server: {query, results, flag: "miss"}
+6. Server queues for review
+
+In auto-learn mode:
+7. Server calls LLM: "correct intent for 'I got the wrong item'?"
+8. LLM: "return_item" + seed "received wrong item"
+9. Server adds seed to return_item
+10. Server increments version
+11. Next library pull: version changed → pull new config
+12. All libraries now route "I got the wrong item" → return_item
+
+In auto-review mode:
+7-8. Same as above
+9. Fix queued in UI → admin reviews → approves
+10-12. Same as above
+
+In manual mode:
+7. Admin sees "I got the wrong item" in Review tab
+8. Admin assigns to return_item, types seed "received wrong item"
+9-11. Same as above
+```
 
 ## What's Built vs What's New
 
 | Component | Status |
 |-----------|--------|
 | Core routing library | DONE |
-| Local mode (file load/save) | DONE (export_json/import_json) |
-| Server with UI | DONE |
-| Multi-app | DONE |
+| Local mode (load/save/route/learn) | DONE |
+| Server (intents, multi-app, persistence) | DONE |
+| Dashboard (co-occurrence, workflows, temporal, escalation) | DONE |
+| Python/Node bindings | DONE |
 | Discovery | DONE |
-| Python bindings | DONE |
-| Node bindings | DONE |
-| Connected mode (pull from server) | NEW — needs connected.rs |
-| Block writes in connected mode | NEW — guard in Router methods |
-| Periodic pull with version check | NEW — background thread/timer |
-| RouterConfig struct | NEW — constructor with settings |
+| Simulation (20 sessions, 50 turns) | DONE |
+| RouterConfig + connected mode constructor | DONE |
+| Write guards in connected mode | DONE |
+| Version endpoint (GET /api/version) | DONE |
+| POST /api/report (library → server reporting) | NEW |
+| Review queue (store flagged queries) | NEW |
+| Review UI tab (see failures, approve fixes) | NEW |
+| LLM auto-review/auto-learn | NEW |
+| Periodic config pull in library | NEW |
+| Review stats on dashboard | NEW |
 
----
+## Implementation Priority
 
-## Open Questions
-
-1. Should connected mode pull on a timer (background thread) or only on explicit `router.pull()` call?
-   - Timer: automatic, but adds threading complexity in Python/Node
-   - Explicit: simpler, user controls when to refresh
-   - Compromise: pull on startup + explicit pull() + optional timer
-
-2. Should the server have a version endpoint (`GET /api/version`) so clients can check cheaply without pulling full state?
-   - Saves bandwidth if nothing changed
-   - Simple: return `{"version": 42}`, client compares with local version
-
-3. File format: current export_json() works but is it the right format for config files?
-   - Maybe add a simpler human-readable format for local mode?
-   - Or keep JSON and rely on the UI for human-friendly editing?
+1. POST /api/report + review queue storage (server)
+2. Review UI tab (see flagged queries, manual fix)
+3. LLM auto-review (prepare fixes for approval)
+4. LLM auto-learn (auto-apply fixes)
+5. Library: send reports in connected mode
+6. Library: periodic config pull

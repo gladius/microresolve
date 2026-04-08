@@ -19,12 +19,30 @@ use tower_http::cors::CorsLayer;
 
 const LOG_FILE: &str = "asv_queries.jsonl";
 
+/// A flagged query pending review.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ReviewItem {
+    id: u64,
+    query: String,
+    detected: Vec<String>,
+    flag: String, // "miss", "low_confidence", "ambiguous"
+    suggested_intent: Option<String>,
+    suggested_seed: Option<String>,
+    status: String, // "pending", "approved", "rejected"
+    app_id: String,
+    timestamp: u64,
+    session_id: Option<String>,
+}
+
 struct ServerState {
     routers: RwLock<HashMap<String, Router>>,
     data_dir: Option<String>,
     log: Mutex<std::fs::File>,
     http: reqwest::Client,
-    anthropic_key: Option<String>,
+    llm_key: Option<String>,
+    review_queue: RwLock<Vec<ReviewItem>>,
+    review_counter: std::sync::atomic::AtomicU64,
+    review_mode: RwLock<String>, // "auto_learn", "auto_review", "manual"
 }
 
 type AppState = Arc<ServerState>;
@@ -89,11 +107,11 @@ async fn main() {
         }
     }
 
-    let anthropic_key = std::env::var("ANTHROPIC_API_KEY").ok();
-    if anthropic_key.is_some() {
-        println!("Anthropic API key: loaded");
+    let llm_key = std::env::var("LLM_API_KEY").ok();
+    if llm_key.is_some() {
+        println!("LLM API key: loaded");
     } else {
-        println!("Anthropic API key: not set (LLM features disabled)");
+        println!("LLM API key: not set (LLM features disabled)");
     }
 
     // Initialize routers
@@ -129,11 +147,15 @@ async fn main() {
         data_dir,
         log: Mutex::new(open_log()),
         http: reqwest::Client::new(),
-        anthropic_key,
+        llm_key,
+        review_queue: RwLock::new(Vec::new()),
+        review_counter: std::sync::atomic::AtomicU64::new(1),
+        review_mode: RwLock::new("manual".to_string()),
     });
 
     let app = axum::Router::new()
         .route("/api/health", get(health))
+        .route("/api/llm/status", get(llm_status))
         .route("/api/version", get(get_version))
         .route("/api/route", post(route_query))
         .route("/api/route_multi", post(route_multi))
@@ -177,6 +199,18 @@ async fn main() {
         .route("/api/apps", delete(delete_app))
         .route("/api/discover", post(discover))
         .route("/api/discover/apply", post(discover_apply))
+        .route("/api/report", post(report_query))
+        .route("/api/review/queue", get(review_queue))
+        .route("/api/review/approve", post(review_approve))
+        .route("/api/review/reject", post(review_reject))
+        .route("/api/review/fix", post(review_fix))
+        .route("/api/review/turn1", post(review_turn1))
+        .route("/api/review/turn2", post(review_turn2))
+        .route("/api/review/turn3", post(review_turn3))
+        .route("/api/review/intent_seeds", post(review_intent_seeds))
+        .route("/api/review/stats", get(review_stats))
+        .route("/api/review/mode", get(get_review_mode))
+        .route("/api/review/mode", post(set_review_mode))
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
@@ -193,6 +227,22 @@ async fn main() {
 
 async fn health() -> &'static str {
     "ok"
+}
+
+async fn llm_status(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let configured = state.llm_key.is_some();
+    let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
+    let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
+    let url = std::env::var("LLM_API_URL").unwrap_or_else(|_| {
+        if provider == "anthropic" { "https://api.anthropic.com/v1/messages".to_string() }
+        else { "https://api.openai.com/v1/chat/completions".to_string() }
+    });
+    Json(serde_json::json!({
+        "configured": configured,
+        "provider": provider,
+        "model": model,
+        "url": url,
+    }))
 }
 
 async fn get_version(
@@ -505,31 +555,39 @@ async fn add_intent(
 struct AddSeedRequest {
     intent_id: String,
     seed: String,
+    #[serde(default = "default_lang")]
+    lang: String,
 }
+
+fn default_lang() -> String { "en".to_string() }
 
 async fn add_seed(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(req): Json<AddSeedRequest>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
     let mut routers = state.routers.write().unwrap();
     let router = routers.get_mut(&app_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-    let phrases = router
-        .get_training(&req.intent_id)
-        .ok_or_else(|| {
-            (
-                StatusCode::NOT_FOUND,
-                format!("intent '{}' not found", req.intent_id),
-            )
-        })?;
-    let mut all = phrases;
-    all.push(req.seed);
-    let refs: Vec<&str> = all.iter().map(|s| s.as_str()).collect();
-    router.add_intent(&req.intent_id, &refs);
+
+    if router.get_training(&req.intent_id).is_none() {
+        return Err((StatusCode::NOT_FOUND, format!("intent '{}' not found", req.intent_id)));
+    }
+
+    let added = router.add_seed(&req.intent_id, &req.seed, &req.lang);
+    if !added {
+        let counts = router.seed_counts_by_lang(&req.intent_id);
+        let count = counts.get(&req.lang).copied().unwrap_or(0);
+        return Err((StatusCode::BAD_REQUEST, format!(
+            "Language '{}' has {}/{} seeds for intent '{}'. Limit reached.",
+            req.lang, count, asv_router::MAX_SEEDS_PER_LANGUAGE, req.intent_id
+        )));
+    }
+
     maybe_persist(&state, &app_id, router);
-    Ok(StatusCode::OK)
+    let counts = router.seed_counts_by_lang(&req.intent_id);
+    Ok(Json(serde_json::json!({"added": true, "counts": counts})))
 }
 
 #[derive(serde::Deserialize)]
@@ -1486,44 +1544,142 @@ Rules:
 
 // --- LLM call helper ---
 
-async fn call_anthropic(
+/// Build the shared review prompt used by manual suggest, auto-review, and auto-learn.
+/// Same flow, same logic, regardless of mode.
+fn build_llm_review_prompt(
+    query: &str,
+    detected: &[String],
+    intent_descriptions: &str,
+) -> String {
+    format!(
+        "You are reviewing a customer support query that was not correctly routed.\n\n\
+         Customer query: \"{}\"\n\n\
+         Already detected intents: {:?}\n\
+         These may or may not be correct. Review them AND suggest any missing intents.\n\
+         If a detected intent is WRONG for this query, do NOT include it in your response.\n\n\
+         Available intents (with example seed phrases showing what each intent means):\n\
+         {}\n\n\
+         RULES:\n\
+         1. ONLY suggest intents the customer EXPLICITLY asked for or stated. Look for direct action words.\n\
+            - 'I want a refund' = refund. 'it's too late' does NOT mean refund or return unless they said those words.\n\
+            - 'let me speak to someone' = contact_human. Being frustrated does NOT mean contact_human.\n\
+            - Do NOT interpret emotions or implications as intents. Only literal requests.\n\
+         2. Most queries have 1 intent, sometimes 2. Rarely 3. When in doubt, suggest fewer.\n\
+         3. For each correct intent, generate 2-3 SHORT seed phrases (3-6 words) that capture the GENERAL PATTERN.\n\
+         4. Seeds must help match SIMILAR future queries. No order numbers, names, dates, or products.\n\
+         5. If any detected intent is WRONG, explain why it falsely matched and suggest how to fix the seed that caused it.\n\n\
+         Respond with ONLY JSON:\n\
+         {{\n\
+           \"seeds_by_intent\": {{\"intent_name\": [\"general pattern 1\", \"general pattern 2\"]}},\n\
+           \"wrong_intents\": [{{\"intent\": \"wrongly_detected_intent\", \"reason\": \"why it matched\", \"fix\": \"suggestion to prevent false match\"}}]\n\
+         }}\n\
+         If no intents are wrong, use \"wrong_intents\": []\n",
+        query, detected, intent_descriptions
+    )
+}
+
+/// Build intent descriptions string from router for LLM context.
+fn build_intent_descriptions(router: &Router) -> String {
+    router.intent_ids().iter().map(|id| {
+        let seeds = router.get_training(id)
+            .unwrap_or_default()
+            .into_iter()
+            .take(4)
+            .collect::<Vec<_>>()
+            .join("\", \"");
+        format!("- {}: [\"{}\"]", id, seeds)
+    }).collect::<Vec<_>>().join("\n")
+}
+
+/// Extract JSON from LLM response that may be wrapped in markdown code fences.
+fn extract_json(text: &str) -> &str {
+    let trimmed = text.trim();
+    // Strip ```json ... ``` or ``` ... ```
+    if let Some(start) = trimmed.find('{') {
+        if let Some(end) = trimmed.rfind('}') {
+            return &trimmed[start..=end];
+        }
+    }
+    trimmed
+}
+
+/// Call LLM for text generation. Supports two formats:
+/// - "anthropic": Anthropic Messages API (/v1/messages)
+/// - "openai" (or anything else): OpenAI Chat Completions format (/v1/chat/completions)
+///   Covers: OpenAI, Ollama, Groq, Together, DeepSeek, vLLM, LM Studio, any compatible endpoint.
+async fn call_llm(
     state: &ServerState,
     prompt: &str,
     max_tokens: u32,
 ) -> Result<String, (StatusCode, String)> {
-    let key = state.anthropic_key.as_ref().ok_or_else(|| {
-        (StatusCode::SERVICE_UNAVAILABLE, "ANTHROPIC_API_KEY not set. Add it to .env file.".to_string())
+    let key = state.llm_key.as_ref().ok_or_else(|| {
+        (StatusCode::SERVICE_UNAVAILABLE, "LLM_API_KEY not set. Add it to .env file.".to_string())
     })?;
 
-    let body = serde_json::json!({
-        "model": "claude-haiku-4-5-20251001",
-        "max_tokens": max_tokens,
-        "messages": [{"role": "user", "content": prompt}],
+    let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
+    let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
+    let url = std::env::var("LLM_API_URL").unwrap_or_else(|_| {
+        if provider == "anthropic" {
+            "https://api.anthropic.com/v1/messages".to_string()
+        } else {
+            "https://api.openai.com/v1/chat/completions".to_string()
+        }
     });
 
-    let resp = state.http
-        .post("https://api.anthropic.com/v1/messages")
-        .header("x-api-key", key)
-        .header("anthropic-version", "2023-06-01")
-        .header("content-type", "application/json")
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Anthropic request failed: {}", e)))?;
+    let messages = serde_json::json!([{"role": "user", "content": prompt}]);
+
+    let resp = if provider == "anthropic" {
+        // Anthropic Messages API
+        let body = serde_json::json!({
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": messages,
+        });
+        state.http
+            .post(&url)
+            .header("x-api-key", key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .json(&body)
+            .send()
+            .await
+    } else {
+        // OpenAI Chat Completions format (works with OpenAI, Ollama, Groq, etc.)
+        let body = serde_json::json!({
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": messages,
+        });
+        state.http
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", key))
+            .header("content-type", "application/json")
+            .json(&body)
+            .send()
+            .await
+    }.map_err(|e| (StatusCode::BAD_GATEWAY, format!("LLM request failed: {}", e)))?;
 
     if !resp.status().is_success() {
         let status = resp.status().as_u16();
         let text = resp.text().await.unwrap_or_default();
-        return Err((StatusCode::BAD_GATEWAY, format!("Anthropic API {}: {}", status, text)));
+        return Err((StatusCode::BAD_GATEWAY, format!("LLM API {}: {}", status, text)));
     }
 
     let data: serde_json::Value = resp.json().await
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Bad response: {}", e)))?;
 
-    data["content"][0]["text"]
-        .as_str()
-        .map(|s| s.trim().to_string())
-        .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
+    // Extract text: Anthropic uses content[0].text, OpenAI uses choices[0].message.content
+    if provider == "anthropic" {
+        data["content"][0]["text"]
+            .as_str()
+            .map(|s| s.trim().to_string())
+            .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
+    } else {
+        data["choices"][0]["message"]["content"]
+            .as_str()
+            .map(|s| s.trim().to_string())
+            .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
+    }
 }
 
 // --- Review: server-side LLM call ---
@@ -1614,7 +1770,7 @@ Rules:
         )
     };
 
-    let text = call_anthropic(&state, &prompt, 1024).await?;
+    let text = call_llm(&state, &prompt, 1024).await?;
 
     // Extract JSON from response
     let json_str = text.find('{')
@@ -1641,7 +1797,7 @@ async fn generate_seeds(
     Json(req): Json<GenerateSeedsRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let prompt = asv_router::seed::build_prompt(&req.intent_id, &req.description, &req.languages);
-    let text = call_anthropic(&state, &prompt, 2048).await?;
+    let text = call_llm(&state, &prompt, 2048).await?;
     let result = asv_router::seed::parse_response(&text, &req.languages)
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to parse seeds: {}", e)))?;
     let val: serde_json::Value = serde_json::from_str(&result)
@@ -1756,7 +1912,7 @@ Rules:
         },
     );
 
-    let text = call_anthropic(&state, &prompt, 512).await?;
+    let text = call_llm(&state, &prompt, 512).await?;
 
     let json_str = text.find('{')
         .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))
@@ -1829,7 +1985,7 @@ Return ONLY a JSON object:
         history = history_text,
     );
 
-    let text = call_anthropic(&state, &prompt, 512).await?;
+    let text = call_llm(&state, &prompt, 512).await?;
 
     let json_str = text.find('{')
         .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))
@@ -1926,7 +2082,7 @@ Rules:
         turns = req.turns,
     );
 
-    let text = call_anthropic(&state, &prompt, 2048).await?;
+    let text = call_llm(&state, &prompt, 2048).await?;
 
     let json_str = text.find('{')
         .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))
@@ -2123,7 +2279,7 @@ Return ONLY a JSON object:
         seeds = intent_seeds,
     );
 
-    let text = call_anthropic(&state, &prompt, 1024).await?;
+    let text = call_llm(&state, &prompt, 1024).await?;
 
     let json_str = text.find('{')
         .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))
@@ -2265,7 +2421,7 @@ async fn discover(
         let mut name = c.suggested_name.clone();
         let mut description = String::new();
 
-        if state.anthropic_key.is_some() {
+        if state.llm_key.is_some() {
             let prompt = format!(
                 "These user queries all belong to the same intent category:\n{}\n\n\
                  Respond with ONLY a JSON object (no markdown, no explanation):\n\
@@ -2274,9 +2430,9 @@ async fn discover(
                     .map(|(i, q)| format!("{}. {}", i + 1, q))
                     .collect::<Vec<_>>().join("\n")
             );
-            if let Ok(response) = call_anthropic(&state, &prompt, 100).await {
+            if let Ok(response) = call_llm(&state, &prompt, 100).await {
                 // Parse the JSON response
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&response) {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
                     if let Some(n) = parsed["name"].as_str() {
                         name = n.to_string();
                     }
@@ -2342,4 +2498,557 @@ async fn discover_apply(
         "created": created,
         "count": created.len(),
     })))
+}
+
+// ============================================================================
+// Review system: report, queue, approve, reject, fix
+// ============================================================================
+
+#[derive(serde::Deserialize)]
+struct ReportRequest {
+    query: String,
+    detected: Vec<String>,
+    flag: String,
+    #[serde(default)]
+    session_id: Option<String>,
+}
+
+async fn report_query(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ReportRequest>,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let id = state.review_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+    let item = ReviewItem {
+        id,
+        query: req.query.clone(),
+        detected: req.detected,
+        flag: req.flag.clone(),
+        suggested_intent: None,
+        suggested_seed: None,
+        status: "pending".to_string(),
+        app_id: app_id.clone(),
+        timestamp: now_ms(),
+        session_id: req.session_id,
+    };
+
+    // In auto_learn or auto_review mode, call LLM for suggestion
+    let mode = state.review_mode.read().unwrap().clone();
+    let mut item = item;
+
+    if (mode == "auto_learn" || mode == "auto_review") && state.llm_key.is_some() {
+        let intent_descriptions = {
+            let routers = state.routers.read().unwrap();
+            routers.get(&app_id).map(|r| build_intent_descriptions(r)).unwrap_or_default()
+        };
+
+        // Turn 1: identify correct intents (same prompt as manual flow)
+        let turn1_prompt = format!(
+            "Customer query: \"{}\"\nDetected intents: {:?}\n\n\
+             Available intents (with example seeds):\n{}\n\n\
+             Which intents does this query EXPLICITLY express? Only literal requests.\n\
+             Respond with ONLY JSON:\n\
+             {{\"correct_intents\": [\"intent1\"], \"wrong_detections\": []}}\n",
+            req.query, item.detected, intent_descriptions
+        );
+
+        if let Ok(response) = call_llm(&state, &turn1_prompt, 150).await {
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
+                if let Some(intents) = parsed["correct_intents"].as_array() {
+                    let names: Vec<String> = intents.iter().filter_map(|v| v.as_str().map(String::from)).collect();
+                    item.suggested_intent = Some(names.join(", "));
+
+                    // Turn 2: generate seeds (same prompt as manual flow)
+                    let turn2_prompt = format!(
+                        "Customer query: \"{}\"\nCorrect intents: {:?}\n\n\
+                         Generate 2-3 SHORT seed phrases (3-6 words) per intent. General patterns, no specifics.\n\
+                         Respond with ONLY JSON:\n\
+                         {{\"seeds_by_intent\": {{\"intent\": [\"seed1\", \"seed2\"]}}}}\n",
+                        req.query, names
+                    );
+
+                    if let Ok(response2) = call_llm(&state, &turn2_prompt, 200).await {
+                        if let Ok(parsed2) = serde_json::from_str::<serde_json::Value>(extract_json(&response2)) {
+                            if let Some(sbi) = parsed2["seeds_by_intent"].as_object() {
+                                if let Some(first_seeds) = sbi.values().next().and_then(|v| v.as_array()) {
+                                    item.suggested_seed = first_seeds.first().and_then(|s| s.as_str()).map(String::from);
+                                }
+                            }
+
+                            // Auto-learn: apply seeds from Turn 2 immediately
+                            if mode == "auto_learn" {
+                                if let Some(sbi) = parsed2["seeds_by_intent"].as_object() {
+                                    let mut routers = state.routers.write().unwrap();
+                                    if let Some(router) = routers.get_mut(&app_id) {
+                                        for (intent_id, seeds) in sbi {
+                                            if let Some(arr) = seeds.as_array() {
+                                                for seed in arr {
+                                                    if let Some(s) = seed.as_str() {
+                                                        router.add_seed(intent_id, s, "en");
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        maybe_persist(&state, &app_id, router);
+                                    }
+                                }
+                                item.status = "auto_applied".to_string();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut queue = state.review_queue.write().unwrap();
+    queue.push(item);
+
+    // Cap queue at 10000 items
+    if queue.len() > 10000 {
+        let excess = queue.len() - 10000;
+        queue.drain(..excess);
+    }
+
+    Json(serde_json::json!({"id": id, "status": "queued"}))
+}
+
+#[derive(serde::Deserialize)]
+struct ReviewQueueParams {
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default = "default_review_limit")]
+    limit: usize,
+    #[serde(default)]
+    offset: usize,
+}
+
+fn default_review_limit() -> usize { 50 }
+
+async fn review_queue(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(params): Query<ReviewQueueParams>,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let queue = state.review_queue.read().unwrap();
+
+    let filtered: Vec<&ReviewItem> = queue.iter()
+        .filter(|item| item.app_id == app_id)
+        .filter(|item| {
+            params.status.as_ref().map(|s| &item.status == s).unwrap_or(true)
+        })
+        .collect();
+
+    let total = filtered.len();
+    let items: Vec<serde_json::Value> = filtered.iter()
+        .skip(params.offset)
+        .take(params.limit)
+        .map(|item| serde_json::json!({
+            "id": item.id,
+            "query": item.query,
+            "detected": item.detected,
+            "flag": item.flag,
+            "suggested_intent": item.suggested_intent,
+            "suggested_seed": item.suggested_seed,
+            "status": item.status,
+            "timestamp": item.timestamp,
+            "session_id": item.session_id,
+        }))
+        .collect();
+
+    Json(serde_json::json!({
+        "total": total,
+        "items": items,
+    }))
+}
+
+#[derive(serde::Deserialize)]
+struct ReviewActionRequest {
+    id: u64,
+}
+
+async fn review_approve(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ReviewActionRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+    let mut queue = state.review_queue.write().unwrap();
+
+    let item = queue.iter_mut()
+        .find(|i| i.id == req.id && i.app_id == app_id)
+        .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
+
+    let intent = item.suggested_intent.clone()
+        .ok_or((StatusCode::BAD_REQUEST, "no suggestion to approve".to_string()))?;
+    let query = item.query.clone();
+
+    item.status = "approved".to_string();
+    drop(queue);
+
+    // Apply the fix
+    let mut routers = state.routers.write().unwrap();
+    if let Some(router) = routers.get_mut(&app_id) {
+        router.learn(&query, &intent);
+        maybe_persist(&state, &app_id, router);
+    }
+
+    Ok(Json(serde_json::json!({"status": "approved", "intent": intent})))
+}
+
+async fn review_reject(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ReviewActionRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+    let mut queue = state.review_queue.write().unwrap();
+
+    let item = queue.iter_mut()
+        .find(|i| i.id == req.id && i.app_id == app_id)
+        .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
+
+    item.status = "rejected".to_string();
+
+    Ok(Json(serde_json::json!({"status": "rejected"})))
+}
+
+#[derive(serde::Deserialize)]
+struct ReviewFixRequest {
+    id: u64,
+    /// Map of intent_id → list of {seed, lang} to add
+    /// e.g. {"return_item": [{"seed": "received wrong item", "lang": "en"}]}
+    seeds_by_intent: HashMap<String, Vec<SeedWithLang>>,
+}
+
+#[derive(serde::Deserialize)]
+struct SeedWithLang {
+    seed: String,
+    #[serde(default = "default_lang")]
+    lang: String,
+}
+
+async fn review_fix(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ReviewFixRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+
+    {
+        let mut queue = state.review_queue.write().unwrap();
+        let item = queue.iter_mut()
+            .find(|i| i.id == req.id && i.app_id == app_id)
+            .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
+
+        let intent_names: Vec<&str> = req.seeds_by_intent.keys().map(|s| s.as_str()).collect();
+        item.suggested_intent = Some(intent_names.join(", "));
+        item.status = "fixed".to_string();
+    }
+
+    let mut added = 0;
+    let mut skipped = 0;
+    {
+        let mut routers = state.routers.write().unwrap();
+        if let Some(router) = routers.get_mut(&app_id) {
+            for (intent_id, seeds) in &req.seeds_by_intent {
+                for sw in seeds {
+                    if router.add_seed(intent_id, &sw.seed, &sw.lang) {
+                        added += 1;
+                    } else {
+                        skipped += 1;
+                    }
+                }
+            }
+            maybe_persist(&state, &app_id, router);
+        }
+    } // write lock dropped here
+
+    // Auto-resolve: re-route all remaining pending queries against updated index
+    let mut auto_resolved = Vec::new();
+    {
+        let routers_read = state.routers.read().unwrap();
+        if let Some(router) = routers_read.get(&app_id) {
+            let mut queue = state.review_queue.write().unwrap();
+            for item in queue.iter_mut() {
+                if item.app_id != app_id || item.status != "pending" { continue; }
+
+                let result = router.route_multi(&item.query, 0.3);
+                let confirmed: Vec<String> = result.intents.iter().map(|i| i.id.clone()).collect();
+
+                // Check if this query is now resolved
+                let resolved = match item.flag.as_str() {
+                    "miss" => !confirmed.is_empty(),
+                    "low_confidence" | "ambiguous" => {
+                        // Check if confidence improved (has confirmed, not just candidates)
+                        !confirmed.is_empty()
+                    }
+                    _ => false,
+                };
+
+                if resolved {
+                    item.status = "auto_resolved".to_string();
+                    item.suggested_intent = Some(confirmed.join(", "));
+                    auto_resolved.push(serde_json::json!({
+                        "id": item.id,
+                        "query": item.query.chars().take(60).collect::<String>(),
+                        "now_detects": confirmed,
+                    }));
+                }
+            }
+        }
+    }
+
+    let intents: Vec<&str> = req.seeds_by_intent.keys().map(|s| s.as_str()).collect();
+    Ok(Json(serde_json::json!({
+        "status": "fixed",
+        "intents": intents,
+        "added": added,
+        "skipped": skipped,
+        "auto_resolved": auto_resolved,
+        "auto_resolved_count": auto_resolved.len(),
+    })))
+}
+
+async fn review_stats(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let queue = state.review_queue.read().unwrap();
+
+    let app_items: Vec<&ReviewItem> = queue.iter().filter(|i| i.app_id == app_id).collect();
+    let pending = app_items.iter().filter(|i| i.status == "pending").count();
+    let approved = app_items.iter().filter(|i| i.status == "approved").count();
+    let rejected = app_items.iter().filter(|i| i.status == "rejected").count();
+    let auto_applied = app_items.iter().filter(|i| i.status == "auto_applied").count();
+    let auto_resolved = app_items.iter().filter(|i| i.status == "auto_resolved").count();
+    let fixed = app_items.iter().filter(|i| i.status == "fixed").count();
+
+    Json(serde_json::json!({
+        "total": app_items.len(),
+        "pending": pending,
+        "approved": approved,
+        "rejected": rejected,
+        "auto_applied": auto_applied,
+        "auto_resolved": auto_resolved,
+        "fixed": fixed,
+    }))
+}
+
+/// Turn 1: Identify correct intents for the query.
+async fn review_turn1(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ReviewActionRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+
+    let (query, detected) = {
+        let queue = state.review_queue.read().unwrap();
+        let item = queue.iter()
+            .find(|i| i.id == req.id && i.app_id == app_id)
+            .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
+        (item.query.clone(), item.detected.clone())
+    };
+
+    let intent_descriptions = {
+        let routers = state.routers.read().unwrap();
+        routers.get(&app_id).map(|r| build_intent_descriptions(r)).unwrap_or_default()
+    };
+
+    let prompt = format!(
+        "Customer query: \"{}\"\n\
+         Detected intents: {:?}\n\n\
+         Available intents (with example seeds):\n{}\n\n\
+         Which intents does this query EXPLICITLY express? Only literal requests, not emotions or implications.\n\
+         Most queries have 1 intent, sometimes 2. Rarely 3.\n\
+         Also detect the language(s) of the query (ISO 639-1 codes: en, es, fr, de, etc). If mixed languages, list all.\n\n\
+         Respond with ONLY JSON:\n\
+         {{\"correct_intents\": [\"intent1\"], \"wrong_detections\": [\"wrong_intent\"], \"languages\": [\"en\"]}}\n",
+        query, detected, intent_descriptions
+    );
+
+    let response = call_llm(&state, &prompt, 150).await?;
+    let parsed: serde_json::Value = serde_json::from_str(extract_json(&response))
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse Turn 1 response".to_string()))?;
+
+    Ok(Json(parsed))
+}
+
+/// Turn 2: Generate seed phrases for the correct intents.
+#[derive(serde::Deserialize)]
+struct Turn2Request {
+    id: u64,
+    correct_intents: Vec<String>,
+    #[serde(default)]
+    languages: Vec<String>,
+}
+
+async fn review_turn2(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<Turn2Request>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+
+    let query = {
+        let queue = state.review_queue.read().unwrap();
+        let item = queue.iter()
+            .find(|i| i.id == req.id && i.app_id == app_id)
+            .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
+        item.query.clone()
+    };
+
+    let lang_instruction = if req.languages.is_empty() || req.languages == vec!["en"] {
+        "Generate seeds in English.".to_string()
+    } else {
+        format!("The query is in {:?}. Generate seeds in EACH of these languages. Label each seed with its language.", req.languages)
+    };
+
+    let prompt = format!(
+        "Customer query: \"{}\"\n\
+         Correct intents for this query: {:?}\n\n\
+         {}\n\n\
+         For each intent, generate 2-3 SHORT seed phrases (3-6 words) that capture the GENERAL PATTERN.\n\
+         Rules:\n\
+         - Seeds should help match SIMILAR future queries, not just this one\n\
+         - No order numbers, names, dates, or specific products\n\
+         - Think: what would OTHER customers say with the same problem?\n\n\
+         Respond with ONLY JSON:\n\
+         {{\"seeds_by_intent\": {{\"intent_name\": [\"pattern 1\", \"pattern 2\"]}}}}\n\
+         If multilingual, format each seed as \"[lang] seed phrase\" e.g. \"[fr] produit authentique\"\n",
+        query, req.correct_intents, lang_instruction
+    );
+
+    let response = call_llm(&state, &prompt, 300).await?;
+    let parsed: serde_json::Value = serde_json::from_str(extract_json(&response))
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse Turn 2 response".to_string()))?;
+
+    Ok(Json(parsed))
+}
+
+/// Turn 3: Analyze wrong intents and safety-check the full changeset.
+#[derive(serde::Deserialize)]
+struct Turn3Request {
+    id: u64,
+    correct_intents: Vec<String>,
+    wrong_intents: Vec<String>,
+    seeds_to_add: HashMap<String, Vec<String>>,
+}
+
+async fn review_turn3(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<Turn3Request>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+
+    let query = {
+        let queue = state.review_queue.read().unwrap();
+        let item = queue.iter()
+            .find(|i| i.id == req.id && i.app_id == app_id)
+            .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
+        item.query.clone()
+    };
+
+    // Get current seeds for wrong intents so LLM can analyze what caused false match
+    let wrong_intent_seeds: Vec<String> = {
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(&app_id) {
+            req.wrong_intents.iter().map(|id| {
+                let seeds = router.get_training(id)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .take(10)
+                    .collect::<Vec<_>>()
+                    .join("\", \"");
+                format!("- {}: [\"{}\"]", id, seeds)
+            }).collect()
+        } else {
+            vec![]
+        }
+    };
+
+    let prompt = format!(
+        "Customer query: \"{}\"\n\n\
+         PROPOSED CHANGES:\n\
+         Seeds to ADD:\n{}\n\n\
+         Wrongly detected intents and their CURRENT seeds:\n{}\n\n\
+         Tasks:\n\
+         1. For each wrong intent, explain which seed caused the false match and suggest a specific fix (remove seed, or make it more specific).\n\
+         2. Review the seeds being added — will any of them cause false matches on OTHER types of queries?\n\
+         3. Overall: is this changeset safe to apply?\n\n\
+         Respond with ONLY JSON:\n\
+         {{\n\
+           \"wrong_intent_analysis\": [{{\"intent\": \"name\", \"problem_seed\": \"the seed that caused it\", \"reason\": \"why it matched\", \"fix\": \"what to do\"}}],\n\
+           \"add_risks\": [{{\"intent\": \"name\", \"seed\": \"risky seed\", \"risk\": \"what could go wrong\"}}],\n\
+           \"safe_to_apply\": true/false,\n\
+           \"summary\": \"one sentence summary\"\n\
+         }}\n\
+         If no risks, use empty arrays and safe_to_apply: true.\n",
+        query,
+        req.seeds_to_add.iter()
+            .map(|(id, seeds)| format!("  {}: {:?}", id, seeds))
+            .collect::<Vec<_>>().join("\n"),
+        wrong_intent_seeds.join("\n")
+    );
+
+    let response = call_llm(&state, &prompt, 400).await?;
+    let parsed: serde_json::Value = serde_json::from_str(extract_json(&response))
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse Turn 3 response".to_string()))?;
+
+    Ok(Json(parsed))
+}
+
+/// Get current seeds for specific intents (used by review UI to show what's in the index)
+#[derive(serde::Deserialize)]
+struct IntentSeedsRequest {
+    intent_ids: Vec<String>,
+}
+
+async fn review_intent_seeds(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<IntentSeedsRequest>,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let routers = state.routers.read().unwrap();
+    let mut result: HashMap<String, Vec<String>> = HashMap::new();
+
+    if let Some(router) = routers.get(&app_id) {
+        for id in &req.intent_ids {
+            let seeds = router.get_training(id).unwrap_or_default();
+            result.insert(id.clone(), seeds);
+        }
+    }
+
+    Json(serde_json::json!(result))
+}
+
+async fn get_review_mode(
+    State(state): State<AppState>,
+) -> Json<serde_json::Value> {
+    let mode = state.review_mode.read().unwrap().clone();
+    Json(serde_json::json!({"mode": mode}))
+}
+
+#[derive(serde::Deserialize)]
+struct SetReviewModeRequest {
+    mode: String,
+}
+
+async fn set_review_mode(
+    State(state): State<AppState>,
+    Json(req): Json<SetReviewModeRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let valid = ["manual", "auto_review", "auto_learn"];
+    if !valid.contains(&req.mode.as_str()) {
+        return Err((StatusCode::BAD_REQUEST, format!("mode must be one of: {:?}", valid)));
+    }
+    *state.review_mode.write().unwrap() = req.mode.clone();
+    Ok(Json(serde_json::json!({"mode": req.mode})))
 }

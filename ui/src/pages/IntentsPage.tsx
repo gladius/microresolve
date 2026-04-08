@@ -276,9 +276,14 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
   const [languages, setLanguages] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState('');
+  const [enabledLangs, setEnabledLangs] = useState<Set<string>>(new Set(['en']));
 
   useEffect(() => {
     api.getLanguages().then(setLanguages).catch(() => {});
+    try {
+      const saved = localStorage.getItem('asv_languages');
+      if (saved) setEnabledLangs(new Set(JSON.parse(saved)));
+    } catch { /* */ }
   }, []);
 
   const handleRemoveSeed = async (seed: string) => {
@@ -420,7 +425,7 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
                 className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm resize-y focus:border-violet-500 focus:outline-none"
               />
               <div className="flex flex-wrap gap-2">
-                {Object.entries(languages).slice(0, 12).map(([code, name]) => (
+                {Object.entries(languages).filter(([code]) => enabledLangs.has(code)).map(([code, name]) => (
                   <label key={code} className="inline-flex items-center gap-1 text-xs text-zinc-400 cursor-pointer">
                     <input
                       type="checkbox"
@@ -679,9 +684,14 @@ function AddIntentPanel({
   const [selectedLangs, setSelectedLangs] = useState<Set<string>>(new Set(['en']));
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState('');
+  const [enabledLangs, setEnabledLangs] = useState<Set<string>>(new Set(['en']));
 
   useEffect(() => {
     api.getLanguages().then(setLanguages).catch(() => {});
+    try {
+      const saved = localStorage.getItem('asv_languages');
+      if (saved) setEnabledLangs(new Set(JSON.parse(saved)));
+    } catch { /* */ }
   }, []);
 
   const handleGenerate = async () => {
@@ -796,7 +806,7 @@ function AddIntentPanel({
               className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm resize-y focus:border-violet-500 focus:outline-none"
             />
             <div className="flex flex-wrap gap-2">
-              {Object.entries(languages).slice(0, 12).map(([code, name]) => (
+              {Object.entries(languages).filter(([code]) => enabledLangs.has(code)).map(([code, name]) => (
                 <label key={code} className="inline-flex items-center gap-1 text-xs text-zinc-400 cursor-pointer">
                   <input
                     type="checkbox"

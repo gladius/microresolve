@@ -71,6 +71,9 @@ pub mod wasm;
 
 pub use multi::{IntentRelation, MultiRouteOutput, MultiRouteResult};
 
+/// Maximum seed phrases per language per intent. Prevents overfitting.
+pub const MAX_SEEDS_PER_LANGUAGE: usize = 20;
+
 /// Router configuration. Pass to `Router::with_config()`.
 ///
 /// ```
@@ -371,8 +374,10 @@ impl Router {
         let vector = LearnedVector::from_seed(terms);
         self.vectors.insert(id.to_string(), vector);
         let mut lang_map = HashMap::new();
-        lang_map.insert("en".to_string(), phrases);
+        lang_map.insert("en".to_string(), phrases.clone());
         self.training.insert(id.to_string(), lang_map);
+        // Auto-populate paraphrase index from seeds (dual-source = high confidence)
+        self.add_paraphrases(id, &seed_phrases);
         self.rebuild_index();
         self.version += 1;
     }
@@ -394,11 +399,21 @@ impl Router {
     /// ```
     pub fn add_intent_multilingual(&mut self, id: &str, seeds_by_lang: HashMap<String, Vec<String>>) {
         self.require_local();
-        let all_phrases: Vec<String> = seeds_by_lang.values().flat_map(|v| v.clone()).collect();
+        // Enforce per-language seed limit
+        let truncated: HashMap<String, Vec<String>> = seeds_by_lang.into_iter()
+            .map(|(lang, seeds)| {
+                let limited: Vec<String> = seeds.into_iter().take(MAX_SEEDS_PER_LANGUAGE).collect();
+                (lang, limited)
+            })
+            .collect();
+        let all_phrases: Vec<String> = truncated.values().flat_map(|v| v.clone()).collect();
         let terms = training_to_terms(&all_phrases);
         let vector = LearnedVector::from_seed(terms);
         self.vectors.insert(id.to_string(), vector);
-        self.training.insert(id.to_string(), seeds_by_lang);
+        // Auto-populate paraphrase index from seeds
+        let phrase_refs: Vec<&str> = all_phrases.iter().map(|s| s.as_str()).collect();
+        self.add_paraphrases(id, &phrase_refs);
+        self.training.insert(id.to_string(), truncated);
         self.rebuild_index();
         self.version += 1;
     }
@@ -681,8 +696,19 @@ impl Router {
                 if let Some((_, weight, _)) = paraphrase_hits.iter().find(|(id, _, _)| *id == intent.id) {
                     intent.score += weight * 3.0;
                 }
+            } else {
+                // Routing-only: use score to determine confidence
+                // Score >= 5.0 → high (90%+ precision from analysis)
+                // Score >= 3.0 → medium
+                // Score < 3.0 → low
+                intent.confidence = if intent.score >= 5.0 {
+                    "high".to_string()
+                } else if intent.score >= 3.0 {
+                    "medium".to_string()
+                } else {
+                    "low".to_string()
+                };
             }
-            // else: routing-only → stays "low" confidence
         }
 
         // Stream 2: Paraphrase-only detections — included if score meets threshold
@@ -706,6 +732,14 @@ impl Router {
 
         // Final sort by position for output ordering
         output.intents.sort_by_key(|i| i.position);
+
+        // Enforce max_intents cap on total output (routing + paraphrase combined)
+        if output.intents.len() > self.max_intents {
+            // Keep highest scoring intents
+            output.intents.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+            output.intents.truncate(self.max_intents);
+            output.intents.sort_by_key(|i| i.position);
+        }
 
         // Attach intent types and metadata for each detected intent
         for intent in &mut output.intents {
@@ -834,6 +868,42 @@ impl Router {
     /// Get training phrases grouped by language.
     pub fn get_training_by_lang(&self, intent_id: &str) -> Option<&HashMap<String, Vec<String>>> {
         self.training.get(intent_id)
+    }
+
+    /// Get seed counts per language for an intent.
+    pub fn seed_counts_by_lang(&self, intent_id: &str) -> HashMap<String, usize> {
+        self.training.get(intent_id)
+            .map(|lang_map| lang_map.iter().map(|(lang, seeds)| (lang.clone(), seeds.len())).collect())
+            .unwrap_or_default()
+    }
+
+    /// Add a single seed phrase to an intent with language tag.
+    /// Returns false if the language has reached MAX_SEEDS_PER_LANGUAGE.
+    pub fn add_seed(&mut self, intent_id: &str, seed: &str, lang: &str) -> bool {
+        self.require_local();
+        let lang_map = match self.training.get_mut(intent_id) {
+            Some(m) => m,
+            None => return false,
+        };
+        let seeds = lang_map.entry(lang.to_string()).or_default();
+        if seeds.len() >= MAX_SEEDS_PER_LANGUAGE {
+            return false;
+        }
+        if seeds.iter().any(|s| s == seed) {
+            return true; // already exists, not an error
+        }
+        seeds.push(seed.to_string());
+
+        // Recompute vector from all seeds
+        let all_phrases: Vec<String> = lang_map.values().flat_map(|v| v.clone()).collect();
+        let terms = training_to_terms(&all_phrases);
+        let vector = LearnedVector::from_seed(terms);
+        self.vectors.insert(intent_id.to_string(), vector);
+        // Add to paraphrase index too
+        self.add_paraphrases(intent_id, &[seed]);
+        self.rebuild_index();
+        self.version += 1;
+        true
     }
 
     /// Set the type of an intent (Action or Context).

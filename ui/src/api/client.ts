@@ -117,8 +117,8 @@ export const api = {
     post<void>('/intents', { id, seeds, intent_type, metadata }),
   addIntentMultilingual: (id: string, seeds_by_lang: Record<string, string[]>, intent_type?: IntentType, metadata?: Record<string, string[]>) =>
     post<void>('/intents/multilingual', { id, seeds_by_lang, intent_type, metadata }),
-  addSeed: (intent_id: string, seed: string) =>
-    post<void>('/intents/add_seed', { intent_id, seed }),
+  addSeed: (intent_id: string, seed: string, lang = 'en') =>
+    post<{ added: boolean; counts: Record<string, number> }>('/intents/add_seed', { intent_id, seed, lang }),
   removeSeed: (intent_id: string, seed: string) =>
     post<void>('/intents/remove_seed', { intent_id, seed }),
   deleteIntent: (id: string) => post<void>('/intents/delete', { id }),
@@ -244,12 +244,73 @@ export const api = {
       body: JSON.stringify({ app_id }),
     }).then(r => { if (!r.ok) throw new Error('Delete failed'); }),
 
+  // LLM
+  getLLMStatus: () => get<{ configured: boolean; model: string; url: string }>('/llm/status'),
+
+  // Review
+  report: (query: string, detected: string[], flag: string, session_id?: string) =>
+    post<{ id: number }>('/report', { query, detected, flag, session_id }),
+  getReviewQueue: (status?: string, limit = 50, offset = 0) =>
+    get<{ total: number; items: ReviewItem[] }>(`/review/queue?limit=${limit}&offset=${offset}${status ? `&status=${status}` : ''}`),
+  reviewApprove: (id: number) => post<{ status: string; intent: string }>('/review/approve', { id }),
+  reviewReject: (id: number) => post<{ status: string }>('/review/reject', { id }),
+  reviewFix: (id: number, seeds_by_intent: Record<string, { seed: string; lang: string }[]>) =>
+    post<ReviewFixResult>('/review/fix', { id, seeds_by_intent }),
+  // 3-turn review flow
+  reviewIntentSeeds: (intent_ids: string[]) =>
+    post<Record<string, string[]>>('/review/intent_seeds', { intent_ids }),
+  reviewTurn1: (id: number) =>
+    post<{ correct_intents: string[]; wrong_detections: string[]; languages: string[] }>('/review/turn1', { id }),
+  reviewTurn2: (id: number, correct_intents: string[], languages: string[]) =>
+    post<{ seeds_by_intent: Record<string, string[]> }>('/review/turn2', { id, correct_intents, languages }),
+  reviewTurn3: (id: number, correct_intents: string[], wrong_intents: string[], seeds_to_add: Record<string, string[]>) =>
+    post<{
+      wrong_intent_analysis: { intent: string; problem_seed: string; reason: string; fix: string }[];
+      add_risks: { intent: string; seed: string; risk: string }[];
+      safe_to_apply: boolean;
+      summary: string;
+    }>('/review/turn3', { id, correct_intents, wrong_intents, seeds_to_add }),
+  getReviewStats: () => get<ReviewStats>('/review/stats'),
+  getReviewMode: () => get<{ mode: string }>('/review/mode'),
+  setReviewMode: (mode: string) => post<{ mode: string }>('/review/mode', { mode }),
+
   // Discovery
   discover: (queries: string[], expected_intents = 0) =>
     post<DiscoverResult>('/discover', { queries, expected_intents }),
   discoverApply: (clusters: { name: string; representative_queries: string[] }[]) =>
     post<{ created: string[]; count: number }>('/discover/apply', { clusters }),
 };
+
+// Review types
+export interface ReviewItem {
+  id: number;
+  query: string;
+  detected: string[];
+  flag: string;
+  suggested_intent: string | null;
+  suggested_seed: string | null;
+  status: string;
+  timestamp: number;
+  session_id: string | null;
+}
+
+export interface ReviewStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  auto_applied: number;
+  auto_resolved: number;
+  fixed: number;
+}
+
+export interface ReviewFixResult {
+  status: string;
+  added: number;
+  skipped: number;
+  auto_resolved: { id: number; query: string; now_detects: string[] }[];
+  auto_resolved_count: number;
+}
 
 // Discovery types
 export interface DiscoveredCluster {

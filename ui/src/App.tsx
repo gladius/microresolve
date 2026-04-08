@@ -3,11 +3,11 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import RouterPage from '@/pages/RouterPage';
 import IntentsPage from '@/pages/IntentsPage';
-import DebugPage from '@/pages/DebugPage';
 import SettingsPage from '@/pages/SettingsPage';
-import ProjectionsPage from '@/pages/ProjectionsPage';
+import DashboardPage from '@/pages/DashboardPage';
 import ScenariosPage from '@/pages/ScenariosPage';
 import DiscoveryPage from '@/pages/DiscoveryPage';
+import ReviewPage from '@/pages/ReviewPage';
 import { AppContext, loadSettings, saveSettings, type AppMode, type AppSettings } from '@/store';
 import { setApiAppId } from '@/api/client';
 
@@ -41,10 +41,10 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<RouterPage />} />
             <Route path="/intents" element={<IntentsPage />} />
-            <Route path="/projections" element={<ProjectionsPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/scenarios" element={<ScenariosPage />} />
             <Route path="/discovery" element={<DiscoveryPage />} />
-            <Route path="/debug" element={<DebugPage />} />
+            <Route path="/review" element={<ReviewPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>

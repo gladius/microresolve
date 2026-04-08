@@ -1,0 +1,422 @@
+[
+  {
+    "session_id": "S001",
+    "description": "Customer found cheaper price, wants to cancel",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "hey i just ordered those nike air max but found them $40 cheaper on amazon lol can i cancel",
+        "intents": ["cancel_order"],
+        "emotion": "casual"
+      },
+      {
+        "turn": 2,
+        "message": "order #NKE-48291 and yeah will i get the refund back to my visa or do i need to do something",
+        "intents": ["cancel_order", "refund"],
+        "emotion": "impatient"
+      }
+    ]
+  },
+  {
+    "session_id": "S002",
+    "description": "Tracking a late package",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "hi, my order was supposed to arrive 3 days ago? can you check whats going on with it",
+        "intents": ["track_order"],
+        "emotion": "worried"
+      },
+      {
+        "turn": 2,
+        "message": "the order number is 7834921 it was a birthday gift and now its too late honestly",
+        "intents": ["track_order", "shipping_complaint"],
+        "emotion": "frustrated"
+      }
+    ]
+  },
+  {
+    "session_id": "S003",
+    "description": "Wrong item received, wants return and refund",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "I ordered a blue jacket size M and you sent me a red hoodie size XL?? this is ridiculous",
+        "intents": ["return_item", "shipping_complaint"],
+        "emotion": "angry"
+      },
+      {
+        "turn": 2,
+        "message": "i dont want a replacement just give me my money back please",
+        "intents": ["refund"],
+        "emotion": "frustrated"
+      },
+      {
+        "turn": 3,
+        "message": "how long does the refund take to process? last time it took like 3 weeks which is insane",
+        "intents": ["refund"],
+        "emotion": "impatient"
+      }
+    ]
+  },
+  {
+    "session_id": "S004",
+    "description": "Double charged on credit card",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "umm i just checked my credit card statement and you guys charged me twice for the same order?? order #3321-B",
+        "intents": ["billing_issue"],
+        "emotion": "concerned"
+      },
+      {
+        "turn": 2,
+        "message": "yeah its showing $89.99 twice on my amex ending in 4421. can you fix this asap",
+        "intents": ["billing_issue", "payment_method"],
+        "emotion": "frustrated"
+      }
+    ]
+  },
+  {
+    "session_id": "S005",
+    "description": "Billing issue not resolved, escalates to human",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "I've been charged $299 for something I never ordered. This is fraud.",
+        "intents": ["billing_issue"],
+        "emotion": "alarmed"
+      },
+      {
+        "turn": 2,
+        "message": "No I already tried that. The charge appeared 3 days ago and nobody has helped me. I want to speak with an actual person not a bot",
+        "intents": ["billing_issue", "contact_human"],
+        "emotion": "angry"
+      },
+      {
+        "turn": 3,
+        "message": "THIS IS UNACCEPTABLE. Get me a manager RIGHT NOW or I'm calling my bank to dispute everything",
+        "intents": ["contact_human"],
+        "emotion": "furious"
+      }
+    ]
+  },
+  {
+    "session_id": "S006",
+    "description": "Product inquiry leads to order tracking",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "hey quick question does the sony WH-1000XM5 come with a carrying case or do i need to buy that separately",
+        "intents": ["product_inquiry"],
+        "emotion": "curious"
+      },
+      {
+        "turn": 2,
+        "message": "cool thanks! actually i ordered one last week, can you tell me when itll arrive? order 55219",
+        "intents": ["track_order", "order_status"],
+        "emotion": "excited"
+      }
+    ]
+  },
+  {
+    "session_id": "S007",
+    "description": "Cancel then changes mind, wants to modify instead",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "i need to cancel my order #ORD-8827",
+        "intents": ["cancel_order"],
+        "emotion": "decisive"
+      },
+      {
+        "turn": 2,
+        "message": "wait actually can i just change the size instead? i ordered large but need medium",
+        "intents": ["change_order"],
+        "emotion": "uncertain"
+      },
+      {
+        "turn": 3,
+        "message": "yes medium please and can you also update the shipping address to 442 oak street",
+        "intents": ["change_order"],
+        "emotion": "cooperative"
+      }
+    ]
+  },
+  {
+    "session_id": "S008",
+    "description": "Spanish speaker - late delivery wants refund",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "hola mi paquete no ha llegado y ya pasaron 10 dias, order number 2219-MX, necesito ayuda por favor",
+        "intents": ["shipping_complaint", "track_order"],
+        "emotion": "worried"
+      },
+      {
+        "turn": 2,
+        "message": "si ya se que dicen 5-7 dias pero its been 10 days and nothing!! quiero mi refund",
+        "intents": ["refund"],
+        "emotion": "frustrated"
+      },
+      {
+        "turn": 3,
+        "message": "esto es ridiculo i want to speak with someone who can actually help me please",
+        "intents": ["contact_human"],
+        "emotion": "angry"
+      }
+    ]
+  },
+  {
+    "session_id": "S009",
+    "description": "Account locked, needs order status",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "i cant login to my account it keeps saying account locked?? i was just trying to check on my order",
+        "intents": ["account_issue", "order_status"],
+        "emotion": "panicked"
+      },
+      {
+        "turn": 2,
+        "message": "my email is sarah.j@gmail.com and i think i put the wrong password too many times. can you unlock it and tell me if order #4412 shipped",
+        "intents": ["account_issue", "track_order"],
+        "emotion": "anxious"
+      }
+    ]
+  },
+  {
+    "session_id": "S010",
+    "description": "Cancel subscription - straightforward",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "Hi, I'd like to cancel my premium subscription. I'm not using it enough to justify the cost.",
+        "intents": ["subscription"],
+        "emotion": "neutral"
+      },
+      {
+        "turn": 2,
+        "message": "No thanks, I don't want a discount. Just cancel it effective immediately please. Account email is tom.wilson@outlook.com",
+        "intents": ["subscription"],
+        "emotion": "firm"
+      }
+    ]
+  },
+  {
+    "session_id": "S011",
+    "description": "Full return journey - return, refund, then feedback",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "i need to return these boots they're falling apart after 2 weeks of normal use. this is terrible quality",
+        "intents": ["return_item"],
+        "emotion": "disappointed"
+      },
+      {
+        "turn": 2,
+        "message": "yes i want a full refund not store credit. i paid $180 for boots that lasted 2 weeks",
+        "intents": ["refund"],
+        "emotion": "frustrated"
+      },
+      {
+        "turn": 3,
+        "message": "ok the return label came through thanks. when will i see the refund?",
+        "intents": ["refund"],
+        "emotion": "neutral"
+      },
+      {
+        "turn": 4,
+        "message": "honestly you guys should do better quality control. ive been a customer for 3 years and this is the first time im this disappointed",
+        "intents": ["feedback"],
+        "emotion": "constructive"
+      }
+    ]
+  },
+  {
+    "session_id": "S012",
+    "description": "French customer - product question then payment",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "Bonjour, est-ce que le sac Louis Vuitton sur votre site est authentique? je veux etre sure avant d'acheter",
+        "intents": ["product_inquiry"],
+        "emotion": "cautious"
+      },
+      {
+        "turn": 2,
+        "message": "ok merci. and do you accept paypal? je prefere ne pas utiliser ma carte de credit en ligne",
+        "intents": ["payment_method", "product_inquiry"],
+        "emotion": "interested"
+      },
+      {
+        "turn": 3,
+        "message": "parfait, i will order it then. merci beaucoup for your help!",
+        "intents": ["feedback"],
+        "emotion": "happy"
+      }
+    ]
+  },
+  {
+    "session_id": "S013",
+    "description": "Tracking shows delivered but never received",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "your tracking says my package was delivered yesterday but i never got it. i was home all day",
+        "intents": ["track_order", "shipping_complaint"],
+        "emotion": "confused"
+      },
+      {
+        "turn": 2,
+        "message": "i checked with my neighbors and the mailroom, nothing. someone stole it or it was delivered to the wrong address",
+        "intents": ["shipping_complaint"],
+        "emotion": "upset"
+      },
+      {
+        "turn": 3,
+        "message": "i need either a replacement sent ASAP or a full refund. this was a $340 purchase",
+        "intents": ["refund", "return_item"],
+        "emotion": "demanding"
+      }
+    ]
+  },
+  {
+    "session_id": "S014",
+    "description": "Multiple issues - billing, cancel, refund, escalation",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "so first off you charged me for express shipping that i never selected and second the order is wrong anyway",
+        "intents": ["billing_issue", "shipping_complaint"],
+        "emotion": "irritated"
+      },
+      {
+        "turn": 2,
+        "message": "just cancel the whole thing and refund everything including the shipping charge. order ORD-1192",
+        "intents": ["cancel_order", "refund"],
+        "emotion": "fed up"
+      },
+      {
+        "turn": 3,
+        "message": "this is the 3rd time ive had problems with your company. is there someone senior i can talk to about this pattern of issues?",
+        "intents": ["contact_human", "feedback"],
+        "emotion": "exhausted"
+      }
+    ]
+  },
+  {
+    "session_id": "S015",
+    "description": "Happy customer - positive feedback",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "just wanted to say that jessica in your support team was AMAZING. she helped me fix my account issue in like 5 minutes. give her a raise lol",
+        "intents": ["feedback"],
+        "emotion": "delighted"
+      }
+    ]
+  },
+  {
+    "session_id": "S016",
+    "description": "Change shipping address before delivery",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "Hi I just realized I put my old address on order #8843. Can I change the delivery address?",
+        "intents": ["change_order"],
+        "emotion": "worried"
+      },
+      {
+        "turn": 2,
+        "message": "new address is 1520 Elm Street Apt 4B, Chicago IL 60614. Has it shipped yet or am I too late?",
+        "intents": ["change_order", "track_order"],
+        "emotion": "anxious"
+      }
+    ]
+  },
+  {
+    "session_id": "S017",
+    "description": "Account issue then subscription question",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "hey so i forgot my password and the reset email never came?? its been 30 minutes",
+        "intents": ["account_issue"],
+        "emotion": "confused"
+      },
+      {
+        "turn": 2,
+        "message": "oh wait it went to spam lol nvm. while im here tho can i ask about upgrading my subscription to the annual plan? is there a discount",
+        "intents": ["subscription"],
+        "emotion": "sheepish"
+      }
+    ]
+  },
+  {
+    "session_id": "S018",
+    "description": "Multi-intent in single message - cancel and refund",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "look i need to cancel order #2291 get a full refund to my original payment method and also i want to know why you charged me $15 for shipping when your site says free shipping over $50 and my order was $127",
+        "intents": ["cancel_order", "refund", "billing_issue"],
+        "emotion": "frustrated"
+      }
+    ]
+  },
+  {
+    "session_id": "S019",
+    "description": "Product inquiry - item out of stock, disappointed",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "do you guys still have the adidas ultraboost in size 11? the website is confusing me",
+        "intents": ["product_inquiry"],
+        "emotion": "hopeful"
+      },
+      {
+        "turn": 2,
+        "message": "ugh seriously out of stock again?? this is the third time. when are you getting more",
+        "intents": ["product_inquiry"],
+        "emotion": "disappointed"
+      },
+      {
+        "turn": 3,
+        "message": "this is honestly so frustrating. you guys really need to manage your inventory better. i keep coming back and its never available",
+        "intents": ["feedback"],
+        "emotion": "annoyed"
+      }
+    ]
+  },
+  {
+    "session_id": "S020",
+    "description": "Repeated shipping delays, gives up and wants human",
+    "turns": [
+      {
+        "turn": 1,
+        "message": "hi this is the second time im contacting you about order #3387. it was supposed to be here monday",
+        "intents": ["shipping_complaint", "track_order"],
+        "emotion": "tired"
+      },
+      {
+        "turn": 2,
+        "message": "ok so now it says thursday?? last time you told me wednesday. the date keeps moving",
+        "intents": ["track_order"],
+        "emotion": "frustrated"
+      },
+      {
+        "turn": 3,
+        "message": "you know what forget it. im done dealing with bots. transfer me to a real person who can actually guarantee me a delivery date",
+        "intents": ["contact_human"],
+        "emotion": "done"
+      },
+      {
+        "turn": 4,
+        "message": "if nobody can help me im just going to cancel and dispute the charge with my bank",
+        "intents": ["cancel_order", "billing_issue"],
+        "emotion": "threatening"
+      }
+    ]
+  }
+]
