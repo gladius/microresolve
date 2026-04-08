@@ -4,11 +4,12 @@
 
 Replace the current Projections page with a full analytics dashboard that surfaces
 all emergent intelligence from routing data: co-occurrence, workflows, temporal
-ordering, escalation detection, anomaly alerts, and intent suggestions.
+ordering, escalation detection, anomaly alerts, intent suggestions, and query
+intelligence signals (agency, causation, certainty, similarity).
 
-All analytics data is already computed by the library. This is purely UI + minor
-server additions for anomaly detection. No new library methods needed except
-anomaly tracking.
+The library already computes most analytics. New additions: query intelligence
+signals (agency, causation, certainty), intent similarity detection, anomaly
+tracking, and confidence/frequency stats.
 
 ---
 
@@ -76,15 +77,142 @@ pub struct Anomaly {
 }
 ```
 
-**Estimated: ~150 lines in lib.rs, ~30 lines for server endpoints.**
+**Estimated: ~150 lines.**
+
+#### 1d. Query Intelligence Signals (agency, causation, certainty)
+
+Detected during routing from the query text. Returned as metadata on each
+routing result. No ML — lexicon-based pattern matching.
+
+```rust
+/// Query intelligence signals extracted during routing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuerySignals {
+    /// Who is acting: Requesting, Reporting, Commanding
+    pub agency: Agency,
+    /// Causal markers found: "because X", "due to Y"
+    pub causes: Vec<String>,    // intent IDs that caused this intent
+    /// Certainty level: 0.0 (very uncertain) to 1.0 (very certain)
+    pub certainty: f32,
+}
+
+pub enum Agency {
+    Requesting,  // "I want to cancel" — active, user wants action
+    Reporting,   // "My order was cancelled" — passive, something happened
+    Commanding,  // "Cancel the order" — imperative, direct instruction
+    Unknown,
+}
+```
+
+**Agency detection** — verb form analysis:
+```
+Active + first person: "I want", "I need", "I'd like"    → Requesting
+Passive: "was cancelled", "has been charged", "got denied" → Reporting
+Imperative: "Cancel", "Show me", "Track"                   → Commanding
+```
+Implementation: ~20 regex patterns on the query string. Runs during tokenization.
+
+**Causation detection** — marker words:
+```
+"because", "since", "due to", "as a result", "so", "therefore",
+"that's why", "caused by", "after", "which led to"
+```
+When found, split query at the marker. Route both halves. Mark the
+second intent as CAUSED BY the first.
+```
+"I want to cancel because I was charged twice"
+  → cancel_order (primary) + billing_issue (cause)
+  → causes: ["billing_issue"]
+```
+Implementation: ~15 marker words, split + re-route logic.
+
+**Certainty detection** — hedge vs commitment lexicon:
+```
+Hedges (low certainty):     "maybe", "possibly", "thinking about", "might",
+                            "not sure", "wondering", "could I", "is it possible"
+Commitment (high certainty): "definitely", "absolutely", "must", "need",
+                            "right now", "immediately", "I demand", "ASAP"
+Neutral:                     no markers → 0.5
+```
+Implementation: ~30 words, score = (commitment_count - hedge_count) / total, clamped to [0,1].
+
+**Analytics from signals:**
+```
+Agency distribution:     "72% requesting, 18% reporting, 10% commanding"
+Causation chains:        "billing_issue causes 47% of cancellations"
+Certainty per intent:    "refund requests avg 0.8 certainty, track requests avg 0.4"
+```
+These aggregate stats populate dashboard visualizations without any PII.
+
+**Estimated: ~100 lines in tokenizer.rs or a new signals.rs module.**
+
+#### 1e. Intent Similarity Detection
+
+Detect duplicate/overlapping intents from two signals:
+
+**Seed similarity (Jaccard):**
+```
+cancel_order seeds:  {cancel, order, stop, want}
+stop_order seeds:    {stop, order, halt, cancel}
+Jaccard = |intersection| / |union| = 3/5 = 0.60 → ⚠ high overlap
+```
+
+**Co-occurrence rate:**
+```
+If cancel_order and stop_order fire together >90% of the time
+→ they're probably the same intent
+```
+
+```rust
+/// Detect potentially duplicate or overlapping intents.
+pub fn detect_similar_intents(&self, threshold: f32) -> Vec<SimilarPair> {
+    // Compare all intent pairs by:
+    // 1. Seed term Jaccard similarity
+    // 2. Co-occurrence rate (if available)
+    // Return pairs above threshold
+}
+
+pub struct SimilarPair {
+    pub intent_a: String,
+    pub intent_b: String,
+    pub seed_similarity: f32,    // 0.0-1.0 Jaccard
+    pub co_occurrence_rate: f32, // 0.0-1.0 how often they fire together
+    pub suggestion: String,      // "Consider merging" or "Review overlap"
+}
+```
+
+**Estimated: ~60 lines.**
+
+---
+
+**Total library additions: ~460 lines**
+- Intent stats + confidence: ~150 lines
+- Anomaly detection: ~80 lines (included in 150 above)
+- Query signals (agency, causation, certainty): ~100 lines
+- Similarity detection: ~60 lines
 
 ### 2. Server additions (src/bin/server.rs)
 
 New endpoints:
 ```
-GET /api/stats          → intent hit counts + confidence distribution
-GET /api/anomalies      → detected anomalies
-POST /api/record        → record intent hits from connected clients (just intent IDs, no query text)
+GET /api/stats              → intent hit counts + confidence distribution
+GET /api/anomalies          → detected anomalies
+GET /api/similar_intents    → duplicate/overlap detection
+POST /api/record            → record intent hits from connected clients (just intent IDs, no query text)
+```
+
+Modify existing `route_multi` response to include query signals:
+```json
+{
+  "confirmed": [...],
+  "candidates": [...],
+  "relations": [...],
+  "signals": {
+    "agency": "requesting",
+    "causes": ["billing_issue"],
+    "certainty": 0.85
+  }
+}
 ```
 
 The `/api/record` endpoint is how connected mode clients report back.
@@ -175,14 +303,40 @@ not a graph library (no new dependencies).
 ```
 Flagged sequences with severity color. Pulls from `/api/escalation_patterns`.
 
-#### 4g. Simulation (existing, move here)
+#### 4g. Query Intelligence (NEW)
+```
+Agency Distribution          Certainty by Intent         Causation Map
+┌────────────────────┐      ┌──────────────────────┐    ┌─────────────────────────┐
+│ ████████░░ 72% req │      │ refund         ██ 0.8│    │ billing_issue           │
+│ ███░░░░░░░ 18% rep │      │ cancel_order   ██ 0.7│    │   → 47% cancel_order    │
+│ ██░░░░░░░░ 10% cmd │      │ track_order    █░ 0.4│    │   → 23% contact_human   │
+└────────────────────┘      └──────────────────────┘    │ delivery_issue          │
+                                                         │   → 61% refund          │
+                                                         └─────────────────────────┘
+```
+Three visualizations from query signals:
+- Agency: pie/bar chart of requesting vs reporting vs commanding
+- Certainty: per-intent average certainty score
+- Causation: which intents CAUSE which (root cause analysis)
+Pulls from aggregated signal data accumulated during routing.
+
+#### 4h. Intent Health (NEW)
+```
+⚠ cancel_order and stop_order are 87% similar — consider merging
+⚠ track_order and shipping_status co-occur 94% of the time
+✓ All other intents are well-separated
+```
+Intent similarity/overlap alerts. Helps admin maintain clean intent taxonomy.
+Pulls from `/api/similar_intents`.
+
+#### 4i. Simulation (existing, move here)
 ```
 [Run Simulation]  55/55 ████████████████ Complete
 ```
 Same button + progress bar from current Projections page. Runs 55 queries
 to populate all analytics data for demo purposes.
 
-**Estimated: ~400-500 lines for the full dashboard page.**
+**Estimated: ~600-700 lines for the full dashboard page.**
 
 ### 5. Navigation update
 
@@ -198,26 +352,57 @@ changes to `/dashboard`.
 ## Implementation Order
 
 ```
-Step 1: Library — add intent stats + confidence tracking + anomaly detection
-        Test: unit tests for each new method
+Step 1: Query signals — agency, causation, certainty detection
+        Add to tokenizer.rs or new signals.rs module
+        Integrate into route_multi output
+        Test: unit tests for each signal type
+        ~100 lines, ~30 min
+
+Step 2: Intent similarity detection
+        Add detect_similar_intents() to lib.rs
+        Test: unit tests with overlapping intents
+        ~60 lines, ~20 min
+
+Step 3: Intent stats + confidence tracking + anomaly detection
+        Add to lib.rs, integrate into route_multi recording
+        Test: unit tests for stats and anomaly detection
         ~150 lines, ~30 min
 
-Step 2: Server — add /api/stats, /api/anomalies, /api/record endpoints
+Step 4: Server endpoints
+        Add /api/stats, /api/anomalies, /api/similar_intents, /api/record
+        Modify route_multi response to include signals
         Test: curl tests
-        ~60 lines, ~15 min
+        ~80 lines, ~20 min
 
-Step 3: API client — add new methods
-        ~10 lines, ~5 min
+Step 5: API client — add new methods
+        ~15 lines, ~5 min
 
-Step 4: Dashboard UI — build the page with all sections
+Step 6: Dashboard UI — build the full page with all 9 sections
+        Overview, Anomalies, Projected Context, Workflows,
+        Temporal Flow, Escalation, Query Intelligence,
+        Intent Health, Simulation
         Test: run simulation, verify all sections populate
-        ~400 lines, ~1-2 hours
+        ~600 lines, ~2-3 hours
 
-Step 5: Navigation — rename Projections → Dashboard
+Step 7: Navigation — rename Projections → Dashboard
         ~1 line change
 ```
 
-Total estimated: ~620 lines, 2-3 hours.
+Total estimated: ~1000 lines, 4-5 hours.
+
+### Priority order (if time-constrained)
+
+Must-have (MVP dashboard):
+- Steps 3-4: Stats + anomalies (backend)
+- Step 6 sections a-d, g, i: Overview, Anomalies, Projections, Workflows, Simulation
+
+Should-have:
+- Steps 1-2: Query signals + similarity
+- Step 6 sections e-f, h: Temporal, Escalation, Intent Health
+
+Nice-to-have:
+- Step 6 section g: Full query intelligence visualization (agency, causation, certainty)
+- Causation detection is the most complex signal
 
 ---
 
