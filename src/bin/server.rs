@@ -141,6 +141,7 @@ async fn main() {
         .route("/api/intents", post(add_intent))
         .route("/api/intents/delete", post(delete_intent))
         .route("/api/intents/add_seed", post(add_seed))
+        .route("/api/intents/remove_seed", post(remove_seed))
         .route("/api/intents/multilingual", post(add_intent_multilingual))
         .route("/api/intents/type", post(set_intent_type))
         .route("/api/intents/load_defaults", post(load_defaults))
@@ -529,6 +530,29 @@ async fn add_seed(
     router.add_intent(&req.intent_id, &refs);
     maybe_persist(&state, &app_id, router);
     Ok(StatusCode::OK)
+}
+
+#[derive(serde::Deserialize)]
+struct RemoveSeedRequest {
+    intent_id: String,
+    seed: String,
+}
+
+async fn remove_seed(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<RemoveSeedRequest>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&app_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
+    if router.remove_seed(&req.intent_id, &req.seed) {
+        maybe_persist(&state, &app_id, router);
+        Ok(StatusCode::OK)
+    } else {
+        Err((StatusCode::NOT_FOUND, "seed not found".to_string()))
+    }
 }
 
 #[derive(serde::Deserialize)]

@@ -119,32 +119,24 @@ function IntentListItem({
 }: {
   intent: IntentInfo; selected: boolean; onClick: () => void;
 }) {
-  const langKeys = Object.keys(intent.seeds_by_lang).filter(k => k !== '_learned');
+  const typeChar = intent.intent_type === 'action' ? 'A' : 'C';
+  const typeColor = intent.intent_type === 'action' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30' : 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30';
   return (
     <div
       onClick={onClick}
-      className={`px-3 py-2.5 cursor-pointer border-b border-zinc-800/50 transition-colors ${
+      className={`px-3 py-2 cursor-pointer border-b border-zinc-800/50 transition-colors ${
         selected ? 'bg-zinc-800/80' : 'hover:bg-zinc-800/40'
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className="text-emerald-400 font-mono text-sm font-semibold truncate">{intent.id}</span>
-        <span className={`text-[9px] px-1.5 py-0.5 rounded border font-semibold uppercase ${TYPE_COLORS[intent.intent_type]}`}>
-          {intent.intent_type}
+        <span className={`text-[9px] w-4 h-4 flex items-center justify-center rounded border font-bold ${typeColor}`}>
+          {typeChar}
         </span>
-      </div>
-      <div className="flex items-center gap-2 mt-1">
-        <span className="text-zinc-500 text-[11px]">{intent.seeds.length} seeds</span>
+        <span className="text-emerald-400 font-mono text-sm font-semibold truncate flex-1">{intent.id}</span>
+        <span className="text-zinc-600 text-[11px]">{intent.seeds.length}</span>
         {intent.learned_count > 0 && (
-          <span className="text-emerald-400/50 text-[11px]">+{intent.learned_count}</span>
+          <span className="text-emerald-400/40 text-[10px]">+{intent.learned_count}</span>
         )}
-        <div className="flex gap-0.5 ml-auto">
-          {langKeys.map(lang => (
-            <span key={lang} className="text-[9px] text-violet-400/60 bg-zinc-800 rounded px-1 uppercase">
-              {lang}
-            </span>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -279,6 +271,11 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
   const [showBulk, setShowBulk] = useState(false);
   const [bulkText, setBulkText] = useState('');
 
+  const handleRemoveSeed = async (seed: string) => {
+    await api.removeSeed(intent.id, seed);
+    onRefresh();
+  };
+
   const langKeys = Object.keys(intent.seeds_by_lang).filter(k => k !== '_learned');
 
   // Build flat list with language tags
@@ -327,12 +324,17 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
         )}
         {filtered.map((s, i) => (
           <div key={`${s.lang}-${i}`} className="flex items-center gap-2 px-3 py-1.5 hover:bg-zinc-800/50 transition-colors group">
-            {langKeys.length > 1 && (
-              <span className="text-[9px] text-violet-400/60 bg-zinc-800 rounded px-1 uppercase w-6 text-center flex-shrink-0">
-                {s.lang}
-              </span>
-            )}
+            <span className="text-[9px] text-violet-400/60 bg-zinc-800 rounded px-1 uppercase w-6 text-center flex-shrink-0">
+              {s.lang}
+            </span>
             <span className="text-sm text-zinc-300 font-mono flex-1 truncate">{s.seed}</span>
+            <button
+              onClick={() => handleRemoveSeed(s.seed)}
+              className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-xs flex-shrink-0"
+              title="Remove seed"
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>

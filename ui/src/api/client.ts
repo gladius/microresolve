@@ -119,6 +119,8 @@ export const api = {
     post<void>('/intents/multilingual', { id, seeds_by_lang, intent_type, metadata }),
   addSeed: (intent_id: string, seed: string) =>
     post<void>('/intents/add_seed', { intent_id, seed }),
+  removeSeed: (intent_id: string, seed: string) =>
+    post<void>('/intents/remove_seed', { intent_id, seed }),
   deleteIntent: (id: string) => post<void>('/intents/delete', { id }),
   setIntentType: (intent_id: string, intent_type: IntentType) =>
     post<void>('/intents/type', { intent_id, intent_type }),

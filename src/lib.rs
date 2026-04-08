@@ -415,6 +415,49 @@ impl Router {
         self.version += 1;
     }
 
+    /// Remove a single seed phrase from an intent.
+    /// Recomputes the intent's vector from remaining seeds.
+    /// Returns true if the seed was found and removed.
+    pub fn remove_seed(&mut self, intent_id: &str, seed: &str) -> bool {
+        self.require_local();
+        let training = match self.training.get_mut(intent_id) {
+            Some(t) => t,
+            None => return false,
+        };
+
+        // Find and remove the seed from whichever language it belongs to
+        let mut found = false;
+        for phrases in training.values_mut() {
+            if let Some(pos) = phrases.iter().position(|s| s == seed) {
+                phrases.remove(pos);
+                found = true;
+                break;
+            }
+        }
+
+        if !found { return false; }
+
+        // Remove empty language entries
+        training.retain(|_, phrases| !phrases.is_empty());
+
+        // Recompute the vector from remaining seeds
+        let all_phrases: Vec<String> = training.values().flat_map(|v| v.clone()).collect();
+        if all_phrases.is_empty() {
+            // No seeds left — remove the intent entirely
+            self.vectors.remove(intent_id);
+            self.training.remove(intent_id);
+            self.index.remove_intent(intent_id);
+        } else {
+            let terms = training_to_terms(&all_phrases);
+            let vector = LearnedVector::from_seed(terms);
+            self.vectors.insert(intent_id.to_string(), vector);
+            self.rebuild_index();
+        }
+
+        self.version += 1;
+        true
+    }
+
     /// Remove an intent.
     pub fn remove_intent(&mut self, id: &str) {
         self.require_local();
@@ -2767,5 +2810,38 @@ mod tests {
         let result = r.save("/tmp/should_not_exist.json");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("connected mode"));
+    }
+
+    #[test]
+    fn remove_seed() {
+        let mut r = Router::new();
+        r.add_intent("cancel", &["cancel my order", "stop my order", "I want to cancel"]);
+
+        // Remove one seed
+        assert!(r.remove_seed("cancel", "stop my order"));
+
+        // Verify it's gone from training
+        let training = r.get_training("cancel").unwrap();
+        assert_eq!(training.len(), 2);
+        assert!(!training.contains(&"stop my order".to_string()));
+
+        // Routing still works with remaining seeds
+        let result = r.route("cancel my order");
+        assert!(!result.is_empty());
+
+        // Remove nonexistent seed returns false
+        assert!(!r.remove_seed("cancel", "nonexistent phrase"));
+
+        // Remove from nonexistent intent returns false
+        assert!(!r.remove_seed("nonexistent", "cancel my order"));
+    }
+
+    #[test]
+    fn remove_last_seed_removes_intent() {
+        let mut r = Router::new();
+        r.add_intent("test", &["only seed"]);
+
+        assert!(r.remove_seed("test", "only seed"));
+        assert_eq!(r.intent_count(), 0);
     }
 }
