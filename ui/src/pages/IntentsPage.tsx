@@ -270,6 +270,16 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
   const [newSeed, setNewSeed] = useState('');
   const [showBulk, setShowBulk] = useState(false);
   const [bulkText, setBulkText] = useState('');
+  const [showAI, setShowAI] = useState(false);
+  const [aiDescription, setAIDescription] = useState('');
+  const [aiLangs, setAILangs] = useState<Set<string>>(new Set(['en']));
+  const [languages, setLanguages] = useState<Record<string, string>>({});
+  const [generating, setGenerating] = useState(false);
+  const [genStatus, setGenStatus] = useState('');
+
+  useEffect(() => {
+    api.getLanguages().then(setLanguages).catch(() => {});
+  }, []);
 
   const handleRemoveSeed = async (seed: string) => {
     await api.removeSeed(intent.id, seed);
@@ -388,6 +398,80 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
             </button>
           </div>
         )}
+        {/* AI Generate */}
+        <div>
+          <button
+            onClick={() => setShowAI(!showAI)}
+            className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1"
+          >
+            <svg className={`w-3 h-3 transition-transform ${showAI ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Generate seeds with AI
+          </button>
+
+          {showAI && (
+            <div className="mt-2 space-y-2 pl-4 border-l-2 border-violet-500/20">
+              <textarea
+                value={aiDescription}
+                onChange={e => setAIDescription(e.target.value)}
+                placeholder="Describe the intent: e.g. Customer wants to cancel their order"
+                rows={2}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm resize-y focus:border-violet-500 focus:outline-none"
+              />
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(languages).slice(0, 12).map(([code, name]) => (
+                  <label key={code} className="inline-flex items-center gap-1 text-xs text-zinc-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={aiLangs.has(code)}
+                      onChange={() => {
+                        setAILangs(prev => {
+                          const next = new Set(prev);
+                          next.has(code) ? next.delete(code) : next.add(code);
+                          return next;
+                        });
+                      }}
+                      className="accent-violet-500"
+                    />
+                    {name}
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    if (!aiDescription.trim()) { setGenStatus('Enter a description'); return; }
+                    setGenerating(true);
+                    setGenStatus('Generating...');
+                    try {
+                      const langs = Array.from(aiLangs);
+                      const parsed = await api.generateSeeds(intent.id, aiDescription, langs);
+                      // Add generated seeds to the intent
+                      for (const lang of langs) {
+                        for (const seed of parsed.seeds_by_lang[lang] || []) {
+                          await api.addSeed(intent.id, seed);
+                        }
+                      }
+                      setGenStatus(`Added ${parsed.total} seeds`);
+                      onRefresh();
+                    } catch (e) {
+                      setGenStatus('Error: ' + (e as Error).message);
+                    } finally {
+                      setGenerating(false);
+                    }
+                  }}
+                  disabled={generating}
+                  className="text-xs px-3 py-1.5 border border-violet-500 text-violet-400 rounded hover:bg-violet-500 hover:text-white disabled:opacity-50"
+                >
+                  {generating ? 'Generating...' : 'Generate'}
+                </button>
+                {genStatus && <span className="text-xs text-zinc-500">{genStatus}</span>}
+              </div>
+            </div>
+          )}
+        </div>
+
         {intent.learned_count > 0 && (
           <p className="text-xs text-emerald-400/50">+{intent.learned_count} terms learned from corrections</p>
         )}
