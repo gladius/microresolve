@@ -338,7 +338,46 @@ to populate all analytics data for demo purposes.
 
 **Estimated: ~600-700 lines for the full dashboard page.**
 
-### 5. Navigation update
+### 5. Webhook Alerts (future, not in MVP)
+
+HTTP webhook system for real-time alerting. When anomalies, escalations,
+or confidence drops are detected, POST to a configured URL.
+
+**Configuration** (server .env or --webhook flag):
+```
+WEBHOOK_URL=https://hooks.slack.com/services/T00/B00/xxx
+WEBHOOK_EVENTS=escalation,anomaly,confidence_drop
+```
+
+**Payload** (no customer data — intent-level signals only):
+```json
+{
+  "type": "escalation_spike",
+  "severity": "high",
+  "app_id": "support-bot",
+  "description": "billing_issue → contact_human escalation 3.2x above baseline",
+  "details": {
+    "pattern": ["billing_issue", "contact_human"],
+    "current_rate": 0.24,
+    "baseline_rate": 0.075
+  },
+  "timestamp": "2026-04-08T14:32:00Z"
+}
+```
+
+**Alert types:**
+- `anomaly` — volume spike, new unknown pattern, intent drift
+- `escalation` — escalation pattern rate above threshold
+- `confidence_drop` — low confidence rate above threshold
+- `similarity` — new intent overlap detected above threshold
+
+**Implementation:** ~50 lines in server. Check anomalies after each route_multi batch
+(debounced, not every query). POST to webhook URL if triggered. Fire-and-forget
+(don't block routing on webhook response).
+
+**UI:** Webhook URL configuration on Settings page. Test webhook button.
+
+### 6. Navigation update
 
 ```
 [Playground]  [Intents]  [Dashboard]  [Discovery]  [Debug]  [Settings]
