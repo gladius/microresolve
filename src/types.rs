@@ -1,0 +1,124 @@
+//! Public types for the ASV Router.
+
+use std::collections::HashMap;
+
+/// Router configuration. Pass to `Router::with_config()`.
+///
+/// ```
+/// use asv_router::RouterConfig;
+/// let config = RouterConfig { top_k: 5, max_intents: 10, ..Default::default() };
+/// ```
+#[derive(Debug, Clone)]
+pub struct RouterConfig {
+    /// Maximum results from `route()`. Default: 10.
+    pub top_k: usize,
+    /// Maximum intents from `route_multi()`. Default: 5.
+    pub max_intents: usize,
+    /// Server URL for connected mode. None = local mode.
+    pub server: Option<String>,
+    /// App ID for connected mode. Default: "default".
+    pub app_id: String,
+    /// Local file path for standalone mode. None = in-memory only.
+    pub data_path: Option<String>,
+    /// Sync interval in seconds (connected mode). Default: 30.
+    pub sync_interval_secs: u64,
+}
+
+impl Default for RouterConfig {
+    fn default() -> Self {
+        Self {
+            top_k: 10,
+            max_intents: 5,
+            server: None,
+            app_id: "default".to_string(),
+            data_path: None,
+            sync_interval_secs: 30,
+        }
+    }
+}
+
+/// Intent type: Action (user wants something done) or Context (supporting info).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IntentType {
+    Action,
+    Context,
+}
+
+/// A routing result.
+#[derive(Debug, Clone)]
+pub struct RouteResult {
+    /// The intent identifier.
+    pub id: String,
+    /// Match score (higher = better match).
+    pub score: f32,
+}
+
+/// An intent in a discovered workflow cluster.
+#[derive(Debug, Clone)]
+pub struct WorkflowIntent {
+    /// Intent ID.
+    pub id: String,
+    /// Number of co-occurrence connections in the cluster.
+    pub connections: u32,
+    /// Neighboring intents it co-occurs with.
+    pub neighbors: Vec<String>,
+}
+
+/// A recurring sequence pattern (potential escalation or workflow).
+#[derive(Debug, Clone)]
+pub struct EscalationPattern {
+    /// The intent sequence in temporal order.
+    pub sequence: Vec<String>,
+    /// How many times this sequence was observed.
+    pub occurrences: u32,
+    /// Frequency: occurrences / total sequences observed.
+    pub frequency: f32,
+}
+
+/// A term conflict detected by seed guard.
+#[derive(Debug, Clone)]
+pub struct TermConflict {
+    /// The conflicting term.
+    pub term: String,
+    /// Intent that primarily owns this term.
+    pub competing_intent: String,
+    /// Discrimination ratio: what fraction of this term's total weight is in the competing intent.
+    pub severity: f32,
+    /// The term's weight in the competing intent.
+    pub competing_weight: f32,
+}
+
+/// Result of checking a seed phrase before adding it.
+#[derive(Debug, Clone)]
+pub struct SeedCheckResult {
+    /// Whether the seed was added.
+    pub added: bool,
+    /// New terms this seed introduces (not previously in this intent).
+    pub new_terms: Vec<String>,
+    /// Terms that conflict with other intents.
+    pub conflicts: Vec<TermConflict>,
+    /// True if all content terms already exist in this intent.
+    pub redundant: bool,
+    /// Human-readable warning message, if any.
+    pub warning: Option<String>,
+}
+
+/// A suggested intent based on co-occurrence patterns.
+///
+/// Returned by `Router::suggest_intents()` when detected intents frequently
+/// co-occur with other intents that were NOT detected in the current query.
+#[derive(Debug, Clone)]
+pub struct IntentSuggestion {
+    /// The suggested intent ID.
+    pub id: String,
+    /// Conditional probability: P(this intent | triggering intent).
+    pub probability: f32,
+    /// Number of times this co-occurrence was observed.
+    pub observations: u32,
+    /// Which detected intent triggered this suggestion.
+    pub because_of: String,
+}
+
+/// Maximum seed phrases per language per intent. Prevents overfitting.
+pub const MAX_SEEDS_PER_LANGUAGE: usize = 20;
