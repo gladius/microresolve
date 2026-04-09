@@ -4,8 +4,7 @@ import Layout from '@/components/Layout';
 import RouterPage from '@/pages/RouterPage';
 import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
-import ScenariosPage from '@/pages/ScenariosPage';
-import AutoImprovePage from '@/pages/AutoImprovePage';
+import AutoImprovePage from '@/pages/ScenariosPage';
 import ReviewPage from '@/pages/ReviewPage';
 import ImportPage from '@/pages/ImportPage';
 import AppsPage from '@/pages/AppsPage';
@@ -59,7 +58,7 @@ export default function App() {
               <Route path="cooccurrence" element={<CoOccurrence />} />
             </Route>
             <Route path="/auto-improve" element={<AutoImprovePage />} />
-            <Route path="/scenarios" element={<ScenariosPage />} />
+            <Route path="/scenarios" element={<AutoImprovePage />} />
             <Route path="/apps" element={<AppsPage />} />
             <Route path="/import" element={<ImportPage />} />
             <Route path="/settings" element={<SettingsPage />} />

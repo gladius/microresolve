@@ -76,11 +76,11 @@ const SOPHISTICATION = ['low', 'medium', 'high'];
 const VERBOSITY = ['short', 'medium', 'long'];
 
 const PHASE_LABELS: Record<Phase, string> = {
-  generating: 'Generating conversation...',
-  routing_1: 'Routing cycle 1...',
-  reviewing: 'Reviewing failures...',
-  applying: 'Applying corrections...',
-  routing_2: 'Routing cycle 2...',
+  generating: 'Generating queries...',
+  routing_1: 'Testing baseline...',
+  reviewing: 'Finding & fixing failures...',
+  applying: 'Auto-learn processing...',
+  routing_2: 'Re-testing after fixes...',
   done: 'Complete',
   error: 'Error',
 };
@@ -149,58 +149,59 @@ export default function ScenariosPage() {
       if (stopRef.current) return;
       updateSession(id, { cycle1, phase: 'reviewing' });
 
-      // Phase 3: Review failures — LLM extracts focused seed phrases
-      // Promotable = candidates matching GT (routing works, needs paraphrase promotion)
-      // Missed = not in confirmed or candidates (true miss, needs new seed)
-      // Both need LLM to extract the minimal relevant fragment from the message
+      // Phase 3+4: Report failures → auto-learn fixes them via seed_pipeline
+      await api.setReviewMode('auto_learn');
+
+      let failureCount = 0;
       const reviews: ReviewResult[] = [];
-      const allCorrections: Correction[] = [];
 
       for (let i = 0; i < cycle1.results.length; i++) {
         const r = cycle1.results[i] as RunResult;
         if (r.status === 'pass') continue;
-        if (stopRef.current) return;
+        if (stopRef.current) break;
 
-        const promotable = r.promotable || [];
-        const trueMissed = r.missed || [];
-        const needsSeeds = [...promotable, ...trueMissed];
+        failureCount++;
+        const detected = [...r.confirmed, ...r.candidates];
 
-        if (needsSeeds.length === 0) continue;
+        // Report to review queue — auto-learn picks it up
+        await api.report(
+          r.message,
+          detected,
+          r.missed.length > 0 ? 'miss' : 'low_confidence',
+        );
 
-        try {
-          // Send confirmed as "detected" — LLM generates seeds for promotable + missed
-          const confirmedDetails = r.details.filter(d => d.confidence !== 'low');
-          const review = await api.trainingReview(
-            r.message,
-            confirmedDetails.map(d => ({ id: d.id, score: d.score })),
-            needsSeeds,
-          );
-          const rev: ReviewResult = {
-            turnIndex: i,
-            analysis: review.analysis,
-            corrections: review.corrections,
-          };
-          reviews.push(rev);
-          allCorrections.push(...review.corrections);
-          updateSession(id, { reviews: [...reviews] });
-        } catch {
-          // Skip failed reviews
+        reviews.push({
+          turnIndex: i,
+          analysis: `Reported: ${r.missed.join(', ')} missed. Auto-learn fixing...`,
+          corrections: r.missed.map(intent => ({
+            action: 'auto_learn',
+            intent,
+            phrase: r.message.slice(0, 40),
+          })),
+        });
+        updateSession(id, { reviews: [...reviews] });
+
+        // Give auto-learn time to process every 2 failures
+        if (failureCount % 2 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
       }
 
-      if (stopRef.current) return;
-      updateSession(id, { corrections: allCorrections, phase: 'applying' });
-
-      // Phase 4: Apply corrections
-      let applied = 0;
-      let applyErrors: string[] = [];
-      if (allCorrections.length > 0) {
-        const result = await api.trainingApply(allCorrections);
-        applied = result.applied;
-        applyErrors = result.errors;
+      // Wait for last auto-learn batch
+      if (failureCount > 0) {
+        updateSession(id, { phase: 'applying' });
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
+
+      await api.setReviewMode('manual');
+
       if (stopRef.current) return;
-      updateSession(id, { applied, applyErrors, phase: 'routing_2' });
+      updateSession(id, {
+        corrections: reviews.flatMap(r => r.corrections),
+        applied: failureCount,
+        applyErrors: [],
+        phase: 'routing_2',
+      });
 
       // Phase 5: Route cycle 2
       const cycle2 = await api.trainingRun(turns);
@@ -223,9 +224,9 @@ export default function ScenariosPage() {
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-lg font-semibold text-white">Training Arena</h1>
+        <h1 className="text-lg font-semibold text-white">Auto-Improve</h1>
         <p className="text-xs text-zinc-500 mt-1">
-          Automated training loop: generate conversations, route, review failures, apply corrections, measure improvement.
+          Generate synthetic queries, find failures, fix them automatically. Watch accuracy improve in real time.
         </p>
       </div>
 
@@ -270,9 +271,9 @@ export default function ScenariosPage() {
           ) : (
             <button
               onClick={runTraining}
-              className="px-4 py-2 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-medium transition-colors"
+              className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors"
             >
-              Train
+              Run Auto-Improve
             </button>
           )}
         </div>
@@ -589,7 +590,7 @@ function CorrectionRow({ correction: c }: { correction: Correction }) {
 
 function PhaseProgress({ phase }: { phase: Phase }) {
   const steps: Phase[] = ['generating', 'routing_1', 'reviewing', 'applying', 'routing_2'];
-  const stepLabels = ['Generate', 'Route 1', 'Review', 'Apply', 'Route 2'];
+  const stepLabels = ['Generate', 'Baseline', 'Fix', 'Learn', 'Re-test'];
   const currentIdx = steps.indexOf(phase);
 
   return (

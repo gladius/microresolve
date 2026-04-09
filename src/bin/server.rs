@@ -28,7 +28,6 @@ struct ReviewItem {
     flag: String, // "miss", "low_confidence", "ambiguous"
     suggested_intent: Option<String>,
     suggested_seed: Option<String>,
-    status: String, // "pending" (only status — items are removed when handled)
     app_id: String,
     timestamp: u64,
     session_id: Option<String>,
@@ -216,9 +215,8 @@ async fn main() {
         .route("/api/review/approve", post(review_approve))
         .route("/api/review/reject", post(review_reject))
         .route("/api/review/fix", post(review_fix))
-        .route("/api/review/turn1", post(review_turn1))
-        .route("/api/review/turn2", post(review_turn2))
-        .route("/api/review/turn3", post(review_turn3))
+        .route("/api/review/analyze", post(review_analyze))
+        // turn1/turn2/turn3 removed — full_review handles all 3 turns
         .route("/api/review/intent_seeds", post(review_intent_seeds))
         .route("/api/review/stats", get(review_stats))
         .route("/api/logs/accuracy", post(check_accuracy))
@@ -1676,41 +1674,6 @@ Rules:
 
 // --- LLM call helper ---
 
-/// Build the shared review prompt used by manual suggest, auto-review, and auto-learn.
-/// Same flow, same logic, regardless of mode.
-fn build_llm_review_prompt(
-    query: &str,
-    detected: &[String],
-    intent_descriptions: &str,
-) -> String {
-    format!(
-        "You are reviewing a customer support query that was not correctly routed.\n\n\
-         Customer query: \"{}\"\n\n\
-         Already detected intents: {:?}\n\
-         These may or may not be correct. Review them AND suggest any missing intents.\n\
-         If a detected intent is WRONG for this query, do NOT include it in your response.\n\n\
-         Available intents (with example seed phrases showing what each intent means):\n\
-         {}\n\n\
-         RULES:\n\
-         1. ONLY suggest intents the customer EXPLICITLY asked for or stated. Look for direct action words.\n\
-            - 'I want a refund' = refund. 'it's too late' does NOT mean refund or return unless they said those words.\n\
-            - 'let me speak to someone' = contact_human. Being frustrated does NOT mean contact_human.\n\
-            - Do NOT interpret emotions or implications as intents. Only literal requests.\n\
-         2. Most queries have 1 intent, sometimes 2. Rarely 3. When in doubt, suggest fewer.\n\
-         3. For each correct intent, suggest 1-2 seed phrases that fill the VOCABULARY GAP — words in the query not covered by existing seeds.\n\
-         4. No order numbers, names, dates, or products in seeds.\n\
-         5. If any detected intent is WRONG, explain why it falsely matched and suggest how to fix the seed that caused it.\n\n\
-         {}\n\n\
-         Respond with ONLY JSON:\n\
-         {{\n\
-           \"seeds_by_intent\": {{\"intent_name\": [\"gap-filling seed\"]}},\n\
-           \"wrong_intents\": [{{\"intent\": \"wrongly_detected_intent\", \"reason\": \"why it matched\", \"fix\": \"suggestion to prevent false match\"}}]\n\
-         }}\n\
-         If no intents are wrong, use \"wrong_intents\": []\n",
-        query, detected, intent_descriptions, asv_router::seed::SEED_QUALITY_RULES
-    )
-}
-
 /// Build intent descriptions string from router for LLM context.
 fn build_intent_descriptions(router: &Router) -> String {
     router.intent_ids().iter().map(|id| {
@@ -1951,6 +1914,316 @@ async fn seed_pipeline(
     }
 
     SeedPipelineResult { added, blocked: blocked_final, retried, suggestions }
+}
+
+// --- Shared full review: 3 turns + guard + apply ---
+
+/// Result of a full 3-turn review.
+#[derive(Debug, Clone, serde::Serialize)]
+struct FullReviewResult {
+    /// Turn 1: correct intents identified by LLM
+    correct_intents: Vec<String>,
+    /// Turn 1: wrongly detected intents
+    wrong_detections: Vec<String>,
+    /// Turn 1: detected languages
+    languages: Vec<String>,
+    /// Turn 2: seeds to add (passed guard + retry)
+    seeds_to_add: HashMap<String, Vec<String>>,
+    /// Turn 2: seeds blocked by guard
+    seeds_blocked: Vec<(String, String, String)>, // (intent, seed, reason)
+    /// Turn 3: seeds to replace in wrong intents
+    seeds_to_replace: Vec<SeedReplacement>,
+    /// Turn 3: safe to apply
+    safe_to_apply: bool,
+    /// Turn 3: summary
+    summary: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct SeedReplacement {
+    intent: String,
+    old_seed: String,
+    new_seed: String,
+    reason: String,
+}
+
+/// Run the full 3-turn review for a query.
+/// Used by: auto-learn (applies immediately), manual review (returns for approval), auto-improve.
+async fn full_review(
+    state: &AppState,
+    app_id: &str,
+    query: &str,
+    detected: &[String],
+) -> Result<FullReviewResult, String> {
+    let intent_descriptions = {
+        let routers = state.routers.read().unwrap();
+        routers.get(app_id).map(|r| build_intent_descriptions(r)).unwrap_or_default()
+    };
+
+    // === Turn 1: Diagnose ===
+    let turn1_prompt = format!(
+        "Customer query: \"{}\"\nDetected intents: {:?}\n\n\
+         Available intents (with descriptions and example seeds):\n{}\n\n\
+         Which intents does this query EXPLICITLY express? Only literal requests.\n\
+         Which detected intents are WRONG for this query?\n\
+         Respond with ONLY JSON:\n\
+         {{\"correct_intents\": [\"intent1\"], \"wrong_detections\": [\"wrong1\"], \"languages\": [\"en\"]}}\n",
+        query, detected, intent_descriptions
+    );
+
+    let t1_response = call_llm(state, &turn1_prompt, 200).await
+        .map_err(|e| format!("Turn 1 failed: {}", e.1))?;
+    let t1_parsed: serde_json::Value = serde_json::from_str(extract_json(&t1_response))
+        .map_err(|e| format!("Turn 1 parse failed: {}", e))?;
+
+    let correct_intents: Vec<String> = t1_parsed["correct_intents"].as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+    let wrong_detections: Vec<String> = t1_parsed["wrong_detections"].as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+    let languages: Vec<String> = t1_parsed["languages"].as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_else(|| vec!["en".to_string()]);
+
+    eprintln!("[full_review] Turn 1: correct={:?}, wrong={:?}, langs={:?}", correct_intents, wrong_detections, languages);
+
+    // === Turn 2: Fix misses (seeds to add) ===
+    let existing_seeds: String = {
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(app_id) {
+            correct_intents.iter()
+                .map(|id| format!("  {}: {:?}", id, router.get_training(id).unwrap_or_default()))
+                .collect::<Vec<_>>().join("\n")
+        } else { String::new() }
+    };
+
+    let lang_instruction = if languages.is_empty() || languages == vec!["en"] {
+        String::new()
+    } else {
+        format!("\nThe query is in {:?}. Generate seeds in the detected language.\n", languages)
+    };
+
+    let turn2_prompt = format!(
+        "{}\n\n\
+         Customer query: \"{}\"\n\
+         Correct intents: {:?}\n\n\
+         Current seeds in the index:\n{}\n\n\
+         {}\
+         {}\n\n\
+         Respond with ONLY JSON:\n\
+         {{\"seeds_by_intent\": {{\"intent_name\": [\"seed1\", \"seed2\"]}}}}\n",
+        asv_router::seed::REVIEW_FIX_GUIDELINES,
+        query, correct_intents, existing_seeds, lang_instruction,
+        asv_router::seed::SEED_QUALITY_RULES
+    );
+
+    let t2_response = call_llm(state, &turn2_prompt, 300).await
+        .map_err(|e| format!("Turn 2 failed: {}", e.1))?;
+    let t2_parsed: serde_json::Value = serde_json::from_str(extract_json(&t2_response))
+        .map_err(|e| {
+            eprintln!("[full_review] Turn 2 parse error: {}. Raw: {}", e, &t2_response[..t2_response.len().min(300)]);
+            format!("Turn 2 parse failed: {}", e)
+        })?;
+
+    // Pre-validate seeds through guard (read-only check + retry)
+    let mut seeds_to_add: HashMap<String, Vec<String>> = HashMap::new();
+    let mut seeds_blocked = Vec::new();
+
+    if let Some(sbi) = t2_parsed.get("seeds_by_intent").and_then(|v| v.as_object()) {
+        let mut blocked_for_retry: Vec<(String, String, String)> = Vec::new();
+
+        {
+            let routers = state.routers.read().unwrap();
+            if let Some(router) = routers.get(app_id) {
+                for (intent_id, seeds) in sbi {
+                    if let Some(arr) = seeds.as_array() {
+                        for seed in arr {
+                            if let Some(s) = seed.as_str() {
+                                let check = router.check_seed(intent_id, s);
+                                if check.conflicts.is_empty() && !check.redundant
+                                    && check.warning.as_deref() != Some("No content terms after tokenization")
+                                {
+                                    seeds_to_add.entry(intent_id.clone()).or_default().push(s.to_string());
+                                } else if !check.conflicts.is_empty() {
+                                    let reason = check.conflicts.iter()
+                                        .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
+                                        .collect::<Vec<_>>().join("; ");
+                                    blocked_for_retry.push((intent_id.clone(), s.to_string(), reason));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Feedback loop: one retry for blocked seeds
+        if !blocked_for_retry.is_empty() && state.llm_key.is_some() {
+            let blocked_desc: String = blocked_for_retry.iter()
+                .map(|(intent, seed, reason)| format!("  \"{}\" → {}: {}", seed, intent, reason))
+                .collect::<Vec<_>>().join("\n");
+
+            let retry_prompt = format!(
+                "These seed phrases were REJECTED by the collision guard:\n{}\n\n\
+                 The guard blocks seeds containing terms exclusive to other intents.\n\
+                 For each rejected seed, suggest ONE alternative that avoids the conflicting terms.\n\
+                 Use completely different vocabulary that still captures the same meaning.\n\n\
+                 {}\n\n\
+                 Respond with ONLY JSON:\n\
+                 {{\"seeds_by_intent\": {{\"intent_name\": [\"alternative_seed\"]}}}}\n",
+                blocked_desc, asv_router::seed::SEED_QUALITY_RULES
+            );
+
+            if let Ok(retry_resp) = call_llm(state, &retry_prompt, 300).await {
+                if let Ok(retry_parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&retry_resp)) {
+                    if let Some(retry_sbi) = retry_parsed.get("seeds_by_intent").and_then(|v| v.as_object()) {
+                        let routers = state.routers.read().unwrap();
+                        if let Some(router) = routers.get(app_id) {
+                            for (intent_id, seeds) in retry_sbi {
+                                if let Some(arr) = seeds.as_array() {
+                                    for seed in arr {
+                                        if let Some(s) = seed.as_str() {
+                                            let check = router.check_seed(intent_id, s);
+                                            if check.conflicts.is_empty() && !check.redundant {
+                                                seeds_to_add.entry(intent_id.clone()).or_default().push(s.to_string());
+                                            } else {
+                                                seeds_blocked.push((intent_id.clone(), s.to_string(), "still blocked after retry".to_string()));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    eprintln!("[full_review] Turn 2: seeds_to_add={:?}, blocked={}", seeds_to_add, seeds_blocked.len());
+
+    // === Turn 3: Fix false positives (replace broad seeds) ===
+    let mut seeds_to_replace = Vec::new();
+    let mut safe_to_apply = true;
+    let mut summary = String::new();
+
+    if !wrong_detections.is_empty() {
+        let wrong_intent_seeds: String = {
+            let routers = state.routers.read().unwrap();
+            if let Some(router) = routers.get(app_id) {
+                wrong_detections.iter().map(|id| {
+                    let seeds = router.get_training(id).unwrap_or_default();
+                    format!("- {}: {:?}", id, seeds.iter().take(10).collect::<Vec<_>>())
+                }).collect::<Vec<_>>().join("\n")
+            } else { String::new() }
+        };
+
+        let turn3_prompt = format!(
+            "Customer query: \"{}\"\n\n\
+             These intents were WRONGLY detected (false positives):\n{}\n\n\
+             Seeds being added for correct intents:\n{}\n\n\
+             For each wrong intent:\n\
+             1. Which seed caused the false match?\n\
+             2. Suggest a MORE SPECIFIC replacement seed that keeps the intent's coverage but stops matching this query.\n\
+             Do NOT suggest removing seeds — suggest replacements that narrow the match.\n\n\
+             Replacement seed quality rules:\n\
+             {}\n\n\
+             Respond with ONLY JSON:\n\
+             {{\n\
+               \"replacements\": [{{\"intent\": \"name\", \"old_seed\": \"the broad seed\", \"new_seed\": \"more specific version\", \"reason\": \"why\"}}],\n\
+               \"safe_to_apply\": true,\n\
+               \"summary\": \"one sentence\"\n\
+             }}\n\
+             If no replacement needed, use empty replacements array.\n",
+            query,
+            wrong_intent_seeds,
+            seeds_to_add.iter().map(|(id, seeds)| format!("  {}: {:?}", id, seeds)).collect::<Vec<_>>().join("\n"),
+            asv_router::seed::SEED_QUALITY_RULES,
+        );
+
+        if let Ok(t3_response) = call_llm(state, &turn3_prompt, 1024).await {
+            if let Ok(t3_parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&t3_response)) {
+                if let Some(replacements) = t3_parsed["replacements"].as_array() {
+                    for r in replacements {
+                        if let (Some(intent), Some(old), Some(new), Some(reason)) = (
+                            r["intent"].as_str(), r["old_seed"].as_str(),
+                            r["new_seed"].as_str(), r["reason"].as_str(),
+                        ) {
+                            seeds_to_replace.push(SeedReplacement {
+                                intent: intent.to_string(),
+                                old_seed: old.to_string(),
+                                new_seed: new.to_string(),
+                                reason: reason.to_string(),
+                            });
+                        }
+                    }
+                }
+                safe_to_apply = t3_parsed["safe_to_apply"].as_bool().unwrap_or(true);
+                summary = t3_parsed["summary"].as_str().unwrap_or("").to_string();
+            }
+        }
+    }
+
+    eprintln!("[full_review] Turn 3: replacements={}, safe={}, summary={}", seeds_to_replace.len(), safe_to_apply, summary);
+
+    Ok(FullReviewResult {
+        correct_intents,
+        wrong_detections,
+        languages,
+        seeds_to_add,
+        seeds_blocked,
+        seeds_to_replace,
+        safe_to_apply,
+        summary,
+    })
+}
+
+/// Apply a full review result: add seeds + replace broad seeds.
+async fn apply_review(
+    state: &AppState,
+    app_id: &str,
+    result: &FullReviewResult,
+) -> (usize, usize) { // (seeds_added, seeds_replaced)
+    let mut added = 0;
+    let mut replaced = 0;
+
+    // Apply seeds_to_add through pipeline
+    if !result.seeds_to_add.is_empty() {
+        let pipeline_result = seed_pipeline(state, app_id, &result.seeds_to_add, true).await;
+        added = pipeline_result.added.len();
+    }
+
+    // Apply seed replacements (remove old + add new through guard)
+    if !result.seeds_to_replace.is_empty() {
+        let mut routers = state.routers.write().unwrap();
+        if let Some(router) = routers.get_mut(app_id) {
+            for replacement in &result.seeds_to_replace {
+                // Verify old seed exists before removing
+                let old_exists = router.get_training(&replacement.intent)
+                    .map(|seeds| seeds.contains(&replacement.old_seed))
+                    .unwrap_or(false);
+
+                if old_exists {
+                    // Add new seed first (through guard)
+                    let check = router.add_seed_checked(&replacement.intent, &replacement.new_seed, "en");
+                    if check.added {
+                        // Only remove old if new was accepted
+                        router.remove_seed(&replacement.intent, &replacement.old_seed);
+                        replaced += 1;
+                        eprintln!("[apply_review] Replaced in {}: \"{}\" → \"{}\"",
+                            replacement.intent, replacement.old_seed, replacement.new_seed);
+                    } else {
+                        eprintln!("[apply_review] Replacement blocked for {}: new seed \"{}\" rejected",
+                            replacement.intent, replacement.new_seed);
+                    }
+                }
+            }
+            maybe_persist(state, app_id, router);
+        }
+    }
+
+    (added, replaced)
 }
 
 // --- Review: server-side LLM call ---
@@ -2804,81 +3077,27 @@ async fn report_query(
         flag: req.flag.clone(),
         suggested_intent: None,
         suggested_seed: None,
-        status: "pending".to_string(),
         app_id: app_id.clone(),
         timestamp: now_ms(),
         session_id: req.session_id,
     };
 
-    // In auto_learn or auto_review mode, call LLM for suggestion
+    // In auto_learn or auto_review mode, run full 3-turn review
     let mode = state.review_mode.read().unwrap().clone();
     let mut item = item;
 
     if (mode == "auto_learn" || mode == "auto_review") && state.llm_key.is_some() {
-        let intent_descriptions = {
-            let routers = state.routers.read().unwrap();
-            routers.get(&app_id).map(|r| build_intent_descriptions(r)).unwrap_or_default()
-        };
+        if let Ok(review) = full_review(&state, &app_id, &req.query, &item.detected).await {
+            item.suggested_intent = Some(review.correct_intents.join(", "));
+            if let Some(first_seeds) = review.seeds_to_add.values().next() {
+                item.suggested_seed = first_seeds.first().cloned();
+            }
 
-        // Turn 1: identify correct intents (same prompt as manual flow)
-        let turn1_prompt = format!(
-            "Customer query: \"{}\"\nDetected intents: {:?}\n\n\
-             Available intents (with example seeds):\n{}\n\n\
-             Which intents does this query EXPLICITLY express? Only literal requests.\n\
-             Respond with ONLY JSON:\n\
-             {{\"correct_intents\": [\"intent1\"], \"wrong_detections\": []}}\n",
-            req.query, item.detected, intent_descriptions
-        );
-
-        if let Ok(response) = call_llm(&state, &turn1_prompt, 150).await {
-            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
-                if let Some(intents) = parsed["correct_intents"].as_array() {
-                    let names: Vec<String> = intents.iter().filter_map(|v| v.as_str().map(String::from)).collect();
-                    item.suggested_intent = Some(names.join(", "));
-
-                    // Turn 2: gap-filling seeds (same approach as manual flow)
-                    let existing: String = {
-                        let routers = state.routers.read().unwrap();
-                        if let Some(router) = routers.get(&app_id) {
-                            names.iter()
-                                .map(|id| format!("  {}: {:?}", id, router.get_training(id).unwrap_or_default()))
-                                .collect::<Vec<_>>().join("\n")
-                        } else { String::new() }
-                    };
-                    let turn2_prompt = format!(
-                        "{}\n\nCustomer query: \"{}\"\nCorrect intents: {:?}\n\n\
-                         Current seeds:\n{}\n\n{}\n\n\
-                         Respond with ONLY JSON:\n\
-                         {{\"seeds_by_intent\": {{\"intent\": [\"seed1\"]}}}}\n",
-                        asv_router::seed::REVIEW_FIX_GUIDELINES,
-                        req.query, names, existing,
-                        asv_router::seed::SEED_QUALITY_RULES
-                    );
-
-                    if let Ok(response2) = call_llm(&state, &turn2_prompt, 200).await {
-                        if let Ok(parsed2) = serde_json::from_str::<serde_json::Value>(extract_json(&response2)) {
-                            if let Some(sbi) = parsed2["seeds_by_intent"].as_object() {
-                                if let Some(first_seeds) = sbi.values().next().and_then(|v| v.as_array()) {
-                                    item.suggested_seed = first_seeds.first().and_then(|s| s.as_str()).map(String::from);
-                                }
-                            }
-
-                            // Auto-learn: apply seeds through shared pipeline (guard + retry)
-                            if mode == "auto_learn" {
-                                if let Some(sbi) = parsed2["seeds_by_intent"].as_object() {
-                                    let seeds_map: HashMap<String, Vec<String>> = sbi.iter()
-                                        .filter_map(|(k, v)| {
-                                            v.as_array().map(|arr| {
-                                                (k.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
-                                            })
-                                        }).collect();
-                                    let _result = seed_pipeline(&state, &app_id, &seeds_map, true).await;
-                                }
-                                return Json(serde_json::json!({"id": id, "status": "auto_applied"}));
-                            }
-                        }
-                    }
-                }
+            // Auto-learn: apply everything (seeds + replacements)
+            if mode == "auto_learn" {
+                let (added, replaced) = apply_review(&state, &app_id, &review).await;
+                eprintln!("[auto_learn] query=\"{}\" added={} replaced={}", &req.query[..req.query.len().min(50)], added, replaced);
+                return Json(serde_json::json!({"id": id, "status": "auto_applied", "added": added, "replaced": replaced}));
             }
         }
     }
@@ -2897,8 +3116,6 @@ async fn report_query(
 
 #[derive(serde::Deserialize)]
 struct ReviewQueueParams {
-    #[serde(default)]
-    status: Option<String>,
     #[serde(default = "default_review_limit")]
     limit: usize,
     #[serde(default)]
@@ -2930,7 +3147,6 @@ async fn review_queue(
             "flag": item.flag,
             "suggested_intent": item.suggested_intent,
             "suggested_seed": item.suggested_seed,
-            "status": item.status,
             "timestamp": item.timestamp,
             "session_id": item.session_id,
         }))
@@ -3089,8 +3305,9 @@ async fn review_stats(
     }))
 }
 
-/// Turn 1: Identify correct intents for the query.
-async fn review_turn1(
+/// Analyze a review item using full 3-turn review.
+/// Returns the complete analysis for the UI to display.
+async fn review_analyze(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(req): Json<ReviewActionRequest>,
@@ -3105,252 +3322,21 @@ async fn review_turn1(
         (item.query.clone(), item.detected.clone())
     };
 
-    let intent_descriptions = {
-        let routers = state.routers.read().unwrap();
-        routers.get(&app_id).map(|r| build_intent_descriptions(r)).unwrap_or_default()
-    };
+    let review = full_review(&state, &app_id, &query, &detected).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
-    let prompt = format!(
-        "Customer query: \"{}\"\n\
-         Detected intents: {:?}\n\n\
-         Available intents (with example seeds):\n{}\n\n\
-         Which intents does this query EXPLICITLY express? Only literal requests, not emotions or implications.\n\
-         Most queries have 1 intent, sometimes 2. Rarely 3.\n\
-         Also detect the language(s) of the query (ISO 639-1 codes: en, es, fr, de, etc). If mixed languages, list all.\n\n\
-         Respond with ONLY JSON:\n\
-         {{\"correct_intents\": [\"intent1\"], \"wrong_detections\": [\"wrong_intent\"], \"languages\": [\"en\"]}}\n",
-        query, detected, intent_descriptions
-    );
-
-    let response = call_llm(&state, &prompt, 150).await?;
-    let parsed: serde_json::Value = serde_json::from_str(extract_json(&response))
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse Turn 1 response".to_string()))?;
-
-    Ok(Json(parsed))
-}
-
-/// Turn 2: Generate seed phrases for the correct intents.
-#[derive(serde::Deserialize)]
-struct Turn2Request {
-    id: u64,
-    correct_intents: Vec<String>,
-    #[serde(default)]
-    languages: Vec<String>,
-}
-
-async fn review_turn2(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<Turn2Request>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-
-    let query = {
-        let queue = state.review_queue.read().unwrap();
-        let item = queue.iter()
-            .find(|i| i.id == req.id && i.app_id == app_id)
-            .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
-        item.query.clone()
-    };
-
-    // Fetch existing seeds for each correct intent
-    let existing_seeds = {
-        let routers = state.routers.read().unwrap();
-        let mut seeds_map = HashMap::new();
-        if let Some(router) = routers.get(&app_id) {
-            for intent_id in &req.correct_intents {
-                let seeds = router.get_training(intent_id).unwrap_or_default();
-                seeds_map.insert(intent_id.clone(), seeds);
-            }
-        }
-        seeds_map
-    };
-
-    let seeds_str: String = existing_seeds.iter()
-        .map(|(id, seeds)| format!("  {}: {:?}", id, seeds))
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let lang_instruction = if req.languages.is_empty() || req.languages == vec!["en"] {
-        String::new()
-    } else {
-        format!("\nThe query is in {:?}. Generate seeds in the detected language.\n", req.languages)
-    };
-
-    let prompt = format!(
-        "{}\n\n\
-         Customer query: \"{}\"\n\
-         Correct intents: {:?}\n\n\
-         Current seeds in the index:\n{}\n\n\
-         {}\
-         {}\n\n\
-         Respond with ONLY JSON:\n\
-         {{\"seeds_by_intent\": {{\"intent_name\": [\"seed1\", \"seed2\"]}}}}\n",
-        asv_router::seed::REVIEW_FIX_GUIDELINES,
-        query, req.correct_intents, seeds_str, lang_instruction,
-        asv_router::seed::SEED_QUALITY_RULES
-    );
-
-    let response = call_llm(&state, &prompt, 200).await?;
-    let parsed: serde_json::Value = serde_json::from_str(extract_json(&response))
-        .map_err(|e| {
-            eprintln!("Turn 2 parse error: {}. Raw: {}", e, &response[..response.len().min(500)]);
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to parse Turn 2 response: {}", e))
-        })?;
-
-    // Pre-validate seeds through check_seed (read-only, no modification)
-    if let Some(sbi) = parsed.get("seeds_by_intent").and_then(|v| v.as_object()) {
-        let mut clean_seeds: HashMap<String, Vec<String>> = HashMap::new();
-        let mut blocked_for_retry: Vec<(String, String, String)> = Vec::new();
-
-        {
-            let routers = state.routers.read().unwrap();
-            if let Some(router) = routers.get(&app_id) {
-                for (intent_id, seeds) in sbi {
-                    if let Some(arr) = seeds.as_array() {
-                        for seed in arr {
-                            if let Some(s) = seed.as_str() {
-                                let check = router.check_seed(intent_id, s);
-                                if check.conflicts.is_empty() && !check.redundant
-                                    && check.warning.as_deref() != Some("No content terms after tokenization")
-                                {
-                                    clean_seeds.entry(intent_id.clone()).or_default().push(s.to_string());
-                                } else if !check.conflicts.is_empty() {
-                                    let reason = check.conflicts.iter()
-                                        .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
-                                        .collect::<Vec<_>>().join("; ");
-                                    blocked_for_retry.push((intent_id.clone(), s.to_string(), reason));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // One retry for blocked seeds
-        if !blocked_for_retry.is_empty() && state.llm_key.is_some() {
-            let blocked_desc: String = blocked_for_retry.iter()
-                .map(|(intent, seed, reason)| format!("  \"{}\" → {}: {}", seed, intent, reason))
-                .collect::<Vec<_>>().join("\n");
-
-            let retry_prompt = format!(
-                "These seed phrases were REJECTED by the collision guard:\n{}\n\n\
-                 The guard blocks seeds containing terms exclusive to other intents.\n\
-                 For each rejected seed, suggest ONE alternative that avoids the conflicting terms.\n\
-                 Use completely different vocabulary that still captures the same meaning.\n\n\
-                 {}\n\n\
-                 Respond with ONLY JSON:\n\
-                 {{\"seeds_by_intent\": {{\"intent_name\": [\"alternative_seed\"]}}}}\n",
-                blocked_desc, asv_router::seed::SEED_QUALITY_RULES
-            );
-
-            if let Ok(retry_resp) = call_llm(&state, &retry_prompt, 300).await {
-                if let Ok(retry_parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&retry_resp)) {
-                    if let Some(retry_sbi) = retry_parsed.get("seeds_by_intent").and_then(|v| v.as_object()) {
-                        let routers = state.routers.read().unwrap();
-                        if let Some(router) = routers.get(&app_id) {
-                            for (intent_id, seeds) in retry_sbi {
-                                if let Some(arr) = seeds.as_array() {
-                                    for seed in arr {
-                                        if let Some(s) = seed.as_str() {
-                                            let check = router.check_seed(intent_id, s);
-                                            if check.conflicts.is_empty() && !check.redundant {
-                                                clean_seeds.entry(intent_id.clone()).or_default().push(s.to_string());
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return Ok(Json(serde_json::json!({
-            "seeds_by_intent": clean_seeds,
-        })));
-    }
-
-    Ok(Json(parsed))
-}
-
-/// Turn 3: Analyze wrong intents and safety-check the full changeset.
-#[derive(serde::Deserialize)]
-struct Turn3Request {
-    id: u64,
-    correct_intents: Vec<String>,
-    wrong_intents: Vec<String>,
-    seeds_to_add: HashMap<String, Vec<String>>,
-}
-
-async fn review_turn3(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<Turn3Request>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-
-    let query = {
-        let queue = state.review_queue.read().unwrap();
-        let item = queue.iter()
-            .find(|i| i.id == req.id && i.app_id == app_id)
-            .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
-        item.query.clone()
-    };
-
-    // Get current seeds for wrong intents so LLM can analyze what caused false match
-    let wrong_intent_seeds: Vec<String> = {
-        let routers = state.routers.read().unwrap();
-        if let Some(router) = routers.get(&app_id) {
-            req.wrong_intents.iter().map(|id| {
-                let seeds = router.get_training(id)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .take(10)
-                    .collect::<Vec<_>>()
-                    .join("\", \"");
-                format!("- {}: [\"{}\"]", id, seeds)
-            }).collect()
-        } else {
-            vec![]
-        }
-    };
-
-    let prompt = format!(
-        "Customer query: \"{}\"\n\n\
-         PROPOSED CHANGES:\n\
-         Seeds to ADD:\n{}\n\n\
-         Wrongly detected intents and their CURRENT seeds:\n{}\n\n\
-         Tasks:\n\
-         1. For each wrong intent, explain which seed caused the false match and suggest a specific fix (remove seed, or make it more specific).\n\
-         2. Review the seeds being added — will any of them cause false matches on OTHER types of queries?\n\
-         3. Overall: is this changeset safe to apply?\n\n\
-         Respond with ONLY JSON:\n\
-         {{\n\
-           \"wrong_intent_analysis\": [{{\"intent\": \"name\", \"problem_seed\": \"the seed that caused it\", \"reason\": \"why it matched\", \"fix\": \"what to do\"}}],\n\
-           \"add_risks\": [{{\"intent\": \"name\", \"seed\": \"risky seed\", \"risk\": \"what could go wrong\"}}],\n\
-           \"safe_to_apply\": true/false,\n\
-           \"summary\": \"one sentence summary\"\n\
-         }}\n\
-         If no risks, use empty arrays and safe_to_apply: true.\n",
-        query,
-        req.seeds_to_add.iter()
-            .map(|(id, seeds)| format!("  {}: {:?}", id, seeds))
-            .collect::<Vec<_>>().join("\n"),
-        wrong_intent_seeds.join("\n")
-    );
-
-    let response = call_llm(&state, &prompt, 1024).await?;
-    let json_str = extract_json(&response);
-    let parsed: serde_json::Value = serde_json::from_str(json_str)
-        .map_err(|e| {
-            eprintln!("Turn 3 parse error: {}. Raw response: {}", e, &response[..response.len().min(500)]);
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to parse Turn 3 response: {}", e))
-        })?;
-
-    Ok(Json(parsed))
+    Ok(Json(serde_json::json!({
+        "correct_intents": review.correct_intents,
+        "wrong_detections": review.wrong_detections,
+        "languages": review.languages,
+        "seeds_to_add": review.seeds_to_add,
+        "seeds_blocked": review.seeds_blocked.iter().map(|(i, s, r)| serde_json::json!({"intent": i, "seed": s, "reason": r})).collect::<Vec<_>>(),
+        "seeds_to_replace": review.seeds_to_replace.iter().map(|r| serde_json::json!({
+            "intent": r.intent, "old_seed": r.old_seed, "new_seed": r.new_seed, "reason": r.reason,
+        })).collect::<Vec<_>>(),
+        "safe_to_apply": review.safe_to_apply,
+        "summary": review.summary,
+    })))
 }
 
 /// Get current seeds for specific intents (used by review UI to show what's in the index)
@@ -3696,147 +3682,4 @@ async fn import_apply(
     })))
 }
 
-// --- Legacy import endpoints (kept for backward compat) ---
 
-#[derive(serde::Deserialize)]
-struct ImportSpecRequest {
-    spec: String,
-}
-
-async fn import_spec(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<ImportSpecRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-
-    let parsed = asv_router::import::parse_spec(&req.spec)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-
-    let mut routers = state.routers.write().unwrap();
-    let router = routers.entry(app_id.clone()).or_insert_with(Router::new);
-    let result = asv_router::import::import_spec(router, &parsed);
-    maybe_persist(&state, &app_id, router);
-
-    let created: Vec<serde_json::Value> = result.created.iter().map(|i| {
-        serde_json::json!({
-            "intent_id": i.intent_id,
-            "seeds": i.seeds.len(),
-            "endpoint": i.endpoint,
-            "method": i.method,
-            "type": format!("{:?}", i.intent_type),
-        })
-    }).collect();
-
-    Ok(Json(serde_json::json!({
-        "title": parsed.title,
-        "version": parsed.version,
-        "total_operations": result.total_operations,
-        "created": created.len(),
-        "skipped": result.skipped.len(),
-        "intents": created,
-    })))
-}
-
-/// Import spec with LLM-generated seeds + shared pipeline (guard + retry).
-#[derive(serde::Deserialize)]
-struct ImportSpecLLMRequest {
-    spec: String,
-}
-
-async fn import_spec_llm(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<ImportSpecLLMRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-
-    let parsed = asv_router::import::parse_spec(&req.spec)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-
-    // Create intents with minimal seeds from description (so they exist)
-    {
-        let mut routers = state.routers.write().unwrap();
-        let router = routers.entry(app_id.clone()).or_insert_with(Router::new);
-        asv_router::import::import_spec(router, &parsed);
-    }
-
-    // Generate proper seeds via LLM in batches of 10, apply through shared pipeline
-    let mut total_added = 0usize;
-    let mut total_blocked = 0usize;
-
-    for batch in parsed.operations.chunks(10) {
-        let ops_desc: Vec<String> = batch.iter().map(|op| {
-            let intent_name = asv_router::import::to_snake_case(
-                op.operation_id.as_deref().unwrap_or(&op.id)
-            );
-            format!("- {} ({}): {} — {}",
-                intent_name, op.method,
-                op.summary.as_deref().unwrap_or(&op.name),
-                if op.description.len() > 100 { &op.description[..100] } else { &op.description })
-        }).collect();
-
-        let existing_seeds: String = {
-            let routers = state.routers.read().unwrap();
-            if let Some(router) = routers.get(&app_id) {
-                batch.iter().map(|op| {
-                    let name = asv_router::import::to_snake_case(
-                        op.operation_id.as_deref().unwrap_or(&op.id)
-                    );
-                    let seeds = router.get_training(&name).unwrap_or_default();
-                    format!("  {}: {:?}", name, seeds.iter().take(3).collect::<Vec<_>>())
-                }).collect::<Vec<_>>().join("\n")
-            } else { String::new() }
-        };
-
-        let prompt = format!(
-            "Generate 5 diverse seed phrases for each API operation below.\n\
-             These train a keyword-matching router. VOCABULARY DIVERSITY is critical.\n\n\
-             Operations:\n{}\n\n\
-             Current seeds (avoid duplicating these):\n{}\n\n\
-             {}\n\n\
-             For each operation, generate phrases a developer or user would say when they want this action.\n\
-             Mix: short commands, questions, and situational phrases.\n\n\
-             Respond with ONLY JSON:\n\
-             {{\"seeds_by_intent\": {{\"intent_name\": [\"seed1\", \"seed2\", \"seed3\", \"seed4\", \"seed5\"]}}}}\n",
-            ops_desc.join("\n"), existing_seeds, asv_router::seed::SEED_QUALITY_RULES
-        );
-
-        let response = match call_llm(&state, &prompt, 2000).await {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
-
-        let seeds_json: serde_json::Value = match serde_json::from_str(extract_json(&response)) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
-
-        if let Some(sbi) = seeds_json.get("seeds_by_intent").and_then(|v| v.as_object()) {
-            let seeds_map: HashMap<String, Vec<String>> = sbi.iter()
-                .filter_map(|(k, v)| {
-                    v.as_array().map(|arr| {
-                        (k.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
-                    })
-                }).collect();
-
-            // Use shared pipeline: guard + one retry
-            let result = seed_pipeline(&state, &app_id, &seeds_map, true).await;
-            total_added += result.added.len();
-            total_blocked += result.blocked.len();
-        }
-    }
-
-    let intent_names: Vec<String> = parsed.operations.iter().map(|op| {
-        asv_router::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id))
-    }).collect();
-
-    Ok(Json(serde_json::json!({
-        "title": parsed.title,
-        "version": parsed.version,
-        "total_operations": parsed.operations.len(),
-        "seeds_added": total_added,
-        "seeds_blocked": total_blocked,
-        "intents": intent_names,
-    })))
-}

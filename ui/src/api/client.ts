@@ -272,20 +272,11 @@ export const api = {
   reviewReject: (id: number) => post<{ status: string }>('/review/reject', { id }),
   reviewFix: (id: number, seeds_by_intent: Record<string, { seed: string; lang: string }[]>) =>
     post<ReviewFixResult>('/review/fix', { id, seeds_by_intent }),
-  // 3-turn review flow
+  // Review analysis (full 3-turn review in one call)
+  reviewAnalyze: (id: number) =>
+    post<ReviewAnalyzeResult>('/review/analyze', { id }),
   reviewIntentSeeds: (intent_ids: string[]) =>
     post<Record<string, string[]>>('/review/intent_seeds', { intent_ids }),
-  reviewTurn1: (id: number) =>
-    post<{ correct_intents: string[]; wrong_detections: string[]; languages: string[] }>('/review/turn1', { id }),
-  reviewTurn2: (id: number, correct_intents: string[], languages: string[]) =>
-    post<{ seeds_by_intent: Record<string, string[]> }>('/review/turn2', { id, correct_intents, languages }),
-  reviewTurn3: (id: number, correct_intents: string[], wrong_intents: string[], seeds_to_add: Record<string, string[]>) =>
-    post<{
-      wrong_intent_analysis: { intent: string; problem_seed: string; reason: string; fix: string }[];
-      add_risks: { intent: string; seed: string; risk: string }[];
-      safe_to_apply: boolean;
-      summary: string;
-    }>('/review/turn3', { id, correct_intents, wrong_intents, seeds_to_add }),
   getReviewStats: () => get<ReviewStats>('/review/stats'),
   getReviewMode: () => get<{ mode: string }>('/review/mode'),
   setReviewMode: (mode: string) => post<{ mode: string }>('/review/mode', { mode }),
@@ -307,6 +298,17 @@ export const api = {
   discoverApply: (clusters: { name: string; representative_queries: string[] }[]) =>
     post<{ created: string[]; count: number }>('/discover/apply', { clusters }),
 };
+
+export interface ReviewAnalyzeResult {
+  correct_intents: string[];
+  wrong_detections: string[];
+  languages: string[];
+  seeds_to_add: Record<string, string[]>;
+  seeds_blocked: { intent: string; seed: string; reason: string }[];
+  seeds_to_replace: { intent: string; old_seed: string; new_seed: string; reason: string }[];
+  safe_to_apply: boolean;
+  summary: string;
+}
 
 // Review types
 export interface ReviewItem {
