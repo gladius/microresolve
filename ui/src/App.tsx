@@ -4,12 +4,19 @@ import Layout from '@/components/Layout';
 import RouterPage from '@/pages/RouterPage';
 import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
-import DashboardPage from '@/pages/DashboardPage';
 import ScenariosPage from '@/pages/ScenariosPage';
-import DiscoveryPage from '@/pages/DiscoveryPage';
+import AutoImprovePage from '@/pages/AutoImprovePage';
 import ReviewPage from '@/pages/ReviewPage';
 import ImportPage from '@/pages/ImportPage';
 import AppsPage from '@/pages/AppsPage';
+import InsightsLayout from '@/pages/insights/InsightsLayout';
+import Overview from '@/pages/insights/Overview';
+import Discovery from '@/pages/insights/Discovery';
+import Projections from '@/pages/insights/Projections';
+import Workflows from '@/pages/insights/Workflows';
+import Temporal from '@/pages/insights/Temporal';
+import Escalations from '@/pages/insights/Escalations';
+import CoOccurrence from '@/pages/insights/CoOccurrence';
 import { AppContext, loadSettings, saveSettings, type AppSettings } from '@/store';
 import { setApiAppId } from '@/api/client';
 
@@ -41,13 +48,25 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<RouterPage />} />
             <Route path="/intents" element={<IntentsPage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/scenarios" element={<ScenariosPage />} />
-            <Route path="/discovery" element={<DiscoveryPage />} />
             <Route path="/review" element={<ReviewPage />} />
+            <Route path="/insights" element={<InsightsLayout />}>
+              <Route index element={<Overview />} />
+              <Route path="discovery" element={<Discovery />} />
+              <Route path="projections" element={<Projections />} />
+              <Route path="workflows" element={<Workflows />} />
+              <Route path="temporal" element={<Temporal />} />
+              <Route path="escalations" element={<Escalations />} />
+              <Route path="cooccurrence" element={<CoOccurrence />} />
+            </Route>
+            <Route path="/auto-improve" element={<AutoImprovePage />} />
+            <Route path="/scenarios" element={<ScenariosPage />} />
             <Route path="/apps" element={<AppsPage />} />
             <Route path="/import" element={<ImportPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            {/* Legacy routes */}
+            <Route path="/dashboard" element={<InsightsLayout />}>
+              <Route index element={<Overview />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>
