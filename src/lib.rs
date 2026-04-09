@@ -60,6 +60,7 @@
 //! - You need deep semantic multilingual matching (CJK supported via Aho-Corasick, but coverage depends on seed quality)
 
 pub mod discovery;
+pub mod import;
 pub mod index;
 pub mod multi;
 pub mod seed;
@@ -141,6 +142,34 @@ pub struct EscalationPattern {
     pub frequency: f32,
 }
 
+/// A term conflict detected by seed guard.
+#[derive(Debug, Clone)]
+pub struct TermConflict {
+    /// The conflicting term.
+    pub term: String,
+    /// Intent that primarily owns this term.
+    pub competing_intent: String,
+    /// Discrimination ratio: what fraction of this term's total weight is in the competing intent.
+    pub severity: f32,
+    /// The term's weight in the competing intent.
+    pub competing_weight: f32,
+}
+
+/// Result of checking a seed phrase before adding it.
+#[derive(Debug, Clone)]
+pub struct SeedCheckResult {
+    /// Whether the seed was added.
+    pub added: bool,
+    /// New terms this seed introduces (not previously in this intent).
+    pub new_terms: Vec<String>,
+    /// Terms that conflict with other intents.
+    pub conflicts: Vec<TermConflict>,
+    /// True if all content terms already exist in this intent.
+    pub redundant: bool,
+    /// Human-readable warning message, if any.
+    pub warning: Option<String>,
+}
+
 /// A suggested intent based on co-occurrence patterns.
 ///
 /// Returned by `Router::suggest_intents()` when detected intents frequently
@@ -218,6 +247,13 @@ pub struct Router {
     /// When true, write operations (add_intent, learn, correct) are blocked.
     /// Set in connected mode where the server manages state.
     connected: bool,
+    /// Distributional similarity: term → Vec<(similar_term, cosine_score)>.
+    /// Built from accumulated text (seeds + queries). Enables matching queries
+    /// that use different words than the seeds (e.g., "sent wrong" ≈ "return").
+    similarity: HashMap<String, Vec<(String, f32)>>,
+    /// Discount factor for similarity expansion. Default: 0.3.
+    /// Lower = more conservative expansion, higher = more aggressive.
+    expansion_discount: f32,
 }
 
 impl Default for Router {
@@ -250,6 +286,8 @@ impl Router {
             version: 0,
             max_intents: 5,
             connected: false,
+            similarity: HashMap::new(),
+            expansion_discount: 0.3,
         }
     }
 
@@ -367,19 +405,30 @@ impl Router {
     /// let mut router = Router::new();
     /// router.add_intent("greeting", &["hello", "hi there", "hey"]);
     /// ```
-    pub fn add_intent(&mut self, id: &str, seed_phrases: &[&str]) {
+    pub fn add_intent(&mut self, id: &str, seed_phrases: &[&str]) -> Vec<SeedCheckResult> {
         self.require_local();
-        let phrases: Vec<String> = seed_phrases.iter().map(|s| s.to_string()).collect();
-        let terms = training_to_terms(&phrases);
+        let mut results = Vec::new();
+        let mut accepted: Vec<String> = Vec::new();
+
+        for phrase in seed_phrases {
+            let check = self.check_seed(id, phrase);
+            // add_intent: always accept seeds (they define the intent).
+            // Report conflicts but don't block — caller can review.
+            accepted.push(phrase.to_string());
+            results.push(SeedCheckResult { added: true, ..check });
+        }
+
+        let terms = training_to_terms(&accepted);
         let vector = LearnedVector::from_seed(terms);
         self.vectors.insert(id.to_string(), vector);
         let mut lang_map = HashMap::new();
-        lang_map.insert("en".to_string(), phrases.clone());
+        lang_map.insert("en".to_string(), accepted.clone());
         self.training.insert(id.to_string(), lang_map);
-        // Auto-populate paraphrase index from seeds (dual-source = high confidence)
-        self.add_paraphrases(id, &seed_phrases);
+        let phrase_refs: Vec<&str> = accepted.iter().map(|s| s.as_str()).collect();
+        self.add_paraphrases(id, &phrase_refs);
         self.rebuild_index();
         self.version += 1;
+        results
     }
 
     /// Add an intent with seed phrases grouped by language.
@@ -499,14 +548,48 @@ impl Router {
             return vec![];
         }
 
-        self.index
-            .search(&terms, self.top_k)
-            .into_iter()
-            .map(|s| RouteResult {
-                id: s.id,
-                score: s.score,
-            })
-            .collect()
+        if self.similarity.is_empty() {
+            // No similarity index — use standard search
+            self.index
+                .search(&terms, self.top_k)
+                .into_iter()
+                .map(|s| RouteResult { id: s.id, score: s.score })
+                .collect()
+        } else {
+            // Expand with similar terms (Space 4) and use weighted search
+            let term_weights: HashMap<String, f32> = terms.iter().map(|t| (t.clone(), 1.0)).collect();
+            let expanded = self.expand_terms(&term_weights);
+            self.index
+                .search_weighted(&expanded, self.top_k)
+                .into_iter()
+                .map(|s| RouteResult { id: s.id, score: s.score })
+                .collect()
+        }
+    }
+
+    /// Expand query terms with distributionally similar terms.
+    /// Similar terms get discounted weight (0.3x) to avoid overriding exact matches.
+    fn expand_terms(&self, terms: &HashMap<String, f32>) -> HashMap<String, f32> {
+        if self.similarity.is_empty() {
+            return terms.clone();
+        }
+
+        let mut expanded = terms.clone();
+        let all_terms = self.index.all_terms();
+        let index_terms: HashSet<&str> = all_terms.iter().map(|s| s.as_str()).collect();
+
+        for (term, weight) in terms {
+            if let Some(similar) = self.similarity.get(term.as_str()) {
+                for (sim_term, sim_score) in similar {
+                    // Only expand to terms that exist in the index (seed vocabulary)
+                    if index_terms.contains(sim_term.as_str()) && !expanded.contains_key(sim_term) {
+                        expanded.insert(sim_term.clone(), weight * sim_score * self.expansion_discount);
+                    }
+                }
+            }
+        }
+
+        expanded
     }
 
     /// Route and return the best match if score exceeds threshold.
@@ -787,6 +870,7 @@ impl Router {
             intent_sequences: self.intent_sequences.clone(),
             version: self.version,
             max_intents: self.max_intents,
+            similarity: self.similarity.clone(),
         };
         serde_json::to_string(&state).unwrap_or_default()
     }
@@ -837,6 +921,8 @@ impl Router {
             version: state.version,
             max_intents: state.max_intents,
             connected: false,
+            similarity: state.similarity,
+            expansion_discount: 0.3,
         };
         router.rebuild_cjk_automaton_now();
         router.rebuild_paraphrase_automaton_now();
@@ -877,9 +963,139 @@ impl Router {
             .unwrap_or_default()
     }
 
-    /// Add a single seed phrase to an intent with language tag.
-    /// Returns false if the language has reached MAX_SEEDS_PER_LANGUAGE.
-    pub fn add_seed(&mut self, intent_id: &str, seed: &str, lang: &str) -> bool {
+    /// Check a seed phrase for collisions and redundancy before adding.
+    /// Does NOT modify the router — call `add_seed` or `add_seed_checked` to actually add.
+    pub fn check_seed(&self, intent_id: &str, seed: &str) -> SeedCheckResult {
+        let terms = tokenize(seed);
+        // For collision/redundancy, only check unigrams (no spaces).
+        // Bigrams are useful for routing but checking them for collisions
+        // produces false positives ("refund money" bigram won't be in index).
+        let content_terms: Vec<&String> = terms.iter()
+            .filter(|t| !t.is_empty() && !t.contains(' '))
+            .collect();
+
+        // Empty check
+        if content_terms.is_empty() {
+            return SeedCheckResult {
+                added: false,
+                new_terms: vec![],
+                conflicts: vec![],
+                redundant: false,
+                warning: Some("No content terms after tokenization".to_string()),
+            };
+        }
+
+        let mut new_terms = Vec::new();
+        let mut conflicts = Vec::new();
+        let mut already_in_intent = 0;
+
+        for term in &content_terms {
+            let postings = self.index.postings(term);
+
+            if postings.is_empty() {
+                // New term — not in any intent, safe
+                new_terms.push(term.to_string());
+                continue;
+            }
+
+            // Check if term is already in the target intent
+            let in_target = postings.iter().any(|(id, _)| id == intent_id);
+            if in_target {
+                already_in_intent += 1;
+            } else {
+                new_terms.push(term.to_string());
+            }
+
+            // Only check collision if the term is exclusive to one other intent.
+            // If already shared across 2+ intents, IDF handles it — no new damage.
+            let other_intents: Vec<&(String, f32)> = postings.iter()
+                .filter(|(id, _)| id != intent_id)
+                .collect();
+
+            if other_intents.len() == 1 {
+                // Term is exclusive to one other intent — check severity
+                let (other_id, other_weight) = &other_intents[0];
+                let total_weight: f32 = postings.iter().map(|(_, w)| w).sum();
+                if total_weight > 0.0 {
+                    let severity = other_weight / total_weight;
+                    // Only flag if the term is truly primary in the other intent:
+                    // high severity (>0.7 = mostly in that intent) AND high weight (>0.7 = important seed term)
+                    if severity > 0.7 && *other_weight > 0.7 {
+                        conflicts.push(TermConflict {
+                            term: term.to_string(),
+                            competing_intent: other_id.clone(),
+                            severity,
+                            competing_weight: *other_weight,
+                        });
+                    }
+                }
+            }
+            // If term is in 2+ other intents, it's already shared — no flag
+        }
+
+        // Redundancy: all content unigrams already exist in this intent
+        let redundant = content_terms.len() > 0 && already_in_intent == content_terms.len() && new_terms.is_empty();
+
+        // Build warning message
+        let warning = if redundant {
+            Some("All terms already covered by existing seeds".to_string())
+        } else if !conflicts.is_empty() {
+            let msgs: Vec<String> = conflicts.iter()
+                .map(|c| format!("'{}' is primary in {} ({:.0}%)", c.term, c.competing_intent, c.severity * 100.0))
+                .collect();
+            Some(format!("Term conflicts: {}", msgs.join("; ")))
+        } else {
+            None
+        };
+
+        SeedCheckResult {
+            added: false, // not added yet — this is just a check
+            new_terms,
+            conflicts,
+            redundant,
+            warning,
+        }
+    }
+
+    /// Add a seed phrase with collision checking. Returns full check result.
+    /// Blocks addition if: redundant, empty, collision detected, or at language limit.
+    /// Only clean seeds with new, non-conflicting vocabulary are accepted.
+    pub fn add_seed_checked(&mut self, intent_id: &str, seed: &str, lang: &str) -> SeedCheckResult {
+        let mut result = self.check_seed(intent_id, seed);
+
+        // Block: no content terms
+        if result.warning.as_deref() == Some("No content terms after tokenization") {
+            return result;
+        }
+
+        // Block: redundant
+        if result.redundant {
+            return result;
+        }
+
+        // Block: collision detected
+        if !result.conflicts.is_empty() {
+            return result;
+        }
+
+        // Block: at language limit
+        if let Some(lang_map) = self.training.get(intent_id) {
+            if let Some(seeds) = lang_map.get(lang) {
+                if seeds.len() >= MAX_SEEDS_PER_LANGUAGE {
+                    result.warning = Some(format!("Language '{}' has reached max {} seeds", lang, MAX_SEEDS_PER_LANGUAGE));
+                    return result;
+                }
+            }
+        }
+
+        // Clean — add it
+        result.added = self.add_seed(intent_id, seed, lang);
+        result
+    }
+
+    /// Internal: add a seed without collision checking.
+    /// Use `add_seed_checked()` for the public API with guard.
+    fn add_seed(&mut self, intent_id: &str, seed: &str, lang: &str) -> bool {
         self.require_local();
         let lang_map = match self.training.get_mut(intent_id) {
             Some(m) => m,
@@ -1229,6 +1445,126 @@ impl Router {
     /// Get the current version number. Incremented on every mutation.
     pub fn version(&self) -> u64 {
         self.version
+    }
+
+    /// Build distributional similarity index from text corpus.
+    /// Uses Random Indexing (same as neocortex Space 4):
+    /// - Each word gets a deterministic random vector (128-dim)
+    /// - For each word, accumulate random vectors of neighboring words
+    /// - Words in similar contexts get similar accumulated vectors
+    /// - Cosine similarity between vectors = distributional similarity
+    ///
+    /// Call this with accumulated queries/text to improve routing accuracy.
+    /// The more text, the better the similarity estimates.
+    pub fn build_similarity(&mut self, texts: &[String]) {
+        const DIM: usize = 64;
+        const TOP_K: usize = 10;
+        const WINDOW: usize = 3;
+
+        if texts.is_empty() { return; }
+
+        // Collect vocabulary
+        let mut word_to_id: HashMap<String, usize> = HashMap::new();
+        let mut id_to_word: Vec<String> = Vec::new();
+
+        let tokenized: Vec<Vec<usize>> = texts.iter().map(|text| {
+            let terms = tokenize(text);
+            terms.iter().map(|t| {
+                let len = word_to_id.len();
+                *word_to_id.entry(t.clone()).or_insert_with(|| {
+                    id_to_word.push(t.clone());
+                    len
+                })
+            }).collect()
+        }).collect();
+
+        let vs = id_to_word.len();
+        if vs < 10 { return; } // too few words
+
+        // Random vectors (deterministic from word ID)
+        let rand_vecs: Vec<Vec<f32>> = (0..vs).map(|id| {
+            let mut v = vec![0.0f32; DIM];
+            for i in 0..8 {
+                let h = (id as u32).wrapping_mul(2654435761).wrapping_add(i as u32 * 1013904223);
+                let pos = (h as usize) % DIM;
+                v[pos] += if (h >> 16) & 1 == 0 { 1.0 } else { -1.0 };
+            }
+            v
+        }).collect();
+
+        // Accumulate context vectors
+        let mut ctx: Vec<Vec<f32>> = vec![vec![0.0f32; DIM]; vs];
+        let mut ctx_count: Vec<u32> = vec![0; vs];
+
+        for tokens in &tokenized {
+            for (i, &a) in tokens.iter().enumerate() {
+                for k in 1..=WINDOW {
+                    if i + k < tokens.len() {
+                        let b = tokens[i + k];
+                        for d in 0..DIM {
+                            ctx[a][d] += rand_vecs[b][d];
+                            ctx[b][d] += rand_vecs[a][d];
+                        }
+                        ctx_count[a] += 1;
+                        ctx_count[b] += 1;
+                    }
+                }
+            }
+        }
+
+        // Normalize vectors
+        for i in 0..vs {
+            let norm: f32 = ctx[i].iter().map(|x| x * x).sum::<f32>().sqrt();
+            if norm > 0.0 {
+                for d in 0..DIM { ctx[i][d] /= norm; }
+            }
+        }
+
+        // Compute top-K similar words for each single-word term.
+        // Skip multi-word bigrams (contain spaces) — they produce noisy expansions.
+        let mut similarity: HashMap<String, Vec<(String, f32)>> = HashMap::new();
+
+        for i in 0..vs {
+            if ctx_count[i] < 5 { continue; } // need enough observations
+            if id_to_word[i].contains(' ') { continue; } // skip bigrams as source
+
+            let mut sims: Vec<(usize, f32)> = (0..vs)
+                .filter(|&j| j != i && ctx_count[j] >= 5 && !id_to_word[j].contains(' '))
+                .map(|j| {
+                    let dot: f32 = (0..DIM).map(|d| ctx[i][d] * ctx[j][d]).sum();
+                    (j, dot)
+                })
+                .filter(|(_, s)| *s > 0.3) // similarity threshold
+                .collect();
+
+            sims.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+            sims.truncate(TOP_K);
+
+            if !sims.is_empty() {
+                similarity.insert(
+                    id_to_word[i].clone(),
+                    sims.iter().map(|(j, s)| (id_to_word[*j].clone(), *s)).collect(),
+                );
+            }
+        }
+
+        self.similarity = similarity;
+    }
+
+    /// Get similar terms for a word (from the similarity index).
+    pub fn similar_terms(&self, term: &str) -> &[(String, f32)] {
+        self.similarity.get(term).map(|v| v.as_slice()).unwrap_or(&[])
+    }
+
+    /// Check if the similarity index has been built.
+    pub fn has_similarity(&self) -> bool {
+        !self.similarity.is_empty()
+    }
+
+    /// Set the expansion discount factor for similarity-based term expansion.
+    /// Default is 0.3. Lower = more conservative, higher = more aggressive.
+    pub fn set_expansion_discount(&mut self, discount: f32) {
+        self.expansion_discount = discount;
     }
 
     /// Merge learned weights from another router into this one.
@@ -1946,6 +2282,9 @@ struct RouterState {
     /// Maximum intents detected by route_multi.
     #[serde(default = "default_max_intents")]
     max_intents: usize,
+    /// Distributional similarity index: term → Vec<(similar_term, score)>.
+    #[serde(default)]
+    similarity: HashMap<String, Vec<(String, f32)>>,
 }
 
 fn default_max_intents() -> usize { 5 }
@@ -2913,5 +3252,258 @@ mod tests {
 
         assert!(r.remove_seed("test", "only seed"));
         assert_eq!(r.intent_count(), 0);
+    }
+
+    // --- Seed Guard Tests ---
+
+    #[test]
+    fn check_seed_new_terms_safe() {
+        let mut r = Router::new();
+        r.add_intent("refund", &["I want a refund", "money back"]);
+        r.add_intent("track_order", &["where is my package", "track my order"]);
+
+        // "reimburse me" has terms not in any intent — should be safe
+        let result = r.check_seed("refund", "reimburse me please");
+        assert!(!result.redundant);
+        assert!(result.new_terms.contains(&"reimburse".to_string()));
+        assert!(result.conflicts.is_empty());
+    }
+
+    #[test]
+    fn check_seed_redundant() {
+        let mut r = Router::new();
+        r.add_intent("refund", &["I want a refund", "money back"]);
+
+        // "refund money" — both terms already in refund intent
+        let result = r.check_seed("refund", "refund money");
+        assert!(result.redundant);
+        assert!(result.warning.is_some());
+    }
+
+    #[test]
+    fn check_seed_detects_collision() {
+        let mut r = Router::new();
+        r.add_intent("refund", &["I want a refund", "money back"]);
+        r.add_intent("payment_method", &[
+            "update my visa card",
+            "change payment to visa",
+            "visa card on file",
+        ]);
+
+        // "refund to visa" — "visa" is primarily in payment_method
+        let result = r.check_seed("refund", "refund to visa");
+        assert!(!result.conflicts.is_empty());
+
+        let visa_conflict = result.conflicts.iter().find(|c| c.term == "visa");
+        assert!(visa_conflict.is_some(), "should detect visa collision");
+        let vc = visa_conflict.unwrap();
+        assert_eq!(vc.competing_intent, "payment_method");
+        assert!(vc.severity > 0.5, "visa should be primarily in payment_method");
+    }
+
+    #[test]
+    fn check_seed_no_collision_for_shared_low_weight_terms() {
+        let mut r = Router::new();
+        r.add_intent("cancel_order", &["cancel my order", "stop my order"]);
+        r.add_intent("track_order", &["track my order", "where is my order"]);
+        r.add_intent("change_order", &["change my order", "modify my order"]);
+
+        // "order" is spread across 3 intents — low discrimination, no collision warning
+        let result = r.check_seed("cancel_order", "order status please");
+        let order_conflicts: Vec<_> = result.conflicts.iter()
+            .filter(|c| c.term == "order")
+            .collect();
+        // "order" is distributed, not concentrated — should not flag as high severity
+        for c in &order_conflicts {
+            assert!(c.severity <= 0.5,
+                "shared term 'order' should not have high severity: {} in {}",
+                c.severity, c.competing_intent);
+        }
+    }
+
+    #[test]
+    fn check_seed_empty_after_stop_words() {
+        let mut r = Router::new();
+        r.add_intent("refund", &["I want a refund"]);
+
+        // "I want to" — all stop words
+        let result = r.check_seed("refund", "I want to");
+        assert!(result.warning.is_some());
+        assert!(result.new_terms.is_empty());
+    }
+
+    #[test]
+    fn add_seed_checked_skips_redundant() {
+        let mut r = Router::new();
+        r.add_intent("refund", &["I want a refund", "money back"]);
+
+        let result = r.add_seed_checked("refund", "refund money", "en");
+        assert!(!result.added);
+        assert!(result.redundant);
+    }
+
+    #[test]
+    fn add_seed_checked_blocks_collision() {
+        let mut r = Router::new();
+        r.add_intent("refund", &["I want a refund", "money back"]);
+        r.add_intent("payment_method", &[
+            "update my visa card",
+            "change payment to visa",
+            "visa card on file",
+        ]);
+
+        let result = r.add_seed_checked("refund", "refund to visa", "en");
+        // Should block — "visa" conflicts with payment_method
+        assert!(!result.added);
+        assert!(!result.conflicts.is_empty());
+        assert!(result.warning.is_some());
+    }
+
+    #[test]
+    fn add_seed_checked_clean_addition() {
+        let mut r = Router::new();
+        r.add_intent("refund", &["I want a refund", "money back"]);
+        r.add_intent("track_order", &["where is my package"]);
+
+        let result = r.add_seed_checked("refund", "reimburse my purchase", "en");
+        assert!(result.added);
+        assert!(result.conflicts.is_empty());
+        assert!(!result.redundant);
+        assert!(result.warning.is_none());
+        assert!(!result.new_terms.is_empty());
+    }
+
+    #[test]
+    fn seed_guard_does_not_block_learn() {
+        // learn() should still work regardless of collisions
+        // because user corrections are ground truth
+        let mut r = Router::new();
+        r.add_intent("refund", &["I want a refund"]);
+        r.add_intent("payment_method", &["update my visa card"]);
+
+        // Even though "visa" is in payment_method, learning from a real
+        // user query should work
+        r.learn("refund back to my visa", "refund");
+        let results = r.route("refund back to my visa");
+        assert_eq!(results[0].id, "refund");
+    }
+
+    #[test]
+    fn check_seed_with_realistic_ecommerce_intents() {
+        let mut r = Router::new();
+        r.add_intent("cancel_order", &[
+            "cancel my order",
+            "I changed my mind",
+            "stop my purchase",
+        ]);
+        r.add_intent("refund", &[
+            "I want a refund",
+            "get my money back",
+            "reimburse me",
+        ]);
+        r.add_intent("track_order", &[
+            "where is my package",
+            "when will it arrive",
+            "delivery status",
+        ]);
+        r.add_intent("billing_issue", &[
+            "charged twice",
+            "wrong charge on my card",
+            "billing error",
+        ]);
+        r.add_intent("return_item", &[
+            "return this product",
+            "send it back",
+            "wrong item received",
+        ]);
+
+        // Test 1: "cancel and refund" to cancel_order — "refund" should collide
+        let result = r.check_seed("cancel_order", "cancel and get refund");
+        let refund_collision = result.conflicts.iter()
+            .any(|c| c.term == "refund" && c.competing_intent == "refund");
+        assert!(refund_collision, "should detect 'refund' collision with refund intent");
+
+        // Test 2: "delivery is late" to track_order — "delivery" already in track_order
+        let result = r.check_seed("track_order", "delivery is late");
+        // "delivery" is from "delivery status" seed — already in track_order
+        // "late" is new — this should not be redundant
+        assert!(!result.redundant);
+
+        // Test 3: "wrong charge" to refund — "wrong" and "charge" are in billing_issue
+        let result = r.check_seed("refund", "wrong charge refund");
+        let billing_conflict = result.conflicts.iter()
+            .any(|c| c.competing_intent == "billing_issue");
+        assert!(billing_conflict, "should detect collision with billing_issue");
+
+        // Test 4: completely novel phrase — no collisions
+        let result = r.check_seed("refund", "compensate me for the inconvenience");
+        assert!(result.conflicts.is_empty());
+        assert!(!result.redundant);
+    }
+
+    #[test]
+    fn seed_guard_preserves_routing_accuracy() {
+        // After adding seeds through add_seed_checked, routing should still work correctly
+        let mut r = Router::new();
+        r.add_intent("cancel_order", &["cancel my order", "stop my purchase", "cancel it now"]);
+        r.add_intent("track_order", &["where is my package", "track my order", "shipping status"]);
+        r.add_intent("refund", &["get my money back", "full refund", "reimburse me"]);
+
+        // Add clean seeds
+        r.add_seed_checked("cancel_order", "I changed my mind about buying this", "en");
+        r.add_seed_checked("refund", "return the payment to my account", "en");
+
+        // Routing should still work for clear queries
+        let cancel_results = r.route("cancel my order please");
+        assert_eq!(cancel_results[0].id, "cancel_order");
+
+        let refund_results = r.route("give me a full refund");
+        assert_eq!(refund_results[0].id, "refund");
+
+        let track_results = r.route("where is my package");
+        assert_eq!(track_results[0].id, "track_order");
+    }
+
+    #[test]
+    fn seed_guard_similar_intents_shared_terms() {
+        // cancel_order and cancel_subscription both legitimately use "cancel"
+        let mut r = Router::new();
+        r.add_intent("cancel_order", &["cancel my order", "stop my purchase"]);
+        r.add_intent("cancel_subscription", &["cancel my subscription", "end my membership"]);
+
+        // Adding "cancel my service" to cancel_subscription should NOT be blocked.
+        // "cancel" is already shared across 2 intents — it's a known shared term.
+        let result = r.check_seed("cancel_subscription", "cancel my service");
+        let cancel_conflict = result.conflicts.iter().any(|c| c.term == "cancel");
+        assert!(!cancel_conflict,
+            "shared term 'cancel' across similar intents should not flag as collision");
+    }
+
+    #[test]
+    fn seed_guard_exclusive_term_still_blocked() {
+        // "visa" is exclusive to payment_method — should still be blocked
+        let mut r = Router::new();
+        r.add_intent("refund", &["I want a refund", "money back"]);
+        r.add_intent("payment_method", &["update my visa card", "change payment to visa"]);
+
+        let result = r.check_seed("refund", "refund to visa");
+        let visa_conflict = result.conflicts.iter().any(|c| c.term == "visa");
+        assert!(visa_conflict, "exclusive term 'visa' should still be blocked");
+    }
+
+    #[test]
+    fn seed_guard_three_way_shared_term_not_blocked() {
+        // "order" in 3 intents — definitely shared, should not block
+        let mut r = Router::new();
+        r.add_intent("cancel_order", &["cancel my order"]);
+        r.add_intent("track_order", &["track my order"]);
+        r.add_intent("change_order", &["change my order"]);
+
+        // Adding "order update" to a new intent should not flag "order"
+        r.add_intent("order_status", &["order status"]);
+        let result = r.check_seed("order_status", "check order progress");
+        let order_conflict = result.conflicts.iter().any(|c| c.term == "order");
+        assert!(!order_conflict,
+            "term 'order' shared across 3+ intents should not flag");
     }
 }

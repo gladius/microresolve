@@ -89,6 +89,37 @@ impl InvertedIndex {
         results
     }
 
+    /// Search with weighted query terms. Each term has a weight that multiplies its contribution.
+    /// Used for similarity-expanded queries where similar terms have discounted weight.
+    pub fn search_weighted(&self, query_terms: &HashMap<String, f32>, top_k: usize) -> Vec<ScoredIntent> {
+        let n = self.intent_count.max(1) as f32;
+        let mut scores: HashMap<&str, f32> = HashMap::new();
+
+        for (term, query_weight) in query_terms {
+            if let Some(postings) = self.postings.get(term) {
+                let df = postings.len() as f32;
+                let idf = 1.0 + 0.5 * (n / df).ln();
+                for (intent_id, weight) in postings {
+                    *scores.entry(intent_id.as_str()).or_insert(0.0) += weight * idf * query_weight;
+                }
+            }
+        }
+
+        let mut results: Vec<ScoredIntent> = scores
+            .into_iter()
+            .map(|(id, score)| ScoredIntent { id: id.to_string(), score })
+            .collect();
+
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results.truncate(top_k);
+        results
+    }
+
+    /// Get all indexed terms.
+    pub fn all_terms(&self) -> Vec<String> {
+        self.postings.keys().cloned().collect()
+    }
+
     /// Update a single intent's entries without full rebuild.
     pub fn update_intent(&mut self, intent_id: &str, vector: &LearnedVector) {
         // Remove old entries
@@ -137,6 +168,12 @@ impl InvertedIndex {
     /// Iterate over all terms in the index.
     pub fn terms(&self) -> impl Iterator<Item = &String> {
         self.postings.keys()
+    }
+
+    /// Get postings for a term: Vec<(intent_id, weight)>.
+    /// Returns empty slice if term is not in the index.
+    pub fn postings(&self, term: &str) -> &[(String, f32)] {
+        self.postings.get(term).map(|v| v.as_slice()).unwrap_or(&[])
     }
 }
 

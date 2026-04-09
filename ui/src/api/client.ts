@@ -163,6 +163,7 @@ export const api = {
     get<{ total: number; offset: number; limit: number; entries: LogEntry[] }>(`/logs?limit=${limit}&offset=${offset}`),
   getLogStats: () => get<{ count: number; size_bytes: number; file: string }>('/logs/stats'),
   clearLogs: () => fetch(`${BASE}/logs`, { method: 'DELETE' }).then(r => { if (!r.ok) throw new Error('Clear failed'); }),
+  checkAccuracy: () => post<AccuracyResult>('/logs/accuracy', {}),
 
   // Co-occurrence & projections
   getCoOccurrence: () => get<{ a: string; b: string; count: number }[]>('/co_occurrence'),
@@ -274,6 +275,17 @@ export const api = {
   getReviewMode: () => get<{ mode: string }>('/review/mode'),
   setReviewMode: (mode: string) => post<{ mode: string }>('/review/mode', { mode }),
 
+  // Spec Import
+  importSpec: (spec: string) =>
+    post<{
+      title: string;
+      version: string;
+      total_operations: number;
+      created: number;
+      skipped: number;
+      intents: { intent_id: string; seeds: number; endpoint: string; method: string; type: string }[];
+    }>('/import/spec', { spec }),
+
   // Discovery
   discover: (queries: string[], expected_intents = 0) =>
     post<DiscoverResult>('/discover', { queries, expected_intents }),
@@ -297,19 +309,27 @@ export interface ReviewItem {
 export interface ReviewStats {
   total: number;
   pending: number;
-  approved: number;
-  rejected: number;
-  auto_applied: number;
-  auto_resolved: number;
-  fixed: number;
+}
+
+export interface AccuracyResult {
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+  miss: number;
+  high_pct: number;
+  medium_pct: number;
+  low_pct: number;
+  miss_pct: number;
+  pass_pct: number;
+  sample_issues: { query: string; detected?: string[] }[];
 }
 
 export interface ReviewFixResult {
   status: string;
   added: number;
-  skipped: number;
-  auto_resolved: { id: number; query: string; now_detects: string[] }[];
-  auto_resolved_count: number;
+  blocked: { seed: string; intent: string; reason: string }[];
+  resolved_count: number;
 }
 
 // Discovery types

@@ -30,14 +30,16 @@ impl WasmRouter {
         self.inner.add_intent_multilingual(id, seeds);
     }
 
-    /// Add a single seed phrase to an existing intent (rebuilds seed layer).
-    pub fn add_seed(&mut self, intent_id: &str, seed: &str) {
-        if let Some(phrases) = self.inner.get_training(intent_id) {
-            let mut all = phrases;
-            all.push(seed.to_string());
-            let refs: Vec<&str> = all.iter().map(|s| s.as_str()).collect();
-            self.inner.add_intent(intent_id, &refs);
-        }
+    /// Add a single seed phrase with collision guard. Returns JSON with result.
+    pub fn add_seed(&mut self, intent_id: &str, seed: &str) -> String {
+        let result = self.inner.add_seed_checked(intent_id, seed, "en");
+        serde_json::json!({
+            "added": result.added,
+            "new_terms": result.new_terms,
+            "redundant": result.redundant,
+            "conflicts": result.conflicts.iter().map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent)).collect::<Vec<_>>(),
+            "reason": result.warning,
+        }).to_string()
     }
 
     pub fn remove_intent(&mut self, id: &str) {

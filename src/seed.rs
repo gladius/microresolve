@@ -33,6 +33,29 @@ pub fn supported_languages_json() -> String {
     serde_json::to_string(&names).unwrap_or_default()
 }
 
+/// Seed quality rules — shared DO NOTs for all seed generation.
+pub const SEED_QUALITY_RULES: &str = r#"DO NOT:
+- Use the customer's exact message as a seed
+- Repeat the same structure with word swaps ("cancel my order" / "cancel my purchase" / "cancel my item")
+- Use overly polished corporate language
+- Include order numbers, names, dates, or specific products
+- Generate translations of the same phrases across languages — each language should have culturally natural expressions"#;
+
+/// Review fix prompt — gap-filling, not broad generation.
+/// Callers must fill in: query, intent, existing_seeds.
+pub const REVIEW_FIX_GUIDELINES: &str = r#"You are fixing a failed intent match in a keyword-matching router.
+
+The router failed because the customer used words/phrases that don't overlap with the existing seeds.
+Your job: identify what vocabulary is MISSING and suggest 1-2 short seed phrases to fill the gap.
+
+Rules:
+- Look at the existing seeds and the customer query
+- Find words/phrases in the query that have NO overlap with existing seeds
+- Generate 1-2 seed phrases that cover ONLY this gap
+- Each seed should introduce NEW vocabulary, not repeat what's already covered
+- Keep seeds short (3-8 words)
+- Do NOT generate generic paraphrases of existing seeds"#;
+
 const BASE_GUIDELINES: &str = r#"Generate realistic seed phrases for an intent routing system. These phrases train a keyword-matching router (not an LLM), so vocabulary diversity is critical.
 
 Intent ID: {intent_id}
