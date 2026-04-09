@@ -81,7 +81,7 @@ export default function Layout() {
                   {apps.map(app => (
                     <button
                       key={app}
-                      onClick={() => { setSelectedAppId(app); setShowAppMenu(false); }}
+                      onClick={() => { setSelectedAppId(app); setShowAppMenu(false); window.location.reload(); }}
                       className={`w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-800 transition-colors ${
                         app === settings.selectedAppId ? 'text-blue-400 font-medium' : 'text-zinc-300'
                       }`}

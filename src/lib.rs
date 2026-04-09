@@ -218,6 +218,9 @@ pub struct Router {
     cjk_dirty: bool,
     /// Intent type per intent (Action or Context). Default: Action.
     intent_types: HashMap<String, IntentType>,
+    /// Human-readable description per intent.
+    /// Used by LLM prompts to understand what the intent is about, even with zero seeds.
+    descriptions: HashMap<String, String>,
     /// Opaque metadata per intent. User-defined key-value pairs.
     /// ASV stores and returns this data but never interprets it.
     metadata: HashMap<String, HashMap<String, Vec<String>>>,
@@ -275,6 +278,7 @@ impl Router {
             batch_mode: false,
             cjk_dirty: false,
             intent_types: HashMap::new(),
+            descriptions: HashMap::new(),
             metadata: HashMap::new(),
             co_occurrence: HashMap::new(),
             temporal_order: HashMap::new(),
@@ -529,6 +533,7 @@ impl Router {
         self.training.remove(id);
         self.index.remove_intent(id);
         self.intent_types.remove(id);
+        self.descriptions.remove(id);
         self.metadata.remove(id);
 
         // Remove paraphrase phrases pointing to this intent
@@ -863,6 +868,7 @@ impl Router {
             training: self.training.clone(),
             top_k: self.top_k,
             intent_types: self.intent_types.clone(),
+            descriptions: self.descriptions.clone(),
             metadata: self.metadata.clone(),
             paraphrases,
             co_occurrence,
@@ -910,6 +916,7 @@ impl Router {
             batch_mode: false,
             cjk_dirty: false,
             intent_types: state.intent_types,
+            descriptions: state.descriptions,
             metadata: state.metadata,
             co_occurrence: co_occurrence_map,
             temporal_order: temporal_order_map,
@@ -1140,6 +1147,16 @@ impl Router {
     /// Get the type of an intent. Defaults to Action if not set.
     pub fn get_intent_type(&self, intent_id: &str) -> IntentType {
         self.intent_types.get(intent_id).copied().unwrap_or(IntentType::Action)
+    }
+
+    /// Set a human-readable description for an intent.
+    pub fn set_description(&mut self, intent_id: &str, description: &str) {
+        self.descriptions.insert(intent_id.to_string(), description.to_string());
+    }
+
+    /// Get the description of an intent. Returns empty string if not set.
+    pub fn get_description(&self, intent_id: &str) -> &str {
+        self.descriptions.get(intent_id).map(|s| s.as_str()).unwrap_or("")
     }
 
     /// Set opaque metadata for an intent.
@@ -2261,6 +2278,9 @@ struct RouterState {
     /// Intent types (Action or Context).
     #[serde(default)]
     intent_types: HashMap<String, IntentType>,
+    /// Human-readable descriptions per intent.
+    #[serde(default)]
+    descriptions: HashMap<String, String>,
     /// Opaque metadata per intent.
     #[serde(default)]
     metadata: HashMap<String, HashMap<String, Vec<String>>>,

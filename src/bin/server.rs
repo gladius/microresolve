@@ -167,6 +167,7 @@ async fn main() {
         .route("/api/intents/remove_seed", post(remove_seed))
         .route("/api/intents/multilingual", post(add_intent_multilingual))
         .route("/api/intents/type", post(set_intent_type))
+        .route("/api/intents/description", post(set_intent_description))
         .route("/api/intents/load_defaults", post(load_defaults))
         .route("/api/learn", post(learn))
         .route("/api/correct", post(correct))
@@ -507,8 +508,10 @@ async fn list_intents(
                 .unwrap_or(0);
             let intent_type = router.get_intent_type(id);
             let metadata = router.get_metadata(id).cloned().unwrap_or_default();
+            let description = router.get_description(id);
             serde_json::json!({
                 "id": id,
+                "description": description,
                 "seeds": seeds,
                 "seeds_by_lang": by_lang,
                 "learned_count": learned,
@@ -675,6 +678,28 @@ async fn set_intent_type(
         None => return StatusCode::NOT_FOUND,
     };
     router.set_intent_type(&req.intent_id, req.intent_type);
+    maybe_persist(&state, &app_id, router);
+    StatusCode::OK
+}
+
+#[derive(serde::Deserialize)]
+struct SetDescriptionRequest {
+    intent_id: String,
+    description: String,
+}
+
+async fn set_intent_description(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<SetDescriptionRequest>,
+) -> StatusCode {
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
+    router.set_description(&req.intent_id, &req.description);
     maybe_persist(&state, &app_id, router);
     StatusCode::OK
 }
@@ -1680,13 +1705,18 @@ fn build_llm_review_prompt(
 /// Build intent descriptions string from router for LLM context.
 fn build_intent_descriptions(router: &Router) -> String {
     router.intent_ids().iter().map(|id| {
+        let desc = router.get_description(id);
         let seeds = router.get_training(id)
             .unwrap_or_default()
             .into_iter()
             .take(4)
             .collect::<Vec<_>>()
             .join("\", \"");
-        format!("- {}: [\"{}\"]", id, seeds)
+        if desc.is_empty() {
+            format!("- {}: [\"{}\"]", id, seeds)
+        } else {
+            format!("- {} ({}): [\"{}\"]", id, desc, seeds)
+        }
     }).collect::<Vec<_>>().join("\n")
 }
 
@@ -3154,7 +3184,10 @@ async fn review_turn2(
 
     let response = call_llm(&state, &prompt, 200).await?;
     let parsed: serde_json::Value = serde_json::from_str(extract_json(&response))
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse Turn 2 response".to_string()))?;
+        .map_err(|e| {
+            eprintln!("Turn 2 parse error: {}. Raw: {}", e, &response[..response.len().min(500)]);
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to parse Turn 2 response: {}", e))
+        })?;
 
     // Pre-validate seeds through check_seed (read-only, no modification)
     if let Some(sbi) = parsed.get("seeds_by_intent").and_then(|v| v.as_object()) {
@@ -3300,9 +3333,13 @@ async fn review_turn3(
         wrong_intent_seeds.join("\n")
     );
 
-    let response = call_llm(&state, &prompt, 400).await?;
-    let parsed: serde_json::Value = serde_json::from_str(extract_json(&response))
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse Turn 3 response".to_string()))?;
+    let response = call_llm(&state, &prompt, 1024).await?;
+    let json_str = extract_json(&response);
+    let parsed: serde_json::Value = serde_json::from_str(json_str)
+        .map_err(|e| {
+            eprintln!("Turn 3 parse error: {}. Raw response: {}", e, &response[..response.len().min(500)]);
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to parse Turn 3 response: {}", e))
+        })?;
 
     Ok(Json(parsed))
 }
@@ -3529,6 +3566,14 @@ async fn import_apply(
 
             let seed_refs: Vec<&str> = seeds.iter().map(|s| s.as_str()).collect();
             router.add_intent(&intent_name, &seed_refs);
+
+            // Set description from operation summary/name
+            let description = op.summary.as_deref()
+                .or(Some(op.name.as_str()))
+                .unwrap_or("");
+            if !description.is_empty() {
+                router.set_description(&intent_name, description);
+            }
 
             // Set type based on method
             let intent_type = match op.method.as_str() {
