@@ -70,6 +70,7 @@ export interface MultiRouteOutput {
 
 export interface IntentInfo {
   id: string;
+  description: string;
   seeds: string[];
   seeds_by_lang: Record<string, string[]>;
   learned_count: number;
@@ -131,6 +132,8 @@ export const api = {
   deleteIntent: (id: string) => post<void>('/intents/delete', { id }),
   setIntentType: (intent_id: string, intent_type: IntentType) =>
     post<void>('/intents/type', { intent_id, intent_type }),
+  setDescription: (intent_id: string, description: string) =>
+    post<void>('/intents/description', { intent_id, description }),
 
   // Learning
   learn: (query: string, intent_id: string) =>

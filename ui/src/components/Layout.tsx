@@ -6,12 +6,10 @@ import { api } from '@/api/client';
 const links = [
   { to: '/', label: 'Playground' },
   { to: '/intents', label: 'Intents' },
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/scenarios', label: 'Training' },
-  { to: '/discovery', label: 'Discovery' },
   { to: '/review', label: 'Review' },
-  { to: '/apps', label: 'Apps' },
   { to: '/import', label: 'Import' },
+  { to: '/apps', label: 'Apps' },
+  { to: '/dashboard', label: 'Dashboard' },
   { to: '/settings', label: 'Settings' },
 ];
 

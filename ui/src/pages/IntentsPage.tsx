@@ -138,6 +138,9 @@ function IntentListItem({
           <span className="text-emerald-400/40 text-[10px]">+{intent.learned_count}</span>
         )}
       </div>
+      {intent.description && (
+        <div className="text-[10px] text-zinc-500 mt-0.5 pl-6 truncate">{intent.description}</div>
+      )}
     </div>
   );
 }
@@ -178,7 +181,7 @@ function IntentDetailPanel({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-5 pt-5 pb-0">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-semibold text-emerald-400 font-mono">{intent.id}</h2>
             <div className="flex rounded overflow-hidden border border-zinc-700">
@@ -210,6 +213,9 @@ function IntentDetailPanel({
             Delete
           </button>
         </div>
+        {intent.description && (
+          <div className="text-xs text-zinc-500 mb-3">{intent.description}</div>
+        )}
 
         {/* Tabs + search (search in tab bar area) */}
         <div className="flex items-center border-b border-zinc-800">

@@ -252,15 +252,22 @@ export default function ImportPage() {
             ))}
           </div>
 
-          {/* Import button */}
+          {/* Import button + progress */}
           <div className="flex items-center justify-between pt-2">
-            <div className="text-xs text-zinc-500">
-              Seeds generated with AI • Collision guard active
-            </div>
+            {importing ? (
+              <div className="flex items-center gap-3 text-xs text-violet-400">
+                <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+                Generating seeds with AI... This takes 10-30 seconds.
+              </div>
+            ) : (
+              <div className="text-xs text-zinc-500">
+                Seeds generated with AI • Collision guard active
+              </div>
+            )}
             <button
               onClick={handleImport}
               disabled={importing || selected.size === 0 || !appName.trim()}
-              className="px-5 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30"
+              className="px-5 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30 shrink-0"
             >
               {importing ? 'Importing...' : `Import ${selected.size} Operations`}
             </button>
