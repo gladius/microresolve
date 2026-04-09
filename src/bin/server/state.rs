@@ -85,3 +85,6 @@ pub fn log_query(state: &ServerState, entry: &serde_json::Value) {
         let _ = file.flush();
     }
 }
+
+pub fn default_lang() -> String { "en".to_string() }
+

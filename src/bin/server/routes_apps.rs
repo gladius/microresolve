@@ -16,7 +16,7 @@ pub fn routes() -> axum::Router<AppState> {
         .route("/api/apps", delete(delete_app))
 }
 
-async fn list_apps(
+pub async fn list_apps(
     State(state): State<AppState>,
 ) -> Json<serde_json::Value> {
     let routers = state.routers.read().unwrap();
@@ -25,11 +25,11 @@ async fn list_apps(
 }
 
 #[derive(serde::Deserialize)]
-struct CreateAppRequest {
+pub struct CreateAppRequest {
     app_id: String,
 }
 
-async fn create_app(
+pub async fn create_app(
     State(state): State<AppState>,
     Json(req): Json<CreateAppRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
@@ -44,11 +44,11 @@ async fn create_app(
 }
 
 #[derive(serde::Deserialize)]
-struct DeleteAppRequest {
+pub struct DeleteAppRequest {
     app_id: String,
 }
 
-async fn delete_app(
+pub async fn delete_app(
     State(state): State<AppState>,
     Json(req): Json<DeleteAppRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
