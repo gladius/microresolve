@@ -38,6 +38,15 @@ pub struct DiscoveredCluster {
     pub representative_queries: Vec<String>,
 }
 
+#[napi(object)]
+pub struct SeedResult {
+    pub added: bool,
+    pub new_terms: Vec<String>,
+    pub redundant: bool,
+    pub conflicts: Vec<String>,
+    pub warning: Option<String>,
+}
+
 #[napi]
 pub struct Router {
     inner: asv_router_core::Router,
@@ -115,6 +124,39 @@ impl Router {
             Ok(r) => Ok(Router { inner: r }),
             Err(e) => Err(Error::from_reason(e)),
         }
+    }
+
+    /// Add a seed with collision guard.
+    #[napi]
+    pub fn add_seed(&mut self, intent_id: String, seed: String, lang: Option<String>) -> SeedResult {
+        let result = self.inner.add_seed_checked(&intent_id, &seed, lang.as_deref().unwrap_or("en"));
+        SeedResult {
+            added: result.added,
+            new_terms: result.new_terms,
+            redundant: result.redundant,
+            conflicts: result.conflicts.iter()
+                .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
+                .collect(),
+            warning: result.warning,
+        }
+    }
+
+    /// Remove a seed from an intent.
+    #[napi]
+    pub fn remove_seed(&mut self, intent_id: String, seed: String) -> bool {
+        self.inner.remove_seed(&intent_id, &seed)
+    }
+
+    /// Set intent description.
+    #[napi]
+    pub fn set_description(&mut self, intent_id: String, description: String) {
+        self.inner.set_description(&intent_id, &description);
+    }
+
+    /// Get intent description.
+    #[napi]
+    pub fn get_description(&self, intent_id: String) -> String {
+        self.inner.get_description(&intent_id).to_string()
     }
 
     /// Delete an intent.

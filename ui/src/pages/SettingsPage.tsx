@@ -39,7 +39,8 @@ function AppsSection() {
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const currentApp = localStorage.getItem('asv_app_id') || 'default';
+  const { settings, setSelectedAppId } = useAppStore();
+  const currentApp = settings.selectedAppId;
 
   const refresh = async () => {
     setLoading(true);
@@ -76,8 +77,7 @@ function AppsSection() {
   };
 
   const handleSwitch = (appId: string) => {
-    setApiAppId(appId);
-    localStorage.setItem('asv_app_id', appId);
+    setSelectedAppId(appId);
     window.location.href = '/intents';
   };
 

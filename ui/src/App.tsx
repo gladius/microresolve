@@ -6,8 +6,10 @@ import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import AutoImprovePage from '@/pages/ScenariosPage';
 import ReviewPage from '@/pages/ReviewPage';
-import ImportPage from '@/pages/ImportPage';
 import AppsPage from '@/pages/AppsPage';
+import ImportLanding from '@/pages/import/ImportLanding';
+import OpenApiImport from '@/pages/import/OpenApiImport';
+import McpImport from '@/pages/import/McpImport';
 import InsightsLayout from '@/pages/insights/InsightsLayout';
 import Overview from '@/pages/insights/Overview';
 import Discovery from '@/pages/insights/Discovery';
@@ -48,6 +50,9 @@ export default function App() {
             <Route path="/" element={<RouterPage />} />
             <Route path="/intents" element={<IntentsPage />} />
             <Route path="/review" element={<ReviewPage />} />
+            <Route path="/import" element={<ImportLanding />} />
+            <Route path="/import/openapi" element={<OpenApiImport />} />
+            <Route path="/import/mcp" element={<McpImport />} />
             <Route path="/insights" element={<InsightsLayout />}>
               <Route index element={<Overview />} />
               <Route path="discovery" element={<Discovery />} />
@@ -58,14 +63,8 @@ export default function App() {
               <Route path="cooccurrence" element={<CoOccurrence />} />
             </Route>
             <Route path="/auto-improve" element={<AutoImprovePage />} />
-            <Route path="/scenarios" element={<AutoImprovePage />} />
             <Route path="/apps" element={<AppsPage />} />
-            <Route path="/import" element={<ImportPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            {/* Legacy routes */}
-            <Route path="/dashboard" element={<InsightsLayout />}>
-              <Route index element={<Overview />} />
-            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

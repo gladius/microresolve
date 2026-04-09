@@ -6,6 +6,7 @@ import { api } from '@/api/client';
 const links = [
   { to: '/intents', label: 'Intents' },
   { to: '/review', label: 'Review' },
+  { to: '/import', label: 'Import' },
   { to: '/insights', label: 'Insights' },
   { to: '/auto-improve', label: 'Auto-Improve' },
   { to: '/settings', label: 'Settings' },

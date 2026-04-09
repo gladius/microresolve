@@ -105,6 +105,51 @@ impl Router {
         }
     }
 
+    /// Add a seed with collision guard. Returns dict with added, conflicts, etc.
+    fn add_seed<'py>(&mut self, py: Python<'py>, intent_id: &str, seed: &str, lang: Option<&str>) -> PyResult<Bound<'py, PyDict>> {
+        let result = self.inner.add_seed_checked(intent_id, seed, lang.unwrap_or("en"));
+        let d = PyDict::new(py);
+        d.set_item("added", result.added)?;
+        d.set_item("new_terms", &result.new_terms)?;
+        d.set_item("redundant", result.redundant)?;
+        let conflicts: Vec<String> = result.conflicts.iter()
+            .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
+            .collect();
+        d.set_item("conflicts", conflicts)?;
+        d.set_item("warning", result.warning)?;
+        Ok(d)
+    }
+
+    /// Check a seed without adding (read-only collision check).
+    fn check_seed<'py>(&self, py: Python<'py>, intent_id: &str, seed: &str) -> PyResult<Bound<'py, PyDict>> {
+        let result = self.inner.check_seed(intent_id, seed);
+        let d = PyDict::new(py);
+        d.set_item("added", false)?;
+        d.set_item("new_terms", &result.new_terms)?;
+        d.set_item("redundant", result.redundant)?;
+        let conflicts: Vec<String> = result.conflicts.iter()
+            .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
+            .collect();
+        d.set_item("conflicts", conflicts)?;
+        d.set_item("warning", result.warning)?;
+        Ok(d)
+    }
+
+    /// Remove a seed phrase from an intent.
+    fn remove_seed(&mut self, intent_id: &str, seed: &str) -> bool {
+        self.inner.remove_seed(intent_id, seed)
+    }
+
+    /// Set intent description.
+    fn set_description(&mut self, intent_id: &str, description: &str) {
+        self.inner.set_description(intent_id, description);
+    }
+
+    /// Get intent description.
+    fn get_description(&self, intent_id: &str) -> String {
+        self.inner.get_description(intent_id).to_string()
+    }
+
     /// Delete an intent.
     fn delete_intent(&mut self, id: &str) {
         self.inner.remove_intent(id);

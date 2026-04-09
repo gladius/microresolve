@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, setApiAppId } from '@/api/client';
+import { useAppStore } from '@/store';
 
 interface AppInfo {
   id: string;
@@ -8,6 +9,7 @@ interface AppInfo {
 }
 
 export default function AppsPage() {
+  const { settings, setSelectedAppId } = useAppStore();
   const navigate = useNavigate();
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,8 +30,7 @@ export default function AppsPage() {
         }
       }
       // Restore current app
-      const current = localStorage.getItem('asv_app_id') || 'default';
-      setApiAppId(current);
+      setApiAppId(settings.selectedAppId);
       setApps(infos);
     } catch { /* */ }
     setLoading(false);
@@ -38,8 +39,7 @@ export default function AppsPage() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const switchToApp = (appId: string) => {
-    setApiAppId(appId);
-    localStorage.setItem('asv_app_id', appId);
+    setSelectedAppId(appId);
     window.location.href = '/intents';
   };
 
@@ -54,7 +54,7 @@ export default function AppsPage() {
     }
   };
 
-  const currentApp = localStorage.getItem('asv_app_id') || 'default';
+  const currentApp = settings.selectedAppId;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">

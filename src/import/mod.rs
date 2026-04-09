@@ -33,47 +33,22 @@ pub struct ImportedIntent {
 
 /// Import a parsed spec into the router, creating one intent per operation.
 ///
-/// Seeds come from: summary + description sentences.
+/// Only uses operation name as minimal seed. For proper seeds, use LLM generation
+/// (server-side import_apply does this). Description is stored as metadata, not as seeds.
 /// Intent type: GET/HEAD = Context, everything else = Action.
-/// Metadata: endpoint (method + path), operation_id, tags.
+/// Metadata: endpoint (method + path), operation_id, tags, description.
 pub fn import_spec(router: &mut Router, spec: &ParsedSpec) -> ImportResult {
     let mut created = Vec::new();
     let mut skipped = Vec::new();
 
     for op in &spec.operations {
-        // Build intent name from operationId or path
         let intent_id = op.operation_id.as_deref()
             .unwrap_or(&op.id);
         let intent_name = to_snake_case(intent_id);
 
-        // Build seeds from summary + description
-        let mut seeds: Vec<String> = Vec::new();
-
-        if let Some(ref summary) = op.summary {
-            let s = summary.trim().to_lowercase();
-            if !s.is_empty() {
-                seeds.push(s);
-            }
-        }
-
-        if !op.description.is_empty() {
-            for sent in op.description.split(". ") {
-                let s = sent.trim().to_lowercase();
-                if s.len() > 10 && seeds.len() < 10 {
-                    // Remove trailing period
-                    let s = s.trim_end_matches('.');
-                    seeds.push(s.to_string());
-                }
-            }
-        }
-
-        // Also add the operation name as a seed if different from summary
+        // Only use operation name as seed — descriptions are metadata, not seeds
         let name_lower = op.name.to_lowercase();
-        if !seeds.contains(&name_lower) && !name_lower.is_empty() {
-            seeds.push(name_lower);
-        }
-
-        if seeds.is_empty() {
+        if name_lower.is_empty() {
             skipped.push(intent_name);
             continue;
         }
@@ -85,9 +60,14 @@ pub fn import_spec(router: &mut Router, spec: &ParsedSpec) -> ImportResult {
         };
 
         // Create the intent
-        let seed_refs: Vec<&str> = seeds.iter().map(|s| s.as_str()).collect();
-        let seed_checks = router.add_intent(&intent_name, &seed_refs);
+        let seed_checks = router.add_intent(&intent_name, &[name_lower.as_str()]);
         router.set_intent_type(&intent_name, intent_type);
+
+        // Store description for LLM context (not as seed)
+        let desc = op.summary.as_deref().or(Some(&op.name)).unwrap_or("");
+        if !desc.is_empty() {
+            router.set_description(&intent_name, desc);
+        }
 
         // Store endpoint metadata
         let endpoint = format!("{} {}", op.method, op.path);
@@ -113,7 +93,7 @@ pub fn import_spec(router: &mut Router, spec: &ParsedSpec) -> ImportResult {
 
         created.push(ImportedIntent {
             intent_id: intent_name,
-            seeds,
+            seeds: vec![name_lower],
             endpoint,
             method: op.method.clone(),
             intent_type,
