@@ -4,6 +4,11 @@
 //!
 //! Default: http://localhost:3001
 
+mod state;
+mod routes_apps;
+
+use state::*;
+
 use asv_router::{Router, IntentType};
 use axum::{
     extract::{State, Query},
@@ -14,74 +19,7 @@ use axum::{
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::{Arc, RwLock, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tower_http::cors::CorsLayer;
-
-const LOG_FILE: &str = "asv_queries.jsonl";
-
-/// A flagged query pending review.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct ReviewItem {
-    id: u64,
-    query: String,
-    detected: Vec<String>,
-    flag: String, // "miss", "low_confidence", "ambiguous"
-    suggested_intent: Option<String>,
-    suggested_seed: Option<String>,
-    app_id: String,
-    timestamp: u64,
-    session_id: Option<String>,
-}
-
-struct ServerState {
-    routers: RwLock<HashMap<String, Router>>,
-    data_dir: Option<String>,
-    log: Mutex<std::fs::File>,
-    http: reqwest::Client,
-    llm_key: Option<String>,
-    review_queue: RwLock<Vec<ReviewItem>>,
-    review_counter: std::sync::atomic::AtomicU64,
-    review_mode: RwLock<String>, // "auto_learn", "auto_review", "manual"
-}
-
-type AppState = Arc<ServerState>;
-
-fn open_log() -> std::fs::File {
-    std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(LOG_FILE)
-        .expect("failed to open log file")
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
-}
-
-/// Extract app ID from X-App-ID header, defaulting to "default".
-fn app_id_from_headers(headers: &HeaderMap) -> String {
-    headers.get("X-App-ID")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("default")
-        .to_string()
-}
-
-/// Ensure an app's router exists, creating an empty one if needed.
-fn ensure_app(state: &AppState, app_id: &str) {
-    let exists = state.routers.read().unwrap().contains_key(app_id);
-    if !exists {
-        state.routers.write().unwrap().entry(app_id.to_string()).or_insert_with(Router::new);
-    }
-}
-
-/// Persist a router's state to the data directory if configured.
-fn maybe_persist(state: &ServerState, app_id: &str, router: &Router) {
-    if let Some(ref dir) = state.data_dir {
-        let path = format!("{}/{}.json", dir, app_id);
-        let json = router.export_json();
-        let _ = std::fs::write(&path, json);
-    }
-}
 
 #[tokio::main]
 async fn main() {
@@ -203,9 +141,7 @@ async fn main() {
         .route("/api/workflows", get(get_workflows))
         .route("/api/temporal_order", get(get_temporal_order))
         .route("/api/escalation_patterns", get(get_escalation_patterns))
-        .route("/api/apps", get(list_apps))
-        .route("/api/apps", post(create_app))
-        .route("/api/apps", delete(delete_app))
+        .merge(routes_apps::routes())
         .route("/api/import/parse", post(import_parse))
         .route("/api/import/apply", post(import_apply))
         .route("/api/discover", post(discover))
@@ -2887,60 +2823,7 @@ async fn training_apply(
     })))
 }
 
-// =============================================================================
-// Multi-app management endpoints
-// =============================================================================
-
-async fn list_apps(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
-    let routers = state.routers.read().unwrap();
-    let apps: Vec<&String> = routers.keys().collect();
-    Json(serde_json::json!(apps))
-}
-
-#[derive(serde::Deserialize)]
-struct CreateAppRequest {
-    app_id: String,
-}
-
-async fn create_app(
-    State(state): State<AppState>,
-    Json(req): Json<CreateAppRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let mut routers = state.routers.write().unwrap();
-    if routers.contains_key(&req.app_id) {
-        return Err((StatusCode::CONFLICT, format!("app '{}' already exists", req.app_id)));
-    }
-    let router = Router::new();
-    maybe_persist(&state, &req.app_id, &router);
-    routers.insert(req.app_id.clone(), router);
-    Ok(Json(serde_json::json!({"created": req.app_id})))
-}
-
-#[derive(serde::Deserialize)]
-struct DeleteAppRequest {
-    app_id: String,
-}
-
-async fn delete_app(
-    State(state): State<AppState>,
-    Json(req): Json<DeleteAppRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    if req.app_id == "default" {
-        return Err((StatusCode::BAD_REQUEST, "cannot delete default app".to_string()));
-    }
-    let mut routers = state.routers.write().unwrap();
-    if routers.remove(&req.app_id).is_none() {
-        return Err((StatusCode::NOT_FOUND, format!("app '{}' not found", req.app_id)));
-    }
-    // Remove persisted file
-    if let Some(ref dir) = state.data_dir {
-        let path = format!("{}/{}.json", dir, req.app_id);
-        let _ = std::fs::remove_file(&path);
-    }
-    Ok(Json(serde_json::json!({"deleted": req.app_id})))
-}
+// Multi-app management — see routes_apps.rs
 
 // =============================================================================
 // Discovery endpoints
