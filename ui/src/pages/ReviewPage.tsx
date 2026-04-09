@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, type ReviewItem, type ReviewAnalyzeResult, type AccuracyResult } from '@/api/client';
+import { api, type ReviewItem, type ReviewAnalyzeResult } from '@/api/client';
 
 interface SeedEntry { seed: string; lang: string; }
 interface IntentBlock { intentId: string; seeds: SeedEntry[]; }
@@ -8,29 +8,24 @@ export default function ReviewPage() {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [intents, setIntents] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [accuracy, setAccuracy] = useState<AccuracyResult | null>(null);
-  const [checkingAccuracy, setCheckingAccuracy] = useState(false);
+  const [reviewMode, setReviewMode] = useState('manual');
   const [total, setTotal] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
-      const [q, i] = await Promise.all([
+      const [q, i, m] = await Promise.all([
         api.getReviewQueue(undefined, 200),
         api.listIntents().then(list => list.map(i => i.id)),
+        api.getReviewMode().then(d => d.mode).catch(() => 'manual'),
       ]);
       setItems(q.items);
       setTotal(q.total);
       setIntents(i);
+      setReviewMode(m);
     } catch { /* */ }
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
-
-  const checkAccuracy = async () => {
-    setCheckingAccuracy(true);
-    try { setAccuracy(await api.checkAccuracy()); } catch { /* */ }
-    setCheckingAccuracy(false);
-  };
 
   const selected = items.find(i => i.id === selectedId) || null;
 
@@ -38,39 +33,24 @@ export default function ReviewPage() {
     <div className="flex gap-0 h-[calc(100vh-6rem)] -mx-4">
       {/* Sidebar */}
       <div className="w-72 min-w-[18rem] border-r border-zinc-800 flex flex-col">
-        <div className="px-3 py-3 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
-          <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">Failures ({total})</span>
-          <button onClick={refresh} className="text-[10px] text-zinc-500 hover:text-white">Refresh</button>
+        <div className="px-3 py-3 border-b border-zinc-800 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">Review Queue ({total})</span>
+            <button onClick={refresh} className="text-[10px] text-zinc-500 hover:text-white">Refresh</button>
+          </div>
+          <div className="mt-1.5">
+            {reviewMode === 'auto' ? (
+              <span className="text-[9px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30 font-semibold">
+                AUTO — LLM reviewing every query
+              </span>
+            ) : (
+              <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
+                MANUAL
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="px-3 py-2 border-b border-zinc-800">
-          <button onClick={checkAccuracy} disabled={checkingAccuracy}
-            className="w-full text-xs px-2 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:text-white hover:border-violet-500 disabled:opacity-50">
-            {checkingAccuracy ? 'Checking...' : 'Check Accuracy'}
-          </button>
-          {accuracy && (
-            <div className="mt-2 space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-emerald-400">High</span>
-                <span className="text-white">{accuracy.high} ({accuracy.high_pct.toFixed(1)}%)</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-amber-400">Medium</span>
-                <span className="text-white">{accuracy.medium} ({accuracy.medium_pct.toFixed(1)}%)</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-red-400">Low/Miss</span>
-                <span className="text-white">{accuracy.low + accuracy.miss}</span>
-              </div>
-              <div className="flex justify-between text-xs pt-1 border-t border-zinc-800">
-                <span className="text-zinc-400 font-semibold">Pass rate</span>
-                <span className={`font-semibold ${accuracy.pass_pct >= 80 ? 'text-emerald-400' : accuracy.pass_pct >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
-                  {accuracy.pass_pct.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
 
         <div className="flex-1 overflow-y-auto">
           {items.map(item => (
@@ -84,7 +64,7 @@ export default function ReviewPage() {
               </div>
             </div>
           ))}
-          {items.length === 0 && <div className="text-zinc-600 text-xs text-center py-8 px-4">No failures to review</div>}
+          {items.length === 0 && <div className="text-zinc-600 text-xs text-center py-8 px-4">No items to review</div>}
         </div>
       </div>
 
@@ -94,7 +74,7 @@ export default function ReviewPage() {
           <FailureDetail item={selected} intents={intents} onAction={() => { setSelectedId(null); refresh(); }} />
         ) : (
           <div className="flex items-center justify-center h-full text-zinc-600 text-sm">
-            {items.length > 0 ? 'Select a failure to fix' : 'No failures'}
+            {items.length > 0 ? 'Select an item to review' : 'Queue empty'}
           </div>
         )}
       </div>

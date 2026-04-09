@@ -9,6 +9,8 @@ use axum::{
 use std::collections::HashMap;
 use asv_router::{Router, IntentType};
 use crate::state::*;
+use crate::log_store::{LogRecord};
+use crate::llm::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
@@ -214,14 +216,30 @@ pub async fn route_multi(
         "suggestions": suggestions
     });
 
-    // Log this query
-    log_query(&state, &serde_json::json!({
-        "ts": now_ms(),
-        "query": req.query,
-        "threshold": req.threshold,
-        "latency_us": latency_us,
-        "results": intents,
-    }));
+    // Determine best confidence across all detected intents
+    let best_confidence = output.intents.iter()
+        .map(|i| i.confidence.as_str())
+        .min_by_key(|c| match *c { "high" => 0, "medium" => 1, "low" => 2, _ => 3 })
+        .unwrap_or("none");
+
+    let detected_ids: Vec<String> = output.intents.iter().map(|i| i.id.clone()).collect();
+    let flag = LogRecord::compute_flag(&detected_ids, best_confidence);
+
+    log_query(&state, LogRecord {
+        id: 0, // assigned by log_store
+        query: req.query.clone(),
+        app_id: app_id.clone(),
+        detected_intents: detected_ids,
+        confidence: best_confidence.to_string(),
+        flag,
+        session_id: None,
+        timestamp_ms: now_ms(),
+        router_version: {
+            let routers = state.routers.read().unwrap();
+            routers.get(&app_id).map(|r| r.version()).unwrap_or(0)
+        },
+        source: "local".to_string(),
+    });
 
     Json(result)
 }

@@ -16,9 +16,11 @@ export default function Layout() {
   const { settings, setSelectedAppId } = useAppStore();
   const [apps, setApps] = useState<string[]>(['default']);
   const [showAppMenu, setShowAppMenu] = useState(false);
+  const [reviewMode, setReviewMode] = useState('manual');
 
   useEffect(() => {
     api.listApps().then(setApps).catch(() => {});
+    api.getReviewMode().then(d => setReviewMode(d.mode)).catch(() => {});
   }, []);
 
 
@@ -82,6 +84,14 @@ export default function Layout() {
                 </div>
               )}
             </div>
+
+            {/* Review mode indicator */}
+            {reviewMode === 'auto' && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-500/30 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                AUTO
+              </span>
+            )}
 
           </div>
         </div>

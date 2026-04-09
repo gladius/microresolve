@@ -61,6 +61,7 @@
 
 pub mod discovery;
 pub mod import;
+pub mod connect;
 pub mod index;
 pub mod multi;
 pub mod seed;

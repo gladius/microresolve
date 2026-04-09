@@ -103,7 +103,7 @@ export default function AutoImprovePage() {
       let failures = 0;
 
       // Enable auto-learn
-      await api.setReviewMode('auto_learn');
+      await api.setReviewMode('auto');
 
       for (let i = 0; i < baseline.results.length; i++) {
         const r = baseline.results[i];

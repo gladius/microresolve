@@ -23,12 +23,12 @@ wasm-bindgen = { version = "0.2", optional = true }
 axum = { version = "0.8", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 tower-http = { version = "0.6", features = ["cors", "fs"], optional = true }
-reqwest = { version = "0.12", features = ["json"], optional = true }
+reqwest = { version = "0.12", features = ["json", "blocking"] }
 
 [features]
 default = []
 wasm = ["wasm-bindgen"]
-server = ["axum", "tokio", "tower-http", "reqwest"]
+server = ["axum", "tokio", "tower-http"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }

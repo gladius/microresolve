@@ -1,102 +1,44 @@
-//! Review system: report, queue, fix, analyze.
+//! Review system: queue from log store, fix, analyze.
+//!
+//! The review queue is no longer a separate in-memory structure.
+//! It is a filtered view of the log store: unresolved entries with flags.
 
 use axum::{
     extract::{State, Query},
     http::{StatusCode, HeaderMap},
-    routing::{get, post, delete},
+    routing::{get, post},
     Json,
 };
 use std::collections::HashMap;
-use asv_router::{Router, IntentType};
 use crate::state::*;
+use crate::log_store::{LogQuery, LogRecord};
 use crate::llm::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/report", post(report_query))
-        .route("/api/review/queue", get(review_queue))
-        .route("/api/review/approve", post(review_approve))
-        .route("/api/review/reject", post(review_reject))
-        .route("/api/review/fix", post(review_fix))
-        .route("/api/review/analyze", post(review_analyze))
+        .route("/api/review/queue",        get(review_queue))
+        .route("/api/review/reject",       post(review_reject))
+        .route("/api/review/fix",          post(review_fix))
+        .route("/api/review/analyze",      post(review_analyze))
         .route("/api/review/intent_seeds", post(review_intent_seeds))
-        .route("/api/review/stats", get(review_stats))
-        .route("/api/review/mode", get(get_review_mode))
-        .route("/api/review/mode", post(set_review_mode))
-        .route("/api/similarity/build", post(build_similarity))
+        .route("/api/review/stats",        get(review_stats))
+        .route("/api/review/mode",         get(get_review_mode))
+        .route("/api/review/mode",         post(set_review_mode))
+        .route("/api/similarity/build",    post(build_similarity))
 }
 
-
-#[derive(serde::Deserialize)]
-pub struct ReportRequest {
-    query: String,
-    detected: Vec<String>,
-    flag: String,
-    #[serde(default)]
-    session_id: Option<String>,
-}
-
-pub async fn report_query(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<ReportRequest>,
-) -> Json<serde_json::Value> {
-    let app_id = app_id_from_headers(&headers);
-    let id = state.review_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
-    let item = ReviewItem {
-        id,
-        query: req.query.clone(),
-        detected: req.detected,
-        flag: req.flag.clone(),
-        suggested_intent: None,
-        suggested_seed: None,
-        app_id: app_id.clone(),
-        timestamp: now_ms(),
-        session_id: req.session_id,
-    };
-
-    // In auto_learn or auto_review mode, run full 3-turn review
-    let mode = state.review_mode.read().unwrap().clone();
-    let mut item = item;
-
-    if (mode == "auto_learn" || mode == "auto_review") && state.llm_key.is_some() {
-        if let Ok(review) = full_review(&state, &app_id, &req.query, &item.detected).await {
-            item.suggested_intent = Some(review.correct_intents.join(", "));
-            if let Some(first_seeds) = review.seeds_to_add.values().next() {
-                item.suggested_seed = first_seeds.first().cloned();
-            }
-
-            // Auto-learn: apply everything (seeds + replacements)
-            if mode == "auto_learn" {
-                let (added, replaced) = apply_review(&state, &app_id, &review).await;
-                eprintln!("[auto_learn] query=\"{}\" added={} replaced={}", &req.query[..req.query.len().min(50)], added, replaced);
-                return Json(serde_json::json!({"id": id, "status": "auto_applied", "added": added, "replaced": replaced}));
-            }
-        }
-    }
-
-    let mut queue = state.review_queue.write().unwrap();
-    queue.push(item);
-
-    // Cap queue at 10000 items
-    if queue.len() > 10000 {
-        let excess = queue.len() - 10000;
-        queue.drain(..excess);
-    }
-
-    Json(serde_json::json!({"id": id, "status": "queued"}))
-}
+// ─── Queue (filtered log view) ───────────────────────────────────────────────
 
 #[derive(serde::Deserialize)]
 pub struct ReviewQueueParams {
-    #[serde(default = "default_review_limit")]
+    #[serde(default = "default_limit")]
     limit: usize,
     #[serde(default)]
     offset: usize,
+    /// Filter by flag: "miss", "low_confidence", "false_positive"
+    flag: Option<String>,
 }
-
-pub fn default_review_limit() -> usize { 50 }
+fn default_limit() -> usize { 50 }
 
 pub async fn review_queue(
     State(state): State<AppState>,
@@ -104,96 +46,57 @@ pub async fn review_queue(
     Query(params): Query<ReviewQueueParams>,
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
-    let queue = state.review_queue.read().unwrap();
+    let result = state.log_store.lock().unwrap().query(&LogQuery {
+        app_id: Some(app_id),
+        flag: params.flag,
+        flagged_only: true,  // review queue = flagged entries only
+        resolved: Some(false),
+        since_ms: None,
+        limit: params.limit,
+        offset: params.offset,
+    });
 
-    let filtered: Vec<&ReviewItem> = queue.iter()
-        .filter(|item| item.app_id == app_id)
-        .collect();
-
-    let total = filtered.len();
-    let items: Vec<serde_json::Value> = filtered.iter()
-        .skip(params.offset)
-        .take(params.limit)
-        .map(|item| serde_json::json!({
-            "id": item.id,
-            "query": item.query,
-            "detected": item.detected,
-            "flag": item.flag,
-            "suggested_intent": item.suggested_intent,
-            "suggested_seed": item.suggested_seed,
-            "timestamp": item.timestamp,
-            "session_id": item.session_id,
-        }))
-        .collect();
+    let items: Vec<serde_json::Value> = result.records.iter().map(|r| serde_json::json!({
+        "id": r.id,
+        "query": r.query,
+        "detected": r.detected_intents,
+        "flag": r.flag,
+        "confidence": r.confidence,
+        "timestamp": r.timestamp_ms,
+        "session_id": r.session_id,
+    })).collect();
 
     Json(serde_json::json!({
-        "total": total,
+        "total": result.total,
         "items": items,
     }))
 }
+
+// ─── Actions ─────────────────────────────────────────────────────────────────
 
 #[derive(serde::Deserialize)]
 pub struct ReviewActionRequest {
     id: u64,
 }
 
-pub async fn review_approve(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<ReviewActionRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-
-    // Extract data and remove from queue
-    let (query, intent) = {
-        let queue = state.review_queue.read().unwrap();
-        let item = queue.iter()
-            .find(|i| i.id == req.id && i.app_id == app_id)
-            .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
-        let intent = item.suggested_intent.clone()
-            .ok_or((StatusCode::BAD_REQUEST, "no suggestion to approve".to_string()))?;
-        (item.query.clone(), intent)
-    };
-
-    // Apply the fix
-    {
-        let mut routers = state.routers.write().unwrap();
-        if let Some(router) = routers.get_mut(&app_id) {
-            router.learn(&query, &intent);
-            maybe_persist(&state, &app_id, router);
-        }
-    }
-
-    // Remove from queue
-    let mut queue = state.review_queue.write().unwrap();
-    queue.retain(|i| !(i.id == req.id && i.app_id == app_id));
-
-    Ok(Json(serde_json::json!({"status": "ok", "intent": intent})))
-}
-
+/// Dismiss: mark as resolved without applying any fix.
 pub async fn review_reject(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(req): Json<ReviewActionRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let mut queue = state.review_queue.write().unwrap();
-
-    let existed = queue.iter().any(|i| i.id == req.id && i.app_id == app_id);
-    if !existed {
-        return Err((StatusCode::NOT_FOUND, "review item not found".to_string()));
+    let resolved = state.log_store.lock().unwrap().resolve(&app_id, req.id);
+    if resolved {
+        Ok(Json(serde_json::json!({"status": "ok"})))
+    } else {
+        Err((StatusCode::NOT_FOUND, "log entry not found".to_string()))
     }
-
-    queue.retain(|i| !(i.id == req.id && i.app_id == app_id));
-
-    Ok(Json(serde_json::json!({"status": "ok"})))
 }
 
 #[derive(serde::Deserialize)]
 pub struct ReviewFixRequest {
     id: u64,
-    /// Map of intent_id → list of {seed, lang} to add
-    /// e.g. {"return_item": [{"seed": "received wrong item", "lang": "en"}]}
     seeds_by_intent: HashMap<String, Vec<SeedWithLang>>,
 }
 
@@ -204,6 +107,7 @@ pub struct SeedWithLang {
     lang: String,
 }
 
+/// Apply seed fixes, then resolve this entry and re-check similar unresolved entries.
 pub async fn review_fix(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -211,76 +115,66 @@ pub async fn review_fix(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    // Verify item exists
+    // Verify entry exists
     {
-        let queue = state.review_queue.read().unwrap();
-        if !queue.iter().any(|i| i.id == req.id && i.app_id == app_id) {
-            return Err((StatusCode::NOT_FOUND, "review item not found".to_string()));
+        let mut store = state.log_store.lock().unwrap();
+        let result = store.query(&LogQuery {
+            app_id: Some(app_id.clone()),
+            resolved: Some(false),
+            ..Default::default()
+        });
+        if !result.records.iter().any(|r| r.id == req.id) {
+            return Err((StatusCode::NOT_FOUND, "log entry not found".to_string()));
         }
     }
 
-    // Convert to pipeline input format
+    // Run seed pipeline
     let seeds_map: HashMap<String, Vec<String>> = req.seeds_by_intent.iter()
         .map(|(id, seeds)| (id.clone(), seeds.iter().map(|s| s.seed.clone()).collect()))
         .collect();
 
-    // Run through shared pipeline (guard + one LLM retry for collisions)
-    let pipeline_result = seed_pipeline(&state, &app_id, &seeds_map, true).await;
+    let pipeline = seed_pipeline(&state, &app_id, &seeds_map, true).await;
 
-    // Re-check ALL items in queue against updated index
-    let mut resolved_count = 0;
-    if !pipeline_result.added.is_empty() {
-        let routers_read = state.routers.read().unwrap();
-        if let Some(router) = routers_read.get(&app_id) {
-            let mut queue = state.review_queue.write().unwrap();
-            let before = queue.len();
-            queue.retain(|item| {
-                if item.app_id != app_id { return true; }
-                let result = router.route_multi(&item.query, 0.3);
+    // Resolve this entry
+    state.log_store.lock().unwrap().resolve(&app_id, req.id);
+
+    // Re-check other unresolved flagged entries against updated router
+    let mut auto_resolved = 0usize;
+    if !pipeline.added.is_empty() {
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(&app_id) {
+            let unresolved = state.log_store.lock().unwrap().query(&LogQuery {
+                app_id: Some(app_id.clone()),
+                resolved: Some(false),
+                limit: 1000,
+                ..Default::default()
+            });
+            for record in &unresolved.records {
+                let result = router.route_multi(&record.query, 0.3);
                 let passes = result.intents.iter()
                     .any(|i| i.confidence == "high" || i.confidence == "medium");
-                !passes
-            });
-            resolved_count = before - queue.len();
+                if passes {
+                    state.log_store.lock().unwrap().resolve(&app_id, record.id);
+                    auto_resolved += 1;
+                }
+            }
         }
     }
 
-    let blocked: Vec<serde_json::Value> = pipeline_result.blocked.iter()
-        .map(|(intent, seed, reason)| serde_json::json!({
-            "seed": seed, "intent": intent, "reason": reason,
-        })).collect();
-
-    let suggestions: Vec<serde_json::Value> = pipeline_result.suggestions.iter()
-        .map(|(intent, seed)| serde_json::json!({
-            "intent": intent, "seed": seed,
-        })).collect();
+    let blocked: Vec<serde_json::Value> = pipeline.blocked.iter()
+        .map(|(intent, seed, reason)| serde_json::json!({"seed": seed, "intent": intent, "reason": reason}))
+        .collect();
 
     Ok(Json(serde_json::json!({
         "status": "ok",
-        "added": pipeline_result.added.len(),
+        "added": pipeline.added.len(),
         "blocked": blocked,
-        "retried": pipeline_result.retried,
-        "suggestions": suggestions,
-        "resolved_count": resolved_count,
+        "retried": pipeline.retried,
+        "auto_resolved": auto_resolved,
     })))
 }
 
-pub async fn review_stats(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Json<serde_json::Value> {
-    let app_id = app_id_from_headers(&headers);
-    let queue = state.review_queue.read().unwrap();
-
-    let app_items: Vec<&ReviewItem> = queue.iter().filter(|i| i.app_id == app_id).collect();
-    Json(serde_json::json!({
-        "total": app_items.len(),
-        "pending": app_items.len(),
-    }))
-}
-
-/// Analyze a review item using full 3-turn review.
-/// Returns the complete analysis for the UI to display.
+/// Run 3-turn LLM analysis on a log entry.
 pub async fn review_analyze(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -289,11 +183,17 @@ pub async fn review_analyze(
     let app_id = app_id_from_headers(&headers);
 
     let (query, detected) = {
-        let queue = state.review_queue.read().unwrap();
-        let item = queue.iter()
-            .find(|i| i.id == req.id && i.app_id == app_id)
-            .ok_or((StatusCode::NOT_FOUND, "review item not found".to_string()))?;
-        (item.query.clone(), item.detected.clone())
+        let mut store = state.log_store.lock().unwrap();
+        let all = store.query(&LogQuery {
+            app_id: Some(app_id.clone()),
+            resolved: None,
+            limit: 5000,
+            ..Default::default()
+        });
+        let record = all.records.into_iter()
+            .find(|r| r.id == req.id)
+            .ok_or((StatusCode::NOT_FOUND, "log entry not found".to_string()))?;
+        (record.query, record.detected_intents)
     };
 
     let review = full_review(&state, &app_id, &query, &detected).await
@@ -304,7 +204,7 @@ pub async fn review_analyze(
         "wrong_detections": review.wrong_detections,
         "languages": review.languages,
         "seeds_to_add": review.seeds_to_add,
-        "seeds_blocked": review.seeds_blocked.iter().map(|(i, s, r)| serde_json::json!({"intent": i, "seed": s, "reason": r})).collect::<Vec<_>>(),
+        "seeds_blocked": review.seeds_blocked.iter().map(|(i,s,r)| serde_json::json!({"intent":i,"seed":s,"reason":r})).collect::<Vec<_>>(),
         "seeds_to_replace": review.seeds_to_replace.iter().map(|r| serde_json::json!({
             "intent": r.intent, "old_seed": r.old_seed, "new_seed": r.new_seed, "reason": r.reason,
         })).collect::<Vec<_>>(),
@@ -313,7 +213,8 @@ pub async fn review_analyze(
     })))
 }
 
-/// Get current seeds for specific intents (used by review UI to show what's in the index)
+// ─── Supporting ──────────────────────────────────────────────────────────────
+
 #[derive(serde::Deserialize)]
 pub struct IntentSeedsRequest {
     intent_ids: Vec<String>,
@@ -327,15 +228,45 @@ pub async fn review_intent_seeds(
     let app_id = app_id_from_headers(&headers);
     let routers = state.routers.read().unwrap();
     let mut result: HashMap<String, Vec<String>> = HashMap::new();
-
     if let Some(router) = routers.get(&app_id) {
         for id in &req.intent_ids {
-            let seeds = router.get_training(id).unwrap_or_default();
-            result.insert(id.clone(), seeds);
+            result.insert(id.clone(), router.get_training(id).unwrap_or_default());
         }
     }
-
     Json(serde_json::json!(result))
+}
+
+pub async fn review_stats(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let store = state.log_store.lock().unwrap();
+    let unresolved = store.count_alive(&app_id);
+    let total = store.count_total(&app_id);
+    Json(serde_json::json!({
+        "total": total,
+        "pending": unresolved,
+    }))
+}
+
+pub async fn get_review_mode(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let mode = state.review_mode.read().unwrap().clone();
+    Json(serde_json::json!({"mode": mode}))
+}
+
+#[derive(serde::Deserialize)]
+pub struct SetReviewModeRequest { mode: String }
+
+pub async fn set_review_mode(
+    State(state): State<AppState>,
+    Json(req): Json<SetReviewModeRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    if !["manual", "auto"].contains(&req.mode.as_str()) {
+        return Err((StatusCode::BAD_REQUEST, "mode must be 'manual' or 'auto'".to_string()));
+    }
+    *state.review_mode.write().unwrap() = req.mode.clone();
+    Ok(Json(serde_json::json!({"mode": req.mode})))
 }
 
 #[derive(serde::Deserialize)]
@@ -344,18 +275,14 @@ pub struct BuildSimilarityRequest {
     corpus: Vec<String>,
 }
 
-/// Build distributional similarity index from seeds + review queries + optional corpus.
 pub async fn build_similarity(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(req): Json<BuildSimilarityRequest>,
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
-
-    // Collect texts: seeds + review queue queries
     let mut texts: Vec<String> = Vec::new();
 
-    // Add all seed phrases
     {
         let routers = state.routers.read().unwrap();
         if let Some(router) = routers.get(&app_id) {
@@ -367,22 +294,23 @@ pub async fn build_similarity(
         }
     }
 
-    // Add review queue queries (real customer language)
+    // Include recent queries from log as real-world vocabulary
     {
-        let queue = state.review_queue.read().unwrap();
-        for item in queue.iter() {
-            if item.app_id == app_id {
-                texts.push(item.query.clone());
-            }
+        let store = state.log_store.lock().unwrap();
+        let result = state.log_store.lock().unwrap().query(&LogQuery {
+            app_id: Some(app_id.clone()),
+            resolved: None,
+            limit: 2000,
+            ..Default::default()
+        });
+        for r in result.records {
+            texts.push(r.query);
         }
     }
 
-    // Add external corpus if provided
     texts.extend(req.corpus);
-
     let text_count = texts.len();
 
-    // Build similarity
     {
         let mut routers = state.routers.write().unwrap();
         if let Some(router) = routers.get_mut(&app_id) {
@@ -391,34 +319,5 @@ pub async fn build_similarity(
         }
     }
 
-    Json(serde_json::json!({
-        "status": "built",
-        "texts_used": text_count,
-        "has_similarity": true,
-    }))
+    Json(serde_json::json!({"status": "built", "texts_used": text_count}))
 }
-
-pub async fn get_review_mode(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
-    let mode = state.review_mode.read().unwrap().clone();
-    Json(serde_json::json!({"mode": mode}))
-}
-
-#[derive(serde::Deserialize)]
-pub struct SetReviewModeRequest {
-    mode: String,
-}
-
-pub async fn set_review_mode(
-    State(state): State<AppState>,
-    Json(req): Json<SetReviewModeRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let valid = ["manual", "auto_review", "auto_learn"];
-    if !valid.contains(&req.mode.as_str()) {
-        return Err((StatusCode::BAD_REQUEST, format!("mode must be one of: {:?}", valid)));
-    }
-    *state.review_mode.write().unwrap() = req.mode.clone();
-    Ok(Json(serde_json::json!({"mode": req.mode})))
-}
-

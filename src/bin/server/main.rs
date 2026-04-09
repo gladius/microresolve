@@ -17,10 +17,13 @@ mod routes_review_llm;
 mod routes_training;
 mod routes_apps;
 mod routes_discovery;
+mod log_store;
 mod routes_review;
 mod routes_import;
+mod routes_connect;
 
 use state::*;
+use log_store::LogStore;
 use asv_router::Router;
 use axum::{
     extract::State,
@@ -98,14 +101,14 @@ async fn main() {
     // Ensure default app exists
     routers.entry("default".to_string()).or_insert_with(Router::new);
 
+    let log_store = LogStore::new(data_dir.as_deref());
+
     let state: AppState = Arc::new(ServerState {
         routers: RwLock::new(routers),
         data_dir,
-        log: Mutex::new(open_log()),
+        log_store: Mutex::new(log_store),
         http: reqwest::Client::new(),
         llm_key,
-        review_queue: RwLock::new(Vec::new()),
-        review_counter: std::sync::atomic::AtomicU64::new(1),
         review_mode: RwLock::new("manual".to_string()),
     });
 
@@ -126,6 +129,7 @@ async fn main() {
         .merge(routes_discovery::routes())
         .merge(routes_review::routes())
         .merge(routes_import::routes())
+        .merge(routes_connect::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
@@ -138,7 +142,6 @@ async fn main() {
     };
 
     println!("ASV Router server listening on {}", addr);
-    println!("Query log: {}", LOG_FILE);
     if let Some(ref dir) = state.data_dir {
         println!("Data directory: {}", dir);
     }

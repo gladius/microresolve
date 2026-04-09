@@ -212,16 +212,15 @@ function ReviewModeSection() {
   if (loading) return <div className="text-zinc-500 text-sm">Loading...</div>;
 
   const modes = [
-    { id: 'manual', label: 'Manual', desc: 'Failed queries queued for human review. You decide the correct intent and add seeds.' },
-    { id: 'auto_review', label: 'Auto-Review', desc: 'LLM suggests fixes. You approve or reject in the Review tab. Nothing applied without your confirmation.' },
-    { id: 'auto_learn', label: 'Auto-Learn', desc: 'LLM detects and fixes failures automatically. Fast but risky — LLM mistakes get applied immediately.' },
+    { id: 'manual', label: 'Manual', desc: 'Review failures manually. You analyze with AI and apply fixes when ready.', color: 'emerald' },
+    { id: 'auto', label: 'Auto', desc: 'Every query is reviewed by LLM automatically. Fixes applied immediately. System learns continuously but costs LLM tokens on every query.', color: 'red' },
   ];
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-white">Review Mode</h2>
-        <p className="text-xs text-zinc-500 mt-1">How failed queries are handled when reported from connected libraries.</p>
+        <p className="text-xs text-zinc-500 mt-1">Controls how the system learns from queries.</p>
       </div>
       <div className="space-y-2">
         {modes.map(m => (
@@ -243,7 +242,7 @@ function ReviewModeSection() {
         ))}
       </div>
       <p className="text-xs text-zinc-600">
-        Auto-Review and Auto-Learn require <code className="text-violet-400">ANTHROPIC_API_KEY</code>.
+        Auto mode requires <code className="text-violet-400">LLM_API_KEY</code> in the server's <code className="text-violet-400">.env</code> file.
       </p>
     </div>
   );

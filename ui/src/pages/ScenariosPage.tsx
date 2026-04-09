@@ -150,7 +150,7 @@ export default function ScenariosPage() {
       updateSession(id, { cycle1, phase: 'reviewing' });
 
       // Phase 3+4: Report failures → auto-learn fixes them via seed_pipeline
-      await api.setReviewMode('auto_learn');
+      await api.setReviewMode('auto');
 
       let failureCount = 0;
       const reviews: ReviewResult[] = [];
@@ -174,7 +174,7 @@ export default function ScenariosPage() {
           turnIndex: i,
           analysis: `Reported: ${r.missed.join(', ')} missed. Auto-learn fixing...`,
           corrections: r.missed.map(intent => ({
-            action: 'auto_learn',
+            action: 'auto',
             intent,
             phrase: r.message.slice(0, 40),
           })),

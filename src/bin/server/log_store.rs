@@ -1,0 +1,377 @@
+//! Binary append log — single source of truth for all queries and review.
+//!
+//! Replaces both the JSONL query log and the in-memory review queue.
+//! One file per app_id: `{data_dir}/logs/{app_id}.bin`
+//!
+//! ## Record format (per entry)
+//! ```text
+//! [u8: alive][u32 LE: payload_len][json bytes: payload_len]
+//! ```
+//! - `alive = 1` → live record
+//! - `alive = 0` → resolved/dismissed (tombstone, written in-place by seek)
+//!
+//! ## Startup
+//! Full file scan rebuilds an in-memory `Vec<LogMeta>` index (~50 bytes each).
+//! 1M entries ≈ 50 MB in memory, ms to scan.
+//!
+//! ## Thread safety
+//! Caller wraps in `Mutex<LogStore>`.
+
+use std::collections::HashMap;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::path::PathBuf;
+
+// ─── Public types ────────────────────────────────────────────────────────────
+
+/// A single routed query. Replaces JSONL log entry + ReviewItem.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LogRecord {
+    pub id: u64,
+    pub query: String,
+    pub app_id: String,
+    pub detected_intents: Vec<String>,
+    /// "high", "medium", "low", "none"
+    pub confidence: String,
+    /// "miss", "low_confidence", "false_positive" — None = clean routing
+    pub flag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    pub timestamp_ms: u64,
+    pub router_version: u64,
+    /// "local" or "connected"
+    pub source: String,
+}
+
+impl LogRecord {
+    /// Derive flag from routing output. Called at log time, not review time.
+    pub fn compute_flag(detected: &[String], best_confidence: &str) -> Option<String> {
+        if detected.is_empty() {
+            Some("miss".to_string())
+        } else if best_confidence == "low" || best_confidence == "none" {
+            Some("low_confidence".to_string())
+        } else {
+            None
+        }
+    }
+}
+
+pub struct LogQuery {
+    pub app_id: Option<String>,
+    /// Filter by specific flag value: "miss", "low_confidence", "false_positive"
+    pub flag: Option<String>,
+    /// When true, only return records that have any flag set (skip clean routing)
+    pub flagged_only: bool,
+    /// None = all; Some(false) = unresolved only; Some(true) = resolved only
+    pub resolved: Option<bool>,
+    pub since_ms: Option<u64>,
+    pub limit: usize,
+    pub offset: usize,
+}
+
+impl Default for LogQuery {
+    fn default() -> Self {
+        Self {
+            app_id: None,
+            flag: None,
+            flagged_only: false,
+            resolved: Some(false),
+            since_ms: None,
+            limit: 50,
+            offset: 0,
+        }
+    }
+}
+
+pub struct LogQueryResult {
+    pub total: usize,  // matching records before offset/limit
+    pub records: Vec<LogRecord>,
+}
+
+// ─── Internal ────────────────────────────────────────────────────────────────
+
+/// Compact index entry — kept in memory, avoids reading file for filtering.
+#[derive(Debug, Clone)]
+struct LogMeta {
+    offset: u64,
+    payload_len: u32,
+    id: u64,
+    timestamp_ms: u64,
+    flag: Option<String>,
+    confidence: String,
+    alive: bool,
+    /// Payload cached when no backing file (in-memory mode).
+    cached: Option<Vec<u8>>,
+}
+
+struct AppLog {
+    file: Option<File>,
+    size: u64,
+    index: Vec<LogMeta>,
+    next_id: u64,
+}
+
+impl AppLog {
+    fn in_memory() -> Self {
+        Self { file: None, size: 0, index: Vec::new(), next_id: 0 }
+    }
+
+    fn open(path: &PathBuf) -> std::io::Result<Self> {
+        let mut file = OpenOptions::new().read(true).write(true).create(true).open(path)?;
+        let mut index = Vec::new();
+        let mut offset = 0u64;
+        let mut next_id = 0u64;
+
+        loop {
+            let mut header = [0u8; 5];
+            match file.read_exact(&mut header) {
+                Ok(_) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                Err(e) => return Err(e),
+            }
+            let alive = header[0] == 1;
+            let payload_len = u32::from_le_bytes([header[1], header[2], header[3], header[4]]);
+            let mut payload = vec![0u8; payload_len as usize];
+            if let Err(e) = file.read_exact(&mut payload) {
+                eprintln!("[log_store] truncated record at offset {}: {}", offset, e);
+                break;
+            }
+
+            if let Ok(record) = serde_json::from_slice::<LogRecord>(&payload) {
+                next_id = next_id.max(record.id + 1);
+                index.push(LogMeta {
+                    offset,
+                    payload_len,
+                    id: record.id,
+                    timestamp_ms: record.timestamp_ms,
+                    flag: record.flag,
+                    confidence: record.confidence,
+                    alive,
+                    cached: None,
+                });
+            }
+            offset += 5 + payload_len as u64;
+        }
+
+        Ok(Self { file: Some(file), size: offset, index, next_id })
+    }
+}
+
+// ─── LogStore ────────────────────────────────────────────────────────────────
+
+pub struct LogStore {
+    data_dir: Option<PathBuf>,
+    apps: HashMap<String, AppLog>,
+}
+
+impl LogStore {
+    /// Create store. If `data_dir` is Some, persists to `{data_dir}/logs/`.
+    /// Existing log files are scanned and indexed on startup.
+    pub fn new(data_dir: Option<&str>) -> Self {
+        let data_dir = data_dir.map(|d| {
+            let p = PathBuf::from(d).join("logs");
+            let _ = fs::create_dir_all(&p);
+            p
+        });
+        let mut store = Self { data_dir, apps: HashMap::new() };
+        store.scan_existing();
+        store
+    }
+
+    fn scan_existing(&mut self) {
+        let dir = match self.data_dir.clone() {
+            Some(d) => d,
+            None => return,
+        };
+        let Ok(entries) = fs::read_dir(&dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "bin").unwrap_or(false) {
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    match AppLog::open(&path) {
+                        Ok(app_log) => {
+                            let count = app_log.index.len();
+                            eprintln!("[log_store] loaded app={} records={}", stem, count);
+                            self.apps.insert(stem.to_string(), app_log);
+                        }
+                        Err(e) => eprintln!("[log_store] error loading {}: {}", stem, e),
+                    }
+                }
+            }
+        }
+    }
+
+    fn get_or_create(&mut self, app_id: &str) -> &mut AppLog {
+        if self.apps.contains_key(app_id) {
+            return self.apps.get_mut(app_id).unwrap();
+        }
+        let app_log = match self.data_dir.as_ref().map(|d| d.join(format!("{}.bin", app_id))) {
+            Some(path) => AppLog::open(&path).unwrap_or_else(|e| {
+                eprintln!("[log_store] cannot open {}: {}", path.display(), e);
+                AppLog::in_memory()
+            }),
+            None => AppLog::in_memory(),
+        };
+        self.apps.insert(app_id.to_string(), app_log);
+        self.apps.get_mut(app_id).unwrap()
+    }
+
+    /// Append a record. Returns the assigned id.
+    pub fn append(&mut self, mut record: LogRecord) -> u64 {
+        let app_id = record.app_id.clone();
+        let al = self.get_or_create(&app_id);
+
+        record.id = al.next_id;
+        al.next_id += 1;
+
+        let payload = serde_json::to_vec(&record).unwrap_or_default();
+        let payload_len = payload.len() as u32;
+        let offset = al.size;
+
+        if let Some(ref mut file) = al.file {
+            let mut header = [1u8; 5]; // alive=1
+            header[1..5].copy_from_slice(&payload_len.to_le_bytes());
+            let _ = file.seek(SeekFrom::Start(offset));
+            let _ = file.write_all(&header);
+            let _ = file.write_all(&payload);
+            let _ = file.flush();
+        }
+
+        al.size += 5 + payload_len as u64;
+        al.index.push(LogMeta {
+            offset,
+            payload_len,
+            id: record.id,
+            timestamp_ms: record.timestamp_ms,
+            flag: record.flag.clone(),
+            confidence: record.confidence.clone(),
+            alive: true,
+            cached: if al.file.is_none() { Some(payload) } else { None },
+        });
+
+        record.id
+    }
+
+    /// Resolve (dismiss/fix) a record. Flips the alive byte in-place.
+    /// Returns true if found and updated.
+    pub fn resolve(&mut self, app_id: &str, id: u64) -> bool {
+        let al = match self.apps.get_mut(app_id) {
+            Some(a) => a,
+            None => return false,
+        };
+        let meta = match al.index.iter_mut().find(|m| m.id == id && m.alive) {
+            Some(m) => m,
+            None => return false,
+        };
+        let offset = meta.offset;
+        let size = al.size;
+        if let Some(ref mut file) = al.file {
+            let _ = file.seek(SeekFrom::Start(offset));
+            let _ = file.write_all(&[0u8]); // tombstone
+            let _ = file.seek(SeekFrom::Start(size)); // restore write position
+        }
+        meta.alive = false;
+        true
+    }
+
+    /// Query records with filters. Returns most-recent-first.
+    pub fn query(&mut self, q: &LogQuery) -> LogQueryResult {
+        let app_ids: Vec<String> = match &q.app_id {
+            Some(id) => vec![id.clone()],
+            None => self.apps.keys().cloned().collect(),
+        };
+
+        // Collect owned copies of matching meta fields to avoid holding a borrow into self.apps
+        struct Candidate { app_id: String, offset: u64, payload_len: u32, timestamp_ms: u64, cached: Option<Vec<u8>> }
+
+        let mut candidates: Vec<Candidate> = Vec::new();
+        for app_id in &app_ids {
+            let Some(al) = self.apps.get(app_id) else { continue };
+            for meta in &al.index {
+                if !Self::matches(meta, q) { continue; }
+                candidates.push(Candidate {
+                    app_id: app_id.clone(),
+                    offset: meta.offset,
+                    payload_len: meta.payload_len,
+                    timestamp_ms: meta.timestamp_ms,
+                    cached: meta.cached.clone(),
+                });
+            }
+        }
+
+        candidates.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
+        let total = candidates.len();
+
+        let mut records = Vec::new();
+        for c in candidates.into_iter().skip(q.offset).take(q.limit) {
+            let record = if let Some(cached) = c.cached {
+                serde_json::from_slice(&cached).ok()
+            } else {
+                self.read_at(&c.app_id, c.offset, c.payload_len)
+            };
+            if let Some(r) = record { records.push(r); }
+        }
+
+        LogQueryResult { total, records }
+    }
+
+    fn matches(meta: &LogMeta, q: &LogQuery) -> bool {
+        if let Some(resolved) = q.resolved {
+            // resolved=false → want unresolved → alive must be true
+            // resolved=true  → want resolved   → alive must be false
+            if meta.alive == resolved { return false; }
+        }
+        if q.flagged_only && meta.flag.is_none() { return false; }
+        if let Some(ref flag) = q.flag {
+            if meta.flag.as_deref() != Some(flag.as_str()) { return false; }
+        }
+        if let Some(since) = q.since_ms {
+            if meta.timestamp_ms < since { return false; }
+        }
+        true
+    }
+
+    fn read_at(&mut self, app_id: &str, offset: u64, payload_len: u32) -> Option<LogRecord> {
+        let al = self.apps.get_mut(app_id)?;
+        let file = al.file.as_mut()?;
+        file.seek(SeekFrom::Start(offset + 5)).ok()?; // skip 5-byte header
+        let mut buf = vec![0u8; payload_len as usize];
+        file.read_exact(&mut buf).ok()?;
+        serde_json::from_slice(&buf).ok()
+    }
+
+    /// Number of alive (unresolved) records for an app.
+    pub fn count_alive(&self, app_id: &str) -> usize {
+        self.apps.get(app_id)
+            .map(|al| al.index.iter().filter(|m| m.alive).count())
+            .unwrap_or(0)
+    }
+
+    /// Total records (alive + resolved) for an app.
+    pub fn count_total(&self, app_id: &str) -> usize {
+        self.apps.get(app_id).map(|al| al.index.len()).unwrap_or(0)
+    }
+
+    /// Stats for all apps.
+    pub fn stats(&self) -> Vec<serde_json::Value> {
+        self.apps.iter().map(|(app_id, al)| {
+            let total = al.index.len();
+            let alive = al.index.iter().filter(|m| m.alive).count();
+            let flags: HashMap<&str, usize> = al.index.iter()
+                .filter(|m| m.alive)
+                .fold(HashMap::new(), |mut acc, m| {
+                    if let Some(ref f) = m.flag {
+                        *acc.entry(f.as_str()).or_insert(0) += 1;
+                    }
+                    acc
+                });
+            serde_json::json!({
+                "app_id": app_id,
+                "total": total,
+                "unresolved": alive,
+                "flags": flags,
+                "size_bytes": al.size,
+            })
+        }).collect()
+    }
+}
