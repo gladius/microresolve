@@ -10,6 +10,7 @@ const links = [
   { to: '/scenarios', label: 'Training' },
   { to: '/discovery', label: 'Discovery' },
   { to: '/review', label: 'Review' },
+  { to: '/apps', label: 'Apps' },
   { to: '/import', label: 'Import' },
   { to: '/settings', label: 'Settings' },
 ];
