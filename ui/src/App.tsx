@@ -10,7 +10,7 @@ import DiscoveryPage from '@/pages/DiscoveryPage';
 import ReviewPage from '@/pages/ReviewPage';
 import ImportPage from '@/pages/ImportPage';
 import AppsPage from '@/pages/AppsPage';
-import { AppContext, loadSettings, saveSettings, type AppMode, type AppSettings } from '@/store';
+import { AppContext, loadSettings, saveSettings, type AppSettings } from '@/store';
 import { setApiAppId } from '@/api/client';
 
 export default function App() {
@@ -24,14 +24,12 @@ export default function App() {
     });
   }, []);
 
-  // Sync API client with selected app
   useEffect(() => {
     setApiAppId(settings.selectedAppId);
   }, [settings.selectedAppId]);
 
   const store = {
     settings,
-    setMode: (mode: AppMode) => update({ mode }),
     setThreshold: (threshold: number) => update({ threshold }),
     setSelectedAppId: (selectedAppId: string) => update({ selectedAppId }),
   };

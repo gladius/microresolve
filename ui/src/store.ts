@@ -1,22 +1,17 @@
 import { createContext, useContext } from 'react';
 
-export type AppMode = 'production' | 'learn';
-
 export interface AppSettings {
-  mode: AppMode;
   threshold: number;
   selectedAppId: string;
 }
 
 export interface AppStore {
   settings: AppSettings;
-  setMode: (mode: AppMode) => void;
   setThreshold: (t: number) => void;
   setSelectedAppId: (appId: string) => void;
 }
 
 const defaults: AppSettings = {
-  mode: 'production',
   threshold: 0.3,
   selectedAppId: 'default',
 };
@@ -38,7 +33,6 @@ export function saveSettings(settings: AppSettings) {
 
 export const AppContext = createContext<AppStore>({
   settings: defaults,
-  setMode: () => {},
   setThreshold: () => {},
   setSelectedAppId: () => {},
 });

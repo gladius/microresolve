@@ -29,7 +29,12 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: appHeaders() });
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-  return res.json();
+  const data = await res.json();
+  // Server returns {"error": "..."} for missing apps — treat as empty
+  if (data && typeof data === 'object' && 'error' in data && !Array.isArray(data)) {
+    return [] as unknown as T;
+  }
+  return data;
 }
 
 // --- Types ---

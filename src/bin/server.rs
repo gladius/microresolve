@@ -67,6 +67,14 @@ fn app_id_from_headers(headers: &HeaderMap) -> String {
         .to_string()
 }
 
+/// Ensure an app's router exists, creating an empty one if needed.
+fn ensure_app(state: &AppState, app_id: &str) {
+    let exists = state.routers.read().unwrap().contains_key(app_id);
+    if !exists {
+        state.routers.write().unwrap().entry(app_id.to_string()).or_insert_with(Router::new);
+    }
+}
+
 /// Persist a router's state to the data directory if configured.
 fn maybe_persist(state: &ServerState, app_id: &str, router: &Router) {
     if let Some(ref dir) = state.data_dir {
@@ -490,10 +498,11 @@ async fn list_intents(
     headers: HeaderMap,
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
+    ensure_app(&state, &app_id);
     let routers = state.routers.read().unwrap();
     let router = match routers.get(&app_id) {
         Some(r) => r,
-        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
+        None => return Json(serde_json::json!([])),
     };
     let mut ids = router.intent_ids();
     ids.sort();

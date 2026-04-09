@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore, type AppMode } from '@/store';
-import { api } from '@/api/client';
+import { api, setApiAppId } from '@/api/client';
 import SidebarLayout, { type SidebarItem } from '@/components/SidebarLayout';
 
 export default function SettingsPage() {
-  const [section, setSection] = useState('mode');
+  const [section, setSection] = useState('apps');
 
   const items: SidebarItem[] = [
-    { id: 'mode', label: 'Router Mode' },
+    { id: 'apps', label: 'Apps' },
     { id: 'review_mode', label: 'Review Mode' },
     { id: 'llm', label: 'LLM / AI' },
     { id: 'languages', label: 'Languages' },
@@ -22,13 +23,139 @@ export default function SettingsPage() {
       onSelect={setSection}
     >
       <div className="p-5 max-w-2xl">
-        {section === 'mode' && <ModeSection />}
+        {section === 'apps' && <AppsSection />}
         {section === 'review_mode' && <ReviewModeSection />}
         {section === 'llm' && <LLMSection />}
         {section === 'languages' && <LanguagesSection />}
         {section === 'data' && <DataSection />}
       </div>
     </SidebarLayout>
+  );
+}
+
+function AppsSection() {
+  const navigate = useNavigate();
+  const [apps, setApps] = useState<{ id: string; intents: number }[]>([]);
+  const [newName, setNewName] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const currentApp = localStorage.getItem('asv_app_id') || 'default';
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const appIds = await api.listApps();
+      const infos: { id: string; intents: number }[] = [];
+      for (const id of appIds) {
+        setApiAppId(id);
+        try {
+          const intents = await api.listIntents();
+          infos.push({ id, intents: intents.length });
+        } catch {
+          infos.push({ id, intents: 0 });
+        }
+      }
+      setApiAppId(currentApp);
+      setApps(infos);
+    } catch { /* */ }
+    setLoading(false);
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const handleCreate = async () => {
+    const name = newName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (!name) return;
+    try {
+      await api.createApp(name);
+      setNewName('');
+      refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed');
+    }
+  };
+
+  const handleSwitch = (appId: string) => {
+    setApiAppId(appId);
+    localStorage.setItem('asv_app_id', appId);
+    window.location.href = '/intents';
+  };
+
+  const handleDelete = async (appId: string) => {
+    if (appId === 'default') return;
+    if (!confirm(`Delete "${appId}" and all its intents?`)) return;
+    try {
+      await api.deleteApp(appId);
+      if (currentApp === appId) handleSwitch('default');
+      else refresh();
+    } catch { alert('Delete failed'); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Apps</h2>
+        <p className="text-xs text-zinc-500 mt-1">Each app is an isolated workspace with its own intents and seeds.</p>
+      </div>
+
+      {/* Import banner */}
+      <div
+        onClick={() => navigate('/import')}
+        className="bg-violet-500/5 border border-violet-500/20 rounded-lg p-4 cursor-pointer hover:border-violet-500/40 transition-colors"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-violet-400">Import API Spec</div>
+            <div className="text-xs text-zinc-500 mt-0.5">OpenAPI, Swagger 2.0, or Postman Collection — auto-generates intents with AI seeds</div>
+          </div>
+          <span className="text-violet-400 text-sm shrink-0 ml-4">Import →</span>
+        </div>
+      </div>
+
+      {/* Create new */}
+      <div className="flex gap-2">
+        <input
+          value={newName}
+          onChange={e => setNewName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+          onKeyDown={e => e.key === 'Enter' && handleCreate()}
+          placeholder="new-app-name"
+          className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white font-mono focus:border-violet-500 focus:outline-none"
+        />
+        <button onClick={handleCreate} disabled={!newName.trim()} className="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 text-violet-400 rounded hover:bg-zinc-700 disabled:opacity-30">
+          Create
+        </button>
+      </div>
+
+      {/* App list */}
+      {loading ? (
+        <div className="text-xs text-zinc-500 py-4">Loading...</div>
+      ) : (
+        <div className="border border-zinc-800 rounded-lg divide-y divide-zinc-800/50">
+          {apps.map(app => (
+            <div
+              key={app.id}
+              onClick={() => handleSwitch(app.id)}
+              className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${app.id === currentApp ? 'bg-violet-500/5' : 'hover:bg-zinc-800/40'}`}
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-white font-mono">{app.id}</span>
+                  {app.id === currentApp && (
+                    <span className="text-[9px] text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded">active</span>
+                  )}
+                </div>
+                <div className="text-[11px] text-zinc-500">{app.intents} intents</div>
+              </div>
+              {app.id !== 'default' && (
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(app.id); }} className="text-xs text-zinc-600 hover:text-red-400">
+                  Delete
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

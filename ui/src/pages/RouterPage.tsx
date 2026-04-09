@@ -97,13 +97,7 @@ export default function RouterPage() {
       const latency = performance.now() - t0;
       const msgIndex = messages.length + 1; // +1 for the query message we just pushed
 
-      if (settings.mode === 'learn') {
-        // Push result with reviewing=true, then start LLM review
-        push({ type: 'result', result, latency, query: raw, reviewing: true });
-        runReview(msgIndex, raw, result);
-      } else {
-        push({ type: 'result', result, latency, query: raw });
-      }
+      push({ type: 'result', result, latency, query: raw });
     } catch (err) {
       push({ type: 'error', text: String(err) });
     }
@@ -135,14 +129,6 @@ export default function RouterPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)]">
-      {settings.mode === 'learn' && (
-        <div className="mb-3">
-          <span className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-full font-semibold uppercase">
-            Learn Mode
-          </span>
-        </div>
-      )}
-
       <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
         {messages.length === 0 && (
           <div className="text-zinc-600 text-sm text-center py-16">

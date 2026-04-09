@@ -74,7 +74,7 @@ export default function DashboardPage() {
       setWorkflows(Array.isArray(wRaw) ? wRaw : (wRaw.workflows || []));
       setTemporal(t);
       setEscalations(Array.isArray(eRaw) ? eRaw : (eRaw.patterns || []));
-      setCooc(c);
+      setCooc(Array.isArray(c) ? c : []);
     } catch { /* */ }
   }, []);
 
