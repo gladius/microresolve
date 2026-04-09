@@ -1,0 +1,200 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Project Management API",
+    "version": "1.0.0",
+    "description": "API for managing projects, tickets, sprints, and team collaboration"
+  },
+  "paths": {
+    "/tickets": {
+      "post": {
+        "operationId": "createTicket",
+        "summary": "Create a ticket",
+        "description": "Create a new ticket in a project. Requires title, description, and assignee.",
+        "tags": ["Tickets"]
+      },
+      "get": {
+        "operationId": "listTickets",
+        "summary": "List tickets",
+        "description": "List all tickets in the current project. Supports filtering by status, assignee, and priority.",
+        "tags": ["Tickets"]
+      }
+    },
+    "/tickets/{id}": {
+      "get": {
+        "operationId": "getTicket",
+        "summary": "Get ticket details",
+        "description": "Retrieve details of a specific ticket including comments and activity history.",
+        "tags": ["Tickets"],
+        "parameters": [{"name": "id", "in": "path", "required": true}]
+      },
+      "patch": {
+        "operationId": "updateTicket",
+        "summary": "Update a ticket",
+        "description": "Update ticket fields like title, description, status, priority, or assignee.",
+        "tags": ["Tickets"],
+        "parameters": [{"name": "id", "in": "path", "required": true}]
+      },
+      "delete": {
+        "operationId": "deleteTicket",
+        "summary": "Delete a ticket",
+        "description": "Permanently delete a ticket and all its comments. This cannot be undone.",
+        "tags": ["Tickets"],
+        "parameters": [{"name": "id", "in": "path", "required": true}]
+      }
+    },
+    "/tickets/{id}/assign": {
+      "post": {
+        "operationId": "assignTicket",
+        "summary": "Assign a ticket",
+        "description": "Assign a ticket to a team member. Changes the assignee and notifies them.",
+        "tags": ["Tickets"],
+        "parameters": [{"name": "id", "in": "path", "required": true}]
+      }
+    },
+    "/tickets/{id}/close": {
+      "post": {
+        "operationId": "closeTicket",
+        "summary": "Close a ticket",
+        "description": "Mark a ticket as closed or resolved. Sets the completion date.",
+        "tags": ["Tickets"]
+      }
+    },
+    "/projects": {
+      "post": {
+        "operationId": "createProject",
+        "summary": "Create a project",
+        "description": "Create a new project with name, description, and team members.",
+        "tags": ["Projects"]
+      },
+      "get": {
+        "operationId": "listProjects",
+        "summary": "List projects",
+        "description": "List all projects the current user has access to.",
+        "tags": ["Projects"]
+      }
+    },
+    "/projects/{id}": {
+      "get": {
+        "operationId": "getProject",
+        "summary": "Get project details",
+        "description": "Retrieve project details including ticket counts, team members, and settings.",
+        "tags": ["Projects"],
+        "parameters": [{"name": "id", "in": "path", "required": true}]
+      },
+      "patch": {
+        "operationId": "updateProject",
+        "summary": "Update a project",
+        "description": "Update project name, description, or settings.",
+        "tags": ["Projects"]
+      },
+      "delete": {
+        "operationId": "deleteProject",
+        "summary": "Delete a project",
+        "description": "Delete a project and all its tickets, sprints, and data. This cannot be undone.",
+        "tags": ["Projects"]
+      }
+    },
+    "/users": {
+      "post": {
+        "operationId": "createUser",
+        "summary": "Create a user",
+        "description": "Invite a new user to the workspace. Sends an invitation email.",
+        "tags": ["Users"]
+      },
+      "get": {
+        "operationId": "listUsers",
+        "summary": "List users",
+        "description": "List all users in the workspace with their roles and status.",
+        "tags": ["Users"]
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "operationId": "getUser",
+        "summary": "Get user profile",
+        "description": "Retrieve user profile details including assigned tickets and activity.",
+        "tags": ["Users"],
+        "parameters": [{"name": "id", "in": "path", "required": true}]
+      },
+      "patch": {
+        "operationId": "updateUser",
+        "summary": "Update user",
+        "description": "Update user profile, role, or permissions.",
+        "tags": ["Users"]
+      },
+      "delete": {
+        "operationId": "deactivateUser",
+        "summary": "Deactivate a user",
+        "description": "Deactivate a user account. Reassigns their tickets to the project lead.",
+        "tags": ["Users"]
+      }
+    },
+    "/comments": {
+      "post": {
+        "operationId": "addComment",
+        "summary": "Add a comment",
+        "description": "Add a comment to a ticket. Supports mentions and attachments.",
+        "tags": ["Comments"]
+      }
+    },
+    "/comments/{id}": {
+      "patch": {
+        "operationId": "editComment",
+        "summary": "Edit a comment",
+        "description": "Edit an existing comment on a ticket.",
+        "tags": ["Comments"]
+      },
+      "delete": {
+        "operationId": "deleteComment",
+        "summary": "Delete a comment",
+        "description": "Remove a comment from a ticket.",
+        "tags": ["Comments"]
+      }
+    },
+    "/sprints": {
+      "post": {
+        "operationId": "createSprint",
+        "summary": "Create a sprint",
+        "description": "Create a new sprint with start and end dates. Add tickets to plan the iteration.",
+        "tags": ["Sprints"]
+      },
+      "get": {
+        "operationId": "listSprints",
+        "summary": "List sprints",
+        "description": "List all sprints in a project with their status and progress.",
+        "tags": ["Sprints"]
+      }
+    },
+    "/sprints/{id}/start": {
+      "post": {
+        "operationId": "startSprint",
+        "summary": "Start a sprint",
+        "description": "Start a sprint. Moves all tickets in the sprint to 'in progress' status.",
+        "tags": ["Sprints"]
+      }
+    },
+    "/sprints/{id}/complete": {
+      "post": {
+        "operationId": "completeSprint",
+        "summary": "Complete a sprint",
+        "description": "Mark a sprint as complete. Unfinished tickets move to the backlog.",
+        "tags": ["Sprints"]
+      }
+    },
+    "/labels": {
+      "post": {
+        "operationId": "createLabel",
+        "summary": "Create a label",
+        "description": "Create a label for categorizing tickets. Labels have a name and color.",
+        "tags": ["Labels"]
+      },
+      "get": {
+        "operationId": "listLabels",
+        "summary": "List labels",
+        "description": "List all available labels in the project.",
+        "tags": ["Labels"]
+      }
+    }
+  }
+}

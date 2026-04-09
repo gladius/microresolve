@@ -310,18 +310,36 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
     return allSeeds.filter(s => s.seed.toLowerCase().includes(q));
   }, [allSeeds, seedSearch]);
 
+  const [seedWarning, setSeedWarning] = useState('');
+
   const handleAddSeed = async () => {
     if (!newSeed.trim()) return;
-    await api.addSeed(intent.id, newSeed.trim());
-    setNewSeed('');
-    onRefresh();
+    setSeedWarning('');
+    const result = await api.addSeed(intent.id, newSeed.trim());
+    if (result.added) {
+      setNewSeed('');
+      onRefresh();
+    } else if (result.reason) {
+      setSeedWarning(result.reason);
+    } else if (result.conflicts?.length) {
+      setSeedWarning(result.conflicts.map(c => `"${c.term}" conflicts with ${c.competing_intent}`).join('; '));
+    } else if (result.redundant) {
+      setSeedWarning('All terms already covered by existing seeds');
+    }
   };
 
   const handleBulkAdd = async () => {
     const lines = bulkText.split('\n').map(s => s.trim()).filter(Boolean);
     if (lines.length === 0) return;
+    const warnings: string[] = [];
     for (const line of lines) {
-      await api.addSeed(intent.id, line);
+      const result = await api.addSeed(intent.id, line);
+      if (!result.added && result.reason) {
+        warnings.push(`"${line}": ${result.reason}`);
+      }
+    }
+    if (warnings.length > 0) {
+      setSeedWarning(`${lines.length - warnings.length} added, ${warnings.length} blocked:\n${warnings.join('\n')}`);
     }
     setBulkText('');
     setShowBulk(false);
@@ -403,6 +421,14 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
             </button>
           </div>
         )}
+        {/* Guard warning */}
+        {seedWarning && (
+          <div className="bg-amber-900/20 border border-amber-800/50 rounded px-3 py-2 text-xs text-amber-400 flex items-start gap-2">
+            <span className="shrink-0">⚠</span>
+            <span className="whitespace-pre-wrap">{seedWarning}</span>
+            <button onClick={() => setSeedWarning('')} className="shrink-0 text-zinc-500 hover:text-white ml-auto">×</button>
+          </div>
+        )}
         {/* AI Generate */}
         <div>
           <button
@@ -452,13 +478,20 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
                     try {
                       const langs = Array.from(aiLangs);
                       const parsed = await api.generateSeeds(intent.id, aiDescription, langs);
-                      // Add generated seeds to the intent
+                      // Add generated seeds through guard
+                      let added = 0;
+                      const blocked: string[] = [];
                       for (const lang of langs) {
                         for (const seed of parsed.seeds_by_lang[lang] || []) {
-                          await api.addSeed(intent.id, seed);
+                          const r = await api.addSeed(intent.id, seed, lang);
+                          if (r.added) { added++; }
+                          else if (r.reason) { blocked.push(`"${seed}": ${r.reason}`); }
                         }
                       }
-                      setGenStatus(`Added ${parsed.total} seeds`);
+                      let msg = `Added ${added} seeds`;
+                      if (blocked.length > 0) msg += `. ${blocked.length} blocked by guard.`;
+                      setGenStatus(msg);
+                      if (blocked.length > 0) setSeedWarning(blocked.join('\n'));
                       onRefresh();
                     } catch (e) {
                       setGenStatus('Error: ' + (e as Error).message);

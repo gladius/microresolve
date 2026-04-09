@@ -118,7 +118,14 @@ export const api = {
   addIntentMultilingual: (id: string, seeds_by_lang: Record<string, string[]>, intent_type?: IntentType, metadata?: Record<string, string[]>) =>
     post<void>('/intents/multilingual', { id, seeds_by_lang, intent_type, metadata }),
   addSeed: (intent_id: string, seed: string, lang = 'en') =>
-    post<{ added: boolean; counts: Record<string, number> }>('/intents/add_seed', { intent_id, seed, lang }),
+    post<{
+      added: boolean;
+      counts: Record<string, number>;
+      new_terms: string[];
+      conflicts: { term: string; competing_intent: string; severity: number }[];
+      redundant: boolean;
+      reason: string | null;
+    }>('/intents/add_seed', { intent_id, seed, lang }),
   removeSeed: (intent_id: string, seed: string) =>
     post<void>('/intents/remove_seed', { intent_id, seed }),
   deleteIntent: (id: string) => post<void>('/intents/delete', { id }),

@@ -199,6 +199,7 @@ async fn main() {
         .route("/api/apps", post(create_app))
         .route("/api/apps", delete(delete_app))
         .route("/api/import/spec", post(import_spec))
+        .route("/api/import/spec/llm", post(import_spec_llm))
         .route("/api/discover", post(discover))
         .route("/api/discover/apply", post(discover_apply))
         .route("/api/report", post(report_query))
@@ -1780,6 +1781,139 @@ async fn call_llm(
     }
 }
 
+// --- Shared seed pipeline: guard + one LLM retry ---
+
+/// Result of the seed pipeline.
+#[derive(Debug, Clone, serde::Serialize)]
+struct SeedPipelineResult {
+    /// Seeds that were successfully added: (intent_id, seed)
+    added: Vec<(String, String)>,
+    /// Seeds permanently blocked after retry: (intent_id, seed, reason)
+    blocked: Vec<(String, String, String)>,
+    /// How many seeds were retried via LLM
+    retried: usize,
+    /// LLM-suggested alternatives for user-edited seeds (when auto_apply=false)
+    suggestions: Vec<(String, String)>, // (intent_id, suggested_seed)
+}
+
+/// Shared seed pipeline used by all flows that add seeds.
+///
+/// 1. Runs each seed through `add_seed_checked`
+/// 2. Collects blocked seeds with reasons
+/// 3. If LLM available: one retry with collision info
+/// 4. auto_apply_retry=true: silently apply alternatives (for LLM-generated seeds)
+///    auto_apply_retry=false: return alternatives as suggestions (for user-edited seeds)
+async fn seed_pipeline(
+    state: &AppState,
+    app_id: &str,
+    seeds_by_intent: &HashMap<String, Vec<String>>,
+    auto_apply_retry: bool,
+) -> SeedPipelineResult {
+    let mut added = Vec::new();
+    let mut blocked_for_retry: Vec<(String, String, String)> = Vec::new(); // (intent, seed, reason)
+    let mut blocked_final = Vec::new();
+
+    // Step 1: Try all seeds through the guard
+    {
+        let mut routers = state.routers.write().unwrap();
+        if let Some(router) = routers.get_mut(app_id) {
+            for (intent_id, seeds) in seeds_by_intent {
+                for seed in seeds {
+                    let s = seed.trim();
+                    if s.is_empty() { continue; }
+                    let result = router.add_seed_checked(intent_id, s, "en");
+                    if result.added {
+                        added.push((intent_id.clone(), s.to_string()));
+                    } else if !result.conflicts.is_empty() {
+                        // Collision — candidate for retry
+                        let reason = result.conflicts.iter()
+                            .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
+                            .collect::<Vec<_>>().join("; ");
+                        blocked_for_retry.push((intent_id.clone(), s.to_string(), reason));
+                    } else if result.redundant {
+                        // Redundant — silently skip, not worth retrying
+                    } else if let Some(warning) = result.warning {
+                        blocked_final.push((intent_id.clone(), s.to_string(), warning));
+                    }
+                }
+            }
+            if !added.is_empty() {
+                maybe_persist(state, app_id, router);
+            }
+        }
+    }
+
+    // Step 2: If any collisions and LLM available, one retry
+    let mut retried = 0;
+    let mut suggestions = Vec::new();
+
+    if !blocked_for_retry.is_empty() && state.llm_key.is_some() {
+        let blocked_desc: String = blocked_for_retry.iter()
+            .map(|(intent, seed, reason)| format!("  \"{}\" → {}: {}", seed, intent, reason))
+            .collect::<Vec<_>>().join("\n");
+
+        let retry_prompt = format!(
+            "These seed phrases were REJECTED by the collision guard:\n{}\n\n\
+             The guard blocks seeds containing terms that are exclusive to other intents.\n\
+             For each rejected seed, suggest ONE alternative that:\n\
+             - Avoids the specific conflicting terms mentioned above\n\
+             - Uses completely different vocabulary\n\
+             - Still captures the same meaning\n\n\
+             {}\n\n\
+             Respond with ONLY JSON:\n\
+             {{\"seeds_by_intent\": {{\"intent_name\": [\"alternative_seed\"]}}}}\n",
+            blocked_desc, asv_router::seed::SEED_QUALITY_RULES
+        );
+
+        retried = blocked_for_retry.len();
+
+        if let Ok(response) = call_llm(state, &retry_prompt, 500).await {
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
+                if let Some(sbi) = parsed.get("seeds_by_intent").and_then(|v| v.as_object()) {
+                    let mut routers = state.routers.write().unwrap();
+                    if let Some(router) = routers.get_mut(app_id) {
+                        for (intent_id, seeds) in sbi {
+                            if let Some(arr) = seeds.as_array() {
+                                for seed in arr {
+                                    if let Some(s) = seed.as_str() {
+                                        if auto_apply_retry {
+                                            let result = router.add_seed_checked(intent_id, s, "en");
+                                            if result.added {
+                                                added.push((intent_id.clone(), s.to_string()));
+                                            } else {
+                                                // Retry also blocked — give up on this one
+                                                let reason = if !result.conflicts.is_empty() {
+                                                    result.conflicts.iter()
+                                                        .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
+                                                        .collect::<Vec<_>>().join("; ")
+                                                } else {
+                                                    result.warning.unwrap_or("still blocked".to_string())
+                                                };
+                                                blocked_final.push((intent_id.clone(), s.to_string(), reason));
+                                            }
+                                        } else {
+                                            // Return as suggestion for user approval
+                                            suggestions.push((intent_id.clone(), s.to_string()));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if auto_apply_retry && !added.is_empty() {
+                            maybe_persist(state, app_id, router);
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // No LLM available — blocked seeds are final
+        blocked_final.extend(blocked_for_retry);
+    }
+
+    SeedPipelineResult { added, blocked: blocked_final, retried, suggestions }
+}
+
 // --- Review: server-side LLM call ---
 
 async fn review(
@@ -2690,24 +2824,17 @@ async fn report_query(
                                 }
                             }
 
-                            // Auto-learn: apply seeds from Turn 2 immediately
+                            // Auto-learn: apply seeds through shared pipeline (guard + retry)
                             if mode == "auto_learn" {
                                 if let Some(sbi) = parsed2["seeds_by_intent"].as_object() {
-                                    let mut routers = state.routers.write().unwrap();
-                                    if let Some(router) = routers.get_mut(&app_id) {
-                                        for (intent_id, seeds) in sbi {
-                                            if let Some(arr) = seeds.as_array() {
-                                                for seed in arr {
-                                                    if let Some(s) = seed.as_str() {
-                                                        router.add_seed_checked(intent_id, s, "en");
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        maybe_persist(&state, &app_id, router);
-                                    }
+                                    let seeds_map: HashMap<String, Vec<String>> = sbi.iter()
+                                        .filter_map(|(k, v)| {
+                                            v.as_array().map(|arr| {
+                                                (k.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+                                            })
+                                        }).collect();
+                                    let _result = seed_pipeline(&state, &app_id, &seeds_map, true).await;
                                 }
-                                // Auto-learn applied — don't add to queue
                                 return Json(serde_json::json!({"id": id, "status": "auto_applied"}));
                             }
                         }
@@ -2863,47 +2990,17 @@ async fn review_fix(
         }
     }
 
-    // Apply seeds with collision checking
-    let mut added = 0;
-    let mut blocked: Vec<serde_json::Value> = Vec::new();
-    {
-        let mut routers = state.routers.write().unwrap();
-        if let Some(router) = routers.get_mut(&app_id) {
-            for (intent_id, seeds) in &req.seeds_by_intent {
-                for sw in seeds {
-                    let result = router.add_seed_checked(intent_id, &sw.seed, &sw.lang);
-                    if result.added {
-                        added += 1;
-                    } else {
-                        blocked.push(serde_json::json!({
-                            "seed": sw.seed,
-                            "intent": intent_id,
-                            "reason": result.warning.unwrap_or_else(|| {
-                                if result.redundant {
-                                    "All terms already covered".to_string()
-                                } else if !result.conflicts.is_empty() {
-                                    let terms: Vec<String> = result.conflicts.iter()
-                                        .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
-                                        .collect();
-                                    terms.join("; ")
-                                } else {
-                                    "Unknown".to_string()
-                                }
-                            }),
-                        }));
-                    }
-                }
-            }
-            if added > 0 {
-                maybe_persist(&state, &app_id, router);
-            }
-        }
-    } // write lock dropped here
+    // Convert to pipeline input format
+    let seeds_map: HashMap<String, Vec<String>> = req.seeds_by_intent.iter()
+        .map(|(id, seeds)| (id.clone(), seeds.iter().map(|s| s.seed.clone()).collect()))
+        .collect();
 
-    // Re-check ALL items in queue (including the one just fixed) against updated index.
-    // Same route_multi, same threshold. If an item now has medium+ confidence, remove it.
+    // Run through shared pipeline (guard + one LLM retry for collisions)
+    let pipeline_result = seed_pipeline(&state, &app_id, &seeds_map, true).await;
+
+    // Re-check ALL items in queue against updated index
     let mut resolved_count = 0;
-    {
+    if !pipeline_result.added.is_empty() {
         let routers_read = state.routers.read().unwrap();
         if let Some(router) = routers_read.get(&app_id) {
             let mut queue = state.review_queue.write().unwrap();
@@ -2913,16 +3010,28 @@ async fn review_fix(
                 let result = router.route_multi(&item.query, 0.3);
                 let passes = result.intents.iter()
                     .any(|i| i.confidence == "high" || i.confidence == "medium");
-                !passes // keep items that still fail
+                !passes
             });
             resolved_count = before - queue.len();
         }
     }
 
+    let blocked: Vec<serde_json::Value> = pipeline_result.blocked.iter()
+        .map(|(intent, seed, reason)| serde_json::json!({
+            "seed": seed, "intent": intent, "reason": reason,
+        })).collect();
+
+    let suggestions: Vec<serde_json::Value> = pipeline_result.suggestions.iter()
+        .map(|(intent, seed)| serde_json::json!({
+            "intent": intent, "seed": seed,
+        })).collect();
+
     Ok(Json(serde_json::json!({
         "status": "ok",
-        "added": added,
+        "added": pipeline_result.added.len(),
         "blocked": blocked,
+        "retried": pipeline_result.retried,
+        "suggestions": suggestions,
         "resolved_count": resolved_count,
     })))
 }
@@ -3046,6 +3155,81 @@ async fn review_turn2(
     let response = call_llm(&state, &prompt, 200).await?;
     let parsed: serde_json::Value = serde_json::from_str(extract_json(&response))
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse Turn 2 response".to_string()))?;
+
+    // Pre-validate seeds through check_seed (read-only, no modification)
+    if let Some(sbi) = parsed.get("seeds_by_intent").and_then(|v| v.as_object()) {
+        let mut clean_seeds: HashMap<String, Vec<String>> = HashMap::new();
+        let mut blocked_for_retry: Vec<(String, String, String)> = Vec::new();
+
+        {
+            let routers = state.routers.read().unwrap();
+            if let Some(router) = routers.get(&app_id) {
+                for (intent_id, seeds) in sbi {
+                    if let Some(arr) = seeds.as_array() {
+                        for seed in arr {
+                            if let Some(s) = seed.as_str() {
+                                let check = router.check_seed(intent_id, s);
+                                if check.conflicts.is_empty() && !check.redundant
+                                    && check.warning.as_deref() != Some("No content terms after tokenization")
+                                {
+                                    clean_seeds.entry(intent_id.clone()).or_default().push(s.to_string());
+                                } else if !check.conflicts.is_empty() {
+                                    let reason = check.conflicts.iter()
+                                        .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
+                                        .collect::<Vec<_>>().join("; ");
+                                    blocked_for_retry.push((intent_id.clone(), s.to_string(), reason));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // One retry for blocked seeds
+        if !blocked_for_retry.is_empty() && state.llm_key.is_some() {
+            let blocked_desc: String = blocked_for_retry.iter()
+                .map(|(intent, seed, reason)| format!("  \"{}\" → {}: {}", seed, intent, reason))
+                .collect::<Vec<_>>().join("\n");
+
+            let retry_prompt = format!(
+                "These seed phrases were REJECTED by the collision guard:\n{}\n\n\
+                 The guard blocks seeds containing terms exclusive to other intents.\n\
+                 For each rejected seed, suggest ONE alternative that avoids the conflicting terms.\n\
+                 Use completely different vocabulary that still captures the same meaning.\n\n\
+                 {}\n\n\
+                 Respond with ONLY JSON:\n\
+                 {{\"seeds_by_intent\": {{\"intent_name\": [\"alternative_seed\"]}}}}\n",
+                blocked_desc, asv_router::seed::SEED_QUALITY_RULES
+            );
+
+            if let Ok(retry_resp) = call_llm(&state, &retry_prompt, 300).await {
+                if let Ok(retry_parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&retry_resp)) {
+                    if let Some(retry_sbi) = retry_parsed.get("seeds_by_intent").and_then(|v| v.as_object()) {
+                        let routers = state.routers.read().unwrap();
+                        if let Some(router) = routers.get(&app_id) {
+                            for (intent_id, seeds) in retry_sbi {
+                                if let Some(arr) = seeds.as_array() {
+                                    for seed in arr {
+                                        if let Some(s) = seed.as_str() {
+                                            let check = router.check_seed(intent_id, s);
+                                            if check.conflicts.is_empty() && !check.redundant {
+                                                clean_seeds.entry(intent_id.clone()).or_default().push(s.to_string());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return Ok(Json(serde_json::json!({
+            "seeds_by_intent": clean_seeds,
+        })));
+    }
 
     Ok(Json(parsed))
 }
@@ -3240,6 +3424,7 @@ struct ImportSpecRequest {
     spec: String,
 }
 
+/// Import spec with basic seeds from description (no LLM).
 async fn import_spec(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -3247,11 +3432,9 @@ async fn import_spec(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    // Parse the spec (auto-detects OpenAPI vs Postman)
     let parsed = asv_router::import::parse_spec(&req.spec)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    // Import into router
     let mut routers = state.routers.write().unwrap();
     let router = routers.entry(app_id.clone()).or_insert_with(Router::new);
     let result = asv_router::import::import_spec(router, &parsed);
@@ -3274,5 +3457,108 @@ async fn import_spec(
         "created": created.len(),
         "skipped": result.skipped.len(),
         "intents": created,
+    })))
+}
+
+/// Import spec with LLM-generated seeds + shared pipeline (guard + retry).
+#[derive(serde::Deserialize)]
+struct ImportSpecLLMRequest {
+    spec: String,
+}
+
+async fn import_spec_llm(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ImportSpecLLMRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+
+    let parsed = asv_router::import::parse_spec(&req.spec)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
+    // Create intents with minimal seeds from description (so they exist)
+    {
+        let mut routers = state.routers.write().unwrap();
+        let router = routers.entry(app_id.clone()).or_insert_with(Router::new);
+        asv_router::import::import_spec(router, &parsed);
+    }
+
+    // Generate proper seeds via LLM in batches of 10, apply through shared pipeline
+    let mut total_added = 0usize;
+    let mut total_blocked = 0usize;
+
+    for batch in parsed.operations.chunks(10) {
+        let ops_desc: Vec<String> = batch.iter().map(|op| {
+            let intent_name = asv_router::import::to_snake_case(
+                op.operation_id.as_deref().unwrap_or(&op.id)
+            );
+            format!("- {} ({}): {} — {}",
+                intent_name, op.method,
+                op.summary.as_deref().unwrap_or(&op.name),
+                if op.description.len() > 100 { &op.description[..100] } else { &op.description })
+        }).collect();
+
+        let existing_seeds: String = {
+            let routers = state.routers.read().unwrap();
+            if let Some(router) = routers.get(&app_id) {
+                batch.iter().map(|op| {
+                    let name = asv_router::import::to_snake_case(
+                        op.operation_id.as_deref().unwrap_or(&op.id)
+                    );
+                    let seeds = router.get_training(&name).unwrap_or_default();
+                    format!("  {}: {:?}", name, seeds.iter().take(3).collect::<Vec<_>>())
+                }).collect::<Vec<_>>().join("\n")
+            } else { String::new() }
+        };
+
+        let prompt = format!(
+            "Generate 5 diverse seed phrases for each API operation below.\n\
+             These train a keyword-matching router. VOCABULARY DIVERSITY is critical.\n\n\
+             Operations:\n{}\n\n\
+             Current seeds (avoid duplicating these):\n{}\n\n\
+             {}\n\n\
+             For each operation, generate phrases a developer or user would say when they want this action.\n\
+             Mix: short commands, questions, and situational phrases.\n\n\
+             Respond with ONLY JSON:\n\
+             {{\"seeds_by_intent\": {{\"intent_name\": [\"seed1\", \"seed2\", \"seed3\", \"seed4\", \"seed5\"]}}}}\n",
+            ops_desc.join("\n"), existing_seeds, asv_router::seed::SEED_QUALITY_RULES
+        );
+
+        let response = match call_llm(&state, &prompt, 2000).await {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+
+        let seeds_json: serde_json::Value = match serde_json::from_str(extract_json(&response)) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        if let Some(sbi) = seeds_json.get("seeds_by_intent").and_then(|v| v.as_object()) {
+            let seeds_map: HashMap<String, Vec<String>> = sbi.iter()
+                .filter_map(|(k, v)| {
+                    v.as_array().map(|arr| {
+                        (k.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+                    })
+                }).collect();
+
+            // Use shared pipeline: guard + one retry
+            let result = seed_pipeline(&state, &app_id, &seeds_map, true).await;
+            total_added += result.added.len();
+            total_blocked += result.blocked.len();
+        }
+    }
+
+    let intent_names: Vec<String> = parsed.operations.iter().map(|op| {
+        asv_router::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id))
+    }).collect();
+
+    Ok(Json(serde_json::json!({
+        "title": parsed.title,
+        "version": parsed.version,
+        "total_operations": parsed.operations.len(),
+        "seeds_added": total_added,
+        "seeds_blocked": total_blocked,
+        "intents": intent_names,
     })))
 }

@@ -144,7 +144,7 @@ pub fn parse_spec(input: &str) -> Result<ParsedSpec, String> {
 }
 
 /// Convert a string to snake_case intent name.
-fn to_snake_case(s: &str) -> String {
+pub fn to_snake_case(s: &str) -> String {
     let mut result = String::new();
     for (i, c) in s.chars().enumerate() {
         if c.is_uppercase() && i > 0 {

@@ -8,6 +8,7 @@ import DashboardPage from '@/pages/DashboardPage';
 import ScenariosPage from '@/pages/ScenariosPage';
 import DiscoveryPage from '@/pages/DiscoveryPage';
 import ReviewPage from '@/pages/ReviewPage';
+import ImportPage from '@/pages/ImportPage';
 import { AppContext, loadSettings, saveSettings, type AppMode, type AppSettings } from '@/store';
 import { setApiAppId } from '@/api/client';
 
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/scenarios" element={<ScenariosPage />} />
             <Route path="/discovery" element={<DiscoveryPage />} />
             <Route path="/review" element={<ReviewPage />} />
+            <Route path="/import" element={<ImportPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>
