@@ -141,6 +141,7 @@ pub async fn seed_pipeline(
     app_id: &str,
     seeds_by_intent: &HashMap<String, Vec<String>>,
     auto_apply_retry: bool,
+    lang: &str,
 ) -> SeedPipelineResult {
     let mut added = Vec::new();
     let mut blocked_for_retry: Vec<(String, String, String)> = Vec::new(); // (intent, seed, reason)
@@ -154,7 +155,7 @@ pub async fn seed_pipeline(
                 for seed in seeds {
                     let s = seed.trim();
                     if s.is_empty() { continue; }
-                    let result = router.add_seed_checked(intent_id, s, "en");
+                    let result = router.add_seed_checked(intent_id, s, lang);
                     if result.added {
                         added.push((intent_id.clone(), s.to_string()));
                     } else if !result.conflicts.is_empty() {
@@ -210,7 +211,7 @@ pub async fn seed_pipeline(
                                 for seed in arr {
                                     if let Some(s) = seed.as_str() {
                                         if auto_apply_retry {
-                                            let result = router.add_seed_checked(intent_id, s, "en");
+                                            let result = router.add_seed_checked(intent_id, s, lang);
                                             if result.added {
                                                 added.push((intent_id.clone(), s.to_string()));
                                             } else {
@@ -526,7 +527,7 @@ pub async fn apply_review(
 
     // Apply seeds_to_add through pipeline
     if !result.seeds_to_add.is_empty() {
-        let pipeline_result = seed_pipeline(state, app_id, &result.seeds_to_add, true).await;
+        let pipeline_result = seed_pipeline(state, app_id, &result.seeds_to_add, true, "en").await;
         added = pipeline_result.added.len();
 
         // Learn situation n-grams from the failing query for each intent that got seeds.

@@ -1,15 +1,16 @@
 const BASE = '/api';
 
-let currentAppId = 'default';
+let currentNamespaceId = 'default';
 
-export function setApiAppId(appId: string) {
-  currentAppId = appId;
+export function setApiNamespaceId(namespaceId: string) {
+  currentNamespaceId = namespaceId;
 }
+
 
 function appHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (currentAppId && currentAppId !== 'default') {
-    h['X-App-ID'] = currentAppId;
+  if (currentNamespaceId && currentNamespaceId !== 'default') {
+    h['X-Namespace-ID'] = currentNamespaceId;
   }
   return h;
 }
@@ -268,15 +269,64 @@ export const api = {
     history: { role: string; message: string }[];
   }) => post<{ message: string }>('/simulate/respond', config),
 
-  // Apps
-  listApps: () => get<string[]>('/apps'),
-  createApp: (app_id: string) => post<{ created: string }>('/apps', { app_id }),
-  deleteApp: (app_id: string) =>
-    fetch(`${BASE}/apps`, {
+  // Namespaces (isolated routing workspaces)
+  listNamespaces: () => get<{ id: string; description: string }[]>('/namespaces'),
+  createNamespace: (namespace_id: string, description = '') =>
+    post<{ created: string }>('/namespaces', { namespace_id, description }),
+  deleteNamespace: (namespace_id: string) =>
+    fetch(`${BASE}/namespaces`, {
       method: 'DELETE',
       headers: appHeaders(),
-      body: JSON.stringify({ app_id }),
+      body: JSON.stringify({ namespace_id }),
     }).then(r => { if (!r.ok) throw new Error('Delete failed'); }),
+  updateNamespace: (namespace_id: string, description: string) =>
+    fetch(`${BASE}/namespaces`, {
+      method: 'PATCH',
+      headers: appHeaders(),
+      body: JSON.stringify({ namespace_id, description }),
+    }).then(r => { if (!r.ok) throw new Error('Update failed'); }),
+
+  // Domain groups within the current namespace (derived from "domain:intent_id" prefixes)
+  listDomains: () => get<{ name: string; description: string; intent_count: number }[]>('/domains'),
+  listDomainsFor: (namespaceId: string) => {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (namespaceId && namespaceId !== 'default') h['X-Namespace-ID'] = namespaceId;
+    return fetch(`${BASE}/domains`, { headers: h })
+      .then(r => r.json() as Promise<{ name: string; description: string; intent_count: number }[]>);
+  },
+  updateDomain: (domain: string, description: string) =>
+    fetch(`${BASE}/domains`, {
+      method: 'PATCH',
+      headers: appHeaders(),
+      body: JSON.stringify({ domain, description }),
+    }).then(r => { if (!r.ok) throw new Error('Update failed'); }),
+  updateDomainFor: (namespaceId: string, domain: string, description: string) => {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (namespaceId && namespaceId !== 'default') h['X-Namespace-ID'] = namespaceId;
+    return fetch(`${BASE}/domains`, {
+      method: 'PATCH',
+      headers: h,
+      body: JSON.stringify({ domain, description }),
+    }).then(r => { if (!r.ok) throw new Error('Update failed'); });
+  },
+  createDomainFor: (namespaceId: string, domain: string, description: string) => {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (namespaceId && namespaceId !== 'default') h['X-Namespace-ID'] = namespaceId;
+    return fetch(`${BASE}/domains`, {
+      method: 'POST',
+      headers: h,
+      body: JSON.stringify({ domain, description }),
+    }).then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t); }); });
+  },
+  deleteDomainFor: (namespaceId: string, domain: string) => {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (namespaceId && namespaceId !== 'default') h['X-Namespace-ID'] = namespaceId;
+    return fetch(`${BASE}/domains`, {
+      method: 'DELETE',
+      headers: h,
+      body: JSON.stringify({ domain }),
+    }).then(r => { if (!r.ok) throw new Error('Delete failed'); });
+  },
 
   // LLM
   getLLMStatus: () => get<{ configured: boolean; model: string; url: string }>('/llm/status'),

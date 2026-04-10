@@ -48,11 +48,11 @@ type ReviewResult = {
 type TrainingCycle = {
   results: RunResult[];
   pass_count: number;
-  confirmed_count: number;
-  promotable_count: number;
+  confirmed_count?: number;
+  promotable_count?: number;
   total: number;
   accuracy: number;
-  confirmed_rate: number;
+  confirmed_rate?: number;
 };
 
 type Phase = 'generating' | 'routing_1' | 'reviewing' | 'applying' | 'routing_2' | 'done' | 'error';
@@ -145,7 +145,7 @@ export default function ScenariosPage() {
         message: t.customer_message,
         ground_truth: t.ground_truth,
       }));
-      const cycle1 = await api.trainingRun(turns);
+      const cycle1 = await api.trainingRun(turns) as TrainingCycle;
       if (stopRef.current) return;
       updateSession(id, { cycle1, phase: 'reviewing' });
 
@@ -204,7 +204,7 @@ export default function ScenariosPage() {
       });
 
       // Phase 5: Route cycle 2
-      const cycle2 = await api.trainingRun(turns);
+      const cycle2 = await api.trainingRun(turns) as TrainingCycle;
       updateSession(id, { cycle2, phase: 'done' });
 
     } catch (err) {
@@ -489,11 +489,12 @@ function CycleResults({ label, cycle }: { label: string; cycle: TrainingCycle })
 function TurnResult({ result: r, index }: { result: RunResult; index: number }) {
   const [expanded, setExpanded] = useState(false);
 
-  const statusColor = {
+  const statusColor = ({
     pass: 'border-emerald-500/30 bg-emerald-400/5',
     partial: 'border-amber-500/30 bg-amber-400/5',
     fail: 'border-red-500/30 bg-red-400/5',
-  }[r.status];
+    promotable: 'border-amber-500/30 bg-amber-400/5',
+  } as Record<string, string>)[r.status] ?? 'border-zinc-700/30 bg-zinc-800/5';
 
   return (
     <div

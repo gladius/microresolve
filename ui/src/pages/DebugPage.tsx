@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useFetch } from '@/hooks/useFetch';
 import { api, type LogEntry } from '@/api/client';
 
 export default function DebugPage() {
@@ -26,7 +27,7 @@ function CoOccurrenceSection() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useFetch(refresh, [refresh]);
 
   // Build unique intent set and matrix
   const intentSet = new Set<string>();
@@ -131,7 +132,7 @@ function QueryLogSection() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useFetch(refresh, [refresh]);
 
   const handleClear = async () => {
     if (!confirm(`Clear all ${total} log entries?`)) return;

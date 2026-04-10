@@ -1,10 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useFetch } from '@/hooks/useFetch';
 import { api, type IntentInfo, type IntentType } from '@/api/client';
-
-const TYPE_COLORS: Record<IntentType, string> = {
-  action: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
-  context: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
-};
 
 export default function IntentsPage() {
   const [intents, setIntents] = useState<IntentInfo[]>([]);
@@ -21,7 +17,7 @@ export default function IntentsPage() {
     } catch { /* server not running */ }
   }, [selectedId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useFetch(refresh, [refresh]);
 
   const handleReset = async () => {
     await api.reset();
@@ -84,7 +80,6 @@ export default function IntentsPage() {
         {showAdd ? (
           <div className="p-5">
             <AddIntentPanel
-              allIntentIds={allIntentIds}
               onDone={(newId) => {
                 setShowAdd(false);
                 refresh().then(() => setSelectedId(newId));
@@ -716,9 +711,9 @@ function MetadataListEditor({
 // --- Add Intent Panel (simplified two-step) ---
 
 function AddIntentPanel({
-  allIntentIds, onDone, onCancel,
+  onDone, onCancel,
 }: {
-  allIntentIds: string[]; onDone: (id: string) => void; onCancel: () => void;
+  onDone: (id: string) => void; onCancel: () => void;
 }) {
   const [id, setId] = useState('');
   const [intentType, setIntentType] = useState<IntentType>('action');

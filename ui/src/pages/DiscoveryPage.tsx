@@ -81,7 +81,7 @@ export default function DiscoveryPage() {
         <h1 className="text-xl font-semibold text-white">Intent Discovery</h1>
         <p className="text-sm text-zinc-400 mt-1">
           Upload raw queries to automatically discover intent clusters.
-          Results will be created in app: <span className="text-blue-400 font-medium">{settings.selectedAppId}</span>
+          Results will be created in app: <span className="text-blue-400 font-medium">{settings.selectedNamespaceId}</span>
         </p>
       </div>
 
@@ -165,7 +165,7 @@ export default function DiscoveryPage() {
           {applied && (
             <div className="bg-emerald-900/30 border border-emerald-700 rounded-lg px-4 py-3">
               <p className="text-sm text-emerald-400 font-medium">
-                Created {applied.length} intents in "{settings.selectedAppId}"
+                Created {applied.length} intents in "{settings.selectedNamespaceId}"
               </p>
               <p className="text-xs text-emerald-500 mt-1">
                 {applied.join(', ')}
@@ -249,7 +249,7 @@ export default function DiscoveryPage() {
           {/* Apply bar */}
           <div className="sticky bottom-0 bg-zinc-950/90 backdrop-blur border-t border-zinc-800 -mx-4 px-4 py-3 flex items-center justify-between">
             <span className="text-sm text-zinc-400">
-              Creating in: <span className="text-blue-400 font-medium">{settings.selectedAppId}</span>
+              Creating in: <span className="text-blue-400 font-medium">{settings.selectedNamespaceId}</span>
             </span>
             <button
               onClick={handleApply}

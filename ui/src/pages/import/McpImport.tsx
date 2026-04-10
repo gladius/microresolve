@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
+import ImportBreadcrumb from './ImportBreadcrumb';
 
 interface McpTool {
   name: string;
@@ -42,8 +43,11 @@ export default function McpImport() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { settings } = useAppStore();
-  const currentApp = settings.selectedAppId;
-  const headers = { 'Content-Type': 'application/json', 'X-App-ID': currentApp };
+  const currentApp = settings.selectedNamespaceId;
+  const currentDomain = settings.selectedDomain;
+  const languages = settings.languages;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (currentApp && currentApp !== 'default') headers['X-Namespace-ID'] = currentApp;
 
   // Search Smithery registry
   const handleSearch = async () => {
@@ -119,7 +123,7 @@ export default function McpImport() {
     try {
       const res = await fetch('/api/import/mcp/apply', {
         method: 'POST', headers,
-        body: JSON.stringify({ tools_json: mcpJson, selected: Array.from(selected) }),
+        body: JSON.stringify({ tools_json: mcpJson, selected: Array.from(selected), domain: currentDomain, languages }),
       });
       if (!res.ok) throw new Error(await res.text());
       setResult(await res.json());
@@ -148,11 +152,7 @@ export default function McpImport() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/import')} className="text-xs text-zinc-500 hover:text-white">← Back</button>
-        <div>
-          <h2 className="text-lg font-semibold text-white">Import MCP Tools</h2>
-          <p className="text-xs text-zinc-500">Into: <span className="text-violet-400 font-mono">{currentApp}</span></p>
-        </div>
+        <ImportBreadcrumb title="Import MCP Tools" />
       </div>
 
       {error && (

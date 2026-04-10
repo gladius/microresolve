@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
+import ImportBreadcrumb from './ImportBreadcrumb';
 
 interface ParsedOperation {
   id: string; name: string; method: string; path: string;
@@ -33,8 +34,11 @@ export default function OpenApiImport() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { settings } = useAppStore();
-  const currentApp = settings.selectedAppId;
-  const headers = { 'Content-Type': 'application/json', 'X-App-ID': currentApp };
+  const currentApp = settings.selectedNamespaceId;
+  const currentDomain = settings.selectedDomain;
+  const languages = settings.languages;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (currentApp && currentApp !== 'default') headers['X-Namespace-ID'] = currentApp;
 
   const handleParse = async (content: string) => {
     setLoading(true); setError(''); setParsed(null); setResult(null); setRawSpec(content);
@@ -52,7 +56,7 @@ export default function OpenApiImport() {
     if (!rawSpec || selected.size === 0) return;
     setImporting(true); setError('');
     try {
-      const res = await fetch('/api/import/apply', { method: 'POST', headers, body: JSON.stringify({ spec: rawSpec, selected: Array.from(selected) }) });
+      const res = await fetch('/api/import/apply', { method: 'POST', headers, body: JSON.stringify({ spec: rawSpec, selected: Array.from(selected), domain: currentDomain, languages }) });
       if (!res.ok) throw new Error(await res.text());
       setResult(await res.json());
     } catch (e) { setError(e instanceof Error ? e.message : 'Import failed'); }
@@ -66,11 +70,7 @@ export default function OpenApiImport() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/import')} className="text-xs text-zinc-500 hover:text-white">← Back</button>
-        <div>
-          <h2 className="text-lg font-semibold text-white">Import OpenAPI / Swagger</h2>
-          <p className="text-xs text-zinc-500">Into: <span className="text-violet-400 font-mono">{currentApp}</span></p>
-        </div>
+        <ImportBreadcrumb title="Import OpenAPI / Swagger" />
       </div>
 
       {error && (

@@ -134,7 +134,7 @@ pub async fn review_fix(
         .map(|(id, seeds)| (id.clone(), seeds.iter().map(|s| s.seed.clone()).collect()))
         .collect();
 
-    let pipeline = seed_pipeline(&state, &app_id, &seeds_map, true).await;
+    let pipeline = seed_pipeline(&state, &app_id, &seeds_map, true, "en").await;
 
     // For each intent that got seeds added, learn situation n-grams from the original
     // failing query. CJK queries always learn; Latin queries learn only if the intent

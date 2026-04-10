@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { api, type MultiRouteOutput, type ReviewAnalysis } from '@/api/client';
-import { useAppStore } from '@/store';
 
 const INTENT_COLORS = [
   'text-emerald-400', 'text-blue-400', 'text-amber-400', 'text-pink-400',
@@ -20,7 +19,6 @@ type Message =
   | { type: 'help' };
 
 export default function RouterPage() {
-  const { settings } = useAppStore();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -31,10 +29,6 @@ export default function RouterPage() {
   }, [messages]);
 
   const push = (...msgs: Message[]) => setMessages(prev => [...prev, ...msgs]);
-
-  const updateMessage = (index: number, patch: Partial<Message & { type: 'result' }>) => {
-    setMessages(prev => prev.map((m, i) => i === index ? { ...m, ...patch } : m));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,26 +89,9 @@ export default function RouterPage() {
     try {
       const result = await api.routeMulti(raw, 0.3);
       const latency = performance.now() - t0;
-      const msgIndex = messages.length + 1; // +1 for the query message we just pushed
-
       push({ type: 'result', result, latency, query: raw });
     } catch (err) {
       push({ type: 'error', text: String(err) });
-    }
-  };
-
-  const runReview = async (msgIndex: number, query: string, result: MultiRouteOutput) => {
-    try {
-      const allResults = [...(result.confirmed || []), ...(result.candidates || [])];
-      const review = await api.review(
-        query,
-        allResults.map(i => ({ id: i.id, score: i.score, intent_type: i.intent_type, span: i.span })),
-        0.3,
-      );
-      updateMessage(msgIndex, { review, reviewing: false });
-    } catch (err) {
-      updateMessage(msgIndex, { reviewing: false });
-      push({ type: 'error', text: `Review failed: ${(err as Error).message}` });
     }
   };
 
@@ -224,7 +201,7 @@ function MessageBubble({ msg, onApplySuggestion }: {
             <div className="text-[10px] text-emerald-400/60 uppercase font-semibold tracking-wide mb-0.5 pl-1">Confirmed</div>
           )}
           {confirmed.map((intent, i) => (
-            <IntentRow key={intent.id} intent={intent} index={i} bestScore={bestScore} isMulti={allIntents.length > 1} latency={latency} />
+            <IntentRow key={intent.id} intent={intent} index={i} bestScore={bestScore} isMulti={allIntents.length > 1} />
           ))}
         </div>
       )}
@@ -234,7 +211,7 @@ function MessageBubble({ msg, onApplySuggestion }: {
         <div className="mb-1">
           <div className="text-[10px] text-zinc-500 uppercase font-semibold tracking-wide mb-0.5 pl-1 mt-1">Candidates</div>
           {candidates.map((intent, i) => (
-            <IntentRow key={intent.id} intent={intent} index={confirmed.length + i} bestScore={bestScore} isMulti={allIntents.length > 1} latency={latency} />
+            <IntentRow key={intent.id} intent={intent} index={confirmed.length + i} bestScore={bestScore} isMulti={allIntents.length > 1} />
           ))}
         </div>
       )}
@@ -313,12 +290,11 @@ const SOURCE_LABELS: Record<string, string> = {
   routing: 'route',
 };
 
-function IntentRow({ intent, index, bestScore, isMulti, latency }: {
+function IntentRow({ intent, index, bestScore, isMulti }: {
   intent: { id: string; score: number; intent_type: string; span: [number, number]; confidence?: string; source?: string };
   index: number;
   bestScore: number;
   isMulti: boolean;
-  latency: number;
 }) {
   const relativeScore = intent.score / bestScore;
   const isWeak = isMulti && relativeScore < 0.3;

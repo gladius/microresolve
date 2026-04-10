@@ -314,4 +314,83 @@ impl Router {
     // assert_eq!(router.get_intent_type("check_balance"), IntentType::Context);
     // ```
 
+    // --- Namespace utilities ---
+    //
+    // Namespaced intents use the convention "namespace:intent_id", e.g.
+    // "stripe:charge_card", "slack:send_message", "wechat:transfer".
+    //
+    // In a unified index all apps share one Router. This gives better IDF
+    // discrimination (larger N) and a single 30µs routing call covers all apps.
+    // Callers use route_ns() / route_multi_ns() to scope results to one namespace,
+    // or read all results and filter by the namespace prefix themselves.
+    //
+    // Situation patterns serve as app fingerprints in unified mode: a pattern
+    // "payment" on "stripe:*" fires when the query mentions "payment" even if
+    // "payment" is not in any seed — compensating for generic vocabulary shared
+    // across namespaces. For CJK apps this is not needed because CJK compound
+    // words are inherently app-specific high-IDF vocabulary.
+
+    /// Extract the namespace prefix from a namespaced intent ID.
+    ///
+    /// Returns the part before the first colon, or `None` if there is no colon.
+    ///
+    /// ```
+    /// use asv_router::Router;
+    /// assert_eq!(Router::intent_namespace("stripe:charge_card"), Some("stripe"));
+    /// assert_eq!(Router::intent_namespace("cancel_order"), None);
+    /// ```
+    pub fn intent_namespace(id: &str) -> Option<&str> {
+        let colon = id.find(':')?;
+        Some(&id[..colon])
+    }
+
+    /// All unique namespace prefixes present in this router.
+    ///
+    /// Intents without a colon (e.g., "cancel_order") are excluded.
+    ///
+    /// ```
+    /// use asv_router::Router;
+    /// let mut r = Router::new();
+    /// r.add_intent("stripe:charge_card", &["charge my card"]);
+    /// r.add_intent("stripe:refund", &["refund payment"]);
+    /// r.add_intent("slack:send_message", &["send a message"]);
+    /// let mut ns = r.list_namespaces();
+    /// ns.sort();
+    /// assert_eq!(ns, vec!["slack", "stripe"]);
+    /// ```
+    pub fn list_namespaces(&self) -> Vec<String> {
+        let mut set = std::collections::HashSet::new();
+        for id in self.vectors.keys() {
+            if let Some(ns) = Self::intent_namespace(id) {
+                set.insert(ns.to_string());
+            }
+        }
+        let mut v: Vec<String> = set.into_iter().collect();
+        v.sort();
+        v
+    }
+
+    /// All intent IDs belonging to the given namespace.
+    ///
+    /// Matches intents whose ID starts with `"<ns>:"`.
+    ///
+    /// ```
+    /// use asv_router::Router;
+    /// let mut r = Router::new();
+    /// r.add_intent("stripe:charge_card", &["charge my card"]);
+    /// r.add_intent("stripe:refund", &["refund payment"]);
+    /// r.add_intent("slack:send_message", &["send a message"]);
+    /// let mut ids = r.intents_in_namespace("stripe");
+    /// ids.sort();
+    /// assert_eq!(ids, vec!["stripe:charge_card", "stripe:refund"]);
+    /// ```
+    pub fn intents_in_namespace(&self, ns: &str) -> Vec<String> {
+        let prefix = format!("{}:", ns);
+        let mut ids: Vec<String> = self.vectors.keys()
+            .filter(|id| id.starts_with(&prefix))
+            .cloned()
+            .collect();
+        ids.sort();
+        ids
+    }
 }

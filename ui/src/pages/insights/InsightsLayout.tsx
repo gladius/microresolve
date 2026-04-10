@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 
 const sections = [
   { to: '/insights', label: 'Overview', end: true },

@@ -4,31 +4,59 @@ import { useState, useEffect } from 'react';
 import { api } from '@/api/client';
 
 const links = [
-  { to: '/intents', label: 'Intents' },
-  { to: '/review', label: 'Review' },
-  { to: '/import', label: 'Import' },
-  { to: '/insights', label: 'Insights' },
+  { to: '/namespaces',   label: 'Namespaces' },
+  { to: '/intents',      label: 'Intents' },
+  { to: '/review',       label: 'Review' },
+  { to: '/import',       label: 'Import' },
+  { to: '/insights',     label: 'Insights' },
   { to: '/auto-improve', label: 'Auto-Improve' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/settings',     label: 'Settings' },
 ];
 
 export default function Layout() {
-  const { settings, setSelectedAppId } = useAppStore();
-  const [apps, setApps] = useState<string[]>(['default']);
-  const [showAppMenu, setShowAppMenu] = useState(false);
+  const { settings, setSelectedNamespaceId, setSelectedDomain } = useAppStore();
+  const navigate = useNavigate();
+
+  const [namespaces, setNamespaces] = useState<string[]>(['default']);
+  const [domains, setDomains] = useState<string[]>([]);
+  const [showNsMenu, setShowNsMenu] = useState(false);
+  const [showDomainMenu, setShowDomainMenu] = useState(false);
   const [reviewMode, setReviewMode] = useState('manual');
 
   useEffect(() => {
-    api.listApps().then(setApps).catch(() => {});
+    api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
     api.getReviewMode().then(d => setReviewMode(d.mode)).catch(() => {});
   }, []);
 
+  // Reload domains when namespace changes
+  useEffect(() => {
+    api.listDomains().then(ds => setDomains(ds.map(d => d.name))).catch(() => setDomains([]));
+  }, [settings.selectedNamespaceId]);
+
+  const switchNamespace = (namespaceId: string) => {
+    setSelectedNamespaceId(namespaceId);
+    setSelectedDomain('');
+    setShowNsMenu(false);
+    window.location.reload();
+  };
+
+  const switchDomain = (domain: string) => {
+    setSelectedDomain(domain);
+    setShowDomainMenu(false);
+    navigate('/intents');
+  };
+
+  const activeNs = settings.selectedNamespaceId;
+  const activeDomain = settings.selectedDomain;
 
   return (
     <div className="min-h-screen flex flex-col">
       <nav className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 flex items-center h-12 gap-6">
-          <NavLink to="/" className="font-semibold text-white tracking-tight hover:text-violet-400 transition-colors">ASV Router</NavLink>
+          <NavLink to="/" className="font-semibold text-white tracking-tight hover:text-violet-400 transition-colors">
+            ASV Router
+          </NavLink>
+
           <div className="flex gap-1">
             {links.map(l => (
               <NavLink
@@ -47,43 +75,98 @@ export default function Layout() {
             ))}
           </div>
 
-          {/* Right side: app selector + mode toggle */}
-          <div className="ml-auto flex items-center gap-3">
-            {/* App selector */}
+          {/* Right side */}
+          <div className="ml-auto flex items-center gap-1">
+
+            {/* Namespace selector */}
             <div className="relative">
               <button
-                onClick={() => setShowAppMenu(!showAppMenu)}
+                onClick={() => { setShowNsMenu(!showNsMenu); setShowDomainMenu(false); }}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 transition-colors"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                {settings.selectedAppId}
-                <svg className="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                {activeNs}
+                <svg className="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
 
-              {showAppMenu && (
+              {showNsMenu && (
                 <div className="absolute right-0 top-full mt-1 w-56 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 py-1">
-                  {apps.map(app => (
+                  {namespaces.map(ns => (
                     <button
-                      key={app}
-                      onClick={() => { setSelectedAppId(app); setShowAppMenu(false); window.location.reload(); }}
+                      key={ns}
+                      onClick={() => switchNamespace(ns)}
                       className={`w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-800 transition-colors ${
-                        app === settings.selectedAppId ? 'text-blue-400 font-medium' : 'text-zinc-300'
+                        ns === activeNs ? 'text-blue-400 font-medium' : 'text-zinc-300'
                       }`}
                     >
-                      {app}
+                      {ns}
                     </button>
                   ))}
                   <div className="border-t border-zinc-700 mt-1 pt-1 px-2 pb-1">
                     <button
-                      onClick={() => { setShowAppMenu(false); window.location.href = '/settings'; }}
+                      onClick={() => { setShowNsMenu(false); navigate('/namespaces'); }}
                       className="w-full text-left text-xs text-zinc-400 hover:text-violet-400 px-1 py-1"
                     >
-                      + Manage Apps
+                      + Manage namespaces
                     </button>
                   </div>
                 </div>
               )}
             </div>
+
+            {/* Domain selector — only shown when namespace has domains */}
+            {domains.length > 0 && (
+              <>
+                <span className="text-zinc-600 text-xs select-none">/</span>
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowDomainMenu(!showDomainMenu); setShowNsMenu(false); }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-700/60 transition-colors"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60" />
+                    {activeDomain ? activeDomain : 'all domains'}
+                    <svg className="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showDomainMenu && (
+                    <div className="absolute right-0 top-full mt-1 w-52 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 py-1">
+                      <button
+                        onClick={() => switchDomain('')}
+                        className={`w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-800 transition-colors ${
+                          !activeDomain ? 'text-violet-400 font-medium' : 'text-zinc-300'
+                        }`}
+                      >
+                        All domains
+                      </button>
+                      <div className="border-t border-zinc-800 my-1" />
+                      {domains.map(d => (
+                        <button
+                          key={d}
+                          onClick={() => switchDomain(d)}
+                          className={`w-full text-left px-3 py-1.5 text-sm font-mono hover:bg-zinc-800 transition-colors ${
+                            d === activeDomain ? 'text-violet-400 font-medium' : 'text-zinc-300'
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                      <div className="border-t border-zinc-700 mt-1 pt-1 px-2 pb-1">
+                        <button
+                          onClick={() => { setShowDomainMenu(false); navigate('/namespaces'); }}
+                          className="w-full text-left text-xs text-zinc-400 hover:text-violet-400 px-1 py-1"
+                        >
+                          Manage domains →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Review mode indicator */}
             {reviewMode === 'auto' && (
@@ -92,10 +175,10 @@ export default function Layout() {
                 AUTO
               </span>
             )}
-
           </div>
         </div>
       </nav>
+
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
         <Outlet />
       </main>

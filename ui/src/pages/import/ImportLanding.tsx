@@ -4,14 +4,25 @@ import { useAppStore } from '@/store';
 export default function ImportLanding() {
   const navigate = useNavigate();
   const { settings } = useAppStore();
-  const currentApp = settings.selectedAppId;
+  const ns = settings.selectedNamespaceId;
+  const domain = settings.selectedDomain;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-white mb-1">Import</h2>
         <p className="text-xs text-zinc-500">
-          Importing into: <span className="text-violet-400 font-mono">{currentApp}</span>
+          Importing into:{' '}
+          <span className="text-violet-400 font-mono">{ns}</span>
+          {domain && (
+            <>
+              <span className="text-zinc-600 mx-1">/</span>
+              <span className="text-violet-400 font-mono">{domain}</span>
+            </>
+          )}
+          {!domain && (
+            <span className="text-zinc-600 ml-1">(no domain — intents will have no prefix)</span>
+          )}
         </p>
       </div>
 

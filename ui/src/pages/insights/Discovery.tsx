@@ -40,7 +40,7 @@ export default function Discovery() {
       <div>
         <h2 className="text-lg font-semibold text-white">Intent Discovery</h2>
         <p className="text-xs text-zinc-500 mt-1">
-          Upload raw queries to discover intent clusters. Creates intents in: <span className="text-violet-400">{settings.selectedAppId}</span>
+          Upload raw queries to discover intent clusters. Creates intents in: <span className="text-violet-400">{settings.selectedNamespaceId}</span>
         </p>
       </div>
 

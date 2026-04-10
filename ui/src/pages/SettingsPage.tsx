@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAppStore, type AppMode } from '@/store';
-import { api, setApiAppId } from '@/api/client';
+import { useAppStore } from '@/store';
+import { api } from '@/api/client';
 import SidebarLayout, { type SidebarItem } from '@/components/SidebarLayout';
 
 export default function SettingsPage() {
-  const [section, setSection] = useState('apps');
+  const [section, setSection] = useState('review_mode');
 
   const items: SidebarItem[] = [
-    { id: 'apps', label: 'Apps' },
     { id: 'review_mode', label: 'Review Mode' },
     { id: 'llm', label: 'LLM / AI' },
     { id: 'languages', label: 'Languages' },
@@ -23,176 +21,12 @@ export default function SettingsPage() {
       onSelect={setSection}
     >
       <div className="p-5 max-w-2xl">
-        {section === 'apps' && <AppsSection />}
         {section === 'review_mode' && <ReviewModeSection />}
         {section === 'llm' && <LLMSection />}
         {section === 'languages' && <LanguagesSection />}
         {section === 'data' && <DataSection />}
       </div>
     </SidebarLayout>
-  );
-}
-
-function AppsSection() {
-  const navigate = useNavigate();
-  const [apps, setApps] = useState<{ id: string; intents: number }[]>([]);
-  const [newName, setNewName] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  const { settings, setSelectedAppId } = useAppStore();
-  const currentApp = settings.selectedAppId;
-
-  const refresh = async () => {
-    setLoading(true);
-    try {
-      const appIds = await api.listApps();
-      const infos: { id: string; intents: number }[] = [];
-      for (const id of appIds) {
-        setApiAppId(id);
-        try {
-          const intents = await api.listIntents();
-          infos.push({ id, intents: intents.length });
-        } catch {
-          infos.push({ id, intents: 0 });
-        }
-      }
-      setApiAppId(currentApp);
-      setApps(infos);
-    } catch { /* */ }
-    setLoading(false);
-  };
-
-  useEffect(() => { refresh(); }, []);
-
-  const handleCreate = async () => {
-    const name = newName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
-    if (!name) return;
-    try {
-      await api.createApp(name);
-      setNewName('');
-      refresh();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed');
-    }
-  };
-
-  const handleSwitch = (appId: string) => {
-    setSelectedAppId(appId);
-    window.location.href = '/intents';
-  };
-
-  const handleDelete = async (appId: string) => {
-    if (appId === 'default') return;
-    if (!confirm(`Delete "${appId}" and all its intents?`)) return;
-    try {
-      await api.deleteApp(appId);
-      if (currentApp === appId) handleSwitch('default');
-      else refresh();
-    } catch { alert('Delete failed'); }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-white">Apps</h2>
-        <p className="text-xs text-zinc-500 mt-1">Each app is an isolated workspace with its own intents and seeds.</p>
-      </div>
-
-      {/* Import banner */}
-      <div
-        onClick={() => navigate('/import')}
-        className="bg-violet-500/5 border border-violet-500/20 rounded-lg p-4 cursor-pointer hover:border-violet-500/40 transition-colors"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm font-semibold text-violet-400">Import API Spec</div>
-            <div className="text-xs text-zinc-500 mt-0.5">OpenAPI, Swagger 2.0, or Postman Collection — auto-generates intents with AI seeds</div>
-          </div>
-          <span className="text-violet-400 text-sm shrink-0 ml-4">Import →</span>
-        </div>
-      </div>
-
-      {/* Create new */}
-      <div className="flex gap-2">
-        <input
-          value={newName}
-          onChange={e => setNewName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-          onKeyDown={e => e.key === 'Enter' && handleCreate()}
-          placeholder="new-app-name"
-          className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white font-mono focus:border-violet-500 focus:outline-none"
-        />
-        <button onClick={handleCreate} disabled={!newName.trim()} className="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 text-violet-400 rounded hover:bg-zinc-700 disabled:opacity-30">
-          Create
-        </button>
-      </div>
-
-      {/* App list */}
-      {loading ? (
-        <div className="text-xs text-zinc-500 py-4">Loading...</div>
-      ) : (
-        <div className="border border-zinc-800 rounded-lg divide-y divide-zinc-800/50">
-          {apps.map(app => (
-            <div
-              key={app.id}
-              onClick={() => handleSwitch(app.id)}
-              className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${app.id === currentApp ? 'bg-violet-500/5' : 'hover:bg-zinc-800/40'}`}
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-white font-mono">{app.id}</span>
-                  {app.id === currentApp && (
-                    <span className="text-[9px] text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded">active</span>
-                  )}
-                </div>
-                <div className="text-[11px] text-zinc-500">{app.intents} intents</div>
-              </div>
-              {app.id !== 'default' && (
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(app.id); }} className="text-xs text-zinc-600 hover:text-red-400">
-                  Delete
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ModeSection() {
-  const { settings, setMode } = useAppStore();
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-white">Router Mode</h2>
-      <div className="flex gap-3">
-        {([
-          { mode: 'production' as AppMode, label: 'Production', desc: 'Fast routing only.', color: 'emerald' },
-          { mode: 'learn' as AppMode, label: 'Learn', desc: 'Every query is reviewed by LLM. Suggestions appear inline.', color: 'amber' },
-        ]).map(({ mode, label, desc, color }) => (
-          <button
-            key={mode}
-            onClick={() => setMode(mode)}
-            className={`flex-1 p-4 rounded-lg border text-left transition-colors ${
-              settings.mode === mode
-                ? `border-${color}-400/50 bg-${color}-400/10`
-                : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`w-2 h-2 rounded-full ${settings.mode === mode ? `bg-${color}-400` : 'bg-zinc-600'}`} />
-              <span className={`font-semibold text-sm ${settings.mode === mode ? `text-${color}-400` : 'text-zinc-400'}`}>
-                {label}
-              </span>
-            </div>
-            <p className="text-xs text-zinc-500">{desc}</p>
-          </button>
-        ))}
-      </div>
-      <p className="text-xs text-zinc-600">
-        LLM features require <code className="text-violet-400">ANTHROPIC_API_KEY</code> in the server's <code className="text-violet-400">.env</code> file.
-      </p>
-    </div>
   );
 }
 
@@ -249,7 +83,7 @@ function ReviewModeSection() {
 }
 
 function LLMSection() {
-  const [status, setStatus] = useState<{ configured: boolean; provider: string; model: string; url: string } | null>(null);
+  const [status, setStatus] = useState<{ configured: boolean; model: string; url: string } | null>(null);
 
   useEffect(() => {
     api.getLLMStatus().then(setStatus).catch(() => {});
@@ -274,7 +108,6 @@ function LLMSection() {
         </div>
         {status?.configured && (
           <div className="space-y-1 text-xs text-zinc-400">
-            <div>Provider: <span className="text-white font-mono">{status.provider}</span></div>
             <div>Model: <span className="text-white font-mono">{status.model}</span></div>
             <div>URL: <span className="text-white font-mono">{status.url}</span></div>
           </div>
@@ -302,10 +135,6 @@ function LLMSection() {
           <div><span className="text-zinc-600">LLM_API_KEY=unused</span></div>
           <div><span className="text-zinc-600">LLM_MODEL=llama3</span></div>
         </div>
-        <p className="text-xs text-zinc-600">
-          After editing <code className="text-violet-400">.env</code>, restart the server for changes to take effect.
-          API keys are stored server-side only — never sent to the browser.
-        </p>
       </div>
 
       {/* What LLM is used for */}
@@ -330,73 +159,124 @@ function LLMSection() {
 }
 
 function LanguagesSection() {
-  const [languages, setLanguages] = useState<Record<string, string>>({});
-  const [enabledLangs, setEnabledLangs] = useState<Set<string>>(new Set(['en']));
-  const [dirty, setDirty] = useState(false);
+  const { settings, setLanguages } = useAppStore();
+  const [allLanguages, setAllLanguages] = useState<Record<string, string>>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const enabledLangs = settings.languages.length > 0 ? settings.languages : ['en'];
 
   useEffect(() => {
-    api.getLanguages().then(setLanguages).catch(() => {});
-    try {
-      const saved = localStorage.getItem('asv_languages');
-      if (saved) setEnabledLangs(new Set(JSON.parse(saved)));
-    } catch { /* */ }
+    api.getLanguages().then(setAllLanguages).catch(() => {});
   }, []);
 
-  const toggleLang = (code: string) => {
+  const removeLang = (code: string) => {
     if (code === 'en') return;
-    setEnabledLangs(prev => {
-      const next = new Set(prev);
-      next.has(code) ? next.delete(code) : next.add(code);
-      return next;
-    });
-    setDirty(true);
+    setLanguages(enabledLangs.filter(l => l !== code));
   };
 
-  const save = () => {
-    localStorage.setItem('asv_languages', JSON.stringify(Array.from(enabledLangs)));
-    setDirty(false);
+  const addLang = (code: string) => {
+    if (enabledLangs.includes(code)) return;
+    setLanguages([...enabledLangs, code]);
+    setSearch('');
+    setPickerOpen(false);
   };
 
   const commonLangs = ['en', 'es', 'fr', 'de', 'pt', 'it', 'nl', 'ja', 'ko', 'zh', 'ar', 'hi'];
-  const sortedLangs = Object.keys(languages).sort((a, b) => {
+  const sortedLangs = Object.keys(allLanguages).sort((a, b) => {
     const ai = commonLangs.indexOf(a);
     const bi = commonLangs.indexOf(b);
     if (ai >= 0 && bi >= 0) return ai - bi;
     if (ai >= 0) return -1;
     if (bi >= 0) return 1;
-    return (languages[a] || '').localeCompare(languages[b] || '');
+    return (allLanguages[a] || '').localeCompare(allLanguages[b] || '');
   });
+
+  const availableLangs = sortedLangs.filter(code => !enabledLangs.includes(code));
+  const filteredLangs = search
+    ? availableLangs.filter(code =>
+        (allLanguages[code] || '').toLowerCase().includes(search.toLowerCase()) ||
+        code.toLowerCase().includes(search.toLowerCase()))
+    : availableLangs;
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-white">Supported Languages ({enabledLangs.size})</h2>
+        <h2 className="text-lg font-semibold text-white">Languages</h2>
         <p className="text-xs text-zinc-500 mt-1">
-          Languages available for AI seed generation. LLM quality varies — human review recommended for non-English seeds.
+          Languages for AI seed generation. Seeds in each selected language are generated on import.
         </p>
       </div>
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 max-h-64 overflow-y-auto">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          {sortedLangs.map(code => (
-            <label key={code} className="inline-flex items-center gap-2 text-sm text-zinc-300 cursor-pointer py-0.5 hover:text-white">
-              <input
-                type="checkbox"
-                checked={enabledLangs.has(code)}
-                onChange={() => toggleLang(code)}
-                disabled={code === 'en'}
-                className="accent-violet-500"
-              />
-              <span className={enabledLangs.has(code) ? 'text-white' : 'text-zinc-500'}>{languages[code]}</span>
-              <span className="text-[9px] text-zinc-600 uppercase">{code}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-      {dirty && (
-        <button onClick={save} className="px-4 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded">
-          Save Languages
+
+      {/* Active language chips */}
+      <div className="flex flex-wrap gap-2">
+        {enabledLangs.map(code => (
+          <span
+            key={code}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+              code === 'en'
+                ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
+                : 'bg-zinc-800 text-zinc-200 border border-zinc-700'
+            }`}
+          >
+            <span className="text-[9px] uppercase font-bold opacity-60">{code}</span>
+            {allLanguages[code] || code}
+            {code !== 'en' && (
+              <button
+                onClick={() => removeLang(code)}
+                className="ml-0.5 text-zinc-500 hover:text-red-400 transition-colors leading-none"
+                title={`Remove ${allLanguages[code] || code}`}
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ))}
+
+        {/* Add language button */}
+        <button
+          onClick={() => setPickerOpen(v => !v)}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-dashed border-zinc-600 text-zinc-500 hover:text-white hover:border-zinc-400 transition-colors"
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add language
         </button>
+      </div>
+
+      {/* Picker dropdown */}
+      {pickerOpen && (
+        <div className="bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden">
+          <div className="p-2 border-b border-zinc-800">
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search languages…"
+              className="w-full bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none px-1"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filteredLangs.slice(0, 40).map(code => (
+              <button
+                key={code}
+                onClick={() => addLang(code)}
+                className="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-2"
+              >
+                <span className="text-[9px] text-zinc-500 uppercase w-6">{code}</span>
+                {allLanguages[code] || code}
+              </button>
+            ))}
+            {filteredLangs.length === 0 && (
+              <p className="px-3 py-3 text-xs text-zinc-600 text-center">No results</p>
+            )}
+          </div>
+        </div>
       )}
+
+      <p className="text-xs text-zinc-600">
+        English is always included and cannot be removed. LLM quality varies for non-English seeds — review recommended.
+      </p>
     </div>
   );
 }

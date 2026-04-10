@@ -15,13 +15,14 @@ mod routes_settings;
 mod routes_review_prompt;
 mod routes_review_llm;
 mod routes_training;
-mod routes_apps;
+mod routes_projects;
 mod routes_discovery;
 mod log_store;
 mod routes_review;
 mod routes_import;
 mod routes_connect;
 mod routes_situation;
+mod routes_ui_settings;
 
 use state::*;
 use log_store::LogStore;
@@ -38,21 +39,7 @@ use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() {
-    // Parse --data <dir> CLI argument
-    let mut data_dir: Option<String> = None;
-    let args: Vec<String> = std::env::args().collect();
-    for i in 0..args.len() {
-        if args[i] == "--data" {
-            if let Some(dir) = args.get(i + 1) {
-                data_dir = Some(dir.clone());
-            }
-        }
-    }
-
-    let port = std::env::var("PORT").unwrap_or_else(|_| "3001".to_string());
-    let addr = format!("0.0.0.0:{}", port);
-
-    // Load .env if present
+    // Load .env first so ASV_DATA_DIR can be read from it
     if let Ok(env_content) = std::fs::read_to_string(".env") {
         for line in env_content.lines() {
             let line = line.trim();
@@ -67,6 +54,28 @@ async fn main() {
         }
     }
 
+    // Data directory: --data flag > ASV_DATA_DIR env > ~/.local/share/asv (default)
+    let mut data_dir: Option<String> = None;
+    let args: Vec<String> = std::env::args().collect();
+    for i in 0..args.len() {
+        if args[i] == "--data" {
+            if let Some(dir) = args.get(i + 1) {
+                data_dir = Some(dir.clone());
+            }
+        }
+    }
+    if data_dir.is_none() {
+        let dir = std::env::var("ASV_DATA_DIR").unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            format!("{}/.local/share/asv", home)
+        });
+        std::fs::create_dir_all(&dir).ok();
+        data_dir = Some(dir);
+    }
+
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3001".to_string());
+    let addr = format!("0.0.0.0:{}", port);
+
     let llm_key = std::env::var("LLM_API_KEY").ok();
     if llm_key.is_some() {
         println!("LLM API key: loaded");
@@ -77,21 +86,41 @@ async fn main() {
     // Initialize routers
     let mut routers = HashMap::new();
 
-    // Auto-load from data directory
     if let Some(ref dir) = data_dir {
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map(|e| e == "json").unwrap_or(false) {
-                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        if let Ok(json) = std::fs::read_to_string(&path) {
-                            match Router::import_json(&json) {
-                                Ok(r) => {
-                                    println!("Loaded app: {}", stem);
-                                    routers.insert(stem.to_string(), r);
-                                }
-                                Err(e) => eprintln!("Failed to load {}: {}", stem, e),
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if name.starts_with('_') { continue; }
+
+                if path.is_dir() {
+                    // New format: namespace is a folder containing _router.json
+                    let router_path = path.join("_router.json");
+                    if let Ok(json) = std::fs::read_to_string(&router_path) {
+                        match Router::import_json(&json) {
+                            Ok(r) => {
+                                println!("Loaded namespace: {}", name);
+                                routers.insert(name.to_string(), r);
                             }
+                            Err(e) => eprintln!("Failed to load {}: {}", name, e),
+                        }
+                    } else {
+                        // Folder exists but no _router.json — empty namespace
+                        routers.insert(name.to_string(), Router::new());
+                    }
+                } else if path.extension().map(|e| e == "json").unwrap_or(false) {
+                    // Migration: old flat {ns}.json format
+                    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                    if stem.starts_with('_') { continue; }
+                    if routers.contains_key(stem) { continue; } // folder already loaded
+                    if let Ok(json) = std::fs::read_to_string(&path) {
+                        match Router::import_json(&json) {
+                            Ok(r) => {
+                                println!("Loaded namespace (legacy): {}", stem);
+                                routers.insert(stem.to_string(), r);
+                                // Will migrate to folder structure on next persist
+                            }
+                            Err(e) => eprintln!("Failed to load {}: {}", stem, e),
                         }
                     }
                 }
@@ -99,10 +128,12 @@ async fn main() {
         }
     }
 
-    // Ensure default app exists
+    // Ensure default namespace exists
     routers.entry("default".to_string()).or_insert_with(Router::new);
 
     let log_store = LogStore::new(data_dir.as_deref());
+    let meta = data_dir.as_deref().map(load_metadata).unwrap_or_default();
+    let ui_settings = data_dir.as_deref().map(load_ui_settings).unwrap_or_default();
 
     let state: AppState = Arc::new(ServerState {
         routers: RwLock::new(routers),
@@ -111,6 +142,9 @@ async fn main() {
         http: reqwest::Client::new(),
         llm_key,
         review_mode: RwLock::new("manual".to_string()),
+        namespace_descriptions: RwLock::new(meta.namespace_descriptions),
+        domain_descriptions: RwLock::new(meta.domain_descriptions),
+        ui_settings: RwLock::new(ui_settings),
     });
 
     let app = axum::Router::new()
@@ -126,19 +160,36 @@ async fn main() {
         .merge(routes_review_prompt::routes())
         .merge(routes_review_llm::routes())
         .merge(routes_training::routes())
-        .merge(routes_apps::routes())
+        .merge(routes_projects::routes())
         .merge(routes_discovery::routes())
         .merge(routes_review::routes())
         .merge(routes_import::routes())
         .merge(routes_connect::routes())
         .merge(routes_situation::routes())
+        .merge(routes_ui_settings::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
-    // Serve static UI files if ui/dist exists
+    // Serve static UI files if ui/dist exists.
+    // /assets/* are content-hashed by Vite — served by ServeDir (browser can cache them).
+    // All other paths are SPA routes: serve index.html with no-cache so the browser
+    // always fetches the latest hash references after a rebuild.
     let app = if std::path::Path::new("ui/dist").exists() {
-        app.fallback_service(tower_http::services::ServeDir::new("ui/dist")
-            .fallback(tower_http::services::ServeFile::new("ui/dist/index.html")))
+        use axum::response::IntoResponse;
+        use axum::http::header;
+
+        async fn spa_index() -> impl IntoResponse {
+            let html = std::fs::read_to_string("ui/dist/index.html")
+                .unwrap_or_else(|_| "<html><body>UI not found</body></html>".to_string());
+            (
+                [(header::CACHE_CONTROL, "no-cache, no-store, must-revalidate")],
+                axum::response::Html(html),
+            )
+        }
+
+        app
+            .nest_service("/assets", tower_http::services::ServeDir::new("ui/dist/assets"))
+            .fallback(spa_index)
     } else {
         app
     };
@@ -183,5 +234,5 @@ async fn get_version(
     let version = routers.get(&app_id)
         .map(|r| r.version())
         .unwrap_or(0);
-    Json(serde_json::json!({"version": version, "app_id": app_id}))
+    Json(serde_json::json!({"version": version, "project_id": app_id}))
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useFetch } from '@/hooks/useFetch';
 import { api, type ReviewItem, type ReviewAnalyzeResult } from '@/api/client';
 
 interface SeedEntry { seed: string; lang: string; }
@@ -25,7 +26,7 @@ export default function ReviewPage() {
     } catch { /* */ }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useFetch(refresh, [refresh]);
 
   const selected = items.find(i => i.id === selectedId) || null;
 

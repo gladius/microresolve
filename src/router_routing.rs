@@ -37,20 +37,30 @@ impl Router {
                 .map(|(id, score)| (id.as_str(), *score))
                 .collect();
 
-            // Boost existing term-matched results
+            // Top score among intents NOT confirmed by situation — this is the bar to beat.
+            // Situation-confirmed intents are guaranteed to score above this bar.
+            let top_competitor = results.iter()
+                .filter(|r| !situation_map.contains_key(r.id.as_str()))
+                .map(|r| r.score)
+                .fold(0.0f32, f32::max);
+
+            // Boost existing term-matched results.
+            // Floor: situation-confirmed intent must beat the top non-situation competitor.
             for r in &mut results {
                 if let Some(&sit_score) = situation_map.get(r.id.as_str()) {
-                    r.score += SITUATION_ALPHA * sit_score;
+                    let additive = r.score + SITUATION_ALPHA * sit_score;
+                    r.score = additive.max(top_competitor + 0.5);
                 }
             }
 
-            // Add situation-only detections not found by term index
+            // Add situation-only detections not found by term index.
+            // Same floor applies.
             let result_ids: HashSet<String> = results.iter().map(|r| r.id.clone()).collect();
             let new_entries: Vec<RouteResult> = situation_hits.iter()
                 .filter(|(id, _)| !result_ids.contains(id))
                 .map(|(id, sit_score)| RouteResult {
                     id: id.clone(),
-                    score: SITUATION_ALPHA * sit_score,
+                    score: (SITUATION_ALPHA * sit_score).max(top_competitor + 0.5),
                 })
                 .collect();
             results.extend(new_entries);
@@ -190,10 +200,18 @@ impl Router {
                 .map(|(id, score)| (id.as_str(), *score))
                 .collect();
 
-            // Boost routing/paraphrase detections confirmed by situation
+            // Top score among intents NOT confirmed by situation.
+            let top_competitor = output.intents.iter()
+                .filter(|i| !situation_map.contains_key(i.id.as_str()))
+                .map(|i| i.score)
+                .fold(0.0f32, f32::max);
+
+            // Boost routing/paraphrase detections confirmed by situation.
+            // Floor: must beat top non-situation competitor.
             for intent in &mut output.intents {
                 if let Some(&sit_score) = situation_map.get(intent.id.as_str()) {
-                    intent.score += SITUATION_ALPHA * sit_score;
+                    let additive = intent.score + SITUATION_ALPHA * sit_score;
+                    intent.score = additive.max(top_competitor + 0.5);
                     // Upgrade confidence when situation confirms a low-confidence routing hit
                     if intent.confidence == "low" {
                         intent.confidence = "medium".to_string();
@@ -201,11 +219,11 @@ impl Router {
                 }
             }
 
-            // Add situation-only detections not already present
+            // Add situation-only detections not already present.
             let current_ids: HashSet<String> = output.intents.iter().map(|i| i.id.clone()).collect();
             for (intent_id, sit_score) in &situation_hits {
                 if !current_ids.contains(intent_id) {
-                    let score = SITUATION_ALPHA * sit_score;
+                    let score = (SITUATION_ALPHA * sit_score).max(top_competitor + 0.5);
                     if score >= threshold {
                         output.intents.push(MultiRouteResult {
                             id: intent_id.clone(),
@@ -253,6 +271,75 @@ impl Router {
         let detected_ids: Vec<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
         output.suggestions = self.suggest_intents(&detected_ids, 3, 0.2);
 
+        output
+    }
+
+    /// Route a query, returning only results from the given namespace.
+    ///
+    /// This is a convenience wrapper around `route()` for unified-index mode,
+    /// where all apps share one Router with namespaced intent IDs such as
+    /// `"stripe:charge_card"` or `"slack:send_message"`.
+    ///
+    /// When `namespace` is `None`, behaviour is identical to `route()`.
+    ///
+    /// ```
+    /// use asv_router::Router;
+    ///
+    /// let mut r = Router::new();
+    /// r.add_intent("stripe:charge_card", &["charge my card", "payment failed"]);
+    /// r.add_intent("slack:send_message", &["send a message", "post in channel"]);
+    ///
+    /// // Scoped to stripe only
+    /// let results = r.route_ns("payment failed", Some("stripe"));
+    /// assert!(results.iter().all(|r| r.id.starts_with("stripe:")));
+    ///
+    /// // No namespace filter — same as route()
+    /// let all = r.route_ns("payment failed", None);
+    /// assert!(!all.is_empty());
+    /// ```
+    pub fn route_ns(&self, query: &str, namespace: Option<&str>) -> Vec<RouteResult> {
+        let mut results = self.route(query);
+        if let Some(ns) = namespace {
+            let prefix = format!("{}:", ns);
+            results.retain(|r| r.id.starts_with(&prefix));
+        }
+        results
+    }
+
+    /// Multi-intent route, returning only results from the given namespace.
+    ///
+    /// This is a convenience wrapper around `route_multi()` for unified-index mode.
+    /// Intents outside the requested namespace are removed from `confirmed`,
+    /// `candidates`, relations, and metadata in the output.
+    ///
+    /// When `namespace` is `None`, behaviour is identical to `route_multi()`.
+    ///
+    /// ```
+    /// use asv_router::Router;
+    ///
+    /// let mut r = Router::new();
+    /// r.add_intent("stripe:charge_card", &["charge my card", "payment failed"]);
+    /// r.add_intent("stripe:refund", &["refund my payment", "give me refund"]);
+    /// r.add_intent("slack:send_message", &["send a message"]);
+    ///
+    /// let out = r.route_multi_ns("payment failed and refund my card", 0.3, Some("stripe"));
+    /// assert!(out.intents.iter().all(|i| i.id.starts_with("stripe:")));
+    /// ```
+    pub fn route_multi_ns(&self, query: &str, threshold: f32, namespace: Option<&str>) -> MultiRouteOutput {
+        let mut output = self.route_multi(query, threshold);
+        if let Some(ns) = namespace {
+            let prefix = format!("{}:", ns);
+            // Filter intents to the requested namespace
+            output.intents.retain(|i| i.id.starts_with(&prefix));
+            // Relations use positional indices into the original intents array.
+            // After filtering, those indices are invalid. Cross-namespace relations
+            // don't make semantic sense (a Stripe action can't be "then" a Slack action).
+            // Clear them — callers can re-derive relations from the filtered intent list.
+            output.relations.clear();
+            // Filter metadata to remaining intents
+            let kept: HashSet<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
+            output.metadata.retain(|id, _| kept.contains(id.as_str()));
+        }
         output
     }
 

@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { useFetch } from '@/hooks/useFetch';
 import { api } from '@/api/client';
 
 const SIMULATION_QUERIES = [
@@ -76,7 +77,7 @@ export default function ProjectionsPage() {
     } catch { /* */ }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useFetch(refresh, [refresh]);
 
   const simulate = async () => {
     stopRef.current = false;

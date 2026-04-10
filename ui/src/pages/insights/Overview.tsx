@@ -1,5 +1,6 @@
 import { api } from '@/api/client';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { useFetch } from '@/hooks/useFetch';
 
 const SIMULATION_QUERIES = [
   "I want a refund, how much was I charged for that order",
@@ -29,7 +30,7 @@ export default function Overview() {
     } catch { /* */ }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useFetch(refresh, [refresh]);
 
   const simulate = async () => {
     stopRef.current = false;
