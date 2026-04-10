@@ -98,7 +98,7 @@ export default function RouterPage() {
   const applySuggestion = async (suggestion: ReviewAnalysis['suggestions'][0]) => {
     try {
       await api.learn(suggestion.seed, suggestion.intent_id);
-      push({ type: 'learn', text: `Applied: seed "${suggestion.seed}" → ${suggestion.intent_id}` });
+      push({ type: 'learn', text: `Applied: phrase "${suggestion.seed}" → ${suggestion.intent_id}` });
     } catch (err) {
       push({ type: 'error', text: `Failed: ${err}` });
     }
@@ -383,7 +383,7 @@ function ReviewCard({ review, onApply }: {
           {review.suggestions.map((s, i) => (
             <div key={i} className="flex items-start gap-2 text-xs pl-2 py-1">
               <div className="flex-1">
-                <span className="text-violet-400 font-mono">add_seed</span>
+                <span className="text-violet-400 font-mono">add_phrase</span>
                 <span className="text-zinc-400"> "{s.seed}" → <span className="text-emerald-400">{s.intent_id}</span></span>
                 <div className="text-zinc-600 mt-0.5">{s.reason}</div>
               </div>

@@ -28,7 +28,7 @@ fn cjk_chinese_seed_guard() {
 
     // "订单" (order) should be shared across cancel_order and track_order
     // Adding it to refund should NOT be blocked (shared across 2+ intents)
-    let result = router.check_seed("refund", "退款订单问题");  // refund order problem
+    let result = router.check_phrase("refund", "退款订单问题");  // refund order problem
     println!("  '退款订单问题' → refund:");
     println!("    conflicts: {:?}", result.conflicts.iter().map(|c| format!("{} in {}", c.term, c.competing_intent)).collect::<Vec<_>>());
     println!("    new_terms: {:?}", result.new_terms);
@@ -36,21 +36,21 @@ fn cjk_chinese_seed_guard() {
 
     // "退款" (refund) is exclusive to refund intent
     // Adding it to cancel_order SHOULD be flagged
-    let result = router.check_seed("cancel_order", "取消并退款");  // cancel and refund
+    let result = router.check_phrase("cancel_order", "取消并退款");  // cancel and refund
     println!("\n  '取消并退款' → cancel_order:");
     println!("    conflicts: {:?}", result.conflicts.iter().map(|c| format!("{} in {}", c.term, c.competing_intent)).collect::<Vec<_>>());
     let has_refund_conflict = result.conflicts.iter().any(|c| c.competing_intent == "refund");
     println!("    refund collision detected: {}", has_refund_conflict);
 
-    // Test add_seed_checked blocks the collision
-    let result = router.add_seed_checked("cancel_order", "取消并退款", "zh");
-    println!("\n  add_seed_checked '取消并退款' → cancel_order:");
+    // Test add_phrase_checked blocks the collision
+    let result = router.add_phrase_checked("cancel_order", "取消并退款", "zh");
+    println!("\n  add_phrase_checked '取消并退款' → cancel_order:");
     println!("    added: {}", result.added);
     println!("    warning: {:?}", result.warning);
 
-    // Clean seed should pass
-    let result = router.add_seed_checked("refund", "钱还没退回来", "zh");  // money hasn't been returned
-    println!("\n  add_seed_checked '钱还没退回来' → refund:");
+    // Clean phrase should pass
+    let result = router.add_phrase_checked("refund", "钱还没退回来", "zh");  // money hasn't been returned
+    println!("\n  add_phrase_checked '钱还没退回来' → refund:");
     println!("    added: {}", result.added);
     println!("    new_terms: {:?}", result.new_terms);
 
@@ -85,13 +85,13 @@ fn cjk_japanese_seed_guard() {
     ]);
 
     // "返金" (refund) exclusive to refund — should flag when adding to cancel
-    let result = router.check_seed("cancel_order", "キャンセルして返金");  // cancel and refund
+    let result = router.check_phrase("cancel_order", "キャンセルして返金");  // cancel and refund
     println!("  'キャンセルして返金' → cancel_order:");
     println!("    conflicts: {:?}", result.conflicts.iter().map(|c| format!("{} in {}", c.term, c.competing_intent)).collect::<Vec<_>>());
 
     // Clean addition should work
-    let result = router.add_seed_checked("refund", "返品して返金", "ja");  // return and refund
-    println!("\n  add_seed_checked '返品して返金' → refund:");
+    let result = router.add_phrase_checked("refund", "返品して返金", "ja");  // return and refund
+    println!("\n  add_phrase_checked '返品して返金' → refund:");
     println!("    added: {}", result.added);
     println!("    new_terms: {:?}", result.new_terms);
 }
@@ -111,7 +111,7 @@ fn cjk_korean_seed_guard() {
     ]);
 
     // "환불" (refund) exclusive to refund
-    let result = router.check_seed("cancel_order", "취소하고 환불");  // cancel and refund
+    let result = router.check_phrase("cancel_order", "취소하고 환불");  // cancel and refund
     println!("  '취소하고 환불' → cancel_order:");
     println!("    conflicts: {:?}", result.conflicts.iter().map(|c| format!("{} in {}", c.term, c.competing_intent)).collect::<Vec<_>>());
 

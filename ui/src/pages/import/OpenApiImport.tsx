@@ -16,8 +16,8 @@ interface ParseResult {
 }
 
 interface ImportResult {
-  title: string; imported: number; seeds_added: number;
-  seeds_blocked: number; intents: string[];
+  title: string; imported: number; phrases_added: number;
+  phrases_blocked: number; intents: string[];
 }
 
 export default function OpenApiImport() {
@@ -149,7 +149,7 @@ export default function OpenApiImport() {
                   <span className="text-violet-400">{langs.map((l: string) => l.toUpperCase()).join(', ')}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500">Seeds per operation</span>
+                  <span className="text-zinc-500">Phrases per operation</span>
                   <span className="text-zinc-400">10 × {langs.length} lang{langs.length > 1 ? 's' : ''}</span>
                 </div>
                 {langs.length > 1 && (
@@ -163,7 +163,7 @@ export default function OpenApiImport() {
             {importing ? (
               <div className="flex items-center gap-3 text-xs text-violet-400">
                 <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-                Generating seeds with AI... {Math.ceil(selected.size / 10) * 10}-{Math.ceil(selected.size / 10) * 20}s estimated.
+                Generating phrases with AI... {Math.ceil(selected.size / 10) * 10}-{Math.ceil(selected.size / 10) * 20}s estimated.
               </div>
             ) : <div className="text-xs text-zinc-500">Collision guard active</div>}
             <button onClick={handleImport} disabled={importing || selected.size === 0}
@@ -184,8 +184,8 @@ export default function OpenApiImport() {
             </div>
           </div>
           <div className="flex gap-4 text-xs">
-            <div><span className="text-emerald-400 font-semibold">{result.seeds_added}</span> <span className="text-zinc-500">seeds added</span></div>
-            {result.seeds_blocked > 0 && <div><span className="text-amber-400 font-semibold">{result.seeds_blocked}</span> <span className="text-zinc-500">blocked</span></div>}
+            <div><span className="text-emerald-400 font-semibold">{result.phrases_added}</span> <span className="text-zinc-500">phrases added</span></div>
+            {result.phrases_blocked > 0 && <div><span className="text-amber-400 font-semibold">{result.phrases_blocked}</span> <span className="text-zinc-500">blocked</span></div>}
           </div>
           <div className="flex gap-3 pt-3 border-t border-zinc-700">
             <button onClick={() => navigate('/intents')} className="px-4 py-2 text-sm bg-violet-600 text-white rounded hover:bg-violet-500">View Intents →</button>

@@ -871,27 +871,27 @@ fn save_and_load_file() {
 
 
 #[test]
-fn remove_seed() {
+fn remove_phrase() {
     let mut r = Router::new();
     r.add_intent("cancel", &["cancel my order", "stop my order", "I want to cancel"]);
 
-    // Remove one seed
-    assert!(r.remove_seed("cancel", "stop my order"));
+    // Remove one phrase
+    assert!(r.remove_phrase("cancel", "stop my order"));
 
     // Verify it's gone from training
     let training = r.get_training("cancel").unwrap();
     assert_eq!(training.len(), 2);
     assert!(!training.contains(&"stop my order".to_string()));
 
-    // Routing still works with remaining seeds
+    // Routing still works with remaining phrases
     let result = r.route("cancel my order");
     assert!(!result.is_empty());
 
-    // Remove nonexistent seed returns false
-    assert!(!r.remove_seed("cancel", "nonexistent phrase"));
+    // Remove nonexistent phrase returns false
+    assert!(!r.remove_phrase("cancel", "nonexistent phrase"));
 
     // Remove from nonexistent intent returns false
-    assert!(!r.remove_seed("nonexistent", "cancel my order"));
+    assert!(!r.remove_phrase("nonexistent", "cancel my order"));
 }
 
 #[test]
@@ -899,38 +899,38 @@ fn remove_last_seed_removes_intent() {
     let mut r = Router::new();
     r.add_intent("test", &["only seed"]);
 
-    assert!(r.remove_seed("test", "only seed"));
+    assert!(r.remove_phrase("test", "only seed"));
     assert_eq!(r.intent_count(), 0);
 }
 
-// --- Seed Guard Tests ---
+// --- Phrase Guard Tests ---
 
 #[test]
-fn check_seed_new_terms_safe() {
+fn check_phrase_new_terms_safe() {
     let mut r = Router::new();
     r.add_intent("refund", &["I want a refund", "money back"]);
     r.add_intent("track_order", &["where is my package", "track my order"]);
 
     // "reimburse me" has terms not in any intent — should be safe
-    let result = r.check_seed("refund", "reimburse me please");
+    let result = r.check_phrase("refund", "reimburse me please");
     assert!(!result.redundant);
     assert!(result.new_terms.contains(&"reimburse".to_string()));
     assert!(result.conflicts.is_empty());
 }
 
 #[test]
-fn check_seed_redundant() {
+fn check_phrase_redundant() {
     let mut r = Router::new();
     r.add_intent("refund", &["I want a refund", "money back"]);
 
     // "refund money" — both terms already in refund intent
-    let result = r.check_seed("refund", "refund money");
+    let result = r.check_phrase("refund", "refund money");
     assert!(result.redundant);
     assert!(result.warning.is_some());
 }
 
 #[test]
-fn check_seed_detects_collision() {
+fn check_phrase_detects_collision() {
     let mut r = Router::new();
     r.add_intent("refund", &["I want a refund", "money back"]);
     r.add_intent("payment_method", &[
@@ -940,7 +940,7 @@ fn check_seed_detects_collision() {
     ]);
 
     // "refund to visa" — "visa" is primarily in payment_method
-    let result = r.check_seed("refund", "refund to visa");
+    let result = r.check_phrase("refund", "refund to visa");
     assert!(!result.conflicts.is_empty());
 
     let visa_conflict = result.conflicts.iter().find(|c| c.term == "visa");
@@ -951,14 +951,14 @@ fn check_seed_detects_collision() {
 }
 
 #[test]
-fn check_seed_no_collision_for_shared_low_weight_terms() {
+fn check_phrase_no_collision_for_shared_low_weight_terms() {
     let mut r = Router::new();
     r.add_intent("cancel_order", &["cancel my order", "stop my order"]);
     r.add_intent("track_order", &["track my order", "where is my order"]);
     r.add_intent("change_order", &["change my order", "modify my order"]);
 
     // "order" is spread across 3 intents — low discrimination, no collision warning
-    let result = r.check_seed("cancel_order", "order status please");
+    let result = r.check_phrase("cancel_order", "order status please");
     let order_conflicts: Vec<_> = result.conflicts.iter()
         .filter(|c| c.term == "order")
         .collect();
@@ -971,28 +971,28 @@ fn check_seed_no_collision_for_shared_low_weight_terms() {
 }
 
 #[test]
-fn check_seed_empty_after_stop_words() {
+fn check_phrase_empty_after_stop_words() {
     let mut r = Router::new();
     r.add_intent("refund", &["I want a refund"]);
 
     // "I want to" — all stop words
-    let result = r.check_seed("refund", "I want to");
+    let result = r.check_phrase("refund", "I want to");
     assert!(result.warning.is_some());
     assert!(result.new_terms.is_empty());
 }
 
 #[test]
-fn add_seed_checked_skips_redundant() {
+fn add_phrase_checked_skips_redundant() {
     let mut r = Router::new();
     r.add_intent("refund", &["I want a refund", "money back"]);
 
-    let result = r.add_seed_checked("refund", "refund money", "en");
+    let result = r.add_phrase_checked("refund", "refund money", "en");
     assert!(!result.added);
     assert!(result.redundant);
 }
 
 #[test]
-fn add_seed_checked_blocks_collision() {
+fn add_phrase_checked_blocks_collision() {
     let mut r = Router::new();
     r.add_intent("refund", &["I want a refund", "money back"]);
     r.add_intent("payment_method", &[
@@ -1001,7 +1001,7 @@ fn add_seed_checked_blocks_collision() {
         "visa card on file",
     ]);
 
-    let result = r.add_seed_checked("refund", "refund to visa", "en");
+    let result = r.add_phrase_checked("refund", "refund to visa", "en");
     // Should block — "visa" conflicts with payment_method
     assert!(!result.added);
     assert!(!result.conflicts.is_empty());
@@ -1009,12 +1009,12 @@ fn add_seed_checked_blocks_collision() {
 }
 
 #[test]
-fn add_seed_checked_clean_addition() {
+fn add_phrase_checked_clean_addition() {
     let mut r = Router::new();
     r.add_intent("refund", &["I want a refund", "money back"]);
     r.add_intent("track_order", &["where is my package"]);
 
-    let result = r.add_seed_checked("refund", "reimburse my purchase", "en");
+    let result = r.add_phrase_checked("refund", "reimburse my purchase", "en");
     assert!(result.added);
     assert!(result.conflicts.is_empty());
     assert!(!result.redundant);
@@ -1038,7 +1038,7 @@ fn seed_guard_does_not_block_learn() {
 }
 
 #[test]
-fn check_seed_with_realistic_ecommerce_intents() {
+fn check_phrase_with_realistic_ecommerce_intents() {
     let mut r = Router::new();
     r.add_intent("cancel_order", &[
         "cancel my order",
@@ -1067,40 +1067,40 @@ fn check_seed_with_realistic_ecommerce_intents() {
     ]);
 
     // Test 1: "cancel and refund" to cancel_order — "refund" should collide
-    let result = r.check_seed("cancel_order", "cancel and get refund");
+    let result = r.check_phrase("cancel_order", "cancel and get refund");
     let refund_collision = result.conflicts.iter()
         .any(|c| c.term == "refund" && c.competing_intent == "refund");
     assert!(refund_collision, "should detect 'refund' collision with refund intent");
 
     // Test 2: "delivery is late" to track_order — "delivery" already in track_order
-    let result = r.check_seed("track_order", "delivery is late");
-    // "delivery" is from "delivery status" seed — already in track_order
+    let result = r.check_phrase("track_order", "delivery is late");
+    // "delivery" is from "delivery status" phrase — already in track_order
     // "late" is new — this should not be redundant
     assert!(!result.redundant);
 
     // Test 3: "wrong charge" to refund — "wrong" and "charge" are in billing_issue
-    let result = r.check_seed("refund", "wrong charge refund");
+    let result = r.check_phrase("refund", "wrong charge refund");
     let billing_conflict = result.conflicts.iter()
         .any(|c| c.competing_intent == "billing_issue");
     assert!(billing_conflict, "should detect collision with billing_issue");
 
     // Test 4: completely novel phrase — no collisions
-    let result = r.check_seed("refund", "compensate me for the inconvenience");
+    let result = r.check_phrase("refund", "compensate me for the inconvenience");
     assert!(result.conflicts.is_empty());
     assert!(!result.redundant);
 }
 
 #[test]
 fn seed_guard_preserves_routing_accuracy() {
-    // After adding seeds through add_seed_checked, routing should still work correctly
+    // After adding phrases through add_phrase_checked, routing should still work correctly
     let mut r = Router::new();
     r.add_intent("cancel_order", &["cancel my order", "stop my purchase", "cancel it now"]);
     r.add_intent("track_order", &["where is my package", "track my order", "shipping status"]);
     r.add_intent("refund", &["get my money back", "full refund", "reimburse me"]);
 
-    // Add clean seeds
-    r.add_seed_checked("cancel_order", "I changed my mind about buying this", "en");
-    r.add_seed_checked("refund", "return the payment to my account", "en");
+    // Add clean phrases
+    r.add_phrase_checked("cancel_order", "I changed my mind about buying this", "en");
+    r.add_phrase_checked("refund", "return the payment to my account", "en");
 
     // Routing should still work for clear queries
     let cancel_results = r.route("cancel my order please");
@@ -1122,7 +1122,7 @@ fn seed_guard_similar_intents_shared_terms() {
 
     // Adding "cancel my service" to cancel_subscription should NOT be blocked.
     // "cancel" is already shared across 2 intents — it's a known shared term.
-    let result = r.check_seed("cancel_subscription", "cancel my service");
+    let result = r.check_phrase("cancel_subscription", "cancel my service");
     let cancel_conflict = result.conflicts.iter().any(|c| c.term == "cancel");
     assert!(!cancel_conflict,
         "shared term 'cancel' across similar intents should not flag as collision");
@@ -1135,7 +1135,7 @@ fn seed_guard_exclusive_term_still_blocked() {
     r.add_intent("refund", &["I want a refund", "money back"]);
     r.add_intent("payment_method", &["update my visa card", "change payment to visa"]);
 
-    let result = r.check_seed("refund", "refund to visa");
+    let result = r.check_phrase("refund", "refund to visa");
     let visa_conflict = result.conflicts.iter().any(|c| c.term == "visa");
     assert!(visa_conflict, "exclusive term 'visa' should still be blocked");
 }
@@ -1150,7 +1150,7 @@ fn seed_guard_three_way_shared_term_not_blocked() {
 
     // Adding "order update" to a new intent should not flag "order"
     r.add_intent("order_status", &["order status"]);
-    let result = r.check_seed("order_status", "check order progress");
+    let result = r.check_phrase("order_status", "check order progress");
     let order_conflict = result.conflicts.iter().any(|c| c.term == "order");
     assert!(!order_conflict,
         "term 'order' shared across 3+ intents should not flag");

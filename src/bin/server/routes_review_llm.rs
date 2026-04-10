@@ -1,4 +1,4 @@
-//! Server-side LLM review and seed generation.
+//! Server-side LLM review and phrase generation.
 
 use axum::{
     extract::{State, Query},
@@ -15,7 +15,7 @@ use crate::llm::*;
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/review", post(review))
-        .route("/api/seed/generate", post(generate_seeds))
+        .route("/api/phrase/generate", post(generate_phrases))
 }
 
 pub async fn review(
@@ -102,7 +102,7 @@ Rules:
             req.query,
             req.threshold,
             results_json,
-            asv_router::seed::SEED_QUALITY_RULES,
+            asv_router::phrase::PHRASE_QUALITY_RULES,
         )
     };
 
@@ -119,23 +119,23 @@ Rules:
     Ok(Json(review_val))
 }
 
-// --- Seed generation: server-side LLM call ---
+// --- Phrase generation: server-side LLM call ---
 
 #[derive(serde::Deserialize)]
-pub struct GenerateSeedsRequest {
+pub struct GeneratePhrasesRequest {
     intent_id: String,
     description: String,
     languages: Vec<String>,
 }
 
-pub async fn generate_seeds(
+pub async fn generate_phrases(
     State(state): State<AppState>,
-    Json(req): Json<GenerateSeedsRequest>,
+    Json(req): Json<GeneratePhrasesRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let prompt = asv_router::seed::build_prompt(&req.intent_id, &req.description, &req.languages);
+    let prompt = asv_router::phrase::build_prompt(&req.intent_id, &req.description, &req.languages);
     let text = call_llm(&state, &prompt, 2048).await?;
-    let result = asv_router::seed::parse_response(&text, &req.languages)
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to parse seeds: {}", e)))?;
+    let result = asv_router::phrase::parse_response(&text, &req.languages)
+        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to parse phrases: {}", e)))?;
     let val: serde_json::Value = serde_json::from_str(&result)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(val))

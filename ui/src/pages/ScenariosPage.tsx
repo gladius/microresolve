@@ -579,7 +579,7 @@ function TurnResult({ result: r, index }: { result: RunResult; index: number }) 
 function CorrectionRow({ correction: c }: { correction: Correction }) {
   return (
     <div className="flex items-center gap-2 text-xs font-mono">
-      <span className="px-1.5 py-0.5 rounded text-[9px] uppercase font-semibold text-cyan-400 bg-cyan-400/10">seed</span>
+      <span className="px-1.5 py-0.5 rounded text-[9px] uppercase font-semibold text-cyan-400 bg-cyan-400/10">phrase</span>
       <span className="text-zinc-400">"{c.phrase}"</span>
       <span className="text-zinc-600">&rarr;</span>
       <span className="text-emerald-400">{c.intent}</span>
@@ -743,7 +743,7 @@ function formatSessionMarkdown(s: TrainingSession): string {
     for (const rev of s.reviews) {
       md += `- Turn ${rev.turnIndex + 1}: ${rev.analysis}\n`;
       for (const c of rev.corrections) {
-        md += `  - seed: "${c.phrase}" -> ${c.intent}\n`;
+        md += `  - phrase: "${c.phrase}" -> ${c.intent}\n`;
       }
     }
     md += `\n`;

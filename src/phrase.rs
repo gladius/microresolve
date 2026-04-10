@@ -1,4 +1,4 @@
-//! Seed generation — prompt building and response parsing.
+//! Phrase generation — prompt building and response parsing.
 //!
 //! All LLM prompt logic lives here. The WASM layer exposes these functions
 //! so the UI only handles HTTP transport.
@@ -33,8 +33,8 @@ pub fn supported_languages_json() -> String {
     serde_json::to_string(&names).unwrap_or_default()
 }
 
-/// Seed quality rules — shared DO NOTs for all seed generation.
-pub const SEED_QUALITY_RULES: &str = r#"DO NOT:
+/// Phrase quality rules — shared DO NOTs for all phrase generation.
+pub const PHRASE_QUALITY_RULES: &str = r#"DO NOT:
 - Use the customer's exact message as a seed
 - Repeat the same structure with word swaps ("cancel my order" / "cancel my purchase" / "cancel my item")
 - Use overly polished corporate language
@@ -145,11 +145,11 @@ pub fn build_prompt(intent_id: &str, description: &str, languages: &[String]) ->
     }
 }
 
-/// Parse the LLM response into seeds grouped by language.
+/// Parse the LLM response into phrases grouped by language.
 ///
-/// Returns JSON: {"seeds_by_lang": {"en": [...], "es": [...]}, "total": N}
+/// Returns JSON: {"phrases_by_lang": {"en": [...], "es": [...]}, "total": N}
 pub fn parse_response(response_text: &str, languages: &[String]) -> Result<String, String> {
-    let seeds_by_lang: HashMap<String, Vec<String>>;
+    let phrases_by_lang: HashMap<String, Vec<String>>;
 
     if languages.len() == 1 {
         // Expect a JSON array
@@ -159,20 +159,20 @@ pub fn parse_response(response_text: &str, languages: &[String]) -> Result<Strin
             serde_json::from_str(&array_str).map_err(|e| format!("JSON parse error: {}", e))?;
         let mut map = HashMap::new();
         map.insert(languages[0].clone(), parsed);
-        seeds_by_lang = map;
+        phrases_by_lang = map;
     } else {
         // Expect a JSON object
         let obj_str = extract_json_object(response_text)
             .ok_or_else(|| "Could not parse response as JSON object".to_string())?;
         let parsed: HashMap<String, Vec<String>> =
             serde_json::from_str(&obj_str).map_err(|e| format!("JSON parse error: {}", e))?;
-        seeds_by_lang = parsed;
+        phrases_by_lang = parsed;
     }
 
-    let total: usize = seeds_by_lang.values().map(|v| v.len()).sum();
+    let total: usize = phrases_by_lang.values().map(|v| v.len()).sum();
 
     let result = serde_json::json!({
-        "seeds_by_lang": seeds_by_lang,
+        "phrases_by_lang": phrases_by_lang,
         "total": total,
     });
     serde_json::to_string(&result).map_err(|e| format!("Serialization error: {}", e))
@@ -353,7 +353,7 @@ mod tests {
         let result = parse_response(response, &["en".to_string()]).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["total"], 2);
-        assert_eq!(parsed["seeds_by_lang"]["en"].as_array().unwrap().len(), 2);
+        assert_eq!(parsed["phrases_by_lang"]["en"].as_array().unwrap().len(), 2);
     }
 
     #[test]

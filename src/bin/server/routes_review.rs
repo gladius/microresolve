@@ -20,7 +20,7 @@ pub fn routes() -> axum::Router<AppState> {
         .route("/api/review/reject",       post(review_reject))
         .route("/api/review/fix",          post(review_fix))
         .route("/api/review/analyze",      post(review_analyze))
-        .route("/api/review/intent_seeds", post(review_intent_seeds))
+        .route("/api/review/intent_phrases", post(review_intent_phrases))
         .route("/api/review/stats",        get(review_stats))
         .route("/api/review/mode",         get(get_review_mode))
         .route("/api/review/mode",         post(set_review_mode))
@@ -97,12 +97,12 @@ pub async fn review_reject(
 #[derive(serde::Deserialize)]
 pub struct ReviewFixRequest {
     id: u64,
-    seeds_by_intent: HashMap<String, Vec<SeedWithLang>>,
+    phrases_by_intent: HashMap<String, Vec<PhraseWithLang>>,
 }
 
 #[derive(serde::Deserialize)]
-pub struct SeedWithLang {
-    seed: String,
+pub struct PhraseWithLang {
+    phrase: String,
     #[serde(default = "default_lang")]
     lang: String,
 }
@@ -129,12 +129,12 @@ pub async fn review_fix(
             .ok_or_else(|| (StatusCode::NOT_FOUND, "log entry not found".to_string()))?
     };
 
-    // Run seed pipeline
-    let seeds_map: HashMap<String, Vec<String>> = req.seeds_by_intent.iter()
-        .map(|(id, seeds)| (id.clone(), seeds.iter().map(|s| s.seed.clone()).collect()))
+    // Run phrase pipeline
+    let seeds_map: HashMap<String, Vec<String>> = req.phrases_by_intent.iter()
+        .map(|(id, phrases)| (id.clone(), phrases.iter().map(|s| s.phrase.clone()).collect()))
         .collect();
 
-    let pipeline = seed_pipeline(&state, &app_id, &seeds_map, true, "en").await;
+    let pipeline = phrase_pipeline(&state, &app_id, &seeds_map, true, "en").await;
 
     // For each intent that got seeds added, learn situation n-grams from the original
     // failing query. CJK queries always learn; Latin queries learn only if the intent
@@ -178,7 +178,7 @@ pub async fn review_fix(
     }
 
     let blocked: Vec<serde_json::Value> = pipeline.blocked.iter()
-        .map(|(intent, seed, reason)| serde_json::json!({"seed": seed, "intent": intent, "reason": reason}))
+        .map(|(intent, phrase, reason)| serde_json::json!({"phrase": phrase, "intent": intent, "reason": reason}))
         .collect();
 
     Ok(Json(serde_json::json!({
@@ -219,10 +219,10 @@ pub async fn review_analyze(
         "correct_intents": review.correct_intents,
         "wrong_detections": review.wrong_detections,
         "languages": review.languages,
-        "seeds_to_add": review.seeds_to_add,
-        "seeds_blocked": review.seeds_blocked.iter().map(|(i,s,r)| serde_json::json!({"intent":i,"seed":s,"reason":r})).collect::<Vec<_>>(),
-        "seeds_to_replace": review.seeds_to_replace.iter().map(|r| serde_json::json!({
-            "intent": r.intent, "old_seed": r.old_seed, "new_seed": r.new_seed, "reason": r.reason,
+        "phrases_to_add": review.phrases_to_add,
+        "phrases_blocked": review.phrases_blocked.iter().map(|(i,s,r)| serde_json::json!({"intent":i,"phrase":s,"reason":r})).collect::<Vec<_>>(),
+        "phrases_to_replace": review.phrases_to_replace.iter().map(|r| serde_json::json!({
+            "intent": r.intent, "old_phrase": r.old_phrase, "new_phrase": r.new_phrase, "reason": r.reason,
         })).collect::<Vec<_>>(),
         "safe_to_apply": review.safe_to_apply,
         "summary": review.summary,
@@ -232,14 +232,14 @@ pub async fn review_analyze(
 // ─── Supporting ──────────────────────────────────────────────────────────────
 
 #[derive(serde::Deserialize)]
-pub struct IntentSeedsRequest {
+pub struct IntentPhrasesRequest {
     intent_ids: Vec<String>,
 }
 
-pub async fn review_intent_seeds(
+pub async fn review_intent_phrases(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(req): Json<IntentSeedsRequest>,
+    Json(req): Json<IntentPhrasesRequest>,
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
     let routers = state.routers.read().unwrap();

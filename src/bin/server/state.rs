@@ -223,7 +223,7 @@ fn write_intent_files(ns_dir: &str, router: &Router) {
         let intent_json = serde_json::json!({
             "description": router.get_description(&intent_id),
             "type": router.get_intent_type(&intent_id),
-            "seeds": router.get_training_by_lang(&intent_id).cloned().unwrap_or_default(),
+            "phrases": router.get_training_by_lang(&intent_id).cloned().unwrap_or_default(),
             "metadata": router.get_metadata(&intent_id).cloned().unwrap_or_default(),
             "vector": router.get_vector(&intent_id),
             "situation_patterns": router.get_situation_patterns(&intent_id).cloned().unwrap_or_default(),

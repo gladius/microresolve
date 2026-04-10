@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import { api, type ReviewItem, type ReviewAnalyzeResult } from '@/api/client';
 
-interface SeedEntry { seed: string; lang: string; }
-interface IntentBlock { intentId: string; seeds: SeedEntry[]; }
+interface PhraseEntry { phrase: string; lang: string; }
+interface IntentBlock { intentId: string; phrases: PhraseEntry[]; }
 
 export default function ReviewPage() {
   const [items, setItems] = useState<ReviewItem[]>([]);
@@ -91,7 +91,7 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
     try { return JSON.parse(localStorage.getItem('asv_languages') || '["en"]'); } catch { return ['en']; }
   });
 
-  // Editable seeds (from analysis)
+  // Editable phrases (from analysis)
   const [blocks, setBlocks] = useState<IntentBlock[]>([]);
 
   useEffect(() => { setAnalysis(null); setBlocks([]); setWrongSeeds({}); }, [item.id]);
@@ -102,17 +102,17 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
       const result = await api.reviewAnalyze(item.id);
       setAnalysis(result);
 
-      // Build editable seed blocks from analysis
-      const newBlocks: IntentBlock[] = Object.entries(result.seeds_to_add).map(([intentId, seeds]) => ({
+      // Build editable phrase blocks from analysis
+      const newBlocks: IntentBlock[] = Object.entries(result.phrases_to_add).map(([intentId, phraseList]) => ({
         intentId,
-        seeds: seeds.map(s => ({ seed: s, lang: result.languages[0] || 'en' })),
+        phrases: phraseList.map(s => ({ phrase: s, lang: result.languages[0] || 'en' })),
       }));
       setBlocks(newBlocks);
 
-      // Fetch seeds for wrong intents
+      // Fetch phrases for wrong intents
       if (result.wrong_detections.length > 0) {
-        const seeds = await api.reviewIntentSeeds(result.wrong_detections);
-        setWrongSeeds(seeds);
+        const phrases = await api.reviewIntentPhrases(result.wrong_detections);
+        setWrongSeeds(phrases);
       }
     } catch (e) {
       alert('Analysis failed: ' + (e instanceof Error ? e.message : 'unknown'));
@@ -122,30 +122,30 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
   };
 
   // Block editing
-  const addBlock = () => setBlocks(prev => [...prev, { intentId: '', seeds: [{ seed: '', lang: 'en' }] }]);
+  const addBlock = () => setBlocks(prev => [...prev, { intentId: '', phrases: [{ phrase: '', lang: 'en' }] }]);
   const removeBlock = (i: number) => setBlocks(prev => prev.filter((_, idx) => idx !== i));
   const setBlockIntent = (i: number, id: string) => setBlocks(prev => prev.map((b, idx) => idx === i ? { ...b, intentId: id } : b));
-  const setBlockSeed = (bi: number, si: number, val: string) => setBlocks(prev => prev.map((b, i) => {
+  const setBlockPhrase = (bi: number, si: number, val: string) => setBlocks(prev => prev.map((b, i) => {
     if (i !== bi) return b;
-    const seeds = [...b.seeds]; seeds[si] = { ...seeds[si], seed: val }; return { ...b, seeds };
+    const phrases = [...b.phrases]; phrases[si] = { ...phrases[si], phrase: val }; return { ...b, phrases };
   }));
-  const addSeedToBlock = (bi: number) => setBlocks(prev => prev.map((b, i) => i === bi ? { ...b, seeds: [...b.seeds, { seed: '', lang: 'en' }] } : b));
-  const removeSeedFromBlock = (bi: number, si: number) => setBlocks(prev => prev.map((b, i) => i === bi ? { ...b, seeds: b.seeds.filter((_, idx) => idx !== si) } : b));
+  const addPhraseToBlock = (bi: number) => setBlocks(prev => prev.map((b, i) => i === bi ? { ...b, phrases: [...b.phrases, { phrase: '', lang: 'en' }] } : b));
+  const removePhraseFromBlock = (bi: number, si: number) => setBlocks(prev => prev.map((b, i) => i === bi ? { ...b, phrases: b.phrases.filter((_, idx) => idx !== si) } : b));
 
   const handleApply = async () => {
-    const toApply: Record<string, { seed: string; lang: string }[]> = {};
+    const toApply: Record<string, { phrase: string; lang: string }[]> = {};
     for (const block of blocks) {
       if (!block.intentId) continue;
-      const seeds = block.seeds.filter(s => s.seed.trim());
-      if (seeds.length > 0) toApply[block.intentId] = [...(toApply[block.intentId] || []), ...seeds];
+      const phrases = block.phrases.filter(s => s.phrase.trim());
+      if (phrases.length > 0) toApply[block.intentId] = [...(toApply[block.intentId] || []), ...phrases];
     }
-    if (Object.keys(toApply).length === 0 && (!analysis || analysis.seeds_to_replace.length === 0)) return;
+    if (Object.keys(toApply).length === 0 && (!analysis || analysis.phrases_to_replace.length === 0)) return;
     const result = await api.reviewFix(item.id, toApply);
-    const msgs = [`Applied ${result.added} seeds.`];
+    const msgs = [`Applied ${result.added} phrases.`];
     if (result.resolved_count > 0) msgs.push(`${result.resolved_count} failures resolved.`);
     if (result.blocked.length > 0) {
       msgs.push(`Blocked ${result.blocked.length}:`);
-      result.blocked.forEach(b => msgs.push(`  "${b.seed}": ${b.reason}`));
+      result.blocked.forEach(b => msgs.push(`  "${b.phrase}": ${b.reason}`));
     }
     alert(msgs.join('\n'));
     onAction();
@@ -153,7 +153,7 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
 
   const handleDismiss = async () => { await api.reviewReject(item.id); onAction(); };
 
-  const totalSeeds = blocks.flatMap(b => b.seeds).filter(s => s.seed.trim()).length;
+  const totalPhrases = blocks.flatMap(b => b.phrases).filter(s => s.phrase.trim()).length;
   const usedIntents = new Set(blocks.map(b => b.intentId).filter(Boolean));
 
   return (
@@ -205,24 +205,24 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
           </div>
 
           {/* False positive fixes (replacements) */}
-          {analysis.seeds_to_replace.length > 0 && (
+          {analysis.phrases_to_replace.length > 0 && (
             <div className="space-y-2">
               <div className="text-[10px] text-zinc-500 uppercase font-semibold">False Positive Fixes</div>
-              {analysis.seeds_to_replace.map((r, i) => (
+              {analysis.phrases_to_replace.map((r, i) => (
                 <div key={i} className="bg-red-900/10 border border-red-800/30 rounded-lg px-3 py-3 text-xs space-y-1">
                   <div><span className="text-red-400 font-mono font-semibold">{r.intent}</span> <span className="text-zinc-500">— false match</span></div>
                   <div className="text-zinc-500">
-                    Replace: <span className="text-red-400 font-mono line-through">"{r.old_seed}"</span>
-                    {' → '}<span className="text-emerald-400 font-mono">"{r.new_seed}"</span>
+                    Replace: <span className="text-red-400 font-mono line-through">"{r.old_phrase}"</span>
+                    {' → '}<span className="text-emerald-400 font-mono">"{r.new_phrase}"</span>
                   </div>
                   <div className="text-zinc-600">{r.reason}</div>
                   {wrongSeeds[r.intent] && (
                     <div className="mt-1">
-                      <div className="text-[10px] text-zinc-600 mb-1">Current seeds:</div>
+                      <div className="text-[10px] text-zinc-600 mb-1">Current phrases:</div>
                       <div className="flex flex-wrap gap-1">
                         {wrongSeeds[r.intent].map((s, si) => (
                           <span key={si} className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                            s === r.old_seed ? 'bg-red-900/30 text-red-400 border border-red-800' : 'bg-zinc-800 text-zinc-500'
+                            s === r.old_phrase ? 'bg-red-900/30 text-red-400 border border-red-800' : 'bg-zinc-800 text-zinc-500'
                           }`}>{s}</span>
                         ))}
                       </div>
@@ -233,10 +233,10 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
             </div>
           )}
 
-          {/* Blocked seeds */}
-          {analysis.seeds_blocked.length > 0 && (
+          {/* Blocked phrases */}
+          {analysis.phrases_blocked.length > 0 && (
             <div className="text-xs text-amber-400 bg-amber-900/10 border border-amber-800/30 rounded px-3 py-2">
-              Guard blocked: {analysis.seeds_blocked.map(b => `"${b.seed}" (${b.reason})`).join(', ')}
+              Guard blocked: {analysis.phrases_blocked.map(b => `"${b.phrase}" (${b.reason})`).join(', ')}
             </div>
           )}
 
@@ -255,9 +255,9 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
         </div>
       )}
 
-      {/* Seeds to add */}
+      {/* Phrases to add */}
       <div className="space-y-2">
-        {blocks.length > 0 && <div className="text-[10px] text-zinc-500 uppercase font-semibold">Seeds to add</div>}
+        {blocks.length > 0 && <div className="text-[10px] text-zinc-500 uppercase font-semibold">Phrases to add</div>}
         {blocks.map((block, bi) => (
           <div key={bi} className="bg-zinc-800 border border-zinc-700 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
@@ -270,21 +270,21 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
               </select>
               <button onClick={() => removeBlock(bi)} className="text-xs text-zinc-600 hover:text-red-400">Remove</button>
             </div>
-            {block.seeds.map((entry, si) => (
+            {block.phrases.map((entry, si) => (
               <div key={si} className="flex gap-1.5 mb-1">
                 <select value={entry.lang} onChange={e => setBlocks(prev => prev.map((b, i) => {
                   if (i !== bi) return b;
-                  const seeds = [...b.seeds]; seeds[si] = { ...seeds[si], lang: e.target.value }; return { ...b, seeds };
+                  const phrases = [...b.phrases]; phrases[si] = { ...phrases[si], lang: e.target.value }; return { ...b, phrases };
                 }))} className="bg-zinc-900 border border-zinc-700 text-violet-400 text-[10px] rounded px-1 py-1 w-12 focus:outline-none">
                   {enabledLangs.map(lang => <option key={lang} value={lang}>{lang.toUpperCase()}</option>)}
                 </select>
-                <input value={entry.seed} onChange={e => setBlockSeed(bi, si, e.target.value)}
+                <input value={entry.phrase} onChange={e => setBlockPhrase(bi, si, e.target.value)}
                   placeholder="e.g. received wrong item"
                   className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white font-mono focus:border-violet-500 focus:outline-none" />
-                {block.seeds.length > 1 && <button onClick={() => removeSeedFromBlock(bi, si)} className="text-zinc-600 hover:text-red-400 text-xs">×</button>}
+                {block.phrases.length > 1 && <button onClick={() => removePhraseFromBlock(bi, si)} className="text-zinc-600 hover:text-red-400 text-xs">×</button>}
               </div>
             ))}
-            <button onClick={() => addSeedToBlock(bi)} className="text-[10px] text-zinc-500 hover:text-violet-400 mt-1">+ add seed</button>
+            <button onClick={() => addPhraseToBlock(bi)} className="text-[10px] text-zinc-500 hover:text-violet-400 mt-1">+ add phrase</button>
           </div>
         ))}
         <button onClick={addBlock}
@@ -301,9 +301,9 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
         </button>
         <div className="flex-1" />
         <button onClick={handleDismiss} className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:text-white">Dismiss</button>
-        <button onClick={handleApply} disabled={totalSeeds === 0}
+        <button onClick={handleApply} disabled={totalPhrases === 0}
           className="text-xs px-4 py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30">
-          Apply Fix ({totalSeeds} seeds)
+          Apply Fix ({totalPhrases} phrases)
         </button>
       </div>
     </div>

@@ -440,7 +440,7 @@ pub async fn import_state(
 // --- Languages ---
 
 pub async fn get_languages() -> Json<serde_json::Value> {
-    let json_str = asv_router::seed::supported_languages_json();
+    let json_str = asv_router::phrase::supported_languages_json();
     let val: serde_json::Value = serde_json::from_str(&json_str).unwrap_or_default();
     Json(val)
 }

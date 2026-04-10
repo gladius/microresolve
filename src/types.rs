@@ -89,12 +89,12 @@ pub struct TermConflict {
     pub competing_weight: f32,
 }
 
-/// Result of checking a seed phrase before adding it.
+/// Result of checking a phrase before adding it.
 #[derive(Debug, Clone)]
-pub struct SeedCheckResult {
-    /// Whether the seed was added.
+pub struct PhraseCheckResult {
+    /// Whether the phrase was added.
     pub added: bool,
-    /// New terms this seed introduces (not previously in this intent).
+    /// New terms this phrase introduces (not previously in this intent).
     pub new_terms: Vec<String>,
     /// Terms that conflict with other intents.
     pub conflicts: Vec<TermConflict>,
@@ -120,8 +120,8 @@ pub struct IntentSuggestion {
     pub because_of: String,
 }
 
-/// Maximum seed phrases per language per intent. Prevents overfitting.
-pub const MAX_SEEDS_PER_LANGUAGE: usize = 20;
+/// Maximum training phrases per language per intent. Prevents overfitting.
+pub const MAX_PHRASES_PER_LANGUAGE: usize = 20;
 
 /// A conflict detected by the situation pattern guard.
 #[derive(Debug, Clone)]

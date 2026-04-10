@@ -10,7 +10,7 @@
 //!
 //! let mut router = Router::new();
 //!
-//! // Add intents with seed phrases
+//! // Add intents with training phrases
 //! router.add_intent("cancel_order", &[
 //!     "cancel my order",
 //!     "I want to cancel",
@@ -37,11 +37,11 @@
 //! ## How It Works
 //!
 //! Each intent has a **dual-layer sparse vector**:
-//! - **Seed layer**: Generated from example phrases at setup time (immutable)
+//! - **Phrase layer**: Generated from training phrases at setup time (immutable)
 //! - **Learned layer**: Grows from user corrections (asymptotic toward 1.0)
 //!
 //! Routing tokenizes the query into unigrams + bigrams, looks up matching
-//! intents via an inverted index, and scores by summing `max(seed, learned)`
+//! intents via an inverted index, and scores by summing `max(phrase, learned)`
 //! per term. The entire operation is a HashMap lookup — no matrix math,
 //! no model inference.
 //!
@@ -57,14 +57,14 @@
 //!
 //! - You need semantic understanding ("stop charging me" won't match "cancel subscription" without training)
 //! - You have 10K+ intents with heavy overlap
-//! - You need deep semantic multilingual matching (CJK supported via Aho-Corasick, but coverage depends on seed quality)
+//! - You need deep semantic multilingual matching (CJK supported via Aho-Corasick, but coverage depends on phrase quality)
 
 pub mod discovery;
 pub mod import;
 pub mod connect;
 pub mod index;
 pub mod multi;
-pub mod seed;
+pub mod phrase;
 pub mod tokenizer;
 pub mod types;
 pub mod vector;
@@ -119,7 +119,7 @@ pub struct Router {
     /// Intent type per intent (Action or Context). Default: Action.
     intent_types: HashMap<String, IntentType>,
     /// Human-readable description per intent.
-    /// Used by LLM prompts to understand what the intent is about, even with zero seeds.
+    /// Used by LLM prompts to understand what the intent is about, even with zero phrases.
     descriptions: HashMap<String, String>,
     /// Opaque metadata per intent. User-defined key-value pairs.
     /// ASV stores and returns this data but never interprets it.
@@ -151,8 +151,8 @@ pub struct Router {
     /// Set in connected mode where the server manages state.
     connected: bool,
     /// Distributional similarity: term → Vec<(similar_term, cosine_score)>.
-    /// Built from accumulated text (seeds + queries). Enables matching queries
-    /// that use different words than the seeds (e.g., "sent wrong" ≈ "return").
+    /// Built from accumulated text (phrases + queries). Enables matching queries
+    /// that use different words than the training phrases (e.g., "sent wrong" ≈ "return").
     similarity: HashMap<String, Vec<(String, f32)>>,
     /// Discount factor for similarity expansion. Default: 0.3.
     /// Lower = more conservative expansion, higher = more aggressive.
@@ -172,7 +172,7 @@ impl Default for Router {
 
 // Router methods split across modules:
 // router_core.rs      — constructor, config, persistence, accessors
-// router_intents.rs   — intent CRUD, seed guard
+// router_intents.rs   — intent CRUD, phrase guard
 // router_routing.rs   — route, route_multi, route_best
 // router_learning.rs  — learn, correct, reinforce, decay
 // router_metadata.rs  — intent types, descriptions, metadata

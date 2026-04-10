@@ -10,7 +10,7 @@ use axum::{
     routing::post,
     Json,
 };
-use asv_router::seed::{build_situation_prompt, parse_situation_response};
+use asv_router::phrase::{build_situation_prompt, parse_situation_response};
 use crate::state::*;
 use crate::llm::call_llm;
 
@@ -25,9 +25,9 @@ pub fn routes() -> axum::Router<AppState> {
 pub struct SituationGenerateRequest {
     intent_id: String,
     description: String,
-    /// Current action seeds — the LLM uses these to know what NOT to generate.
+    /// Current training phrases — the LLM uses these to know what NOT to generate.
     #[serde(default)]
-    seeds: Vec<String>,
+    phrases: Vec<String>,
     /// Language codes to include CJK hints (e.g. ["en", "zh"]).
     #[serde(default)]
     languages: Vec<String>,
@@ -41,17 +41,17 @@ pub async fn generate(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    // Build seeds list from router if not supplied
-    let seeds = if req.seeds.is_empty() {
+    // Build phrases list from router if not supplied
+    let phrases = if req.phrases.is_empty() {
         let routers = state.routers.read().unwrap();
         routers.get(&app_id)
             .and_then(|r| r.get_training(&req.intent_id))
             .unwrap_or_default()
     } else {
-        req.seeds.clone()
+        req.phrases.clone()
     };
 
-    let prompt = build_situation_prompt(&req.intent_id, &req.description, &seeds, &req.languages);
+    let prompt = build_situation_prompt(&req.intent_id, &req.description, &phrases, &req.languages);
     let text = call_llm(&state, &prompt, 512).await?;
     let patterns = parse_situation_response(&text)
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to parse patterns: {}", e)))?;
@@ -75,7 +75,7 @@ pub async fn generate(
 pub async fn build_prompt(
     Json(req): Json<SituationGenerateRequest>,
 ) -> Json<serde_json::Value> {
-    let prompt = build_situation_prompt(&req.intent_id, &req.description, &req.seeds, &req.languages);
+    let prompt = build_situation_prompt(&req.intent_id, &req.description, &req.phrases, &req.languages);
     Json(serde_json::json!({ "prompt": prompt }))
 }
 

@@ -1,7 +1,7 @@
 //! WebAssembly bindings for ASV Router.
 
 use wasm_bindgen::prelude::*;
-use crate::{Router, IntentRelation, IntentType, seed};
+use crate::{Router, IntentRelation, IntentType, phrase};
 
 #[wasm_bindgen]
 pub struct WasmRouter {
@@ -30,9 +30,9 @@ impl WasmRouter {
         self.inner.add_intent_multilingual(id, seeds);
     }
 
-    /// Add a single seed phrase with collision guard. Returns JSON with result.
-    pub fn add_seed(&mut self, intent_id: &str, seed: &str) -> String {
-        let result = self.inner.add_seed_checked(intent_id, seed, "en");
+    /// Add a single training phrase with collision guard. Returns JSON with result.
+    pub fn add_phrase(&mut self, intent_id: &str, seed: &str) -> String {
+        let result = self.inner.add_phrase_checked(intent_id, seed, "en");
         serde_json::json!({
             "added": result.added,
             "new_terms": result.new_terms,
@@ -138,12 +138,12 @@ impl WasmRouter {
         self.inner.end_batch();
     }
 
-    /// Get all intents as JSON: [{id, seeds, seeds_by_lang, learned_count, intent_type, metadata}]
+    /// Get all intents as JSON: [{id, phrases, phrases_by_lang, learned_count, intent_type, metadata}]
     pub fn get_intents_json(&self) -> String {
         let mut ids = self.inner.intent_ids();
         ids.sort();
         let intents: Vec<serde_json::Value> = ids.iter().map(|id| {
-            let all_seeds = self.inner.get_training(id).unwrap_or_default();
+            let all_phrases = self.inner.get_training(id).unwrap_or_default();
             let by_lang = self.inner.get_training_by_lang(id).cloned().unwrap_or_default();
             let learned = self.inner.get_vector(id)
                 .map(|v| v.learned_term_count()).unwrap_or(0);
@@ -151,8 +151,8 @@ impl WasmRouter {
             let metadata = self.inner.get_metadata(id).cloned().unwrap_or_default();
             serde_json::json!({
                 "id": id,
-                "seeds": all_seeds,
-                "seeds_by_lang": by_lang,
+                "phrases": all_phrases,
+                "phrases_by_lang": by_lang,
                 "learned_count": learned,
                 "intent_type": intent_type,
                 "metadata": metadata
@@ -174,21 +174,21 @@ impl WasmRouter {
 
     /// Get supported languages as JSON: {"en": "English", ...}
     pub fn get_languages(&self) -> String {
-        seed::supported_languages_json()
+        phrase::supported_languages_json()
     }
 
-    /// Build an LLM prompt for seed generation.
+    /// Build an LLM prompt for phrase generation.
     /// languages_json: JSON array of language codes, e.g. ["en", "zh"]
-    pub fn build_seed_prompt(&self, intent_id: &str, description: &str, languages_json: &str) -> String {
+    pub fn build_phrase_prompt(&self, intent_id: &str, description: &str, languages_json: &str) -> String {
         let languages: Vec<String> = serde_json::from_str(languages_json).unwrap_or_default();
-        seed::build_prompt(intent_id, description, &languages)
+        phrase::build_prompt(intent_id, description, &languages)
     }
 
-    /// Parse an LLM response into seeds grouped by language.
-    /// Returns JSON: {"seeds_by_lang": {...}, "total": N} or {"error": "..."}
-    pub fn parse_seed_response(&self, response_text: &str, languages_json: &str) -> String {
+    /// Parse an LLM response into phrases grouped by language.
+    /// Returns JSON: {"phrases_by_lang": {...}, "total": N} or {"error": "..."}
+    pub fn parse_phrase_response(&self, response_text: &str, languages_json: &str) -> String {
         let languages: Vec<String> = serde_json::from_str(languages_json).unwrap_or_default();
-        match seed::parse_response(response_text, &languages) {
+        match phrase::parse_response(response_text, &languages) {
             Ok(json) => json,
             Err(e) => serde_json::json!({"error": e}).to_string(),
         }

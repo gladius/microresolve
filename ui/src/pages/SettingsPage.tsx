@@ -94,7 +94,7 @@ function LLMSection() {
       <div>
         <h2 className="text-lg font-semibold text-white">LLM / AI Configuration</h2>
         <p className="text-xs text-zinc-500 mt-1">
-          Powers: seed generation, auto-review, auto-learn, discovery naming.
+          Powers: phrase generation, auto-review, auto-learn, discovery naming.
         </p>
       </div>
 
@@ -142,7 +142,7 @@ function LLMSection() {
         <h3 className="text-xs text-zinc-500 font-semibold uppercase">Features using LLM</h3>
         <div className="grid grid-cols-2 gap-2 text-xs">
           {[
-            { feature: 'Seed generation', desc: 'Generate diverse seed phrases for intents' },
+            { feature: 'Phrase generation', desc: 'Generate diverse training phrases for intents' },
             { feature: 'Auto-review', desc: 'LLM suggests fixes for failed queries' },
             { feature: 'Auto-learn', desc: 'LLM fixes failures automatically' },
             { feature: 'Discovery naming', desc: 'LLM names discovered intent clusters' },
@@ -203,7 +203,7 @@ function LanguagesSection() {
       <div>
         <h2 className="text-lg font-semibold text-white">Languages</h2>
         <p className="text-xs text-zinc-500 mt-1">
-          Languages for AI seed generation. Seeds in each selected language are generated on import.
+          Languages for AI phrase generation. Phrases in each selected language are generated on import.
         </p>
       </div>
 
@@ -275,7 +275,7 @@ function LanguagesSection() {
       )}
 
       <p className="text-xs text-zinc-600">
-        English is always included and cannot be removed. LLM quality varies for non-English seeds — review recommended.
+        English is always included and cannot be removed. LLM quality varies for non-English phrases — review recommended.
       </p>
     </div>
   );

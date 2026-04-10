@@ -1,4 +1,4 @@
-//! Router: intent management and seed guard.
+//! Router: intent management and phrase guard.
 
 use crate::*;
 use crate::tokenizer::*;
@@ -7,21 +7,21 @@ use crate::index::InvertedIndex;
 use std::collections::{HashMap, HashSet};
 
 impl Router {
-    pub fn add_intent(&mut self, id: &str, seed_phrases: &[&str]) -> Vec<SeedCheckResult> {
+    pub fn add_intent(&mut self, id: &str, seed_phrases: &[&str]) -> Vec<PhraseCheckResult> {
         self.require_local();
         let mut results = Vec::new();
         let mut accepted: Vec<String> = Vec::new();
 
         for phrase in seed_phrases {
-            let check = self.check_seed(id, phrase);
-            // add_intent: always accept seeds (they define the intent).
+            let check = self.check_phrase(id, phrase);
+            // add_intent: always accept phrases (they define the intent).
             // Report conflicts but don't block — caller can review.
             accepted.push(phrase.to_string());
-            results.push(SeedCheckResult { added: true, ..check });
+            results.push(PhraseCheckResult { added: true, ..check });
         }
 
         let terms = training_to_terms(&accepted);
-        let vector = LearnedVector::from_seed(terms);
+        let vector = LearnedVector::from_phrases(terms);
         self.vectors.insert(id.to_string(), vector);
         let mut lang_map = HashMap::new();
         lang_map.insert("en".to_string(), accepted.clone());
@@ -33,7 +33,7 @@ impl Router {
         results
     }
 
-    /// Add an intent with seed phrases grouped by language.
+    /// Add an intent with training phrases grouped by language.
     ///
     /// All phrases across all languages are indexed together into one flat vector.
     /// Language grouping is preserved in the datastore for display/export.
@@ -43,25 +43,25 @@ impl Router {
     /// use std::collections::HashMap;
     ///
     /// let mut router = Router::new();
-    /// let mut seeds = HashMap::new();
-    /// seeds.insert("en".to_string(), vec!["cancel my order".to_string()]);
-    /// seeds.insert("es".to_string(), vec!["cancelar mi pedido".to_string()]);
-    /// router.add_intent_multilingual("cancel_order", seeds);
+    /// let mut phrases = HashMap::new();
+    /// phrases.insert("en".to_string(), vec!["cancel my order".to_string()]);
+    /// phrases.insert("es".to_string(), vec!["cancelar mi pedido".to_string()]);
+    /// router.add_intent_multilingual("cancel_order", phrases);
     /// ```
     pub fn add_intent_multilingual(&mut self, id: &str, seeds_by_lang: HashMap<String, Vec<String>>) {
         self.require_local();
-        // Enforce per-language seed limit
+        // Enforce per-language phrase limit
         let truncated: HashMap<String, Vec<String>> = seeds_by_lang.into_iter()
             .map(|(lang, seeds)| {
-                let limited: Vec<String> = seeds.into_iter().take(MAX_SEEDS_PER_LANGUAGE).collect();
+                let limited: Vec<String> = seeds.into_iter().take(MAX_PHRASES_PER_LANGUAGE).collect();
                 (lang, limited)
             })
             .collect();
         let all_phrases: Vec<String> = truncated.values().flat_map(|v| v.clone()).collect();
         let terms = training_to_terms(&all_phrases);
-        let vector = LearnedVector::from_seed(terms);
+        let vector = LearnedVector::from_phrases(terms);
         self.vectors.insert(id.to_string(), vector);
-        // Auto-populate paraphrase index from seeds
+        // Auto-populate paraphrase index from phrases
         let phrase_refs: Vec<&str> = all_phrases.iter().map(|s| s.as_str()).collect();
         self.add_paraphrases(id, &phrase_refs);
         self.training.insert(id.to_string(), truncated);
@@ -73,25 +73,25 @@ impl Router {
     ///
     /// Use this when you have term weights from an external source
     /// (e.g., LLM-generated, imported from another system).
-    pub fn add_intent_with_weights(&mut self, id: &str, seed_terms: HashMap<String, f32>) {
+    pub fn add_intent_with_weights(&mut self, id: &str, phrase_terms: HashMap<String, f32>) {
         self.require_local();
-        let vector = LearnedVector::from_seed(seed_terms);
+        let vector = LearnedVector::from_phrases(phrase_terms);
         self.vectors.insert(id.to_string(), vector);
         self.rebuild_index();
         self.version += 1;
     }
 
-    /// Remove a single seed phrase from an intent.
-    /// Recomputes the intent's vector from remaining seeds.
-    /// Returns true if the seed was found and removed.
-    pub fn remove_seed(&mut self, intent_id: &str, seed: &str) -> bool {
+    /// Remove a single phrase from an intent.
+    /// Recomputes the intent's vector from remaining phrases.
+    /// Returns true if the phrase was found and removed.
+    pub fn remove_phrase(&mut self, intent_id: &str, seed: &str) -> bool {
         self.require_local();
         let training = match self.training.get_mut(intent_id) {
             Some(t) => t,
             None => return false,
         };
 
-        // Find and remove the seed from whichever language it belongs to
+        // Find and remove the phrase from whichever language it belongs to
         let mut found = false;
         for phrases in training.values_mut() {
             if let Some(pos) = phrases.iter().position(|s| s == seed) {
@@ -106,16 +106,16 @@ impl Router {
         // Remove empty language entries
         training.retain(|_, phrases| !phrases.is_empty());
 
-        // Recompute the vector from remaining seeds
+        // Recompute the vector from remaining phrases
         let all_phrases: Vec<String> = training.values().flat_map(|v| v.clone()).collect();
         if all_phrases.is_empty() {
-            // No seeds left — remove the intent entirely
+            // No phrases left — remove the intent entirely
             self.vectors.remove(intent_id);
             self.training.remove(intent_id);
             self.index.remove_intent(intent_id);
         } else {
             let terms = training_to_terms(&all_phrases);
-            let vector = LearnedVector::from_seed(terms);
+            let vector = LearnedVector::from_phrases(terms);
             self.vectors.insert(intent_id.to_string(), vector);
             self.rebuild_index();
         }
@@ -146,7 +146,7 @@ impl Router {
     /// Empty results means no intent matched any query terms.
     /// Supports both Latin and CJK scripts via dual-path extraction.
 
-    pub fn check_seed(&self, intent_id: &str, seed: &str) -> SeedCheckResult {
+    pub fn check_phrase(&self, intent_id: &str, seed: &str) -> PhraseCheckResult {
         let terms = tokenize(seed);
         // For collision/redundancy, only check unigrams (no spaces).
         // Bigrams are useful for routing but checking them for collisions
@@ -157,7 +157,7 @@ impl Router {
 
         // Empty check
         if content_terms.is_empty() {
-            return SeedCheckResult {
+            return PhraseCheckResult {
                 added: false,
                 new_terms: vec![],
                 conflicts: vec![],
@@ -200,7 +200,7 @@ impl Router {
                 if total_weight > 0.0 {
                     let severity = other_weight / total_weight;
                     // Only flag if the term is truly primary in the other intent:
-                    // high severity (>0.7 = mostly in that intent) AND high weight (>0.7 = important seed term)
+                    // high severity (>0.7 = mostly in that intent) AND high weight (>0.7 = important phrase term)
                     if severity > 0.7 && *other_weight > 0.7 {
                         conflicts.push(TermConflict {
                             term: term.to_string(),
@@ -219,7 +219,7 @@ impl Router {
 
         // Build warning message
         let warning = if redundant {
-            Some("All terms already covered by existing seeds".to_string())
+            Some("All terms already covered by existing phrases".to_string())
         } else if !conflicts.is_empty() {
             let msgs: Vec<String> = conflicts.iter()
                 .map(|c| format!("'{}' is primary in {} ({:.0}%)", c.term, c.competing_intent, c.severity * 100.0))
@@ -229,7 +229,7 @@ impl Router {
             None
         };
 
-        SeedCheckResult {
+        PhraseCheckResult {
             added: false, // not added yet — this is just a check
             new_terms,
             conflicts,
@@ -238,11 +238,11 @@ impl Router {
         }
     }
 
-    /// Add a seed phrase with collision checking. Returns full check result.
+    /// Add a phrase with collision checking. Returns full check result.
     /// Blocks addition if: redundant, empty, collision detected, or at language limit.
-    /// Only clean seeds with new, non-conflicting vocabulary are accepted.
-    pub fn add_seed_checked(&mut self, intent_id: &str, seed: &str, lang: &str) -> SeedCheckResult {
-        let mut result = self.check_seed(intent_id, seed);
+    /// Only clean phrases with new, non-conflicting vocabulary are accepted.
+    pub fn add_phrase_checked(&mut self, intent_id: &str, seed: &str, lang: &str) -> PhraseCheckResult {
+        let mut result = self.check_phrase(intent_id, seed);
 
         // Block: no content terms
         if result.warning.as_deref() == Some("No content terms after tokenization") {
@@ -262,28 +262,28 @@ impl Router {
         // Block: at language limit
         if let Some(lang_map) = self.training.get(intent_id) {
             if let Some(seeds) = lang_map.get(lang) {
-                if seeds.len() >= MAX_SEEDS_PER_LANGUAGE {
-                    result.warning = Some(format!("Language '{}' has reached max {} seeds", lang, MAX_SEEDS_PER_LANGUAGE));
+                if seeds.len() >= MAX_PHRASES_PER_LANGUAGE {
+                    result.warning = Some(format!("Language '{}' has reached max {} phrases", lang, MAX_PHRASES_PER_LANGUAGE));
                     return result;
                 }
             }
         }
 
         // Clean — add it
-        result.added = self.add_seed(intent_id, seed, lang);
+        result.added = self.add_phrase(intent_id, seed, lang);
         result
     }
 
-    /// Internal: add a seed without collision checking.
-    /// Use `add_seed_checked()` for the public API with guard.
-    pub(crate) fn add_seed(&mut self, intent_id: &str, seed: &str, lang: &str) -> bool {
+    /// Internal: add a phrase without collision checking.
+    /// Use `add_phrase_checked()` for the public API with guard.
+    pub(crate) fn add_phrase(&mut self, intent_id: &str, seed: &str, lang: &str) -> bool {
         self.require_local();
         let lang_map = match self.training.get_mut(intent_id) {
             Some(m) => m,
             None => return false,
         };
         let seeds = lang_map.entry(lang.to_string()).or_default();
-        if seeds.len() >= MAX_SEEDS_PER_LANGUAGE {
+        if seeds.len() >= MAX_PHRASES_PER_LANGUAGE {
             return false;
         }
         if seeds.iter().any(|s| s == seed) {
@@ -291,10 +291,10 @@ impl Router {
         }
         seeds.push(seed.to_string());
 
-        // Recompute vector from all seeds
+        // Recompute vector from all phrases
         let all_phrases: Vec<String> = lang_map.values().flat_map(|v| v.clone()).collect();
         let terms = training_to_terms(&all_phrases);
-        let vector = LearnedVector::from_seed(terms);
+        let vector = LearnedVector::from_phrases(terms);
         self.vectors.insert(intent_id.to_string(), vector);
         // Add to paraphrase index too
         self.add_paraphrases(intent_id, &[seed]);
@@ -326,7 +326,7 @@ impl Router {
     //
     // Situation patterns serve as app fingerprints in unified mode: a pattern
     // "payment" on "stripe:*" fires when the query mentions "payment" even if
-    // "payment" is not in any seed — compensating for generic vocabulary shared
+    // "payment" is not in any phrase — compensating for generic vocabulary shared
     // across namespaces. For CJK apps this is not needed because CJK compound
     // words are inherently app-specific high-IDF vocabulary.
 

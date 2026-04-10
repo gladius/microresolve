@@ -10,7 +10,7 @@ mod routes_core;
 mod routes_intents;
 mod routes_learn;
 mod routes_logs;
-mod routes_seeds;
+mod routes_phrases;
 mod routes_settings;
 mod routes_review_prompt;
 mod routes_review_llm;
@@ -155,7 +155,7 @@ async fn main() {
         .merge(routes_intents::routes())
         .merge(routes_learn::routes())
         .merge(routes_logs::routes())
-        .merge(routes_seeds::routes())
+        .merge(routes_phrases::routes())
         .merge(routes_settings::routes())
         .merge(routes_review_prompt::routes())
         .merge(routes_review_llm::routes())

@@ -128,7 +128,7 @@ function IntentListItem({
           {typeChar}
         </span>
         <span className="text-emerald-400 font-mono text-sm font-semibold truncate flex-1">{intent.id}</span>
-        <span className="text-zinc-600 text-[11px]">{intent.seeds.length}</span>
+        <span className="text-zinc-600 text-[11px]">{intent.phrases.length}</span>
         {intent.learned_count > 0 && (
           <span className="text-emerald-400/40 text-[10px]">+{intent.learned_count}</span>
         )}
@@ -142,15 +142,15 @@ function IntentListItem({
 
 // --- Right detail panel with tabs ---
 
-type DetailTab = 'seeds' | 'situations' | 'metadata' | 'stats';
+type DetailTab = 'phrases' | 'situations' | 'metadata' | 'stats';
 
 function IntentDetailPanel({
   intent, allIntentIds, onRefresh, onDeleted,
 }: {
   intent: IntentInfo; allIntentIds: string[]; onRefresh: () => void; onDeleted: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<DetailTab>('seeds');
-  const [seedSearch, setSeedSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<DetailTab>('phrases');
+  const [phraseSearch, setPhraseSearch] = useState('');
 
   const handleTypeChange = async (newType: IntentType) => {
     await api.setIntentType(intent.id, newType);
@@ -163,13 +163,13 @@ function IntentDetailPanel({
     onDeleted();
   };
 
-  const langKeys = Object.keys(intent.seeds_by_lang).filter(k => k !== '_learned');
+  const langKeys = Object.keys(intent.phrases_by_lang).filter(k => k !== '_learned');
   const metaKeyCount = Object.keys(intent.metadata || {}).length;
 
   const situationCount = (intent.situation_patterns || []).length;
 
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
-    { id: 'seeds', label: 'Seeds', count: intent.seeds.length },
+    { id: 'phrases', label: 'Phrases', count: intent.phrases.length },
     { id: 'situations', label: 'Situations', count: situationCount || undefined },
     { id: 'metadata', label: 'Metadata', count: metaKeyCount },
     { id: 'stats', label: 'Stats' },
@@ -235,17 +235,17 @@ function IntentDetailPanel({
               </button>
             ))}
           </div>
-          {activeTab === 'seeds' && (
+          {activeTab === 'phrases' && (
             <div className="ml-auto relative">
               <input
-                value={seedSearch}
-                onChange={e => setSeedSearch(e.target.value)}
+                value={phraseSearch}
+                onChange={e => setPhraseSearch(e.target.value)}
                 placeholder="Search..."
                 autoComplete="off"
                 className="w-40 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white focus:border-violet-500 focus:outline-none"
               />
-              {seedSearch && (
-                <button onClick={() => setSeedSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs">×</button>
+              {phraseSearch && (
+                <button onClick={() => setPhraseSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs">×</button>
               )}
             </div>
           )}
@@ -254,8 +254,8 @@ function IntentDetailPanel({
 
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        {activeTab === 'seeds' && (
-          <SeedsTab intent={intent} onRefresh={onRefresh} seedSearch={seedSearch} />
+        {activeTab === 'phrases' && (
+          <PhrasesTab intent={intent} onRefresh={onRefresh} phraseSearch={phraseSearch} />
         )}
         {activeTab === 'situations' && (
           <SituationsTab intent={intent} onRefresh={onRefresh} />
@@ -271,10 +271,10 @@ function IntentDetailPanel({
   );
 }
 
-// --- Seeds Tab ---
+// --- Phrases Tab ---
 
-function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRefresh: () => void; seedSearch: string }) {
-  const [newSeed, setNewSeed] = useState('');
+function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; onRefresh: () => void; phraseSearch: string }) {
+  const [newPhrase, setNewPhrase] = useState('');
   const [showBulk, setShowBulk] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [showAI, setShowAI] = useState(false);
@@ -293,45 +293,45 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
     } catch { /* */ }
   }, []);
 
-  const handleRemoveSeed = async (seed: string) => {
-    await api.removeSeed(intent.id, seed);
+  const handleRemovePhrase = async (phrase: string) => {
+    await api.removePhrase(intent.id, phrase);
     onRefresh();
   };
 
-  const langKeys = Object.keys(intent.seeds_by_lang).filter(k => k !== '_learned');
+  const langKeys = Object.keys(intent.phrases_by_lang).filter(k => k !== '_learned');
 
   // Build flat list with language tags
-  const allSeeds = useMemo(() => {
-    const result: { lang: string; seed: string }[] = [];
+  const allPhrases = useMemo(() => {
+    const result: { lang: string; phrase: string }[] = [];
     for (const lang of langKeys) {
-      for (const seed of intent.seeds_by_lang[lang] || []) {
-        result.push({ lang, seed });
+      for (const phrase of intent.phrases_by_lang[lang] || []) {
+        result.push({ lang, phrase });
       }
     }
     return result;
-  }, [intent.seeds_by_lang, langKeys]);
+  }, [intent.phrases_by_lang, langKeys]);
 
   const filtered = useMemo(() => {
-    if (!seedSearch.trim()) return allSeeds;
-    const q = seedSearch.toLowerCase();
-    return allSeeds.filter(s => s.seed.toLowerCase().includes(q));
-  }, [allSeeds, seedSearch]);
+    if (!phraseSearch.trim()) return allPhrases;
+    const q = phraseSearch.toLowerCase();
+    return allPhrases.filter(s => s.phrase.toLowerCase().includes(q));
+  }, [allPhrases, phraseSearch]);
 
-  const [seedWarning, setSeedWarning] = useState('');
+  const [phraseWarning, setPhraseWarning] = useState('');
 
-  const handleAddSeed = async () => {
-    if (!newSeed.trim()) return;
-    setSeedWarning('');
-    const result = await api.addSeed(intent.id, newSeed.trim());
+  const handleAddPhrase = async () => {
+    if (!newPhrase.trim()) return;
+    setPhraseWarning('');
+    const result = await api.addPhrase(intent.id, newPhrase.trim());
     if (result.added) {
-      setNewSeed('');
+      setNewPhrase('');
       onRefresh();
     } else if (result.reason) {
-      setSeedWarning(result.reason);
+      setPhraseWarning(result.reason);
     } else if (result.conflicts?.length) {
-      setSeedWarning(result.conflicts.map(c => `"${c.term}" conflicts with ${c.competing_intent}`).join('; '));
+      setPhraseWarning(result.conflicts.map(c => `"${c.term}" conflicts with ${c.competing_intent}`).join('; '));
     } else if (result.redundant) {
-      setSeedWarning('All terms already covered by existing seeds');
+      setPhraseWarning('All terms already covered by existing phrases');
     }
   };
 
@@ -340,13 +340,13 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
     if (lines.length === 0) return;
     const warnings: string[] = [];
     for (const line of lines) {
-      const result = await api.addSeed(intent.id, line);
+      const result = await api.addPhrase(intent.id, line);
       if (!result.added && result.reason) {
         warnings.push(`"${line}": ${result.reason}`);
       }
     }
     if (warnings.length > 0) {
-      setSeedWarning(`${lines.length - warnings.length} added, ${warnings.length} blocked:\n${warnings.join('\n')}`);
+      setPhraseWarning(`${lines.length - warnings.length} added, ${warnings.length} blocked:\n${warnings.join('\n')}`);
     }
     setBulkText('');
     setShowBulk(false);
@@ -355,11 +355,11 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
 
   return (
     <div className="flex flex-col h-full gap-3">
-      {/* Seed list */}
+      {/* Phrase list */}
       <div className="flex-1 border border-zinc-800 rounded-lg bg-zinc-900/50 divide-y divide-zinc-800/50 overflow-y-auto">
         {filtered.length === 0 && (
           <div className="text-zinc-600 text-xs text-center py-6">
-            {seedSearch ? 'No seeds match search' : 'No seeds yet'}
+            {phraseSearch ? 'No phrases match search' : 'No phrases yet'}
           </div>
         )}
         {filtered.map((s, i) => (
@@ -367,11 +367,11 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
             <span className="text-[9px] text-violet-400/60 bg-zinc-800 rounded px-1 uppercase w-6 text-center flex-shrink-0">
               {s.lang}
             </span>
-            <span className="text-sm text-zinc-300 font-mono flex-1 truncate">{s.seed}</span>
+            <span className="text-sm text-zinc-300 font-mono flex-1 truncate">{s.phrase}</span>
             <button
-              onClick={() => handleRemoveSeed(s.seed)}
+              onClick={() => handleRemovePhrase(s.phrase)}
               className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-xs flex-shrink-0"
-              title="Remove seed"
+              title="Remove phrase"
             >
               ×
             </button>
@@ -386,7 +386,7 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
             <textarea
               value={bulkText}
               onChange={e => setBulkText(e.target.value)}
-              placeholder="Paste multiple seeds, one per line..."
+              placeholder="Paste multiple phrases, one per line..."
               rows={4}
               autoFocus
               className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white font-mono resize-y focus:border-violet-500 focus:outline-none"
@@ -397,7 +397,7 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
                 disabled={!bulkText.trim()}
                 className="text-xs px-3 py-1.5 bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30"
               >
-                Add {bulkText.split('\n').filter(s => s.trim()).length} seeds
+                Add {bulkText.split('\n').filter(s => s.trim()).length} phrases
               </button>
               <button onClick={() => setShowBulk(false)} className="text-xs text-zinc-500 hover:text-white">Cancel</button>
             </div>
@@ -405,16 +405,16 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
         ) : (
           <div className="flex gap-2">
             <input
-              value={newSeed}
-              onChange={e => setNewSeed(e.target.value)}
-              placeholder="Type a seed and press Enter..."
+              value={newPhrase}
+              onChange={e => setNewPhrase(e.target.value)}
+              placeholder="Type a phrase and press Enter..."
               autoComplete="off"
               className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white font-mono focus:border-violet-500 focus:outline-none"
-              onKeyDown={e => { if (e.key === 'Enter') handleAddSeed(); }}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddPhrase(); }}
             />
             <button
-              onClick={handleAddSeed}
-              disabled={!newSeed.trim()}
+              onClick={handleAddPhrase}
+              disabled={!newPhrase.trim()}
               className="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 text-violet-400 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors"
             >
               + Add
@@ -429,11 +429,11 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
           </div>
         )}
         {/* Guard warning */}
-        {seedWarning && (
+        {phraseWarning && (
           <div className="bg-amber-900/20 border border-amber-800/50 rounded px-3 py-2 text-xs text-amber-400 flex items-start gap-2">
             <span className="shrink-0">⚠</span>
-            <span className="whitespace-pre-wrap">{seedWarning}</span>
-            <button onClick={() => setSeedWarning('')} className="shrink-0 text-zinc-500 hover:text-white ml-auto">×</button>
+            <span className="whitespace-pre-wrap">{phraseWarning}</span>
+            <button onClick={() => setPhraseWarning('')} className="shrink-0 text-zinc-500 hover:text-white ml-auto">×</button>
           </div>
         )}
         {/* AI Generate */}
@@ -445,7 +445,7 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
             <svg className={`w-3 h-3 transition-transform ${showAI ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            Generate seeds with AI
+            Generate phrases with AI
           </button>
 
           {showAI && (
@@ -484,21 +484,21 @@ function SeedsTab({ intent, onRefresh, seedSearch }: { intent: IntentInfo; onRef
                     setGenStatus('Generating...');
                     try {
                       const langs = Array.from(aiLangs);
-                      const parsed = await api.generateSeeds(intent.id, aiDescription, langs);
-                      // Add generated seeds through guard
+                      const parsed = await api.generatePhrases(intent.id, aiDescription, langs);
+                      // Add generated phrases through guard
                       let added = 0;
                       const blocked: string[] = [];
                       for (const lang of langs) {
-                        for (const seed of parsed.seeds_by_lang[lang] || []) {
-                          const r = await api.addSeed(intent.id, seed, lang);
+                        for (const phrase of parsed.phrases_by_lang[lang] || []) {
+                          const r = await api.addPhrase(intent.id, phrase, lang);
                           if (r.added) { added++; }
-                          else if (r.reason) { blocked.push(`"${seed}": ${r.reason}`); }
+                          else if (r.reason) { blocked.push(`"${phrase}": ${r.reason}`); }
                         }
                       }
-                      let msg = `Added ${added} seeds`;
+                      let msg = `Added ${added} phrases`;
                       if (blocked.length > 0) msg += `. ${blocked.length} blocked by guard.`;
                       setGenStatus(msg);
-                      if (blocked.length > 0) setSeedWarning(blocked.join('\n'));
+                      if (blocked.length > 0) setPhraseWarning(blocked.join('\n'));
                       onRefresh();
                     } catch (e) {
                       setGenStatus('Error: ' + (e as Error).message);
@@ -591,13 +591,13 @@ function MetadataTab({
 // --- Stats Tab ---
 
 function StatsTab({ intent }: { intent: IntentInfo }) {
-  const langKeys = Object.keys(intent.seeds_by_lang).filter(k => k !== '_learned');
+  const langKeys = Object.keys(intent.phrases_by_lang).filter(k => k !== '_learned');
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-6">
         <div>
-          <div className="text-zinc-500 text-xs mb-1">Total Seeds</div>
-          <div className="text-white font-mono text-2xl">{intent.seeds.length}</div>
+          <div className="text-zinc-500 text-xs mb-1">Total Phrases</div>
+          <div className="text-white font-mono text-2xl">{intent.phrases.length}</div>
         </div>
         <div>
           <div className="text-zinc-500 text-xs mb-1">Languages</div>
@@ -612,16 +612,16 @@ function StatsTab({ intent }: { intent: IntentInfo }) {
       </div>
 
       <div className="border-t border-zinc-800 pt-4">
-        <div className="text-zinc-500 text-xs mb-2">Seeds per Language</div>
+        <div className="text-zinc-500 text-xs mb-2">Phrases per Language</div>
         {langKeys.map(lang => {
-          const count = (intent.seeds_by_lang[lang] || []).length;
+          const count = (intent.phrases_by_lang[lang] || []).length;
           return (
             <div key={lang} className="flex items-center gap-3 py-1">
               <span className="text-xs text-violet-400 uppercase w-8">{lang}</span>
               <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-violet-500/50 rounded-full"
-                  style={{ width: `${Math.min(100, (count / Math.max(1, intent.seeds.length)) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (count / Math.max(1, intent.phrases.length)) * 100)}%` }}
                 />
               </div>
               <span className="text-xs text-zinc-500 w-8 text-right">{count}</span>
@@ -717,7 +717,7 @@ function AddIntentPanel({
 }) {
   const [id, setId] = useState('');
   const [intentType, setIntentType] = useState<IntentType>('action');
-  const [seedText, setSeedText] = useState('');
+  const [phraseText, setPhraseText] = useState('');
   const [showAI, setShowAI] = useState(false);
   const [description, setDescription] = useState('');
   const [languages, setLanguages] = useState<Record<string, string>>({});
@@ -742,16 +742,16 @@ function AddIntentPanel({
     setGenerating(true);
     setGenStatus('Generating...');
     try {
-      const parsed = await api.generateSeeds(id || 'new_intent', description, langs);
-      const allSeeds: string[] = [];
+      const parsed = await api.generatePhrases(id || 'new_intent', description, langs);
+      const allPhrases: string[] = [];
       for (const lang of langs) {
-        for (const seed of parsed.seeds_by_lang[lang] || []) {
-          allSeeds.push(seed);
+        for (const phrase of parsed.phrases_by_lang[lang] || []) {
+          allPhrases.push(phrase);
         }
       }
-      const prev = seedText.trim();
-      setSeedText(prev ? prev + '\n' + allSeeds.join('\n') : allSeeds.join('\n'));
-      setGenStatus(`Generated ${parsed.total} seeds`);
+      const prev = phraseText.trim();
+      setPhraseText(prev ? prev + '\n' + allPhrases.join('\n') : allPhrases.join('\n'));
+      setGenStatus(`Generated ${parsed.total} phrases`);
     } catch (e) {
       setGenStatus('Error: ' + (e as Error).message);
     } finally {
@@ -762,13 +762,13 @@ function AddIntentPanel({
   const handleAdd = async () => {
     const intentId = id.trim();
     if (!intentId) return;
-    const seeds = seedText.split('\n').map(s => s.trim()).filter(Boolean);
-    if (seeds.length === 0) return;
-    await api.addIntent(intentId, seeds, intentType);
+    const phrases = phraseText.split('\n').map(s => s.trim()).filter(Boolean);
+    if (phrases.length === 0) return;
+    await api.addIntent(intentId, phrases, intentType);
     onDone(intentId);
   };
 
-  const seedCount = seedText.split('\n').filter(s => s.trim()).length;
+  const phraseCount = phraseText.split('\n').filter(s => s.trim()).length;
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -810,15 +810,15 @@ function AddIntentPanel({
         </div>
       </div>
 
-      {/* Seeds */}
+      {/* Phrases */}
       <div>
         <label className="text-xs text-zinc-500 block mb-1">
-          Seed Phrases {seedCount > 0 && <span className="text-zinc-600">({seedCount})</span>}
+          Training Phrases {phraseCount > 0 && <span className="text-zinc-600">({phraseCount})</span>}
         </label>
         <textarea
-          value={seedText}
-          onChange={e => setSeedText(e.target.value)}
-          placeholder={"One seed phrase per line:\ncancel my order\nI want to cancel\nstop my order"}
+          value={phraseText}
+          onChange={e => setPhraseText(e.target.value)}
+          placeholder={"One phrase per line:\ncancel my order\nI want to cancel\nstop my order"}
           rows={6}
           className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white font-mono resize-y focus:border-violet-500 focus:outline-none"
         />
@@ -833,7 +833,7 @@ function AddIntentPanel({
           <svg className={`w-3 h-3 transition-transform ${showAI ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          Generate seeds with AI
+          Generate phrases with AI
         </button>
 
         {showAI && (
@@ -882,7 +882,7 @@ function AddIntentPanel({
       <div className="flex justify-end pt-2 border-t border-zinc-800">
         <button
           onClick={handleAdd}
-          disabled={!id.trim() || seedCount === 0}
+          disabled={!id.trim() || phraseCount === 0}
           className="px-5 py-2 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-30"
         >
           Create Intent
@@ -978,7 +978,7 @@ function SituationsTab({ intent, onRefresh }: { intent: IntentInfo; onRefresh: (
     <div className="flex flex-col gap-4">
       {/* Explanation strip */}
       <div className="text-xs text-zinc-500 leading-relaxed">
-        <span className="text-emerald-400 font-medium">Seeds</span> = action vocabulary ("cancel my order").{' '}
+        <span className="text-emerald-400 font-medium">Phrases</span> = action vocabulary ("cancel my order").{' '}
         <span className="text-amber-400 font-medium">Situations</span> = state vocabulary ("payment declined", "OOM").
         Score: weight × √(chars). Threshold 0.8 — a Strong pattern fires alone; two Weak ones together also fire.
         Active learning: corrections automatically extract n-grams into this index.
@@ -1041,7 +1041,7 @@ function SituationsTab({ intent, onRefresh }: { intent: IntentInfo; onRefresh: (
         {addError && <div className="text-xs text-red-400">{addError}</div>}
       </div>
 
-      {/* AI Generate — same expand pattern as Seeds tab */}
+      {/* AI Generate — same expand pattern as Phrases tab */}
       <div>
         <button
           onClick={() => setShowAI(!showAI)}

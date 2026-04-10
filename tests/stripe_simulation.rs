@@ -269,7 +269,7 @@ fn stripe_full_lifecycle() {
     let mut blocked_details: Vec<(String, String, String)> = Vec::new();
 
     for (intent, seed) in &fix_seeds {
-        let result = router.add_seed_checked(intent, seed, "en");
+        let result = router.add_phrase_checked(intent, seed, "en");
         if result.added {
             added += 1;
             let new = if result.new_terms.is_empty() { String::new() }

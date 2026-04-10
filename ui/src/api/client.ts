@@ -77,8 +77,8 @@ export interface MultiRouteOutput {
 export interface IntentInfo {
   id: string;
   description: string;
-  seeds: string[];
-  seeds_by_lang: Record<string, string[]>;
+  phrases: string[];
+  phrases_by_lang: Record<string, string[]>;
   learned_count: number;
   intent_type: IntentType;
   metadata: Record<string, string[]>;
@@ -91,9 +91,9 @@ export interface ReviewAnalysis {
   false_positives: { id: string; reason: string }[];
   missed: { id: string; reason: string }[];
   suggestions: {
-    action: 'add_seed';
+    action: 'add_phrase';
     intent_id: string;
-    seed: string;
+    phrase: string;
     reason: string;
     query?: string;
     wrong_intent?: string;
@@ -122,11 +122,11 @@ export const api = {
 
   // Intents
   listIntents: () => get<IntentInfo[]>('/intents'),
-  addIntent: (id: string, seeds: string[], intent_type?: IntentType, metadata?: Record<string, string[]>) =>
-    post<void>('/intents', { id, seeds, intent_type, metadata }),
-  addIntentMultilingual: (id: string, seeds_by_lang: Record<string, string[]>, intent_type?: IntentType, metadata?: Record<string, string[]>) =>
-    post<void>('/intents/multilingual', { id, seeds_by_lang, intent_type, metadata }),
-  addSeed: (intent_id: string, seed: string, lang = 'en') =>
+  addIntent: (id: string, phrases: string[], intent_type?: IntentType, metadata?: Record<string, string[]>) =>
+    post<void>('/intents', { id, phrases, intent_type, metadata }),
+  addIntentMultilingual: (id: string, phrases_by_lang: Record<string, string[]>, intent_type?: IntentType, metadata?: Record<string, string[]>) =>
+    post<void>('/intents/multilingual', { id, phrases_by_lang, intent_type, metadata }),
+  addPhrase: (intent_id: string, phrase: string, lang = 'en') =>
     post<{
       added: boolean;
       counts: Record<string, number>;
@@ -134,9 +134,9 @@ export const api = {
       conflicts: { term: string; competing_intent: string; severity: number }[];
       redundant: boolean;
       reason: string | null;
-    }>('/intents/add_seed', { intent_id, seed, lang }),
-  removeSeed: (intent_id: string, seed: string) =>
-    post<void>('/intents/remove_seed', { intent_id, seed }),
+    }>('/intents/phrase', { intent_id, phrase, lang }),
+  removePhrase: (intent_id: string, phrase: string) =>
+    post<void>('/intents/phrase/remove', { intent_id, phrase }),
   deleteIntent: (id: string) => post<void>('/intents/delete', { id }),
   setIntentType: (intent_id: string, intent_type: IntentType) =>
     post<void>('/intents/type', { intent_id, intent_type }),
@@ -152,8 +152,8 @@ export const api = {
     post<{ applied: number; patterns: { pattern: string; weight: number }[] }>(
       '/situation/generate', { intent_id, description, languages }
     ),
-  buildSituationPrompt: (intent_id: string, description: string, seeds: string[], languages: string[]) =>
-    post<{ prompt: string }>('/situation/prompt', { intent_id, description, seeds, languages }),
+  buildSituationPrompt: (intent_id: string, description: string, phrases: string[], languages: string[]) =>
+    post<{ prompt: string }>('/situation/prompt', { intent_id, description, phrases, languages }),
   parseSituationResponse: (intent_id: string, response_text: string) =>
     post<{ applied: number; patterns: { pattern: string; weight: number }[] }>(
       '/situation/parse', { intent_id, response_text }
@@ -171,11 +171,11 @@ export const api = {
   getMetadata: (intent_id: string) =>
     post<Record<string, string[]>>('/metadata/get', { intent_id }),
 
-  // Seed generation
-  buildSeedPrompt: (intent_id: string, description: string, languages: string[]) =>
-    post<{ prompt: string }>('/seed/prompt', { intent_id, description, languages }),
-  parseSeedResponse: (response_text: string, languages: string[]) =>
-    post<{ seeds_by_lang: Record<string, string[]>; total: number } | { error: string }>('/seed/parse', { response_text, languages }),
+  // Phrase generation
+  buildPhrasePrompt: (intent_id: string, description: string, languages: string[]) =>
+    post<{ prompt: string }>('/phrase/prompt', { intent_id, description, languages }),
+  parsePhraseResponse: (response_text: string, languages: string[]) =>
+    post<{ phrases_by_lang: Record<string, string[]>; total: number } | { error: string }>('/phrase/parse', { response_text, languages }),
 
   // State
   loadDefaults: () => post<void>('/intents/load_defaults', {}),
@@ -213,9 +213,9 @@ export const api = {
   review: (query: string, results: unknown[], threshold: number) =>
     post<ReviewAnalysis>('/review', { query, results, threshold }),
 
-  // Seed generation (server-side LLM call)
-  generateSeeds: (intent_id: string, description: string, languages: string[]) =>
-    post<{ seeds_by_lang: Record<string, string[]>; total: number }>('/seed/generate', { intent_id, description, languages }),
+  // Phrase generation (server-side LLM call)
+  generatePhrases: (intent_id: string, description: string, languages: string[]) =>
+    post<{ phrases_by_lang: Record<string, string[]>; total: number }>('/phrase/generate', { intent_id, description, languages }),
 
   // Training Arena
   trainingGenerate: (config: {
@@ -338,13 +338,13 @@ export const api = {
     get<{ total: number; items: ReviewItem[] }>(`/review/queue?limit=${limit}&offset=${offset}${status ? `&status=${status}` : ''}`),
   reviewApprove: (id: number) => post<{ status: string; intent: string }>('/review/approve', { id }),
   reviewReject: (id: number) => post<{ status: string }>('/review/reject', { id }),
-  reviewFix: (id: number, seeds_by_intent: Record<string, { seed: string; lang: string }[]>) =>
-    post<ReviewFixResult>('/review/fix', { id, seeds_by_intent }),
+  reviewFix: (id: number, phrases_by_intent: Record<string, { phrase: string; lang: string }[]>) =>
+    post<ReviewFixResult>('/review/fix', { id, phrases_by_intent }),
   // Review analysis (full 3-turn review in one call)
   reviewAnalyze: (id: number) =>
     post<ReviewAnalyzeResult>('/review/analyze', { id }),
-  reviewIntentSeeds: (intent_ids: string[]) =>
-    post<Record<string, string[]>>('/review/intent_seeds', { intent_ids }),
+  reviewIntentPhrases: (intent_ids: string[]) =>
+    post<Record<string, string[]>>('/review/intent_phrases', { intent_ids }),
   getReviewStats: () => get<ReviewStats>('/review/stats'),
   getReviewMode: () => get<{ mode: string }>('/review/mode'),
   setReviewMode: (mode: string) => post<{ mode: string }>('/review/mode', { mode }),
@@ -371,9 +371,9 @@ export interface ReviewAnalyzeResult {
   correct_intents: string[];
   wrong_detections: string[];
   languages: string[];
-  seeds_to_add: Record<string, string[]>;
-  seeds_blocked: { intent: string; seed: string; reason: string }[];
-  seeds_to_replace: { intent: string; old_seed: string; new_seed: string; reason: string }[];
+  phrases_to_add: Record<string, string[]>;
+  phrases_blocked: { intent: string; phrase: string; reason: string }[];
+  phrases_to_replace: { intent: string; old_phrase: string; new_phrase: string; reason: string }[];
   safe_to_apply: boolean;
   summary: string;
 }
@@ -413,7 +413,7 @@ export interface AccuracyResult {
 export interface ReviewFixResult {
   status: string;
   added: number;
-  blocked: { seed: string; intent: string; reason: string }[];
+  blocked: { phrase: string; intent: string; reason: string }[];
   resolved_count: number;
 }
 

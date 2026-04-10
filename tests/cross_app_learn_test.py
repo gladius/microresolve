@@ -29,7 +29,7 @@ def curl(method, path, body=None, app_id=None):
     cmd = ["curl", "-s", "-w", "\n%{http_code}", "-X", method, f"{BASE_URL}{path}",
            "-H", "Content-Type: application/json"]
     if app_id:
-        cmd += ["-H", f"X-App-ID: {app_id}"]
+        cmd += ["-H", f"X-Namespace-ID: {app_id}"]
     if body is not None:
         cmd += ["-d", json.dumps(body)]
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -55,7 +55,7 @@ def learn(app_id, query, intent_id):
     return status in (200, 201, 204)
 
 def create_app(app_id):
-    status, _ = curl("POST", "/api/apps", {"app_id": app_id})
+    status, _ = curl("POST", "/api/namespaces", {"namespace_id": app_id})
     return status in (200, 201, 409)
 
 def add_intent(app_id, intent_id, label, seeds):
@@ -543,7 +543,7 @@ def main():
     print(f"Target: {BASE_URL}  |  20 queries × 2 apps each = 40 intent targets")
     print("Baseline: seeds only (not tuned to test queries)")
 
-    status, _ = curl("GET", "/api/apps")
+    status, _ = curl("GET", "/api/namespaces")
     if status == 0:
         print(f"\nERROR: Server not reachable at {BASE_URL}")
         sys.exit(1)

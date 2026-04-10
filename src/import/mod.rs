@@ -1,12 +1,12 @@
 //! Spec import — OpenAPI and Postman collection parsing + intent generation.
 //!
 //! Parses API specs and converts each operation into a routable intent with
-//! seeds derived from the operation's summary and description.
+//! phrases derived from the operation's summary and description.
 
 pub mod openapi;
 pub mod postman;
 
-use crate::{IntentType, Router, SeedCheckResult};
+use crate::{IntentType, Router, PhraseCheckResult};
 use openapi::ParsedSpec;
 
 /// Result of importing a spec into the router.
@@ -14,7 +14,7 @@ use openapi::ParsedSpec;
 pub struct ImportResult {
     /// Intents successfully created.
     pub created: Vec<ImportedIntent>,
-    /// Operations skipped (no usable seeds).
+    /// Operations skipped (no usable phrases).
     pub skipped: Vec<String>,
     /// Total operations in the spec.
     pub total_operations: usize,
@@ -24,17 +24,17 @@ pub struct ImportResult {
 #[derive(Debug, Clone)]
 pub struct ImportedIntent {
     pub intent_id: String,
-    pub seeds: Vec<String>,
+    pub phrases: Vec<String>,
     pub endpoint: String,
     pub method: String,
     pub intent_type: IntentType,
-    pub seed_checks: Vec<SeedCheckResult>,
+    pub phrase_checks: Vec<PhraseCheckResult>,
 }
 
 /// Import a parsed spec into the router, creating one intent per operation.
 ///
-/// Only uses operation name as minimal seed. For proper seeds, use LLM generation
-/// (server-side import_apply does this). Description is stored as metadata, not as seeds.
+/// Only uses operation name as minimal phrase. For proper phrases, use LLM generation
+/// (server-side import_apply does this). Description is stored as metadata, not as phrases.
 /// Intent type: GET/HEAD = Context, everything else = Action.
 /// Metadata: endpoint (method + path), operation_id, tags, description.
 pub fn import_spec(router: &mut Router, spec: &ParsedSpec) -> ImportResult {
@@ -46,7 +46,7 @@ pub fn import_spec(router: &mut Router, spec: &ParsedSpec) -> ImportResult {
             .unwrap_or(&op.id);
         let intent_name = to_snake_case(intent_id);
 
-        // Only use operation name as seed — descriptions are metadata, not seeds
+        // Only use operation name as minimal phrase — descriptions are metadata, not phrases
         let name_lower = op.name.to_lowercase();
         if name_lower.is_empty() {
             skipped.push(intent_name);
@@ -60,7 +60,7 @@ pub fn import_spec(router: &mut Router, spec: &ParsedSpec) -> ImportResult {
         };
 
         // Create the intent
-        let seed_checks = router.add_intent(&intent_name, &[name_lower.as_str()]);
+        let phrase_checks = router.add_intent(&intent_name, &[name_lower.as_str()]);
         router.set_intent_type(&intent_name, intent_type);
 
         // Store description for LLM context (not as seed)
@@ -93,11 +93,11 @@ pub fn import_spec(router: &mut Router, spec: &ParsedSpec) -> ImportResult {
 
         created.push(ImportedIntent {
             intent_id: intent_name,
-            seeds: vec![name_lower],
+            phrases: vec![name_lower],
             endpoint,
             method: op.method.clone(),
             intent_type,
-            seed_checks,
+            phrase_checks,
         });
     }
 

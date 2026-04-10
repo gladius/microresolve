@@ -287,32 +287,32 @@ pub async fn import_apply(
             let (lang_instruction, response_format) = if is_multilang {
                 let lang_list = langs.join(", ");
                 (
-                    format!("Generate seeds in ALL of these languages: {}. Include seeds for EACH language.\n\n", lang_list),
+                    format!("Generate training phrases in ALL of these languages: {}. Include phrases for EACH language.\n\n", lang_list),
                     format!(
                         "Respond with ONLY JSON:\n\
-                         {{\"seeds_by_intent\": {{\"intent_name\": {{\"{}\": [\"seed1\", \"seed2\"], \"{}\": [\"seed1\", \"seed2\"]}}}}}}\n",
+                         {{\"phrases_by_intent\": {{\"intent_name\": {{\"{}\": [\"phrase1\", \"phrase2\"], \"{}\": [\"phrase1\", \"phrase2\"]}}}}}}\n",
                         langs[0], langs.get(1).copied().unwrap_or("zh")
                     ),
                 )
             } else {
-                (String::new(), "Respond with ONLY JSON:\n{\"seeds_by_intent\": {\"intent_name\": [\"seed1\", \"seed2\", \"seed3\", \"seed4\", \"seed5\"]}}\n".to_string())
+                (String::new(), "Respond with ONLY JSON:\n{\"phrases_by_intent\": {\"intent_name\": [\"phrase1\", \"phrase2\", \"phrase3\", \"phrase4\", \"phrase5\"]}}\n".to_string())
             };
 
             let prompt = format!(
-                "Generate 10 diverse seed phrases for each API operation below.\n\
+                "Generate 10 diverse training phrases for each API operation below.\n\
                  These train a keyword-matching router. VOCABULARY DIVERSITY is critical.\n\n\
                  {}Operations:\n{}\n\n\
-                 Current seeds (avoid duplicating these):\n{}\n\n\
+                 Current phrases (avoid duplicating these):\n{}\n\n\
                  {}\n\n\
                  For each operation, generate phrases a developer or user would say when they want this action.\n\
                  Mix: short commands, questions, and situational phrases.\n\n\
                  {}",
-                lang_instruction, ops_desc.join("\n"), existing_seeds, asv_router::seed::SEED_QUALITY_RULES, response_format
+                lang_instruction, ops_desc.join("\n"), existing_seeds, asv_router::phrase::PHRASE_QUALITY_RULES, response_format
             );
 
             if let Ok(response) = call_llm(&state, &prompt, 2000).await {
                 if let Ok(seeds_json) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
-                    if let Some(sbi) = seeds_json.get("seeds_by_intent").and_then(|v| v.as_object()) {
+                    if let Some(sbi) = seeds_json.get("phrases_by_intent").or_else(|| seeds_json.get("seeds_by_intent")).and_then(|v| v.as_object()) {
                         if is_multilang {
                             // Grouped format: {"intent": {"en": [...], "zh": [...]}}
                             for lang in &langs {
@@ -323,20 +323,20 @@ pub async fn import_apply(
                                             .map(|arr| (intent.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect()))
                                     }).collect();
                                 if !lang_map.is_empty() {
-                                    let result = seed_pipeline(&state, &app_id, &lang_map, true, lang).await;
+                                    let result = phrase_pipeline(&state, &app_id, &lang_map, true, lang).await;
                                     total_added += result.added.len();
                                     total_blocked += result.blocked.len();
                                 }
                             }
                         } else {
                             // Flat format: {"intent": [...]}
-                            let seeds_map: HashMap<String, Vec<String>> = sbi.iter()
+                            let phrases_map: HashMap<String, Vec<String>> = sbi.iter()
                                 .filter_map(|(k, v)| {
                                     v.as_array().map(|arr| {
                                         (k.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
                                     })
                                 }).collect();
-                            let result = seed_pipeline(&state, &app_id, &seeds_map, true, langs[0]).await;
+                            let result = phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0]).await;
                             total_added += result.added.len();
                             total_blocked += result.blocked.len();
                         }
@@ -355,8 +355,8 @@ pub async fn import_apply(
         "title": parsed.title,
         "version": parsed.version,
         "imported": intent_names.len(),
-        "seeds_added": total_added,
-        "seeds_blocked": total_blocked,
+        "phrases_added": total_added,
+        "phrases_blocked": total_blocked,
         "intents": intent_names,
     })))
 }
@@ -558,32 +558,32 @@ pub async fn mcp_apply(
             let (lang_instruction, response_format) = if is_multilang {
                 let lang_list = langs.join(", ");
                 (
-                    format!("Generate seeds in ALL of these languages: {}. Include seeds for EACH language.\n\n", lang_list),
+                    format!("Generate training phrases in ALL of these languages: {}. Include phrases for EACH language.\n\n", lang_list),
                     format!(
                         "Respond with ONLY JSON:\n\
-                         {{\"seeds_by_intent\": {{\"tool_name\": {{\"{}\": [\"seed1\", \"seed2\"], \"{}\": [\"seed1\", \"seed2\"]}}}}}}\n",
+                         {{\"phrases_by_intent\": {{\"tool_name\": {{\"{}\": [\"phrase1\", \"phrase2\"], \"{}\": [\"phrase1\", \"phrase2\"]}}}}}}\n",
                         langs[0], langs.get(1).copied().unwrap_or("zh")
                     ),
                 )
             } else {
-                (String::new(), "Respond with ONLY JSON:\n{\"seeds_by_intent\": {\"tool_name\": [\"seed1\", \"seed2\", \"seed3\", \"seed4\", \"seed5\"]}}\n".to_string())
+                (String::new(), "Respond with ONLY JSON:\n{\"phrases_by_intent\": {\"tool_name\": [\"phrase1\", \"phrase2\", \"phrase3\", \"phrase4\", \"phrase5\"]}}\n".to_string())
             };
 
             let prompt = format!(
-                "Generate 10 diverse seed phrases for each MCP tool below.\n\
+                "Generate 10 diverse training phrases for each MCP tool below.\n\
                  These train a keyword-matching router. VOCABULARY DIVERSITY is critical.\n\n\
                  {}Tools:\n{}\n\n\
-                 Current seeds (avoid duplicating):\n{}\n\n\
+                 Current phrases (avoid duplicating):\n{}\n\n\
                  {}\n\n\
                  For each tool, generate phrases a user would say when they want this action.\n\
                  Mix: short commands, questions, and situational phrases.\n\n\
                  {}",
-                lang_instruction, tools_desc.join("\n"), existing_seeds, asv_router::seed::SEED_QUALITY_RULES, response_format
+                lang_instruction, tools_desc.join("\n"), existing_seeds, asv_router::phrase::PHRASE_QUALITY_RULES, response_format
             );
 
             if let Ok(response) = call_llm(&state, &prompt, 2000).await {
                 if let Ok(seeds_json) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
-                    if let Some(sbi) = seeds_json.get("seeds_by_intent").and_then(|v| v.as_object()) {
+                    if let Some(sbi) = seeds_json.get("phrases_by_intent").or_else(|| seeds_json.get("seeds_by_intent")).and_then(|v| v.as_object()) {
                         if is_multilang {
                             // Grouped format: {"tool": {"en": [...], "zh": [...]}}
                             for lang in &langs {
@@ -594,20 +594,20 @@ pub async fn mcp_apply(
                                             .map(|arr| (intent.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect()))
                                     }).collect();
                                 if !lang_map.is_empty() {
-                                    let result = seed_pipeline(&state, &app_id, &lang_map, true, lang).await;
+                                    let result = phrase_pipeline(&state, &app_id, &lang_map, true, lang).await;
                                     total_added += result.added.len();
                                     total_blocked += result.blocked.len();
                                 }
                             }
                         } else {
                             // Flat format: {"tool": [...]}
-                            let seeds_map: HashMap<String, Vec<String>> = sbi.iter()
+                            let phrases_map: HashMap<String, Vec<String>> = sbi.iter()
                                 .filter_map(|(k, v)| {
                                     v.as_array().map(|arr| {
                                         (k.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
                                     })
                                 }).collect();
-                            let result = seed_pipeline(&state, &app_id, &seeds_map, true, langs[0]).await;
+                            let result = phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0]).await;
                             total_added += result.added.len();
                             total_blocked += result.blocked.len();
                         }
@@ -625,8 +625,8 @@ pub async fn mcp_apply(
 
     Ok(Json(serde_json::json!({
         "imported": tool_names.len(),
-        "seeds_added": total_added,
-        "seeds_blocked": total_blocked,
+        "phrases_added": total_added,
+        "phrases_blocked": total_blocked,
         "intents": tool_names,
     })))
 }

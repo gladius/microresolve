@@ -191,7 +191,7 @@ mod tests {
 
     fn intents(entries: &[(&str, &[(&str, f32)])]) -> HashMap<String, LearnedVector> {
         entries.iter().map(|(id, seeds)| {
-            (id.to_string(), LearnedVector::from_seed(seed(seeds)))
+            (id.to_string(), LearnedVector::from_phrases(seed(seeds)))
         }).collect()
     }
 
@@ -248,7 +248,7 @@ mod tests {
         for i in 0..100 {
             vecs.insert(
                 format!("intent_{}", i),
-                LearnedVector::from_seed(seed(&[("common", 0.5 + (i as f32) * 0.001)])),
+                LearnedVector::from_phrases(seed(&[("common", 0.5 + (i as f32) * 0.001)])),
             );
         }
 
@@ -271,7 +271,7 @@ mod tests {
         let mut index = InvertedIndex::build(&vecs);
 
         // Add "refund" to intent "a"
-        let mut v = LearnedVector::from_seed(seed(&[("cancel", 1.0), ("refund", 0.8)]));
+        let mut v = LearnedVector::from_phrases(seed(&[("cancel", 1.0), ("refund", 0.8)]));
         v.learn_with_rate(&terms(&["return"]), 0.5);
         index.update_intent("a", &v);
 

@@ -493,7 +493,7 @@ Return ONLY a JSON object:
         ground_truth = req.ground_truth.join(", "),
         detected = if detected_str.is_empty() { "nothing detected".to_string() } else { detected_str.join(", ") },
         seeds = intent_seeds,
-        quality = asv_router::seed::SEED_QUALITY_RULES,
+        quality = asv_router::phrase::PHRASE_QUALITY_RULES,
     );
 
     let text = call_llm(&state, &prompt, 1024).await?;
