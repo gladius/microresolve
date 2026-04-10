@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
 """
-Multi-app isolation test suite for ASV Router.
-5 app namespaces × 20 intents each.
-Tests: single-intent, multi-intent (same app), cross-app isolation.
+Multi-app integration test suite — designed to expose real system behavior.
+
+Seeds are minimal and realistic (what a developer would write on day 1).
+Test queries are genuinely natural — different vocabulary, different structure.
+The goal is NOT to pass 100%. It is to show where the system works and where
+it breaks so we can fix and improve it.
 
 Usage:
     python3 tests/multi_app_test.py [--base-url http://localhost:3001]
+    python3 tests/multi_app_test.py --skip-setup   # reuse existing intents
+    python3 tests/multi_app_test.py --only negative
 """
 
 import json
 import subprocess
 import sys
 import argparse
-from typing import Optional
 
 BASE_URL = "http://localhost:3001"
 
-# ─── Helpers ─────────────────────────────────────────────────────────────────
+# ─── HTTP helpers ─────────────────────────────────────────────────────────────
 
 def curl(method: str, path: str, body=None, app_id: str = None) -> tuple[int, any]:
-    """Returns (status_code, parsed_json_or_None)."""
     cmd = ["curl", "-s", "-w", "\n%{http_code}", "-X", method, f"{BASE_URL}{path}",
            "-H", "Content-Type: application/json"]
     if app_id:
@@ -35,474 +38,508 @@ def curl(method: str, path: str, body=None, app_id: str = None) -> tuple[int, an
     except json.JSONDecodeError:
         return status, {"_raw": body_str}
 
-def curl_json(method: str, path: str, body=None, app_id: str = None) -> any:
-    _, data = curl(method, path, body, app_id)
-    return data or {}
+def curl_json(method, path, body=None, app_id=None):
+    _, d = curl(method, path, body, app_id)
+    return d or {}
 
-def create_app(app_id: str) -> bool:
+def create_app(app_id):
     status, _ = curl("POST", "/api/apps", {"app_id": app_id})
-    return status in (200, 201, 409)  # 409 = already exists
+    return status in (200, 201, 409)
 
-def add_intent(app_id: str, intent_id: str, label: str, seeds: list[str]) -> bool:
+def add_intent(app_id, intent_id, label, seeds):
     status, _ = curl("POST", "/api/intents", {"id": intent_id, "label": label, "seeds": seeds}, app_id)
     return status in (200, 201)
 
-def route(app_id: str, query: str) -> dict:
-    """Route query, returns dict with 'intents' list (id, confidence) sorted by score."""
-    _, data = curl("POST", "/api/route_multi", {"query": query, "threshold": 0.25}, app_id)
-    if not data:
-        return {"intents": []}
-    # Merge confirmed + candidates, sort by score desc
-    confirmed = data.get("confirmed", [])
-    candidates = data.get("candidates", [])
-    all_intents = [{"id": i["id"], "confidence": i.get("confidence", "low"), "score": i.get("score", 0)}
-                   for i in confirmed + candidates]
-    all_intents.sort(key=lambda x: x["score"], reverse=True)
-    return {"intents": all_intents}
-
-def delete_intent(app_id: str, intent_id: str):
+def delete_intent(app_id, intent_id):
     curl("POST", "/api/intents/delete", {"intent_id": intent_id}, app_id)
 
-# ─── App Definitions ─────────────────────────────────────────────────────────
+def route_app(app_id: str, query: str) -> list[dict]:
+    """Route against one app, returns list of {id, confidence, score}."""
+    _, data = curl("POST", "/api/route_multi", {"query": query, "threshold": 0.25}, app_id)
+    if not data:
+        return []
+    confirmed = data.get("confirmed", [])
+    candidates = data.get("candidates", [])
+    results = [{"id": i["id"], "confidence": i.get("confidence", "low"), "score": i.get("score", 0)}
+               for i in confirmed + candidates]
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results
+
+def route_all(query: str) -> dict[str, list[dict]]:
+    """Route against all apps, returns {app_id: [intents]}."""
+    return {app_id: route_app(app_id, query) for app_id in APPS}
+
+def intent_ids(results: list[dict]) -> list[str]:
+    return [r["id"] for r in results]
+
+def high_confidence(results: list[dict]) -> list[str]:
+    return [r["id"] for r in results if r["confidence"] in ("high", "medium")]
+
+# ─── App definitions — MINIMAL seeds, what a developer writes on day one ──────
+# These are NOT tuned to match test queries.
 
 APPS = {
     "stripe": [
-        ("charge_card",          "Charge Card",         ["charge my card", "run a payment", "process this charge", "bill the customer", "charge the credit card", "run the card"]),
-        ("refund_payment",       "Refund Payment",      ["issue a refund", "refund this payment", "give money back", "reverse the charge", "process refund", "return the funds"]),
-        ("create_subscription",  "Create Subscription", ["set up a subscription", "start recurring billing", "create a monthly plan", "subscribe the customer", "activate subscription"]),
-        ("cancel_subscription",  "Cancel Subscription", ["cancel the subscription", "stop recurring billing", "end the plan", "unsubscribe", "terminate subscription"]),
-        ("list_customers",       "List Customers",      ["show all customers", "list my customers", "get customer list", "display customers", "who are my customers"]),
-        ("create_customer",      "Create Customer",     ["add a new customer", "create customer profile", "register customer", "onboard new customer", "create new client"]),
-        ("update_customer",      "Update Customer",     ["update customer details", "edit customer info", "change customer email", "modify customer record", "update billing info"]),
-        ("delete_customer",      "Delete Customer",     ["delete this customer", "remove customer", "purge customer data", "delete customer account"]),
-        ("create_invoice",       "Create Invoice",      ["create an invoice", "generate invoice", "make a bill", "issue invoice to customer", "draft invoice"]),
-        ("pay_invoice",          "Pay Invoice",         ["pay this invoice", "mark invoice as paid", "settle invoice", "pay outstanding bill", "process invoice payment"]),
-        ("list_invoices",        "List Invoices",       ["show all invoices", "list unpaid invoices", "get my invoices", "display invoice history"]),
-        ("create_payment_link",  "Create Payment Link", ["create a payment link", "generate checkout link", "make a buy link", "create shareable payment url"]),
-        ("list_transactions",    "List Transactions",   ["show recent transactions", "list payments", "get transaction history", "view all charges"]),
-        ("create_coupon",        "Create Coupon",       ["create a coupon", "make a discount code", "generate promo code", "add coupon"]),
-        ("apply_discount",       "Apply Discount",      ["apply a discount", "use promo code", "apply coupon to order", "add discount to invoice"]),
-        ("create_product",       "Create Product",      ["create a new product", "add product to catalog", "register product in stripe", "create pricing item"]),
-        ("update_price",         "Update Price",        ["update product price", "change the price", "modify pricing", "set new price for product"]),
-        ("retrieve_balance",     "Retrieve Balance",    ["check my balance", "what is my stripe balance", "retrieve account balance", "show available funds"]),
-        ("transfer_funds",       "Transfer Funds",      ["transfer money", "move funds to bank", "send payment to account", "initiate transfer"]),
-        ("create_payout",        "Create Payout",       ["create a payout", "withdraw to bank", "send payout", "initiate bank payout", "pay out my balance", "send my earnings to bank", "withdraw earnings"]),
+        ("charge_card",         "Charge Card",         ["charge my card", "process payment", "bill the customer", "run a charge"]),
+        ("refund_payment",      "Refund Payment",      ["issue a refund", "refund this payment", "give money back", "reverse the charge"]),
+        ("create_subscription", "Create Subscription", ["create a subscription", "set up recurring billing", "start a monthly plan"]),
+        ("cancel_subscription", "Cancel Subscription", ["cancel the subscription", "stop recurring billing", "end the plan"]),
+        ("list_customers",      "List Customers",      ["list customers", "show all customers", "get customer list"]),
+        ("create_customer",     "Create Customer",     ["create a customer", "add new customer", "register customer"]),
+        ("update_customer",     "Update Customer",     ["update customer", "edit customer info", "change customer details"]),
+        ("delete_customer",     "Delete Customer",     ["delete customer", "remove customer account"]),
+        ("create_invoice",      "Create Invoice",      ["create an invoice", "generate invoice", "send invoice"]),
+        ("pay_invoice",         "Pay Invoice",         ["pay this invoice", "mark invoice paid", "settle invoice"]),
+        ("list_invoices",       "List Invoices",       ["list invoices", "show all invoices", "get invoice history"]),
+        ("create_coupon",       "Create Coupon",       ["create a coupon", "make a discount code", "add promo code"]),
+        ("apply_discount",      "Apply Discount",      ["apply a discount", "use promo code", "apply coupon"]),
+        ("create_product",      "Create Product",      ["create a product", "add product to stripe", "new product"]),
+        ("update_price",        "Update Price",        ["update the price", "change pricing", "set new price"]),
+        ("retrieve_balance",    "Retrieve Balance",    ["check balance", "get account balance", "show available funds"]),
+        ("transfer_funds",      "Transfer Funds",      ["transfer funds", "move money", "wire payment"]),
+        ("create_payout",       "Create Payout",       ["create payout", "withdraw to bank", "initiate payout"]),
+        ("create_payment_link", "Create Payment Link", ["create payment link", "generate checkout link"]),
+        ("list_transactions",   "List Transactions",   ["list transactions", "show payment history", "recent charges"]),
     ],
 
     "github": [
-        ("create_issue",      "Create Issue",      ["open a new issue", "file a bug report", "create github issue", "report a problem", "raise issue"]),
-        ("close_issue",       "Close Issue",       ["close this issue", "resolve and close issue", "mark issue as done", "close the bug", "shut this issue"]),
-        ("create_pr",         "Create PR",         ["open a pull request", "create pr", "submit code for review", "open merge request", "make a pull request"]),
-        ("merge_pr",          "Merge PR",          ["merge this pull request", "merge the pr", "squash and merge", "accept the pr", "land this pr", "merge the approved pull request", "merge approved changes"]),
-        ("close_pr",          "Close PR",          ["close this pull request", "reject the pr", "close without merging", "decline the pr"]),
-        ("list_repos",        "List Repos",        ["show my repositories", "list all repos", "what repos do I have", "display my github projects"]),
-        ("create_repo",       "Create Repo",       ["create a new repo", "initialize repository", "make a new github project", "set up new repository"]),
-        ("delete_repo",       "Delete Repo",       ["delete this repository", "remove the repo", "delete github project", "drop this repo"]),
-        ("create_branch",     "Create Branch",     ["create a new branch", "make a feature branch", "branch off main", "create git branch"]),
-        ("delete_branch",     "Delete Branch",     ["delete this branch", "remove the branch", "drop the feature branch", "clean up old branch"]),
-        ("list_branches",     "List Branches",     ["show all branches", "list repository branches", "what branches exist", "display git branches"]),
-        ("create_release",    "Create Release",    ["create a release", "publish new version", "tag a release", "ship v1.0", "create github release"]),
-        ("list_commits",      "List Commits",      ["show commit history", "list recent commits", "view git log", "display commits on main"]),
-        ("fork_repo",         "Fork Repo",         ["fork this repository", "copy repo to my account", "fork the project", "make a fork"]),
-        ("star_repo",         "Star Repo",         ["star this repo", "add to starred", "favorite this repository", "star the project"]),
-        ("add_collaborator",  "Add Collaborator",  ["add a collaborator", "invite contributor to repo", "give someone access", "add team member to repository"]),
-        ("create_webhook",    "Create Webhook",    ["create a webhook", "set up github webhook", "add webhook endpoint", "register webhook url"]),
-        ("list_issues",       "List Issues",       ["show all open issues", "list repository issues", "display bugs", "what issues are open"]),
-        ("search_code",       "Search Code",       ["search the codebase", "find code in repo", "search for function in code", "grep across repository"]),
-        ("create_gist",       "Create Gist",       ["create a gist", "share code snippet", "post a gist", "save code as gist"]),
+        ("create_issue",     "Create Issue",     ["create an issue", "file a bug report", "open new issue", "report a bug"]),
+        ("close_issue",      "Close Issue",      ["close this issue", "resolve the issue", "mark issue done"]),
+        ("create_pr",        "Create PR",        ["open a pull request", "create PR", "submit for review"]),
+        ("merge_pr",         "Merge PR",         ["merge the PR", "merge pull request", "land this PR"]),
+        ("close_pr",         "Close PR",         ["close the pull request", "reject this PR", "close PR without merging"]),
+        ("list_repos",       "List Repos",       ["list repositories", "show my repos", "what repos do I have"]),
+        ("create_repo",      "Create Repo",      ["create a repository", "new repo", "initialize repository"]),
+        ("delete_repo",      "Delete Repo",      ["delete this repository", "remove repo"]),
+        ("create_branch",    "Create Branch",    ["create a branch", "make a new branch", "branch off"]),
+        ("delete_branch",    "Delete Branch",    ["delete the branch", "remove branch", "clean up branch"]),
+        ("list_branches",    "List Branches",    ["list branches", "show all branches"]),
+        ("create_release",   "Create Release",   ["create a release", "publish new version", "tag a release"]),
+        ("list_commits",     "List Commits",     ["list commits", "show commit history", "view git log"]),
+        ("fork_repo",        "Fork Repo",        ["fork this repo", "fork the repository"]),
+        ("star_repo",        "Star Repo",        ["star this repo", "add to starred"]),
+        ("add_collaborator", "Add Collaborator", ["add a collaborator", "invite contributor", "give access to repo"]),
+        ("create_webhook",   "Create Webhook",   ["create a webhook", "set up webhook", "add webhook"]),
+        ("list_issues",      "List Issues",      ["list issues", "show open issues", "what issues are there"]),
+        ("search_code",      "Search Code",      ["search code", "find in codebase", "grep across repo"]),
+        ("create_gist",      "Create Gist",      ["create a gist", "share code snippet", "save as gist"]),
     ],
 
     "slack": [
-        ("send_message",      "Send Message",       ["send a message", "post to channel", "write in slack", "message the team", "drop a note in channel", "send a direct message", "dm someone", "message someone directly"]),
-        ("create_channel",    "Create Channel",     ["create a channel", "make a new slack channel", "set up a channel", "open a new channel"]),
-        ("archive_channel",   "Archive Channel",    ["archive this channel", "deactivate channel", "close the channel", "archive slack channel"]),
-        ("invite_user",       "Invite User",        ["invite someone to channel", "add user to channel", "bring someone into slack", "invite a teammate"]),
-        ("kick_user",         "Kick User",          ["remove user from channel", "kick this person out", "remove member from channel", "boot from channel"]),
-        ("set_status",        "Set Status",         ["set my slack status", "update my status", "change status emoji", "set availability status"]),
-        ("set_reminder",      "Set Reminder",       ["remind me to do something", "set a slack reminder", "create reminder in slack", "remind me tomorrow"]),
-        ("search_messages",   "Search Messages",    ["search for messages", "find old messages", "look up conversation", "search slack history"]),
-        ("list_channels",     "List Channels",      ["show all channels", "list slack channels", "what channels are there", "display workspace channels"]),
-        ("pin_message",       "Pin Message",        ["pin this message", "save message to channel", "pin to channel", "keep this message pinned"]),
-        ("create_poll",       "Create Poll",        ["create a poll", "start a vote", "make a slack poll", "poll the team", "ask team for vote"]),
-        ("schedule_message",  "Schedule Message",   ["schedule a message", "send message later", "post at specific time", "delay message sending", "send a message at specific time", "send later at 9am"]),
-        ("upload_file",       "Upload File",        ["upload a file", "share document in slack", "attach file to channel", "upload to slack"]),
-        ("list_members",      "List Members",       ["show channel members", "list all users", "who is in this channel", "show team members"]),
-        ("set_topic",         "Set Topic",          ["set channel topic", "update channel description", "change channel topic", "set the channel subject"]),
-        ("react_to_message",  "React to Message",   ["react to that message", "add emoji reaction", "give thumbs up", "react with emoji"]),
-        ("get_user_info",     "Get User Info",      ["get info about user", "look up user profile", "show user details", "who is this person"]),
-        ("create_workflow",   "Create Workflow",    ["create a workflow", "automate in slack", "build a slack automation", "set up workflow"]),
-        ("list_dms",          "List DMs",           ["show my direct messages", "list my dms", "view direct message conversations", "show private messages", "show all dm conversations"]),
-        ("mute_channel",      "Mute Channel",       ["mute this channel", "silence notifications", "mute notifications for channel", "stop channel alerts"]),
+        ("send_message",     "Send Message",      ["send a message", "post to channel", "message the team"]),
+        ("create_channel",   "Create Channel",    ["create a channel", "new slack channel", "set up channel"]),
+        ("archive_channel",  "Archive Channel",   ["archive this channel", "close the channel"]),
+        ("invite_user",      "Invite User",       ["invite someone to channel", "add user to channel", "add member"]),
+        ("kick_user",        "Kick User",         ["remove user from channel", "kick from channel"]),
+        ("set_status",       "Set Status",        ["set my status", "update status", "change slack status"]),
+        ("set_reminder",     "Set Reminder",      ["set a reminder", "remind me", "create reminder"]),
+        ("search_messages",  "Search Messages",   ["search messages", "find a message", "look up conversation"]),
+        ("list_channels",    "List Channels",     ["list channels", "show all channels"]),
+        ("pin_message",      "Pin Message",       ["pin this message", "pin to channel"]),
+        ("create_poll",      "Create Poll",       ["create a poll", "start a vote", "poll the team"]),
+        ("schedule_message", "Schedule Message",  ["schedule a message", "send message later", "post later"]),
+        ("upload_file",      "Upload File",       ["upload a file", "share document", "attach file"]),
+        ("list_members",     "List Members",      ["list members", "show channel members", "who is in channel"]),
+        ("set_topic",        "Set Topic",         ["set channel topic", "update topic", "change channel description"]),
+        ("react_to_message", "React",             ["react to message", "add emoji reaction", "react with emoji"]),
+        ("get_user_info",    "Get User Info",     ["get user info", "look up user", "who is this user"]),
+        ("create_workflow",  "Create Workflow",   ["create a workflow", "automate in slack", "set up workflow"]),
+        ("list_dms",         "List DMs",          ["show direct messages", "list my DMs", "view DM conversations"]),
+        ("mute_channel",     "Mute Channel",      ["mute this channel", "silence notifications", "mute notifications"]),
     ],
 
     "shopify": [
-        ("create_product",         "Create Product",         ["add a new product", "create product listing", "list new item for sale", "add product to store"]),
-        ("update_product",         "Update Product",         ["update product details", "edit product listing", "change product description", "modify item in store"]),
-        ("delete_product",         "Delete Product",         ["delete this product", "remove product from store", "take down the listing", "delete item"]),
-        ("list_products",          "List Products",          ["show all products", "list my store items", "display product catalog", "what products do I have"]),
-        ("create_order",           "Create Order",           ["create a new order", "place an order", "manually create order", "add order to shopify"]),
-        ("cancel_order",           "Cancel Order",           ["cancel this order", "void the order", "cancel customer order", "undo the purchase"]),
-        ("refund_order",           "Refund Order",           ["refund this order", "give order refund", "process order refund", "money back for order"]),
-        ("list_orders",            "List Orders",            ["show recent orders", "list all orders", "display order history", "what orders came in"]),
-        ("update_inventory",       "Update Inventory",       ["update stock levels", "adjust inventory", "change product quantity", "update stock count"]),
-        ("create_discount",        "Create Discount",        ["create a discount", "make a sale", "set up promo discount", "add discount to store"]),
-        ("apply_discount_code",    "Apply Discount Code",    ["apply discount code", "use promo code on order", "add coupon to cart", "apply store coupon"]),
-        ("list_customers",         "List Customers",         ["show store customers", "list shopify customers", "display customer list", "who bought from me"]),
-        ("create_customer",        "Create Customer",        ["add new store customer", "create shopify customer", "register buyer", "add customer to shopify"]),
-        ("update_customer",        "Update Customer",        ["update customer address", "change customer details in shopify", "edit buyer information"]),
-        ("ship_order",             "Ship Order",             ["mark order as shipped", "ship this order", "fulfill the order", "send out the package"]),
-        ("track_shipment",         "Track Shipment",         ["track this shipment", "where is my package", "get shipping status", "track the delivery"]),
-        ("create_collection",      "Create Collection",      ["create a product collection", "group products together", "make a category", "create store collection"]),
-        ("update_store_settings",  "Update Store Settings",  ["update store settings", "change shop configuration", "edit storefront settings", "update my shopify store"]),
-        ("generate_report",        "Generate Report",        ["generate sales report", "show store analytics", "get revenue report", "download shopify report"]),
-        ("process_return",         "Process Return",         ["process a return", "handle customer return", "accept returned item", "process the return request"]),
+        ("create_product",        "Create Product",        ["create a product", "add product to store", "new product listing"]),
+        ("update_product",        "Update Product",        ["update product", "edit product listing", "change product details"]),
+        ("delete_product",        "Delete Product",        ["delete product", "remove from store", "take down listing"]),
+        ("list_products",         "List Products",         ["list products", "show all products", "view product catalog"]),
+        ("create_order",          "Create Order",          ["create an order", "place order", "manually add order"]),
+        ("cancel_order",          "Cancel Order",          ["cancel order", "void the order", "cancel purchase"]),
+        ("refund_order",          "Refund Order",          ["refund this order", "process order refund", "give refund"]),
+        ("list_orders",           "List Orders",           ["list orders", "show recent orders", "view order history"]),
+        ("update_inventory",      "Update Inventory",      ["update inventory", "change stock level", "adjust quantity"]),
+        ("create_discount",       "Create Discount",       ["create a discount", "add discount", "set up sale"]),
+        ("apply_discount_code",   "Apply Discount Code",   ["apply discount code", "use coupon", "apply promo"]),
+        ("list_customers",        "List Customers",        ["list shopify customers", "show store customers"]),
+        ("create_customer",       "Create Customer",       ["add store customer", "create shopify customer"]),
+        ("update_customer",       "Update Customer",       ["update store customer", "edit buyer info"]),
+        ("ship_order",            "Ship Order",            ["ship this order", "mark as shipped", "fulfill order"]),
+        ("track_shipment",        "Track Shipment",        ["track shipment", "where is my order", "track delivery"]),
+        ("create_collection",     "Create Collection",     ["create a collection", "group products", "new category"]),
+        ("update_store_settings", "Update Store Settings", ["update store settings", "change store config"]),
+        ("generate_report",       "Generate Report",       ["generate sales report", "store analytics", "revenue report"]),
+        ("process_return",        "Process Return",        ["process a return", "handle return", "accept returned item"]),
     ],
 
     "calendar": [
-        ("create_event",          "Create Event",          ["create a new event", "add to calendar", "schedule a meeting", "book time on calendar", "create appointment", "schedule standup", "book a meeting slot", "put on the calendar", "schedule team standup", "add meeting to calendar"]),
-        ("cancel_event",          "Cancel Event",          ["cancel the meeting", "delete this event", "remove from calendar", "cancel my appointment"]),
-        ("reschedule_event",      "Reschedule Event",      ["reschedule this meeting", "move the event", "change meeting time", "postpone the appointment"]),
-        ("list_events",           "List Events",           ["show my events", "what is on my calendar", "list upcoming meetings", "display my schedule"]),
-        ("invite_attendee",       "Invite Attendee",       ["invite someone to meeting", "add attendee to event", "send calendar invite", "include someone in meeting", "invite team members to meeting", "invite all attendees"]),
-        ("set_reminder",          "Set Reminder",          ["set a reminder for event", "remind me before meeting", "add calendar reminder", "alert me before it starts"]),
-        ("check_availability",    "Check Availability",    ["check if I am free", "am I available then", "check calendar availability", "see if I have time"]),
-        ("share_calendar",        "Share Calendar",        ["share my calendar", "give someone access to calendar", "share schedule with team", "let them see my calendar"]),
-        ("create_recurring_event","Create Recurring Event",["set up recurring meeting", "create weekly standup", "make recurring event", "schedule repeating appointment"]),
-        ("accept_invite",         "Accept Invite",         ["accept this invite", "confirm the meeting", "say yes to event", "accept calendar invitation"]),
-        ("decline_invite",        "Decline Invite",        ["decline this invite", "reject the meeting invite", "say no to event", "decline calendar invitation"]),
-        ("find_meeting_time",     "Find Meeting Time",     ["find a good meeting time", "when can we all meet", "find common free time", "suggest meeting slots"]),
-        ("set_working_hours",     "Set Working Hours",     ["set my working hours", "define work schedule", "update available hours", "set business hours"]),
-        ("book_room",             "Book Room",             ["book a conference room", "reserve meeting room", "find and book a room", "schedule a room"]),
-        ("add_video_link",        "Add Video Link",        ["add zoom link to event", "attach video call link", "add meet link", "include video conference url"]),
-        ("export_calendar",       "Export Calendar",       ["export my calendar", "download calendar data", "get ical file", "export events to file"]),
-        ("view_event_details",    "View Event Details",    ["show event details", "what is this meeting about", "view appointment info", "get event information"]),
-        ("update_event",          "Update Event",          ["update event details", "change meeting agenda", "edit event description", "modify the appointment"]),
-        ("set_out_of_office",     "Set Out of Office",     ["set out of office", "mark myself unavailable", "block off vacation time", "add out of office to calendar"]),
-        ("sync_calendar",         "Sync Calendar",         ["sync my calendar", "synchronize calendar", "refresh calendar data", "pull latest calendar events"]),
+        ("create_event",           "Create Event",           ["create an event", "add to calendar", "schedule a meeting"]),
+        ("cancel_event",           "Cancel Event",           ["cancel the event", "delete meeting", "remove from calendar"]),
+        ("reschedule_event",       "Reschedule Event",       ["reschedule this meeting", "move the event", "change event time"]),
+        ("list_events",            "List Events",            ["list events", "show my schedule", "what do I have today"]),
+        ("invite_attendee",        "Invite Attendee",        ["invite someone to meeting", "add to event", "send calendar invite"]),
+        ("set_reminder",           "Set Reminder",           ["set event reminder", "remind me before meeting"]),
+        ("check_availability",     "Check Availability",     ["check availability", "am I free", "check if I have time"]),
+        ("share_calendar",         "Share Calendar",         ["share my calendar", "give access to calendar"]),
+        ("create_recurring_event", "Create Recurring Event", ["create recurring event", "set up weekly meeting", "repeat this event"]),
+        ("accept_invite",          "Accept Invite",          ["accept the invite", "confirm meeting", "say yes to event"]),
+        ("decline_invite",         "Decline Invite",         ["decline the invite", "reject meeting", "say no to event"]),
+        ("find_meeting_time",      "Find Meeting Time",      ["find a meeting time", "when can we meet", "find common availability"]),
+        ("set_working_hours",      "Set Working Hours",      ["set working hours", "update my work schedule"]),
+        ("book_room",              "Book Room",              ["book a room", "reserve meeting room", "find a room"]),
+        ("add_video_link",         "Add Video Link",         ["add video link", "attach zoom link", "add meet link"]),
+        ("export_calendar",        "Export Calendar",        ["export calendar", "download calendar", "get ical"]),
+        ("view_event_details",     "View Event Details",     ["show event details", "what is this meeting about"]),
+        ("update_event",           "Update Event",           ["update event", "edit meeting", "change event details"]),
+        ("set_out_of_office",      "Set Out of Office",      ["set out of office", "mark unavailable", "block vacation"]),
+        ("sync_calendar",          "Sync Calendar",          ["sync calendar", "refresh calendar", "sync my schedule"]),
     ],
 }
 
-# ─── Test Cases ───────────────────────────────────────────────────────────────
+# ─── Positive tests ───────────────────────────────────────────────────────────
+# All queries use natural language that DIFFERS from seeds.
+# "expected" is what the system SHOULD detect — failures here are real gaps.
+
+# Format: (app_id_or_list, query, expected_intents_list, description)
+# For cross-app: app_id is a list, expected is list of (app_id, intent_id)
 
 SINGLE_INTENT_TESTS = [
-    # (app_id, query, expected_intent, description)
-    # Stripe
-    ("stripe", "I need to charge $99 to the customer's credit card",         "charge_card",         "stripe: charge card"),
-    ("stripe", "please issue a refund for last week's payment",               "refund_payment",      "stripe: refund payment"),
-    ("stripe", "set up monthly recurring billing for this client",            "create_subscription", "stripe: create subscription"),
-    ("stripe", "cancel the subscription for this customer immediately",       "cancel_subscription", "stripe: cancel subscription"),
-    ("stripe", "show me all my stripe customers",                             "list_customers",      "stripe: list customers"),
-    ("stripe", "I'd like to add a new customer to my stripe account",         "create_customer",     "stripe: create customer"),
-    ("stripe", "generate an invoice for the work done this month",            "create_invoice",      "stripe: create invoice"),
-    ("stripe", "mark the outstanding invoice as paid",                        "pay_invoice",         "stripe: pay invoice"),
-    ("stripe", "what is my current stripe account balance",                   "retrieve_balance",    "stripe: retrieve balance"),
-    ("stripe", "send my earnings to my bank account",                         "create_payout",       "stripe: create payout"),
+    # ── STRIPE ──
+    ("stripe", "run it on the visa ending in 4242",                           ["charge_card"],         "stripe: card phrasing with last 4"),
+    ("stripe", "my customer is asking for their money back from last week",    ["refund_payment"],      "stripe: indirect refund request"),
+    ("stripe", "they want to be billed every month going forward",             ["create_subscription"], "stripe: implicit recurring billing"),
+    ("stripe", "she's done, wants out of the plan entirely",                   ["cancel_subscription"], "stripe: colloquial cancellation"),
+    ("stripe", "pull up everyone who's ever paid us",                          ["list_customers"],      "stripe: informal customer list"),
+    ("stripe", "we just landed a new enterprise account",                      ["create_customer"],     "stripe: onboarding framing"),
+    ("stripe", "he moved offices, need to update the billing address",         ["update_customer"],     "stripe: contextual update"),
+    ("stripe", "the account went dark, scrub their data",                      ["delete_customer"],     "stripe: informal delete"),
+    ("stripe", "send them something official for this month's work",           ["create_invoice"],      "stripe: invoice by context"),
+    ("stripe", "they finally settled up after three reminders",                ["pay_invoice"],         "stripe: indirect pay invoice"),
+    ("stripe", "what's sitting in the stripe account right now",               ["retrieve_balance"],    "stripe: informal balance check"),
+    ("stripe", "wire this month's earnings over to the bank",                  ["create_payout"],       "stripe: payout as 'wire earnings'"),
 
-    # GitHub
-    ("github", "open a bug report for the login crash",                       "create_issue",        "github: create issue"),
-    ("github", "submit my feature branch for code review",                    "create_pr",           "github: create PR"),
-    ("github", "merge the approved pull request",                             "merge_pr",            "github: merge PR"),
-    ("github", "show me all my github repositories",                          "list_repos",          "github: list repos"),
-    ("github", "initialize a new repository for my project",                  "create_repo",         "github: create repo"),
-    ("github", "create a feature branch from main",                           "create_branch",       "github: create branch"),
-    ("github", "publish version 2.0 of the app",                              "create_release",      "github: create release"),
-    ("github", "find where we call the authenticate function in the code",    "search_code",         "github: search code"),
-    ("github", "add John as a collaborator on this repository",               "add_collaborator",    "github: add collaborator"),
-    ("github", "share this code snippet publicly",                            "create_gist",         "github: create gist"),
+    # ── GITHUB ──
+    ("github", "found a memory leak in the auth flow, need to track it",      ["create_issue"],      "github: issue as bug tracking"),
+    ("github", "my feature's ready for other eyes",                            ["create_pr"],         "github: PR as 'ready for eyes'"),
+    ("github", "everyone approved it, time to land it",                        ["merge_pr"],          "github: merge via 'land it'"),
+    ("github", "what codebases do we have under this org",                    ["list_repos"],        "github: repos as 'codebases'"),
+    ("github", "spinning up a new microservice, need a home for the code",    ["create_repo"],       "github: repo as 'home for code'"),
+    ("github", "I need to work on this without stepping on main",              ["create_branch"],     "github: branch to avoid main"),
+    ("github", "we're cutting the 2.1 release today",                         ["create_release"],    "github: release as 'cutting'"),
+    ("github", "where does the app handle authentication",                    ["search_code"],       "github: code search as question"),
 
-    # Slack
-    ("slack", "post a message in the engineering channel",                    "send_message",        "slack: send message"),
-    ("slack", "set up a new channel for the design team",                     "create_channel",      "slack: create channel"),
-    ("slack", "invite Sarah to the project channel",                          "invite_user",         "slack: invite user"),
-    ("slack", "remind me to submit the report tomorrow morning",              "set_reminder",        "slack: set reminder"),
-    ("slack", "find our conversation about the launch from last week",        "search_messages",     "slack: search messages"),
-    ("slack", "create a poll to vote on the team lunch options",              "create_poll",         "slack: create poll"),
-    ("slack", "send a message at 9am tomorrow to the team",                   "schedule_message",    "slack: schedule message"),
-    ("slack", "share this design file in the channel",                        "upload_file",         "slack: upload file"),
-    ("slack", "stop getting notifications from the general channel",          "mute_channel",        "slack: mute channel"),
-    ("slack", "set my status to out of office",                               "set_status",          "slack: set status"),
+    # ── SLACK ──
+    ("slack", "tell the engineering team about the incident",                  ["send_message"],      "slack: message as 'tell team'"),
+    ("slack", "we need a dedicated space for the launch coordination",         ["create_channel"],    "slack: channel as 'dedicated space'"),
+    ("slack", "loop in the new designer we hired",                             ["invite_user"],       "slack: invite as 'loop in'"),
+    ("slack", "bug me at 5 to recap the standup",                              ["set_reminder"],      "slack: reminder as 'bug me'"),
+    ("slack", "what did we decide about the API versioning last month",        ["search_messages"],   "slack: search as 'what did we decide'"),
+    ("slack", "put it to a vote — dark mode or light mode",                    ["create_poll"],       "slack: poll as 'put it to a vote'"),
+    ("slack", "blast the announcement to everyone at noon",                    ["schedule_message"],  "slack: schedule as 'blast at noon'"),
+    ("slack", "drop the design mockups in the product channel",                ["upload_file"],       "slack: upload as 'drop files'"),
+    ("slack", "I don't want to hear from that channel right now",              ["mute_channel"],      "slack: mute as 'don't want to hear'"),
+    ("slack", "let them know by thumbs up or down",                            ["react_to_message"],  "slack: react as 'thumbs up or down'"),
 
-    # Shopify
-    ("shopify", "add a new t-shirt to my store",                              "create_product",      "shopify: create product"),
-    ("shopify", "cancel the order that just came in",                         "cancel_order",        "shopify: cancel order"),
-    ("shopify", "refund the customer for their broken order",                 "refund_order",        "shopify: refund order"),
-    ("shopify", "show me all orders from today",                              "list_orders",         "shopify: list orders"),
-    ("shopify", "update the stock count for the blue jacket",                 "update_inventory",    "shopify: update inventory"),
-    ("shopify", "mark the package as shipped",                                "ship_order",          "shopify: ship order"),
-    ("shopify", "where is the customer's delivery right now",                 "track_shipment",      "shopify: track shipment"),
-    ("shopify", "generate a sales report for this month",                     "generate_report",     "shopify: generate report"),
-    ("shopify", "the customer wants to return their purchase",                "process_return",      "shopify: process return"),
-    ("shopify", "create a summer sale discount",                              "create_discount",     "shopify: create discount"),
+    # ── SHOPIFY ──
+    ("shopify", "we're launching a new hoodie colorway next week",            ["create_product"],      "shopify: product as 'new colorway'"),
+    ("shopify", "customer changed their mind before it left the warehouse",   ["cancel_order"],        "shopify: cancel before ship"),
+    ("shopify", "item arrived broken, they're requesting compensation",       ["refund_order"],        "shopify: refund as 'compensation'"),
+    ("shopify", "how many orders came in this morning",                       ["list_orders"],         "shopify: orders as count question"),
+    ("shopify", "we're nearly out of stock on the medium blue jacket",        ["update_inventory"],    "shopify: inventory via 'nearly out'"),
+    ("shopify", "green light on this one, send it out",                       ["ship_order"],          "shopify: ship as 'send it out'"),
+    ("shopify", "the customer is asking where their stuff is",                ["track_shipment"],      "shopify: tracking via customer question"),
+    ("shopify", "customer bought it three days ago and wants to send it back",["process_return"],      "shopify: return with context"),
 
-    # Calendar
-    ("calendar", "schedule a team standup for Monday at 10am",                "create_event",        "calendar: create event"),
-    ("calendar", "cancel my dentist appointment tomorrow",                    "cancel_event",        "calendar: cancel event"),
-    ("calendar", "move Friday's meeting to next week",                        "reschedule_event",    "calendar: reschedule event"),
-    ("calendar", "what meetings do I have this week",                         "list_events",         "calendar: list events"),
-    ("calendar", "invite Maria to the planning meeting",                      "invite_attendee",     "calendar: invite attendee"),
-    ("calendar", "am I free next Thursday afternoon",                         "check_availability",  "calendar: check availability"),
-    ("calendar", "set up a weekly team sync every Monday",                    "create_recurring_event","calendar: recurring event"),
-    ("calendar", "accept the invitation to the design review",                "accept_invite",       "calendar: accept invite"),
-    ("calendar", "find a time when everyone on the team is available",        "find_meeting_time",   "calendar: find meeting time"),
-    ("calendar", "block out next week for vacation",                          "set_out_of_office",   "calendar: out of office"),
+    # ── CALENDAR ──
+    ("calendar", "block Monday 2pm for the design sync with product",         ["create_event"],          "calendar: create via 'block time'"),
+    ("calendar", "that meeting isn't happening anymore, clear it",             ["cancel_event"],          "calendar: cancel as 'clear it'"),
+    ("calendar", "push the 3pm to sometime Thursday instead",                 ["reschedule_event"],      "calendar: reschedule as 'push to'"),
+    ("calendar", "what have I got going on this week",                        ["list_events"],           "calendar: list as 'what have I got'"),
+    ("calendar", "make sure everyone from product is on the call",            ["invite_attendee"],       "calendar: invite as 'make sure on call'"),
+    ("calendar", "is next Wednesday afternoon wide open",                     ["check_availability"],    "calendar: availability check"),
+    ("calendar", "every Tuesday at 9, forever, no end date",                  ["create_recurring_event"],"calendar: recurring via time pattern"),
+    ("calendar", "I'll be off the grid from the 15th to the 22nd",           ["set_out_of_office"],     "calendar: OOO as 'off the grid'"),
 ]
 
-MULTI_INTENT_TESTS = [
-    # (app_id, query, expected_intents, description)
-    ("stripe",
-     "charge the customer and then send them an invoice",
-     ["charge_card", "create_invoice"],
-     "stripe: charge + invoice"),
+MULTI_INTENT_SAME_APP_TESTS = [
+    # No conjunctions. Two intents implicit in one natural request.
+    # Format: (app_id, query, [intent1, intent2], description)
 
+    # ── STRIPE ──
     ("stripe",
-     "refund the payment and delete the customer record",
-     ["refund_payment", "delete_customer"],
-     "stripe: refund + delete customer"),
-
-    ("stripe",
-     "create a new customer and set up their monthly subscription",
+     "new enterprise client coming on, need to get them set up with monthly billing",
      ["create_customer", "create_subscription"],
-     "stripe: create customer + subscription"),
+     "stripe: onboard + subscribe (implicit)"),
 
+    ("stripe",
+     "process the card and shoot them a receipt for their records",
+     ["charge_card", "create_invoice"],
+     "stripe: charge + invoice (implicit)"),
+
+    ("stripe",
+     "they're done with us — cancel everything and send back whatever we owe them",
+     ["cancel_subscription", "refund_payment"],
+     "stripe: cancel + refund (churn flow)"),
+
+    # ── GITHUB ──
     ("github",
-     "close the issue and delete the feature branch",
+     "the auth bug is fixed, we can close that ticket and retire the hotfix branch",
      ["close_issue", "delete_branch"],
-     "github: close issue + delete branch"),
+     "github: close issue + delete branch (cleanup)"),
 
     ("github",
-     "open a pull request and invite a collaborator to review it",
-     ["create_pr", "add_collaborator"],
-     "github: create PR + add collaborator"),
-
-    ("github",
-     "create a new repo and set up a webhook for deployments",
+     "spinning up the new payments service — need a repo and a CI hook",
      ["create_repo", "create_webhook"],
-     "github: create repo + webhook"),
+     "github: repo + webhook (setup)"),
+
+    ("github",
+     "tagging today's release and pulling up the commit history to draft the changelog",
+     ["create_release", "list_commits"],
+     "github: release + commits (changelog flow)"),
+
+    # ── SLACK ──
+    ("slack",
+     "set up a war room for the incident and pull in the on-call engineers",
+     ["create_channel", "invite_user"],
+     "slack: channel + invite (incident response)"),
 
     ("slack",
-     "invite the new hire to the channel and set the channel topic",
-     ["invite_user", "set_topic"],
-     "slack: invite + set topic"),
+     "pin the new API docs and get everyone's attention on them",
+     ["pin_message", "send_message"],
+     "slack: pin + notify (announcement)"),
 
     ("slack",
-     "pin the announcement and send a reminder to the team",
-     ["pin_message", "set_reminder"],
-     "slack: pin + reminder"),
+     "announce the deployment window at 3pm and ask the team to acknowledge",
+     ["schedule_message", "create_poll"],
+     "slack: schedule + poll (deployment)"),
 
+    # ── SHOPIFY ──
     ("shopify",
-     "create the product listing and update the inventory count",
+     "just dropped a new sneaker — get it listed and set the opening stock to 200",
      ["create_product", "update_inventory"],
-     "shopify: create product + update inventory"),
+     "shopify: list product + set stock"),
 
     ("shopify",
-     "cancel the order and process a refund for the customer",
+     "customer wants out and their money back, handle both",
      ["cancel_order", "refund_order"],
      "shopify: cancel + refund"),
 
+    ("shopify",
+     "it went out this morning, update the status and pull up the tracking for them",
+     ["ship_order", "track_shipment"],
+     "shopify: ship + track"),
+
+    # ── CALENDAR ──
     ("calendar",
-     "schedule the kickoff meeting and invite all team members",
+     "get the kickoff on the books and loop in the whole product team",
      ["create_event", "invite_attendee"],
-     "calendar: create event + invite"),
+     "calendar: create + invite (kickoff)"),
 
     ("calendar",
-     "cancel the old meeting and reschedule it for next week",
-     ["cancel_event", "reschedule_event"],
-     "calendar: cancel + reschedule"),
+     "the Friday meeting is dead — ditch it and find us a better slot next week",
+     ["cancel_event", "find_meeting_time"],
+     "calendar: cancel + find new time"),
+
+    ("calendar",
+     "I'm out from Monday, block it and set up recurring coverage standups",
+     ["set_out_of_office", "create_recurring_event"],
+     "calendar: OOO + recurring"),
 ]
 
-CROSS_APP_ISOLATION_TESTS = [
-    # (query, correct_app_id, correct_intent, wrong_apps, description)
-    ("charge my customer's credit card",
-     "stripe", "charge_card",
-     ["github", "slack", "shopify", "calendar"],
-     "payment query stays in stripe"),
+MULTI_INTENT_CROSS_APP_TESTS = [
+    # Query spans two different apps.
+    # Format: (query, [(app_id, intent_id), ...], description)
 
-    ("open a pull request for my changes",
-     "github", "create_pr",
-     ["stripe", "slack", "shopify", "calendar"],
-     "PR query stays in github"),
+    ("charge the client and open a tracking issue for the billing edge case we found",
+     [("stripe", "charge_card"), ("github", "create_issue")],
+     "stripe charge + github issue"),
 
-    ("create a new slack channel for the team",
-     "slack", "create_channel",
-     ["stripe", "github", "shopify", "calendar"],
-     "channel query stays in slack"),
+    ("the order shipped — post in the team channel and update the tracking",
+     [("shopify", "ship_order"), ("slack", "send_message")],
+     "shopify shipped + slack notify"),
 
-    ("cancel the customer's order",
-     "shopify", "cancel_order",
-     ["stripe", "github", "slack", "calendar"],
-     "order cancel stays in shopify not stripe"),
+    ("merge the hotfix and alert the on-call team immediately",
+     [("github", "merge_pr"), ("slack", "send_message")],
+     "github merge + slack alert"),
 
-    ("schedule a meeting for next Tuesday",
-     "calendar", "create_event",
-     ["stripe", "github", "slack", "shopify"],
-     "scheduling stays in calendar"),
+    ("bill the client for this sprint and spin up a repo for next quarter's work",
+     [("stripe", "create_invoice"), ("github", "create_repo")],
+     "stripe invoice + github repo"),
 
-    ("refund the payment",
-     "stripe", "refund_payment",
-     ["shopify", "github", "slack", "calendar"],
-     "refund stays in stripe not shopify"),
+    ("get the Q3 report out of shopify and share it in the finance channel",
+     [("shopify", "generate_report"), ("slack", "upload_file")],
+     "shopify report + slack share"),
 
-    ("list all open issues",
-     "github", "list_issues",
-     ["stripe", "slack", "shopify", "calendar"],
-     "issues query stays in github"),
+    ("schedule the client demo and send the invite link through slack",
+     [("calendar", "create_event"), ("slack", "send_message")],
+     "calendar event + slack message"),
 
-    ("send a direct message to John",
-     "slack", "send_message",
-     ["stripe", "github", "shopify", "calendar"],
-     "messaging stays in slack"),
+    ("the new customer is in stripe — send them a welcome in slack",
+     [("stripe", "create_customer"), ("slack", "send_message")],
+     "stripe customer + slack welcome"),
 
-    ("track where my package is",
-     "shopify", "track_shipment",
-     ["stripe", "github", "slack", "calendar"],
-     "shipment tracking stays in shopify"),
+    ("tag the v2 release and announce it in the announcements channel",
+     [("github", "create_release"), ("slack", "send_message")],
+     "github release + slack announce"),
 
-    ("check if I am free Friday afternoon",
-     "calendar", "check_availability",
-     ["stripe", "github", "slack", "shopify"],
-     "availability check stays in calendar"),
+    ("cancel their subscription in stripe and close their shopify store account",
+     [("stripe", "cancel_subscription"), ("shopify", "delete_product")],
+     "stripe cancel + shopify close"),
 
-    ("create a coupon code for the sale",
-     "stripe", "create_coupon",
-     ["shopify", "github", "slack", "calendar"],
-     "coupon: stripe wins not shopify"),
+    ("find a time for the sprint planning and create the github milestone",
+     [("calendar", "find_meeting_time"), ("github", "create_repo")],
+     "calendar + github (planning)"),
+]
 
-    ("merge the pull request into main",
-     "github", "merge_pr",
-     ["stripe", "slack", "shopify", "calendar"],
-     "PR merge stays in github"),
+# ─── Negative tests ───────────────────────────────────────────────────────────
+# Queries that should NOT trigger any high/medium confidence intent in ANY app.
+# These expose false positives — a system that matches everything is broken.
 
-    ("upload the report file to the team",
-     "slack", "upload_file",
-     ["stripe", "github", "shopify", "calendar"],
-     "file upload stays in slack"),
+NEGATIVE_TESTS = [
+    # Completely off-topic
+    ("what's the weather like in Tokyo tomorrow",          "weather — no app intent"),
+    ("I'm feeling really good about this project",        "emotional statement"),
+    ("banana pancakes with maple syrup",                  "food — nonsense to all apps"),
+    ("can you explain recursion to me",                   "CS concept question"),
+    ("the quick brown fox jumps over the lazy dog",       "filler sentence"),
+    ("it was a dark and stormy night",                    "fiction opener"),
+    ("what time zone is New York in",                     "timezone question"),
+    ("my dog's name is charlie",                          "personal statement"),
+    ("translate this to Spanish",                         "translation request"),
+    ("is the earth flat",                                 "unrelated factual question"),
 
-    ("generate a monthly revenue report",
-     "shopify", "generate_report",
-     ["stripe", "github", "slack", "calendar"],
-     "report stays in shopify"),
+    # Too vague / incomplete
+    ("do it",                                             "zero-context imperative"),
+    ("yes",                                               "affirmation with no context"),
+    ("ok sure",                                           "acknowledgment"),
+    ("later",                                             "one word — later"),
+    ("help",                                              "generic help"),
+    ("not sure",                                          "uncertainty expression"),
+    ("I don't know",                                      "uncertainty expression"),
+    ("whatever you think is best",                        "deferred decision"),
+    ("make it work",                                      "vague imperative"),
+    ("fix it",                                            "vague fix request"),
 
-    ("invite the client to a meeting",
-     "calendar", "invite_attendee",
-     ["stripe", "github", "slack", "shopify"],
-     "meeting invite stays in calendar not slack"),
+    # Plausible-sounding but actually no clear intent
+    ("I was thinking maybe we could possibly look into something",  "hedge soup — no action"),
+    ("let's revisit this next quarter",                            "deferral — no action"),
+    ("just a heads up for the team",                               "fyi with no action"),
+    ("I'll get back to you on that",                               "deferral statement"),
+    ("sounds like a plan",                                         "agreement — no action"),
 ]
 
 # ─── Setup ────────────────────────────────────────────────────────────────────
 
 def setup_all_apps():
-    print("\n=== Setting up all apps ===")
-    total_intents = 0
+    print("\n=== Setting up apps ===")
+    total = 0
     for app_id, intents in APPS.items():
         print(f"\n  [{app_id}] {len(intents)} intents")
-        # Create app (idempotent)
         create_app(app_id)
-
-        # Delete existing intents first (idempotent)
         existing = curl_json("GET", "/api/intents", app_id=app_id)
         if isinstance(existing, list):
-            for intent in existing:
-                delete_intent(app_id, intent["id"])
-        elif isinstance(existing, dict):
-            for intent in existing.get("intents", []):
-                delete_intent(app_id, intent["id"])
-
+            for i in existing: delete_intent(app_id, i["id"])
         for intent_id, label, seeds in intents:
             ok = add_intent(app_id, intent_id, label, seeds)
-            status = "+" if ok else "!"
-            print(f"    {status} {intent_id}")
-            total_intents += 1
-    print(f"\n  Total intents registered: {total_intents}")
+            print(f"    {'+'if ok else '!'} {intent_id}")
+            total += 1
+    print(f"\n  {total} intents registered across {len(APPS)} apps")
 
-# ─── Test Runner ─────────────────────────────────────────────────────────────
+# ─── Test runners ─────────────────────────────────────────────────────────────
 
 class Results:
-    def __init__(self, name: str):
+    def __init__(self, name):
         self.name = name
         self.passed = 0
         self.failed = 0
         self.failures = []
 
-    def record(self, passed: bool, desc: str, detail: str = ""):
+    def record(self, passed, desc, detail=""):
         if passed:
             self.passed += 1
         else:
             self.failed += 1
-            self.failures.append(f"  FAIL [{desc}]: {detail}")
+            self.failures.append(f"    FAIL [{desc}]: {detail}")
 
     def print_summary(self):
         total = self.passed + self.failed
-        print(f"\n--- {self.name}: {self.passed}/{total} passed ---")
+        pct = 100 * self.passed // total if total else 0
+        print(f"\n--- {self.name}: {self.passed}/{total} ({pct}%) ---")
         for f in self.failures:
             print(f)
 
-def test_single_intent(results: Results):
-    print("\n=== Single-Intent Tests ===")
+def run_single_intent(results: Results):
+    print("\n=== Single-Intent Tests (natural language, no seed overlap) ===")
     for app_id, query, expected, desc in SINGLE_INTENT_TESTS:
-        r = route(app_id, query)
-        intents = r.get("intents", [])
-        detected_ids = [i["id"] for i in intents]
-        # Top intent or any medium+/high should match
-        top = detected_ids[0] if detected_ids else None
-        passed = expected in detected_ids[:2]
+        detected = route_app(app_id, query)
+        ids = intent_ids(detected)
+        passed = any(e in ids[:3] for e in expected)
         status = "PASS" if passed else "FAIL"
-        print(f"  {status} [{desc}] got={detected_ids[:3]}")
-        results.record(passed, desc, f"expected={expected}, got={detected_ids[:3]}, query='{query[:60]}'")
+        print(f"  {status} [{desc}]")
+        if not passed:
+            print(f"       query:    {query}")
+            print(f"       expected: {expected}")
+            print(f"       got:      {ids[:4]}")
+        results.record(passed, desc, f"expected={expected}, got={ids[:4]}")
 
-def test_multi_intent(results: Results):
-    print("\n=== Multi-Intent Tests ===")
-    for app_id, query, expected_intents, desc in MULTI_INTENT_TESTS:
-        r = route(app_id, query)
-        intents = r.get("intents", [])
-        detected_ids = [i["id"] for i in intents]
-        found = [e for e in expected_intents if e in detected_ids]
-        # Pass if at least one of the expected intents is detected
-        # (ASV may not always detect both, depending on query phrasing)
-        passed = len(found) >= 1
+def run_multi_same_app(results: Results):
+    print("\n=== Multi-Intent Same-App (implicit, no conjunctions) ===")
+    for app_id, query, expected, desc in MULTI_INTENT_SAME_APP_TESTS:
+        detected = route_app(app_id, query)
+        ids = intent_ids(detected)
+        found = [e for e in expected if e in ids]
+        # Require BOTH intents detected
+        passed = len(found) == len(expected)
+        found_str = f"{len(found)}/{len(expected)}"
+        status = "PASS" if passed else f"PART({found_str})" if found else "FAIL"
+        print(f"  {status} [{desc}]")
+        if not passed:
+            print(f"       query:   {query}")
+            print(f"       found:   {found}")
+            print(f"       missing: {[e for e in expected if e not in found]}")
+            print(f"       got:     {ids[:5]}")
+        results.record(passed, desc, f"found={found}, missing={[e for e in expected if e not in found]}, got={ids[:5]}")
+
+def run_multi_cross_app(results: Results):
+    print("\n=== Multi-Intent Cross-App (single query, multiple apps) ===")
+    for query, expected_pairs, desc in MULTI_INTENT_CROSS_APP_TESTS:
+        all_results = route_all(query)
+        found_pairs = []
+        for app_id, intent_id in expected_pairs:
+            app_ids = intent_ids(all_results.get(app_id, []))
+            if intent_id in app_ids[:3]:
+                found_pairs.append((app_id, intent_id))
+
+        passed = len(found_pairs) == len(expected_pairs)
+        found_str = f"{len(found_pairs)}/{len(expected_pairs)}"
+        status = "PASS" if passed else f"PART({found_str})" if found_pairs else "FAIL"
+        print(f"  {status} [{desc}]")
+        if not passed:
+            print(f"       query:   {query[:80]}")
+            print(f"       found:   {found_pairs}")
+            missing = [(a,i) for a,i in expected_pairs if (a,i) not in found_pairs]
+            print(f"       missing: {missing}")
+            for app_id, intent_id in missing:
+                top = intent_ids(all_results.get(app_id, []))[:3]
+                print(f"       {app_id} top: {top}")
+        results.record(passed, desc, f"found={len(found_pairs)}/{len(expected_pairs)}")
+
+def run_negative(results: Results):
+    print("\n=== Negative Tests (should NOT fire high/medium confidence in any app) ===")
+    for query, desc in NEGATIVE_TESTS:
+        all_results = route_all(query)
+        # Collect any high/medium confidence matches across all apps
+        fires = {}
+        for app_id, detected in all_results.items():
+            hc = high_confidence(detected)
+            if hc:
+                fires[app_id] = hc
+        passed = len(fires) == 0
         status = "PASS" if passed else "FAIL"
-        found_str = f"{len(found)}/{len(expected_intents)}"
-        print(f"  {status} [{desc}] found={found_str} detected={detected_ids[:4]}")
-        results.record(passed, desc,
-                       f"expected={expected_intents}, found={found}, detected={detected_ids[:4]}, query='{query[:60]}'")
-
-def test_cross_app_isolation(results: Results):
-    """
-    Per-app routing isolation test.
-
-    Each app routes independently — a query routed against app A will match
-    app A's intents, and the SAME query routed against app B will match app B's
-    intents using app B's vocabulary. This is correct and expected behavior.
-
-    What we're testing here: when you route a query against the CORRECT app,
-    the right intent wins. We also log what other apps would return, but we do
-    NOT fail based on other apps also matching — that is the system working as
-    designed. The caller decides which app to route against.
-    """
-    print("\n=== Cross-App Isolation Tests ===")
-    print("  (Routing is per-app. Other apps also matching is expected behavior.)")
-    for query, correct_app, correct_intent, wrong_apps, desc in CROSS_APP_ISOLATION_TESTS:
-        # Must match in correct app — this is the only hard requirement
-        r_correct = route(correct_app, query)
-        correct_ids = [i["id"] for i in r_correct.get("intents", [])]
-        correct_matched = correct_intent in correct_ids[:3]
-
-        # Informational: what other apps return (not a failure criterion)
-        other_matches = []
-        for wrong_app in wrong_apps:
-            r_wrong = route(wrong_app, query)
-            top = [i["id"] for i in r_wrong.get("intents", [])[:2]]
-            if top:
-                other_matches.append(f"{wrong_app}:{top}")
-
-        passed = correct_matched
-        status = "PASS" if passed else "FAIL"
-        detail = f"correct={correct_ids[:2]}"
-        if other_matches:
-            detail += f" | also matches: {', '.join(other_matches)}"
-        if not correct_matched:
-            detail = f"expected {correct_intent} in {correct_ids[:3]}"
-        print(f"  {status} [{desc}] {detail}")
-        results.record(passed, desc, f"expected={correct_intent}, got={correct_ids[:3]}, query='{query[:60]}'")
+        print(f"  {status} [{desc}]")
+        if not passed:
+            print(f"       query:  {query}")
+            print(f"       fired:  {fires}")
+        results.record(passed, desc, f"fired in: {fires}" if fires else "")
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -510,16 +547,17 @@ def main():
     global BASE_URL
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://localhost:3001")
-    parser.add_argument("--skip-setup", action="store_true", help="Skip app setup (use existing intents)")
-    parser.add_argument("--only", choices=["single", "multi", "isolation", "all"], default="all")
+    parser.add_argument("--skip-setup", action="store_true")
+    parser.add_argument("--only",
+                        choices=["single", "multi_same", "multi_cross", "negative", "all"],
+                        default="all")
     args = parser.parse_args()
     BASE_URL = args.base_url
 
-    print(f"ASV Multi-App Test Suite")
+    print("ASV Multi-App Integration Test Suite")
     print(f"Target: {BASE_URL}")
-    print(f"Apps: {list(APPS.keys())}")
+    print("Seeds: minimal (not tuned to tests). Failures = real system gaps.")
 
-    # Health check
     status, _ = curl("GET", "/api/apps")
     if status == 0:
         print(f"\nERROR: Server not reachable at {BASE_URL}")
@@ -528,31 +566,36 @@ def main():
     if not args.skip_setup:
         setup_all_apps()
 
-    r_single = Results("Single-Intent")
-    r_multi  = Results("Multi-Intent")
-    r_iso    = Results("Cross-App Isolation")
+    r_single     = Results("Single-Intent (50 tests)")
+    r_multi_same = Results("Multi-Intent Same-App (15 tests)")
+    r_multi_cross= Results("Multi-Intent Cross-App (10 tests)")
+    r_negative   = Results("Negative Tests (25 tests)")
 
     if args.only in ("single", "all"):
-        test_single_intent(r_single)
-    if args.only in ("multi", "all"):
-        test_multi_intent(r_multi)
-    if args.only in ("isolation", "all"):
-        test_cross_app_isolation(r_iso)
+        run_single_intent(r_single)
+    if args.only in ("multi_same", "all"):
+        run_multi_same_app(r_multi_same)
+    if args.only in ("multi_cross", "all"):
+        run_multi_cross_app(r_multi_cross)
+    if args.only in ("negative", "all"):
+        run_negative(r_negative)
 
-    print("\n" + "=" * 60)
+    total_pass = sum(r.passed for r in [r_single, r_multi_same, r_multi_cross, r_negative])
+    total_all  = sum(r.passed + r.failed for r in [r_single, r_multi_same, r_multi_cross, r_negative])
+
+    print("\n" + "=" * 64)
     print("SUMMARY")
-    print("=" * 60)
+    print("=" * 64)
     r_single.print_summary()
-    r_multi.print_summary()
-    r_iso.print_summary()
+    r_multi_same.print_summary()
+    r_multi_cross.print_summary()
+    r_negative.print_summary()
 
-    total_pass = r_single.passed + r_multi.passed + r_iso.passed
-    total_fail = r_single.failed + r_multi.failed + r_iso.failed
-    total      = total_pass + total_fail
-    print(f"\nOVERALL: {total_pass}/{total} passed ({100*total_pass//total if total else 0}%)")
-
-    if total_fail > 0:
-        sys.exit(1)
+    pct = 100 * total_pass // total_all if total_all else 0
+    print(f"\nOVERALL: {total_pass}/{total_all} ({pct}%)")
+    print("\nNote: Failures here are actionable — they show what to fix.")
+    if total_all:
+        sys.exit(0 if total_pass == total_all else 1)
 
 if __name__ == "__main__":
     main()
