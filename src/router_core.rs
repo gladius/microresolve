@@ -33,6 +33,7 @@ impl Router {
             connected: false,
             similarity: HashMap::new(),
             expansion_discount: 0.3,
+            situation_patterns: HashMap::new(),
         }
     }
 
@@ -209,6 +210,7 @@ impl Router {
             version: self.version,
             max_intents: self.max_intents,
             similarity: self.similarity.clone(),
+            situation_patterns: self.situation_patterns.clone(),
         };
         serde_json::to_string(&state).unwrap_or_default()
     }
@@ -262,6 +264,7 @@ impl Router {
             connected: false,
             similarity: state.similarity,
             expansion_discount: 0.3,
+            situation_patterns: state.situation_patterns,
         };
         router.rebuild_cjk_automaton_now();
         router.rebuild_paraphrase_automaton_now();
@@ -299,6 +302,8 @@ struct RouterState {
     max_intents: usize,
     #[serde(default)]
     similarity: HashMap<String, Vec<(String, f32)>>,
+    #[serde(default)]
+    situation_patterns: HashMap<String, Vec<(String, f32)>>,
 }
 
 fn default_max_intents() -> usize { 5 }

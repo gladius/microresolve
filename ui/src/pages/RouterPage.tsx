@@ -330,7 +330,6 @@ function IntentRow({ intent, index, bestScore, isMulti, latency }: {
 
   return (
     <div className={`flex items-center gap-2.5 font-mono text-sm px-2 py-1 rounded ${bgColor} ${isWeak ? 'opacity-40' : ''}`}>
-      {/* Confidence badge */}
       <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase ${confStyle}`}>
         {confidence}
       </span>
@@ -343,7 +342,6 @@ function IntentRow({ intent, index, bestScore, isMulti, latency }: {
       }`}>
         {intent.intent_type}
       </span>
-      {/* Source indicator */}
       <span className="text-zinc-500 text-[10px]">{SOURCE_LABELS[source] || source}</span>
       {isMulti && (
         <span className="text-zinc-600 text-xs">[{intent.span[0]},{intent.span[1]}]</span>

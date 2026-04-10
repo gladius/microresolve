@@ -32,6 +32,25 @@ impl Router {
         // Learn paraphrases (n-gram extraction into paraphrase index)
         self.learn_paraphrases(query, intent_id);
 
+        // Situation index auto-learning — CJK only.
+        //
+        // Why CJK and not Latin?
+        //
+        // CJK char bigrams/trigrams ("跑红", "OOM了", "挂了") are compound words —
+        // 2-3 characters encode a complete domain-specific concept. They make high-
+        // precision situation patterns because the same compound rarely appears in
+        // unrelated intents. Auto-learning from corrections is safe and valuable.
+        //
+        // Latin char bigrams ("ca", "nc", "el") are sub-word noise — they appear in
+        // every word across every intent. The guard blocks most of them, so learning
+        // pays write cost for near-zero benefit. Latin situation patterns should be
+        // configured manually (operator adds "chargeback", "LGTM", "402") or via LLM
+        // generation — not learned automatically from corrections.
+        let has_cjk = query.chars().any(is_cjk);
+        if has_cjk {
+            self.learn_situation(query, intent_id);
+        }
+
         // Only rebuild CJK automaton if the query had CJK characters
         if query.chars().any(is_cjk) {
             self.rebuild_cjk_automaton();

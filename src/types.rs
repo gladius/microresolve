@@ -122,3 +122,27 @@ pub struct IntentSuggestion {
 
 /// Maximum seed phrases per language per intent. Prevents overfitting.
 pub const MAX_SEEDS_PER_LANGUAGE: usize = 20;
+
+/// A conflict detected by the situation pattern guard.
+#[derive(Debug, Clone)]
+pub struct SituationConflict {
+    /// The intent that already has this exact pattern.
+    pub competing_intent: String,
+    /// The weight the pattern has in the competing intent.
+    pub competing_weight: f32,
+}
+
+/// Result of checking a situation pattern before adding it.
+#[derive(Debug, Clone)]
+pub struct SituationGuardResult {
+    /// Whether the pattern was added.
+    pub added: bool,
+    /// Other intents that already own this exact pattern.
+    pub conflicts: Vec<SituationConflict>,
+    /// Pattern already exists in this intent (exact duplicate).
+    pub duplicate: bool,
+    /// Pattern is too short or generic to be a useful signal.
+    pub too_generic: bool,
+    /// Human-readable warning, if any.
+    pub warning: Option<String>,
+}

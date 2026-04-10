@@ -140,7 +140,7 @@ fn stop_data() -> &'static StopWordData {
 }
 
 /// Get the universal stop word set (minimal, cross-language safe).
-fn universal_stop_set() -> &'static HashSet<String> {
+pub(crate) fn universal_stop_set() -> &'static HashSet<String> {
     &stop_data().universal
 }
 

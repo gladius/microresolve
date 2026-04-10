@@ -78,6 +78,7 @@ mod router_metadata;
 mod router_analytics;
 mod router_similarity;
 mod router_paraphrase;
+mod router_situation;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
@@ -156,6 +157,10 @@ pub struct Router {
     /// Discount factor for similarity expansion. Default: 0.3.
     /// Lower = more conservative expansion, higher = more aggressive.
     expansion_discount: f32,
+    /// Situation patterns: intent_id → [(pattern, weight)].
+    /// Matched by direct substring search for state-description → action inference.
+    /// Sits alongside the term index; scores are blended with SITUATION_ALPHA = 0.4.
+    situation_patterns: HashMap<String, Vec<(String, f32)>>,
 }
 
 

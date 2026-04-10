@@ -21,6 +21,7 @@ mod log_store;
 mod routes_review;
 mod routes_import;
 mod routes_connect;
+mod routes_situation;
 
 use state::*;
 use log_store::LogStore;
@@ -130,6 +131,7 @@ async fn main() {
         .merge(routes_review::routes())
         .merge(routes_import::routes())
         .merge(routes_connect::routes())
+        .merge(routes_situation::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 

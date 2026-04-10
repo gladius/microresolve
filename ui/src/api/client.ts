@@ -47,7 +47,7 @@ export interface RouteResult {
 }
 
 export type ConfidenceTier = 'high' | 'medium' | 'low';
-export type DetectionSource = 'dual' | 'paraphrase' | 'routing';
+export type DetectionSource = 'dual' | 'paraphrase' | 'routing' | 'situation';
 
 export interface MultiRouteResult {
   id: string;
@@ -81,6 +81,8 @@ export interface IntentInfo {
   learned_count: number;
   intent_type: IntentType;
   metadata: Record<string, string[]>;
+  /** Situation patterns: [pattern_string, weight][] */
+  situation_patterns: [string, number][];
 }
 
 export interface ReviewAnalysis {
@@ -139,6 +141,22 @@ export const api = {
     post<void>('/intents/type', { intent_id, intent_type }),
   setDescription: (intent_id: string, description: string) =>
     post<void>('/intents/description', { intent_id, description }),
+  addSituationPattern: (intent_id: string, pattern: string, weight: number) =>
+    post<void>('/intents/add_situation', { intent_id, pattern, weight }),
+  removeSituationPattern: (intent_id: string, pattern: string) =>
+    post<void>('/intents/remove_situation', { intent_id, pattern }),
+
+  // Situation pattern generation
+  generateSituations: (intent_id: string, description: string, languages: string[]) =>
+    post<{ applied: number; patterns: { pattern: string; weight: number }[] }>(
+      '/situation/generate', { intent_id, description, languages }
+    ),
+  buildSituationPrompt: (intent_id: string, description: string, seeds: string[], languages: string[]) =>
+    post<{ prompt: string }>('/situation/prompt', { intent_id, description, seeds, languages }),
+  parseSituationResponse: (intent_id: string, response_text: string) =>
+    post<{ applied: number; patterns: { pattern: string; weight: number }[] }>(
+      '/situation/parse', { intent_id, response_text }
+    ),
 
   // Learning
   learn: (query: string, intent_id: string) =>

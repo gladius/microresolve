@@ -4,24 +4,22 @@ use crate::*;
 use crate::tokenizer::*;
 use crate::vector::LearnedVector;
 use crate::index::InvertedIndex;
+use crate::router_situation::SITUATION_ALPHA;
 use std::collections::{HashMap, HashSet};
 
 impl Router {
     pub fn route(&self, query: &str) -> Vec<RouteResult> {
         let terms = self.extract_terms(query);
-        if terms.is_empty() {
-            return vec![];
-        }
 
-        if self.similarity.is_empty() {
-            // No similarity index — use standard search
+        let mut results: Vec<RouteResult> = if terms.is_empty() {
+            vec![]
+        } else if self.similarity.is_empty() {
             self.index
                 .search(&terms, self.top_k)
                 .into_iter()
                 .map(|s| RouteResult { id: s.id, score: s.score })
                 .collect()
         } else {
-            // Expand with similar terms (Space 4) and use weighted search
             let term_weights: HashMap<String, f32> = terms.iter().map(|t| (t.clone(), 1.0)).collect();
             let expanded = self.expand_terms(&term_weights);
             self.index
@@ -29,7 +27,39 @@ impl Router {
                 .into_iter()
                 .map(|s| RouteResult { id: s.id, score: s.score })
                 .collect()
+        };
+
+        // Situation index: blend additive scores and surface situation-only detections.
+        // Empty situation_patterns → zero-cost no-op, all existing tests unaffected.
+        let situation_hits = self.situation_scan(query);
+        if !situation_hits.is_empty() {
+            let situation_map: HashMap<&str, f32> = situation_hits.iter()
+                .map(|(id, score)| (id.as_str(), *score))
+                .collect();
+
+            // Boost existing term-matched results
+            for r in &mut results {
+                if let Some(&sit_score) = situation_map.get(r.id.as_str()) {
+                    r.score += SITUATION_ALPHA * sit_score;
+                }
+            }
+
+            // Add situation-only detections not found by term index
+            let result_ids: HashSet<String> = results.iter().map(|r| r.id.clone()).collect();
+            let new_entries: Vec<RouteResult> = situation_hits.iter()
+                .filter(|(id, _)| !result_ids.contains(id))
+                .map(|(id, sit_score)| RouteResult {
+                    id: id.clone(),
+                    score: SITUATION_ALPHA * sit_score,
+                })
+                .collect();
+            results.extend(new_entries);
+
+            results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+            results.truncate(self.top_k);
         }
+
+        results
     }
 
     /// Expand query terms with distributionally similar terms.
@@ -147,6 +177,47 @@ impl Router {
                         source: "paraphrase".to_string(),
                         negated: false,
                     });
+                }
+            }
+        }
+
+        // Stream 3: Situation index — state descriptions implying actions.
+        // Boosts routing detections confirmed by situation, and surfaces
+        // situation-only detections (queries with no action vocabulary).
+        let situation_hits = self.situation_scan(query);
+        if !situation_hits.is_empty() {
+            let situation_map: HashMap<&str, f32> = situation_hits.iter()
+                .map(|(id, score)| (id.as_str(), *score))
+                .collect();
+
+            // Boost routing/paraphrase detections confirmed by situation
+            for intent in &mut output.intents {
+                if let Some(&sit_score) = situation_map.get(intent.id.as_str()) {
+                    intent.score += SITUATION_ALPHA * sit_score;
+                    // Upgrade confidence when situation confirms a low-confidence routing hit
+                    if intent.confidence == "low" {
+                        intent.confidence = "medium".to_string();
+                    }
+                }
+            }
+
+            // Add situation-only detections not already present
+            let current_ids: HashSet<String> = output.intents.iter().map(|i| i.id.clone()).collect();
+            for (intent_id, sit_score) in &situation_hits {
+                if !current_ids.contains(intent_id) {
+                    let score = SITUATION_ALPHA * sit_score;
+                    if score >= threshold {
+                        output.intents.push(MultiRouteResult {
+                            id: intent_id.clone(),
+                            score,
+                            position: usize::MAX,
+                            span: (0, 0),
+                            intent_type: self.get_intent_type(intent_id),
+                            confidence: "medium".to_string(),
+                            source: "situation".to_string(),
+                            negated: false,
+                        });
+                    }
                 }
             }
         }

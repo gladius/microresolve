@@ -115,18 +115,19 @@ pub async fn review_fix(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    // Verify entry exists
-    {
+    // Extract original query and verify entry exists
+    let original_query = {
         let mut store = state.log_store.lock().unwrap();
         let result = store.query(&LogQuery {
             app_id: Some(app_id.clone()),
             resolved: Some(false),
             ..Default::default()
         });
-        if !result.records.iter().any(|r| r.id == req.id) {
-            return Err((StatusCode::NOT_FOUND, "log entry not found".to_string()));
-        }
-    }
+        result.records.iter()
+            .find(|r| r.id == req.id)
+            .map(|r| r.query.clone())
+            .ok_or_else(|| (StatusCode::NOT_FOUND, "log entry not found".to_string()))?
+    };
 
     // Run seed pipeline
     let seeds_map: HashMap<String, Vec<String>> = req.seeds_by_intent.iter()
@@ -134,6 +135,21 @@ pub async fn review_fix(
         .collect();
 
     let pipeline = seed_pipeline(&state, &app_id, &seeds_map, true).await;
+
+    // For each intent that got seeds added, learn situation n-grams from the original
+    // failing query. CJK queries always learn; Latin queries learn only if the intent
+    // already has situation patterns (avoiding noise from generic Latin bigrams).
+    if !pipeline.added.is_empty() {
+        let mut routers = state.routers.write().unwrap();
+        if let Some(router) = routers.get_mut(&app_id) {
+            let seen_intents: std::collections::HashSet<String> =
+                pipeline.added.iter().map(|(intent, _)| intent.clone()).collect();
+            for intent_id in &seen_intents {
+                router.learn_situation(&original_query, intent_id);
+            }
+            maybe_persist(&state, &app_id, router);
+        }
+    }
 
     // Resolve this entry
     state.log_store.lock().unwrap().resolve(&app_id, req.id);

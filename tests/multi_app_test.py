@@ -427,11 +427,116 @@ NEGATIVE_TESTS = [
     ("sounds like a plan",                                         "agreement — no action"),
 ]
 
+# ─── Situation patterns ───────────────────────────────────────────────────────
+# Domain-specific state vocabulary that distinguishes apps from each other.
+# These are signals that appear in real queries for each app's domain —
+# not action words (those are seeds), but context / state / jargon that
+# confirms "this query belongs to THIS app".
+
+SITUATION_PATTERNS = {
+    "stripe": {
+        "charge_card":         [("card declined", 1.0), ("payment failed", 1.0), ("billing error", 0.9),
+                                 ("charge failed", 0.9), ("payment method", 0.7)],
+        "refund_payment":      [("chargeback", 1.0), ("dispute", 0.9), ("money back", 0.8),
+                                 ("payment reversed", 0.9)],
+        "create_subscription": [("monthly plan", 1.0), ("recurring billing", 1.0), ("billing cycle", 0.9),
+                                 ("annual plan", 0.8), ("subscription", 0.7)],
+        "cancel_subscription": [("churned", 1.0), ("monthly billing", 0.9), ("recurring charge", 0.9),
+                                 ("subscription ended", 1.0)],
+        "create_customer":     [("new account", 0.7), ("enterprise client", 0.8), ("onboard", 0.7)],
+        "update_customer":     [("billing address", 1.0), ("payment info", 0.9), ("billing details", 0.9)],
+        "create_invoice":      [("invoice", 0.9), ("billing statement", 0.9), ("for this month's work", 0.8)],
+        "pay_invoice":         [("settled up", 0.9), ("invoice paid", 1.0), ("payment received", 0.8)],
+        "retrieve_balance":    [("stripe account", 0.9), ("available funds", 0.9), ("account balance", 0.8)],
+        "create_payout":       [("withdraw to bank", 1.0), ("earnings", 0.7), ("bank account", 0.7)],
+        "list_transactions":   [("payment history", 0.9), ("recent charges", 0.9), ("transaction", 0.8)],
+    },
+    "github": {
+        "create_issue":   [("build failed", 1.0), ("CI failed", 1.0), ("memory leak", 1.0),
+                            ("bug", 0.7), ("crash", 0.8), ("broken", 0.7), ("regression", 0.9),
+                            ("error in", 0.7), ("track it", 0.7)],
+        "close_issue":    [("fixed", 0.7), ("bug is fixed", 1.0), ("resolved", 0.7), ("patch merged", 1.0)],
+        "create_pr":      [("code review", 1.0), ("ready for review", 1.0), ("for other eyes", 0.9),
+                            ("diff", 0.8), ("changes ready", 0.9)],
+        "merge_pr":       [("approved", 0.8), ("LGTM", 1.0), ("everyone approved", 1.0),
+                            ("land it", 0.9), ("CI passed", 1.0), ("green", 0.7)],
+        "create_release": [("cutting the", 0.9), ("release today", 1.0), ("tag", 0.7),
+                            ("changelog", 0.9), ("new version", 0.8)],
+        "create_repo":    [("new microservice", 0.9), ("home for the code", 1.0), ("new service", 0.7)],
+        "create_branch":  [("without stepping on main", 1.0), ("feature branch", 0.9),
+                            ("hotfix branch", 1.0), ("branch off", 0.8)],
+        "delete_branch":  [("retire the", 0.9), ("clean up branch", 0.9), ("hotfix branch", 0.8)],
+        "list_commits":   [("commit history", 1.0), ("git log", 1.0), ("changelog", 0.7)],
+        "search_code":    [("codebase", 0.8), ("find in", 0.7), ("where does", 0.8), ("authentication", 0.6)],
+    },
+    "slack": {
+        "send_message":      [("notify", 0.8), ("ping", 0.9), ("let them know", 0.9),
+                               ("heads up", 0.8), ("tell the", 0.7), ("alert", 0.8)],
+        "create_channel":    [("dedicated space", 1.0), ("war room", 1.0), ("new channel", 0.9),
+                               ("launch coordination", 0.9)],
+        "invite_user":       [("loop in", 1.0), ("bring in", 0.9), ("add to channel", 0.8)],
+        "set_reminder":      [("bug me", 1.0), ("remind me", 0.9), ("don't forget", 0.8), ("follow up", 0.7)],
+        "search_messages":   [("what did we decide", 1.0), ("look up conversation", 0.9),
+                               ("find that message", 0.9)],
+        "create_poll":       [("put it to a vote", 1.0), ("poll the team", 0.9), ("vote", 0.8),
+                               ("dark mode or", 0.9)],
+        "schedule_message":  [("blast", 0.8), ("post at", 0.8), ("send at noon", 1.0),
+                               ("announcement at", 0.9)],
+        "upload_file":       [("drop the", 0.8), ("design mockups", 0.9), ("share document", 0.8)],
+        "mute_channel":      [("don't want to hear", 1.0), ("silence notifications", 1.0), ("too noisy", 0.9)],
+        "react_to_message":  [("thumbs up", 1.0), ("emoji", 0.9), ("thumbs down", 1.0)],
+        "pin_message":       [("pin it", 0.9), ("keep it visible", 0.9)],
+        "schedule_message":  [("blast at", 1.0), ("announce at", 0.9), ("deployment window", 0.8)],
+    },
+    "shopify": {
+        "create_product":    [("colorway", 1.0), ("listing", 0.8), ("SKU", 0.9),
+                               ("product page", 0.9), ("store", 0.6)],
+        "cancel_order":      [("before it left", 1.0), ("before shipment", 1.0), ("void the", 0.8),
+                               ("changed their mind", 0.9)],
+        "refund_order":      [("arrived broken", 1.0), ("wrong item", 1.0), ("damaged", 0.9),
+                               ("compensation", 0.8), ("item", 0.6)],
+        "update_inventory":  [("out of stock", 1.0), ("nearly out", 1.0), ("stock level", 0.9),
+                               ("restock", 0.9), ("SKU", 0.9), ("medium blue", 0.8)],
+        "ship_order":        [("send it out", 1.0), ("green light", 0.9), ("fulfill", 0.9),
+                               ("warehouse", 0.8), ("dispatch", 0.9)],
+        "track_shipment":    [("where is my", 1.0), ("delivery status", 0.9), ("tracking", 0.8),
+                               ("customer asking", 0.7)],
+        "process_return":    [("send it back", 1.0), ("wants to return", 1.0), ("returned item", 0.9),
+                               ("return request", 0.9)],
+        "list_orders":       [("came in this morning", 0.9), ("order count", 0.8), ("recent orders", 0.8)],
+        "generate_report":   [("sales report", 1.0), ("revenue", 0.8), ("store analytics", 1.0)],
+    },
+    "calendar": {
+        "create_event":           [("block", 0.7), ("design sync", 0.9), ("2pm", 0.6),
+                                    ("get it on the books", 1.0), ("add to calendar", 0.8)],
+        "cancel_event":           [("not happening", 1.0), ("clear it", 0.9), ("meeting is dead", 1.0),
+                                    ("no longer", 0.8)],
+        "reschedule_event":       [("push the", 0.8), ("postponed", 0.9), ("different time", 0.9),
+                                    ("better slot", 1.0), ("move to Thursday", 1.0)],
+        "check_availability":     [("am I free", 1.0), ("wide open", 1.0), ("have time", 0.8),
+                                    ("free slot", 0.9)],
+        "find_meeting_time":      [("common availability", 1.0), ("when can we meet", 1.0),
+                                    ("everyone available", 0.9), ("better slot", 0.9)],
+        "set_out_of_office":      [("off the grid", 1.0), ("OOO", 1.0), ("vacation", 0.9),
+                                    ("unavailable", 0.8), ("out from Monday", 1.0)],
+        "create_recurring_event": [("every Tuesday", 1.0), ("forever", 0.8), ("no end date", 1.0),
+                                    ("weekly", 0.8), ("recurring", 0.9)],
+        "invite_attendee":        [("make sure everyone", 1.0), ("on the call", 0.8),
+                                    ("calendar invite", 1.0), ("whole product team", 0.9)],
+    },
+}
+
+def add_situation_pattern(app_id: str, intent_id: str, pattern: str, weight: float):
+    status, _ = curl("POST", "/api/intents/add_situation",
+                     {"intent_id": intent_id, "pattern": pattern, "weight": weight}, app_id)
+    return status in (200, 201)
+
 # ─── Setup ────────────────────────────────────────────────────────────────────
 
 def setup_all_apps():
     print("\n=== Setting up apps ===")
     total = 0
+    sit_total = 0
     for app_id, intents in APPS.items():
         print(f"\n  [{app_id}] {len(intents)} intents")
         create_app(app_id)
@@ -442,7 +547,12 @@ def setup_all_apps():
             ok = add_intent(app_id, intent_id, label, seeds)
             print(f"    {'+'if ok else '!'} {intent_id}")
             total += 1
-    print(f"\n  {total} intents registered across {len(APPS)} apps")
+            # Add situation patterns for this intent if defined
+            patterns = SITUATION_PATTERNS.get(app_id, {}).get(intent_id, [])
+            for pattern, weight in patterns:
+                add_situation_pattern(app_id, intent_id, pattern, weight)
+                sit_total += 1
+    print(f"\n  {total} intents + {sit_total} situation patterns registered across {len(APPS)} apps")
 
 # ─── Test runners ─────────────────────────────────────────────────────────────
 

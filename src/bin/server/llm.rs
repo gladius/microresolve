@@ -513,10 +513,13 @@ pub async fn full_review(
 }
 
 /// Apply a full review result: add seeds + replace broad seeds.
+/// `original_query` is the failing query — used to learn situation n-grams for each
+/// intent that gets seeds added (CJK always; Latin only if intent has situation patterns).
 pub async fn apply_review(
     state: &AppState,
     app_id: &str,
     result: &FullReviewResult,
+    original_query: &str,
 ) -> (usize, usize) { // (seeds_added, seeds_replaced)
     let mut added = 0;
     let mut replaced = 0;
@@ -525,6 +528,20 @@ pub async fn apply_review(
     if !result.seeds_to_add.is_empty() {
         let pipeline_result = seed_pipeline(state, app_id, &result.seeds_to_add, true).await;
         added = pipeline_result.added.len();
+
+        // Learn situation n-grams from the failing query for each intent that got seeds.
+        // This lets the situation index pick up state signals from real failed queries.
+        if added > 0 {
+            let seen_intents: std::collections::HashSet<String> =
+                pipeline_result.added.iter().map(|(intent, _)| intent.clone()).collect();
+            let mut routers = state.routers.write().unwrap();
+            if let Some(router) = routers.get_mut(app_id) {
+                for intent_id in &seen_intents {
+                    router.learn_situation(original_query, intent_id);
+                }
+                maybe_persist(state, app_id, router);
+            }
+        }
     }
 
     // Apply seed replacements (remove old + add new through guard)

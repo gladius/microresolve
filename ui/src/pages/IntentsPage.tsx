@@ -147,7 +147,7 @@ function IntentListItem({
 
 // --- Right detail panel with tabs ---
 
-type DetailTab = 'seeds' | 'metadata' | 'stats';
+type DetailTab = 'seeds' | 'situations' | 'metadata' | 'stats';
 
 function IntentDetailPanel({
   intent, allIntentIds, onRefresh, onDeleted,
@@ -171,8 +171,11 @@ function IntentDetailPanel({
   const langKeys = Object.keys(intent.seeds_by_lang).filter(k => k !== '_learned');
   const metaKeyCount = Object.keys(intent.metadata || {}).length;
 
+  const situationCount = (intent.situation_patterns || []).length;
+
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
     { id: 'seeds', label: 'Seeds', count: intent.seeds.length },
+    { id: 'situations', label: 'Situations', count: situationCount || undefined },
     { id: 'metadata', label: 'Metadata', count: metaKeyCount },
     { id: 'stats', label: 'Stats' },
   ];
@@ -258,6 +261,9 @@ function IntentDetailPanel({
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {activeTab === 'seeds' && (
           <SeedsTab intent={intent} onRefresh={onRefresh} seedSearch={seedSearch} />
+        )}
+        {activeTab === 'situations' && (
+          <SituationsTab intent={intent} onRefresh={onRefresh} />
         )}
         {activeTab === 'metadata' && (
           <MetadataTab intent={intent} allIntentIds={allIntentIds} onRefresh={onRefresh} />
@@ -886,6 +892,246 @@ function AddIntentPanel({
         >
           Create Intent
         </button>
+      </div>
+    </div>
+  );
+}
+
+// --- Situations Tab ---
+// Situation patterns match state descriptions (not action vocabulary).
+// e.g. "build failed", "OOM", "付款" → create_issue
+// Score: weight × sqrt(char_len). Threshold: 0.8
+
+const WEIGHT_PRESETS = [
+  { label: 'Strong (1.0)', value: 1.0, description: 'Domain-specific — fires alone' },
+  { label: 'Medium (0.7)', value: 0.7, description: 'Fairly specific — usually fires alone' },
+  { label: 'Weak (0.4)', value: 0.4, description: 'Generic — needs a partner to fire' },
+];
+
+function SituationsTab({ intent, onRefresh }: { intent: IntentInfo; onRefresh: () => void }) {
+  const [pattern, setPattern] = useState('');
+  const [weight, setWeight] = useState(1.0);
+  const [saving, setSaving] = useState(false);
+  const [addError, setAddError] = useState('');
+
+  // AI generation state
+  const [showAI, setShowAI] = useState(false);
+  const [aiDesc, setAiDesc] = useState(intent.description || '');
+  const [aiLangs, setAiLangs] = useState<Set<string>>(new Set(['en']));
+  const [languages, setLanguages] = useState<Record<string, string>>({});
+  const [generating, setGenerating] = useState(false);
+  const [genStatus, setGenStatus] = useState('');
+  const [enabledLangs, setEnabledLangs] = useState<Set<string>>(new Set(['en']));
+
+  useEffect(() => {
+    api.getLanguages().then(setLanguages).catch(() => {});
+    try {
+      const saved = localStorage.getItem('asv_languages');
+      if (saved) setEnabledLangs(new Set(JSON.parse(saved)));
+    } catch { /* */ }
+  }, []);
+
+  // Keep aiDesc in sync when intent changes
+  useEffect(() => { setAiDesc(intent.description || ''); }, [intent.id, intent.description]);
+
+  const patterns: [string, number][] = intent.situation_patterns || [];
+
+  const handleAdd = async () => {
+    const p = pattern.trim();
+    if (!p) return;
+    setSaving(true);
+    setAddError('');
+    try {
+      await api.addSituationPattern(intent.id, p, weight);
+      setPattern('');
+      onRefresh();
+    } catch (e: unknown) {
+      setAddError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async (p: string) => {
+    try {
+      await api.removeSituationPattern(intent.id, p);
+      onRefresh();
+    } catch { /* ignore */ }
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setGenStatus('Generating…');
+    try {
+      const langs = Array.from(aiLangs);
+      const result = await api.generateSituations(intent.id, aiDesc, langs);
+      setGenStatus(`Added ${result.applied} patterns`);
+      onRefresh();
+    } catch (e: unknown) {
+      setGenStatus('Error: ' + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Group by weight tier
+  const strong = patterns.filter(([, w]) => w >= 0.9);
+  const medium = patterns.filter(([, w]) => w >= 0.6 && w < 0.9);
+  const weak = patterns.filter(([, w]) => w < 0.6);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Explanation strip */}
+      <div className="text-xs text-zinc-500 leading-relaxed">
+        <span className="text-emerald-400 font-medium">Seeds</span> = action vocabulary ("cancel my order").{' '}
+        <span className="text-amber-400 font-medium">Situations</span> = state vocabulary ("payment declined", "OOM").
+        Score: weight × √(chars). Threshold 0.8 — a Strong pattern fires alone; two Weak ones together also fire.
+        Active learning: corrections automatically extract n-grams into this index.
+      </div>
+
+      {/* Pattern list */}
+      {patterns.length === 0 ? (
+        <div className="text-xs text-zinc-600 text-center py-4 border border-zinc-800 rounded-lg">
+          No situation patterns yet. Generate with AI or add manually below.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {strong.length > 0 && (
+            <PatternGroup label="Strong" color="text-emerald-400" dot="bg-emerald-400" patterns={strong} onRemove={handleRemove} />
+          )}
+          {medium.length > 0 && (
+            <PatternGroup label="Medium" color="text-amber-400" dot="bg-amber-400" patterns={medium} onRemove={handleRemove} />
+          )}
+          {weak.length > 0 && (
+            <PatternGroup label="Weak" color="text-zinc-500" dot="bg-zinc-600" patterns={weak} onRemove={handleRemove} />
+          )}
+        </div>
+      )}
+
+      {/* Manual add */}
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <input
+            value={pattern}
+            onChange={e => { setPattern(e.target.value); setAddError(''); }}
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+            placeholder='"build failed", "OOM", "付款", "declined"…'
+            autoComplete="off"
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white font-mono focus:border-amber-500 focus:outline-none placeholder-zinc-600"
+          />
+          <div className="flex items-center gap-1">
+            {WEIGHT_PRESETS.map(p => (
+              <button
+                key={p.value}
+                onClick={() => setWeight(p.value)}
+                title={p.description}
+                className={`text-[10px] px-2 py-1 rounded border transition-colors ${
+                  weight === p.value
+                    ? 'border-amber-500/60 bg-amber-500/10 text-amber-300'
+                    : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                {p.value}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={saving || !pattern.trim()}
+            className="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 text-amber-400 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors"
+          >
+            + Add
+          </button>
+        </div>
+        {addError && <div className="text-xs text-red-400">{addError}</div>}
+      </div>
+
+      {/* AI Generate — same expand pattern as Seeds tab */}
+      <div>
+        <button
+          onClick={() => setShowAI(!showAI)}
+          className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+        >
+          <svg className={`w-3 h-3 transition-transform ${showAI ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          Generate situation patterns with AI
+        </button>
+
+        {showAI && (
+          <div className="mt-2 space-y-2 pl-4 border-l-2 border-amber-500/20">
+            <textarea
+              value={aiDesc}
+              onChange={e => setAiDesc(e.target.value)}
+              placeholder="Describe the intent: e.g. Report a bug or production incident"
+              rows={2}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm resize-y focus:border-amber-500 focus:outline-none"
+            />
+            <div className="text-[10px] text-zinc-500">Include CJK languages if your users write in Chinese/Japanese/Korean.</div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(languages).filter(([code]) => enabledLangs.has(code)).map(([code, name]) => (
+                <label key={code} className="inline-flex items-center gap-1 text-xs text-zinc-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={aiLangs.has(code)}
+                    onChange={() => {
+                      setAiLangs(prev => {
+                        const next = new Set(prev);
+                        next.has(code) ? next.delete(code) : next.add(code);
+                        return next;
+                      });
+                    }}
+                    className="accent-amber-500"
+                  />
+                  {name}
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleGenerate}
+                disabled={generating || !aiDesc.trim()}
+                className="text-xs px-3 py-1.5 border border-amber-500 text-amber-400 rounded hover:bg-amber-500 hover:text-white disabled:opacity-50 transition-colors"
+              >
+                {generating ? 'Generating…' : 'Generate'}
+              </button>
+              {genStatus && <span className="text-xs text-zinc-500">{genStatus}</span>}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PatternGroup({
+  label, color, dot, patterns, onRemove,
+}: {
+  label: string; color: string; dot: string;
+  patterns: [string, number][]; onRemove: (p: string) => void;
+}) {
+  return (
+    <div>
+      <div className={`text-[10px] font-semibold uppercase tracking-wide mb-2 flex items-center gap-1.5 ${color}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+        {label}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {patterns.map(([p, w]) => (
+          <span
+            key={p}
+            className="inline-flex items-center gap-1.5 text-sm font-mono text-zinc-200 bg-zinc-800 border border-zinc-700 px-2.5 py-1 rounded group"
+          >
+            {p}
+            <span className="text-zinc-600 text-[10px]">{w}</span>
+            <button
+              onClick={() => onRemove(p)}
+              className="text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 ml-0.5"
+            >
+              ×
+            </button>
+          </span>
+        ))}
       </div>
     </div>
   );
