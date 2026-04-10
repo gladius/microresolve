@@ -376,6 +376,157 @@ def diff_summary(r1: list[dict], r2: list[dict]):
     print(f"\n  Queries passed:  {p1}/20 → {p2}/20  (+{p2-p1})")
     print(f"  Intent hits:     {i1}/{t} → {i2}/{t}  (+{i2-i1})")
 
+# ─── Hard tier: 10 genuinely difficult queries ────────────────────────────────
+#
+# These are NOT scored pass/fail. They are observation cases designed to show
+# exactly where and how the system breaks. Categories:
+#
+#   IMPLICIT  — no action verb; situation described, action must be inferred
+#   RAMBLING  — long, filler-heavy; intent buried mid-sentence
+#   NEGATION  — one intent should fire, another explicitly should NOT
+#   JARGON    — domain shorthand that doesn't appear in seeds
+#   AMBIGUOUS — query matches multiple intents with no clear winner
+#   TYPO      — realistic misspellings and sloppy typing
+#   SHORT     — one or two words, no context
+#   PRONOUN   — "it", "them", "that" with no referent
+#
+# expected_fires: what a production system SHOULD detect
+# expected_suppressed: intents that should NOT appear (false positives)
+
+HARD_QUERIES = [
+    {
+        "category": "IMPLICIT",
+        "query": "the payment bounced on the acme account",
+        "note": "No action verb. Situation → implies retry charge or create issue, but system has no failure→action mapping.",
+        "expected_fires":      [("stripe", "charge_card")],
+        "expected_suppressed": [],
+    },
+    {
+        "category": "RAMBLING",
+        "query": "hey so we had a situation with that enterprise client yesterday, turns out the payment didn't actually go through and now they're pinging us about it, we probably need to sort that out and also loop in the finance team",
+        "note": "50 words, two intents buried in filler. Tests whether term density still wins over noise.",
+        "expected_fires":      [("stripe", "charge_card"), ("slack", "send_message")],
+        "expected_suppressed": [],
+    },
+    {
+        "category": "NEGATION",
+        "query": "process the card but hold off on the invoice for now",
+        "note": "charge_card should fire. create_invoice should be SUPPRESSED by negation ('hold off on').",
+        "expected_fires":      [("stripe", "charge_card")],
+        "expected_suppressed": [("stripe", "create_invoice")],
+    },
+    {
+        "category": "NEGATION",
+        "query": "ship it but don't bother pinging the customer",
+        "note": "ship_order fires. send_message should NOT fire (explicitly suppressed).",
+        "expected_fires":      [("shopify", "ship_order")],
+        "expected_suppressed": [("slack", "send_message")],
+    },
+    {
+        "category": "IMPLICIT",
+        "query": "the customer churned last night",
+        "note": "Past tense, situation only. Implies cancel_subscription. No action word at all.",
+        "expected_fires":      [("stripe", "cancel_subscription")],
+        "expected_suppressed": [],
+    },
+    {
+        "category": "JARGON",
+        "query": "cut the release and push to the eng channel",
+        "note": "'Cut' = create_release. 'Push to channel' = send_message. Neither word is in seeds.",
+        "expected_fires":      [("github", "create_release"), ("slack", "send_message")],
+        "expected_suppressed": [],
+    },
+    {
+        "category": "SHORT",
+        "query": "ship it",
+        "note": "Two words. Could mean shopify:ship_order OR github:create_release. Ambiguous by design.",
+        "expected_fires":      [("shopify", "ship_order")],
+        "expected_suppressed": [],
+    },
+    {
+        "category": "AMBIGUOUS",
+        "query": "cancel it and let them know",
+        "note": "'It' is unresolved. 'Cancel' exists in stripe, shopify, calendar. Should the system pick one confidently or stay low?",
+        "expected_fires":      [],   # no clear winner — correct answer is low confidence
+        "expected_suppressed": [],
+    },
+    {
+        "category": "TYPO",
+        "query": "creat an isue for the auth bug nd assign it to the eng team",
+        "note": "Typos in the key action words. Tests tokenizer robustness.",
+        "expected_fires":      [("github", "create_issue")],
+        "expected_suppressed": [],
+    },
+    {
+        "category": "PRONOUN",
+        "query": "do the usual for the new client",
+        "note": "'The usual' = create_customer + create_subscription. Pronoun + implicit routine. Pure context recall.",
+        "expected_fires":      [("stripe", "create_customer"), ("stripe", "create_subscription")],
+        "expected_suppressed": [],
+    },
+]
+
+def run_hard_tier():
+    """Observe system behavior on genuinely difficult queries. No pass/fail scoring."""
+    print(f"\n{'='*64}")
+    print("  HARD TIER — Observation Only (no pass/fail)")
+    print("  These expose real system limits. Failures are expected.")
+    print(f"{'='*64}")
+
+    all_apps = list(APPS.keys())
+
+    for case in HARD_QUERIES:
+        category = case["category"]
+        query    = case["query"]
+        note     = case["note"]
+        expected_fires      = case["expected_fires"]
+        expected_suppressed = case["expected_suppressed"]
+
+        # Route against ALL apps so we can see false positives too
+        all_results = {app_id: route_app(app_id, query) for app_id in all_apps}
+
+        # What actually fired (high or medium confidence, any app)
+        actually_fired = []
+        for app_id, results in all_results.items():
+            for r in results:
+                if r["confidence"] in ("high", "medium"):
+                    actually_fired.append((app_id, r["id"], r["confidence"], r["score"]))
+
+        # Check expected fires
+        hit = [(a, i) for a, i in expected_fires
+               if any(r[0] == a and r[1] == i for r in actually_fired)]
+        missed = [(a, i) for a, i in expected_fires if (a, i) not in hit]
+
+        # Check false positives (suppressed intents that actually fired)
+        false_positives = [(a, i) for a, i, c, s in actually_fired
+                           if (a, i) in expected_suppressed]
+
+        # Unexpected fires (fired but not in expected list — may or may not be wrong)
+        unexpected = [(a, i, c, s) for a, i, c, s in actually_fired
+                      if (a, i) not in expected_fires and (a, i) not in expected_suppressed]
+
+        print(f"\n  [{category}] {query[:80]}")
+        print(f"    note: {note}")
+
+        if hit:
+            print(f"    DETECTED (expected):   {[(a+'.'+i) for a,i in hit]}")
+        if missed:
+            print(f"    MISSED   (expected):   {[(a+'.'+i) for a,i in missed]}")
+        if false_positives:
+            print(f"    FALSE POSITIVE (fired but should NOT): {[(a+'.'+i) for a,i in false_positives]}")
+        if unexpected:
+            top_unexpected = [(f"{a}.{i}({c[0].upper()}:{s})") for a,i,c,s in unexpected[:4]]
+            print(f"    UNEXPECTED fires:      {top_unexpected}")
+        if not actually_fired:
+            print(f"    NOTHING fired at high/medium confidence")
+            if expected_fires:
+                print(f"    (expected {[(a+'.'+i) for a,i in expected_fires]} — system is blind to this phrasing)")
+            else:
+                print(f"    (correct — low confidence is the right answer for this query)")
+
+    print(f"\n  Hard tier complete. Review failures above to prioritize improvements.")
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
@@ -384,6 +535,7 @@ def main():
     parser.add_argument("--base-url", default="http://localhost:3001")
     parser.add_argument("--skip-setup", action="store_true")
     parser.add_argument("--setup-only", action="store_true")
+    parser.add_argument("--only", choices=["standard", "hard", "all"], default="all")
     args = parser.parse_args()
     BASE_URL = args.base_url
 
@@ -403,20 +555,25 @@ def main():
         print("Setup complete.")
         return
 
-    # Round 1 — seeds only
-    round1 = evaluate("ROUND 1 — Seeds Only (baseline)")
+    if args.only in ("standard", "all"):
+        # Round 1 — seeds only
+        round1 = evaluate("ROUND 1 — Seeds Only (baseline)")
 
-    # Learn
-    do_learn(round1)
+        # Learn
+        do_learn(round1)
 
-    # Round 2 — after one learning pass
-    round2 = evaluate("ROUND 2 — After One Learning Pass")
+        # Round 2 — after one learning pass
+        round2 = evaluate("ROUND 2 — After One Learning Pass")
 
-    # Diff
-    diff_summary(round1, round2)
+        # Diff
+        diff_summary(round1, round2)
 
-    total_pass_r2 = sum(1 for r in round2 if r["passed"])
-    sys.exit(0 if total_pass_r2 == 20 else 1)
+    if args.only in ("hard", "all"):
+        run_hard_tier()
+
+    if args.only == "standard":
+        total_pass_r2 = sum(1 for r in round2 if r["passed"])
+        sys.exit(0 if total_pass_r2 == 20 else 1)
 
 if __name__ == "__main__":
     main()
