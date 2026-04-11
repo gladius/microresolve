@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import RouterPage from '@/pages/RouterPage';
+import StudioPage from '@/pages/StudioPage';
 import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import AutoImprovePage from '@/pages/ScenariosPage';
@@ -92,6 +93,7 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<RouterPage />} />
+            <Route path="/studio" element={<StudioPage />} />
             <Route path="/intents" element={<IntentsPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/import" element={<ImportLanding />} />
