@@ -151,6 +151,8 @@ pub struct Router {
     /// Matched by direct substring search for state-description → action inference.
     /// Sits alongside the term index; scores are blended with SITUATION_ALPHA = 0.4.
     situation_patterns: HashMap<String, Vec<(String, f32)>>,
+    /// Human-readable display name for this namespace (separate from the machine id).
+    namespace_name: String,
     /// Human-readable description of this namespace/router instance.
     namespace_description: String,
     /// Descriptions for domain prefixes (e.g., "billing" in "billing:cancel_order").

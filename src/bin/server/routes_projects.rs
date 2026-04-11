@@ -32,10 +32,13 @@ pub async fn list_namespaces(
     State(state): State<AppState>,
 ) -> Json<serde_json::Value> {
     let routers = state.routers.read().unwrap();
+    let modes = state.review_mode.read().unwrap();
     let mut namespaces: Vec<serde_json::Value> = routers.iter()
         .map(|(id, r)| serde_json::json!({
             "id": id,
+            "name": r.namespace_name(),
             "description": r.namespace_description(),
+            "auto_learn": modes.get(id).map(|m| m == "auto").unwrap_or(false),
         }))
         .collect();
     namespaces.sort_by(|a, b| {
@@ -94,18 +97,31 @@ pub async fn delete_namespace(
 #[derive(serde::Deserialize)]
 pub struct UpdateNamespaceRequest {
     namespace_id: String,
-    description: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    auto_learn: Option<bool>,
 }
 
 pub async fn update_namespace(
     State(state): State<AppState>,
     Json(req): Json<UpdateNamespaceRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let mut routers = state.routers.write().unwrap();
-    let router = routers.get_mut(&req.namespace_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)))?;
-    router.set_namespace_description(&req.description);
-    maybe_persist(&state, &req.namespace_id, router);
+    {
+        let mut routers = state.routers.write().unwrap();
+        let router = routers.get_mut(&req.namespace_id)
+            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)))?;
+        if let Some(ref name) = req.name { router.set_namespace_name(name); }
+        if let Some(ref desc) = req.description { router.set_namespace_description(desc); }
+        maybe_persist(&state, &req.namespace_id, router);
+    }
+    if let Some(auto_learn) = req.auto_learn {
+        let mode = if auto_learn { "auto" } else { "manual" };
+        state.review_mode.write().unwrap().insert(req.namespace_id.clone(), mode.to_string());
+        if auto_learn { state.worker_notify.notify_one(); }
+    }
     Ok(Json(serde_json::json!({"updated": req.namespace_id})))
 }
 

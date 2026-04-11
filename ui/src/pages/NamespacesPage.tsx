@@ -6,7 +6,9 @@ import { useAppStore } from '@/store';
 
 interface NamespaceInfo {
   id: string;
+  name: string;
   description: string;
+  auto_learn: boolean;
 }
 
 export default function NamespacesPage() {
@@ -17,13 +19,14 @@ export default function NamespacesPage() {
   const [namespaces, setNamespaces] = useState<NamespaceInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Inline description editing
-  const [editingNs, setEditingNs] = useState<string | null>(null);
-  const [editNsDesc, setEditNsDesc] = useState('');
+  // Per-row edit state
+  const [editing, setEditing] = useState<Record<string, { name: string; description: string; auto_learn: boolean }>>({});
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
 
   // Create modal
   const [showModal, setShowModal] = useState(false);
   const [modalId, setModalId] = useState('');
+  const [modalName, setModalName] = useState('');
   const [modalDesc, setModalDesc] = useState('');
   const [modalError, setModalError] = useState('');
   const [modalBusy, setModalBusy] = useState(false);
@@ -34,6 +37,29 @@ export default function NamespacesPage() {
   }, []);
 
   useFetch(refresh, [refresh]);
+
+  const startEditing = (ns: NamespaceInfo) => {
+    setEditing(prev => ({
+      ...prev,
+      [ns.id]: { name: ns.name, description: ns.description, auto_learn: ns.auto_learn },
+    }));
+  };
+
+  const cancelEditing = (id: string) => {
+    setEditing(prev => { const next = { ...prev }; delete next[id]; return next; });
+  };
+
+  const saveEditing = async (id: string) => {
+    const patch = editing[id];
+    if (!patch) return;
+    setSaving(prev => ({ ...prev, [id]: true }));
+    try {
+      await api.updateNamespace(id, patch);
+      cancelEditing(id);
+      refresh();
+    } catch { /* */ }
+    setSaving(prev => ({ ...prev, [id]: false }));
+  };
 
   const switchTo = (id: string) => {
     setSelectedNamespaceId(id);
@@ -53,39 +79,17 @@ export default function NamespacesPage() {
     }
   };
 
-  const saveNsDesc = async (id: string) => {
-    try {
-      await api.updateNamespace(id, editNsDesc);
-      setEditingNs(null);
-      refresh();
-    } catch { /* */ }
-  };
-
-  const openModal = () => {
-    setShowModal(true);
-    setModalId('');
-    setModalDesc('');
-    setModalError('');
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setModalId('');
-    setModalDesc('');
-    setModalError('');
-  };
+  const openModal = () => { setShowModal(true); setModalId(''); setModalName(''); setModalDesc(''); setModalError(''); };
+  const closeModal = () => { setShowModal(false); setModalId(''); setModalName(''); setModalDesc(''); setModalError(''); };
 
   const submitModal = async () => {
     const id = modalId.trim();
     if (!id) return;
-    if (!/^[a-z0-9_-]+$/.test(id)) {
-      setModalError('Lowercase letters, numbers, hyphens and underscores only.');
-      return;
-    }
+    if (!/^[a-z0-9_-]+$/.test(id)) { setModalError('Lowercase letters, numbers, hyphens and underscores only.'); return; }
     setModalBusy(true);
     setModalError('');
     try {
-      await api.createNamespace(id, modalDesc.trim());
+      await api.createNamespace(id, modalName.trim(), modalDesc.trim());
       closeModal();
       refresh();
     } catch (e) {
@@ -99,7 +103,7 @@ export default function NamespacesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">Namespaces</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">Isolated routing workspaces. Click a namespace to manage its domains.</p>
+          <p className="text-xs text-zinc-500 mt-0.5">Isolated routing workspaces. Each has its own intents, training data, and auto-learn setting.</p>
         </div>
         <button
           onClick={openModal}
@@ -118,52 +122,44 @@ export default function NamespacesPage() {
         <div className="border border-zinc-800 rounded-lg divide-y divide-zinc-800/50">
           {namespaces.map(ns => {
             const isActive = ns.id === current;
-            return (
-              <div key={ns.id} className={`px-4 py-3 ${isActive ? 'bg-violet-500/5' : ''}`}>
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <button
-                        onClick={() => navigate(`/namespaces/${ns.id}`)}
-                        className="text-sm font-mono text-white hover:text-violet-400 transition-colors"
-                      >
-                        {ns.id}
-                      </button>
-                      {isActive && (
-                        <span className="text-[9px] text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded uppercase tracking-wide">active</span>
-                      )}
-                    </div>
+            const draft = editing[ns.id];
+            const isSaving = saving[ns.id];
 
-                    {editingNs === ns.id ? (
-                      <div className="flex items-center gap-2 mt-1">
-                        <input
-                          autoFocus
-                          value={editNsDesc}
-                          onChange={e => setEditNsDesc(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') saveNsDesc(ns.id);
-                            if (e.key === 'Escape') setEditingNs(null);
-                          }}
-                          className="flex-1 bg-zinc-900 border border-violet-500/50 rounded px-2 py-1 text-xs text-white focus:outline-none"
-                        />
-                        <button onClick={() => saveNsDesc(ns.id)} className="text-xs text-violet-400 hover:text-violet-300">Save</button>
-                        <button onClick={() => setEditingNs(null)} className="text-xs text-zinc-500 hover:text-zinc-300">Cancel</button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => { setEditingNs(ns.id); setEditNsDesc(ns.description); }}
-                        className="text-xs text-zinc-500 hover:text-zinc-300 text-left block"
-                      >
-                        {ns.description || <span className="italic text-zinc-600">Add description…</span>}
-                      </button>
+            return (
+              <div key={ns.id} className={`px-4 py-4 ${isActive ? 'bg-violet-500/5' : ''}`}>
+                {/* Header row */}
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <button
+                      onClick={() => navigate(`/namespaces/${ns.id}`)}
+                      className="text-sm font-mono text-zinc-400 hover:text-violet-400 transition-colors"
+                    >
+                      {ns.id}
+                    </button>
+                    {isActive && (
+                      <span className="text-[9px] text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded uppercase tracking-wide">active</span>
+                    )}
+                    {ns.auto_learn && (
+                      <span className="text-[9px] text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded uppercase tracking-wide flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-emerald-400 inline-block" />
+                        auto-learn
+                      </span>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {!draft && (
+                      <button
+                        onClick={() => startEditing(ns)}
+                        className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
                     {!isActive && (
                       <button
                         onClick={() => switchTo(ns.id)}
-                        className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:text-white hover:border-violet-500 transition-colors"
+                        className="text-xs px-3 py-1 border border-zinc-700 text-zinc-400 rounded hover:text-white hover:border-violet-500 transition-colors"
                       >
                         Switch
                       </button>
@@ -171,19 +167,87 @@ export default function NamespacesPage() {
                     {ns.id !== 'default' && (
                       <button
                         onClick={() => deleteNs(ns.id)}
-                        className="text-xs px-2 py-1.5 text-zinc-600 hover:text-red-400 transition-colors"
+                        className="text-xs text-zinc-600 hover:text-red-400 transition-colors px-1"
                       >
                         Delete
                       </button>
                     )}
                   </div>
                 </div>
+
+                {draft ? (
+                  /* Edit form */
+                  <div className="space-y-2.5 border border-zinc-700/50 rounded-lg p-3 bg-zinc-900/40">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-zinc-500 uppercase tracking-wide block mb-1">Display Name</label>
+                        <input
+                          autoFocus
+                          value={draft.name}
+                          onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, name: e.target.value } }))}
+                          placeholder="e.g. Billing Assistant"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-zinc-500 uppercase tracking-wide block mb-1">Description</label>
+                        <input
+                          value={draft.description}
+                          onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, description: e.target.value } }))}
+                          placeholder="What does this namespace handle?"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      {/* Auto-learn toggle */}
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={draft.auto_learn}
+                          onClick={() => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, auto_learn: !draft.auto_learn } }))}
+                          className={`relative w-9 h-5 rounded-full transition-colors ${draft.auto_learn ? 'bg-emerald-500' : 'bg-zinc-700'}`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${draft.auto_learn ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                        </button>
+                        <span className="text-xs text-zinc-300">Auto-learn</span>
+                        <span className="text-xs text-zinc-600">
+                          {draft.auto_learn ? 'LLM reviews every flagged query automatically' : 'Manual review only'}
+                        </span>
+                      </label>
+
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => cancelEditing(ns.id)} className="text-xs text-zinc-500 hover:text-zinc-300 px-2 py-1">Cancel</button>
+                        <button
+                          onClick={() => saveEditing(ns.id)}
+                          disabled={isSaving}
+                          className="text-xs px-3 py-1.5 bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-50 transition-colors"
+                        >
+                          {isSaving ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Read-only view */
+                  <div className="space-y-0.5 ml-0.5">
+                    {ns.name && (
+                      <div className="text-sm font-medium text-white">{ns.name}</div>
+                    )}
+                    <div className="text-xs text-zinc-500">
+                      {ns.description || <span className="italic text-zinc-600">No description — click Edit to add one</span>}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
+      {/* Create modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
@@ -193,14 +257,23 @@ export default function NamespacesPage() {
             </div>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-zinc-400 block mb-1">Namespace ID</label>
+                <label className="text-xs text-zinc-400 block mb-1">Namespace ID <span className="text-zinc-600">(immutable)</span></label>
                 <input
                   autoFocus
                   value={modalId}
                   onChange={e => { setModalId(e.target.value); setModalError(''); }}
                   onKeyDown={e => e.key === 'Enter' && submitModal()}
-                  placeholder="my-namespace"
+                  placeholder="billing-bot"
                   className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-400 block mb-1">Display Name <span className="text-zinc-600">(optional)</span></label>
+                <input
+                  value={modalName}
+                  onChange={e => setModalName(e.target.value)}
+                  placeholder="Billing Assistant"
+                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 />
               </div>
               <div>
@@ -208,14 +281,13 @@ export default function NamespacesPage() {
                 <input
                   value={modalDesc}
                   onChange={e => setModalDesc(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && submitModal()}
-                  placeholder="What is this namespace for?"
+                  placeholder="What does this namespace handle?"
                   className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 />
               </div>
             </div>
             {modalError && <p className="text-xs text-red-400">{modalError}</p>}
-            <p className="text-[11px] text-zinc-600">Lowercase letters, numbers, hyphens and underscores only.</p>
+            <p className="text-[11px] text-zinc-600">ID: lowercase letters, numbers, hyphens and underscores only.</p>
             <div className="flex gap-2 justify-end pt-1">
               <button onClick={closeModal} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
               <button

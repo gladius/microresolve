@@ -17,6 +17,16 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 impl Router {
+    /// Human-readable display name for this namespace.
+    pub fn namespace_name(&self) -> &str {
+        &self.namespace_name
+    }
+
+    /// Set the namespace display name.
+    pub fn set_namespace_name(&mut self, name: &str) {
+        self.namespace_name = name.to_string();
+    }
+
     /// Human-readable description of this namespace/router instance.
     pub fn namespace_description(&self) -> &str {
         &self.namespace_description
@@ -55,9 +65,12 @@ impl Router {
     pub fn load_from_dir(path: &Path) -> Result<Self, String> {
         let mut router = Self::new();
 
-        // Namespace description
+        // Namespace metadata
         if let Ok(json) = std::fs::read_to_string(path.join("_ns.json")) {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json) {
+                if let Some(name) = val.get("name").and_then(|d| d.as_str()) {
+                    router.namespace_name = name.to_string();
+                }
                 if let Some(desc) = val.get("description").and_then(|d| d.as_str()) {
                     router.namespace_description = desc.to_string();
                 }
@@ -123,8 +136,11 @@ impl Router {
         std::fs::create_dir_all(path)
             .map_err(|e| format!("cannot create {}: {}", path.display(), e))?;
 
-        // Namespace description
-        let ns_meta = serde_json::json!({"description": self.namespace_description});
+        // Namespace metadata
+        let ns_meta = serde_json::json!({
+            "name": self.namespace_name,
+            "description": self.namespace_description,
+        });
         std::fs::write(
             path.join("_ns.json"),
             serde_json::to_string_pretty(&ns_meta).unwrap_or_default(),

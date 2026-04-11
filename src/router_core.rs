@@ -31,6 +31,7 @@ impl Router {
             similarity: HashMap::new(),
             expansion_discount: 0.3,
             situation_patterns: HashMap::new(),
+            namespace_name: String::new(),
             namespace_description: String::new(),
             domain_descriptions: HashMap::new(),
         }
@@ -240,6 +241,7 @@ impl Router {
             similarity: state.similarity,
             expansion_discount: 0.3,
             situation_patterns: state.situation_patterns,
+            namespace_name: String::new(),
             namespace_description: String::new(),
             domain_descriptions: HashMap::new(),
         };

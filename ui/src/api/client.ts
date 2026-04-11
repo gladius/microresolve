@@ -264,20 +264,20 @@ export const api = {
   }) => post<{ message: string }>('/simulate/respond', config),
 
   // Namespaces (isolated routing workspaces)
-  listNamespaces: () => get<{ id: string; description: string }[]>('/namespaces'),
-  createNamespace: (namespace_id: string, description = '') =>
-    post<{ created: string }>('/namespaces', { namespace_id, description }),
+  listNamespaces: () => get<{ id: string; name: string; description: string; auto_learn: boolean }[]>('/namespaces'),
+  createNamespace: (namespace_id: string, name = '', description = '') =>
+    post<{ created: string }>('/namespaces', { namespace_id, name, description }),
   deleteNamespace: (namespace_id: string) =>
     fetch(`${BASE}/namespaces`, {
       method: 'DELETE',
       headers: appHeaders(),
       body: JSON.stringify({ namespace_id }),
     }).then(r => { if (!r.ok) throw new Error('Delete failed'); }),
-  updateNamespace: (namespace_id: string, description: string) =>
+  updateNamespace: (namespace_id: string, patch: { name?: string; description?: string; auto_learn?: boolean }) =>
     fetch(`${BASE}/namespaces`, {
       method: 'PATCH',
       headers: appHeaders(),
-      body: JSON.stringify({ namespace_id, description }),
+      body: JSON.stringify({ namespace_id, ...patch }),
     }).then(r => { if (!r.ok) throw new Error('Update failed'); }),
 
   // Domain groups within the current namespace (derived from "domain:intent_id" prefixes)
