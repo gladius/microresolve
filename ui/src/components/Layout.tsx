@@ -26,12 +26,12 @@ export default function Layout() {
 
   useEffect(() => {
     api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
-    api.getReviewMode().then(d => setReviewMode(d.mode)).catch(() => {});
   }, []);
 
-  // Reload domains when namespace changes
+  // Reload domains and review mode when namespace changes
   useEffect(() => {
     api.listDomains().then(ds => setDomains(ds.map(d => d.name))).catch(() => setDomains([]));
+    api.getReviewMode().then(d => setReviewMode(d.mode)).catch(() => {});
   }, [settings.selectedNamespaceId]);
 
   const switchNamespace = (namespaceId: string) => {

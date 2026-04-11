@@ -124,7 +124,7 @@ async fn main() {
         log_store: Mutex::new(log_store),
         http: reqwest::Client::new(),
         llm_key,
-        review_mode: RwLock::new("manual".to_string()),
+        review_mode: RwLock::new(HashMap::new()),
         ui_settings: RwLock::new(ui_settings),
         event_tx,
         worker_notify: worker_notify.clone(),

@@ -31,12 +31,14 @@ export default function SettingsPage() {
 }
 
 function ReviewModeSection() {
+  const { settings } = useAppStore();
   const [mode, setMode] = useState('manual');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     api.getReviewMode().then(d => { setMode(d.mode); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
+  }, [settings.selectedNamespaceId]);
 
   const handleChange = async (newMode: string) => {
     setMode(newMode);
@@ -54,7 +56,12 @@ function ReviewModeSection() {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-white">Review Mode</h2>
-        <p className="text-xs text-zinc-500 mt-1">Controls how the system learns from queries.</p>
+        <p className="text-xs text-zinc-500 mt-1">
+          Controls how the system learns from queries.
+          <span className="ml-2 px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono text-[10px]">
+            namespace: {settings.selectedNamespaceId}
+          </span>
+        </p>
       </div>
       <div className="space-y-2">
         {modes.map(m => (

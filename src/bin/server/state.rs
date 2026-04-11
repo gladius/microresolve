@@ -53,7 +53,8 @@ pub struct ServerState {
     pub log_store: Mutex<LogStore>,
     pub http: reqwest::Client,
     pub llm_key: Option<String>,
-    pub review_mode: RwLock<String>,
+    /// Per-namespace review mode: "manual" | "auto". Defaults to "manual".
+    pub review_mode: RwLock<HashMap<String, String>>,
     pub ui_settings: RwLock<UiSettings>,
     /// Broadcast channel for Studio real-time feed (SSE).
     pub event_tx: broadcast::Sender<StudioEvent>,
@@ -135,6 +136,14 @@ fn git_commit(data_dir: &str, message: &str) {
 /// Append a query record to the log store. Returns the assigned id.
 pub fn log_query(state: &ServerState, record: LogRecord) -> u64 {
     state.log_store.lock().map(|mut s| s.append(record)).unwrap_or(0)
+}
+
+/// Get review mode for a namespace. Returns "manual" if not set.
+pub fn get_ns_mode(state: &ServerState, app_id: &str) -> String {
+    state.review_mode.read().unwrap()
+        .get(app_id)
+        .cloned()
+        .unwrap_or_else(|| "manual".to_string())
 }
 
 pub fn default_lang() -> String { "en".to_string() }

@@ -266,9 +266,13 @@ pub async fn review_stats(
     }))
 }
 
-pub async fn get_review_mode(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let mode = state.review_mode.read().unwrap().clone();
-    Json(serde_json::json!({"mode": mode}))
+pub async fn get_review_mode(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let mode = get_ns_mode(&state, &app_id);
+    Json(serde_json::json!({"mode": mode, "app_id": app_id}))
 }
 
 #[derive(serde::Deserialize)]
@@ -276,13 +280,16 @@ pub struct SetReviewModeRequest { mode: String }
 
 pub async fn set_review_mode(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<SetReviewModeRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     if !["manual", "auto"].contains(&req.mode.as_str()) {
         return Err((StatusCode::BAD_REQUEST, "mode must be 'manual' or 'auto'".to_string()));
     }
-    *state.review_mode.write().unwrap() = req.mode.clone();
-    Ok(Json(serde_json::json!({"mode": req.mode})))
+    let app_id = app_id_from_headers(&headers);
+    state.review_mode.write().unwrap().insert(app_id.clone(), req.mode.clone());
+    state.worker_notify.notify_one(); // wake worker in case mode just switched to auto
+    Ok(Json(serde_json::json!({"mode": req.mode, "app_id": app_id})))
 }
 
 #[derive(serde::Deserialize)]

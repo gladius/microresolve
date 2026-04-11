@@ -258,8 +258,12 @@ pub struct FullReviewResult {
     pub correct_intents: Vec<String>,
     /// Turn 1: wrongly detected intents
     pub wrong_detections: Vec<String>,
+    /// Turn 1: intents the query expresses but router missed
+    pub missed_intents: Vec<String>,
     /// Turn 1: detected languages
     pub languages: Vec<String>,
+    /// True when Turn 1 found no issues — Turns 2+3 were skipped
+    pub detection_perfect: bool,
     /// Turn 2: phrases to add (passed guard + retry)
     pub phrases_to_add: HashMap<String, Vec<String>>,
     /// Turn 2: phrases blocked by guard
@@ -300,12 +304,13 @@ pub async fn full_review(
          Available intents (with descriptions and example seeds):\n{}\n\n\
          Which intents does this query EXPLICITLY express? Only literal requests.\n\
          Which detected intents are WRONG for this query?\n\
+         Which intents does the query express that were NOT detected (missed)?\n\
          Respond with ONLY JSON:\n\
-         {{\"correct_intents\": [\"intent1\"], \"wrong_detections\": [\"wrong1\"], \"languages\": [\"en\"]}}\n",
+         {{\"correct_intents\": [\"intent1\"], \"wrong_detections\": [\"wrong1\"], \"missed_intents\": [\"missed1\"], \"languages\": [\"en\"]}}\n",
         query, detected, intent_descriptions
     );
 
-    let t1_response = call_llm(state, &turn1_prompt, 200).await
+    let t1_response = call_llm(state, &turn1_prompt, 256).await
         .map_err(|e| format!("Turn 1 failed: {}", e.1))?;
     let t1_parsed: serde_json::Value = serde_json::from_str(extract_json(&t1_response))
         .map_err(|e| format!("Turn 1 parse failed: {}", e))?;
@@ -316,11 +321,32 @@ pub async fn full_review(
     let wrong_detections: Vec<String> = t1_parsed["wrong_detections"].as_array()
         .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
         .unwrap_or_default();
+    let missed_intents: Vec<String> = t1_parsed["missed_intents"].as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
     let languages: Vec<String> = t1_parsed["languages"].as_array()
         .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
         .unwrap_or_else(|| vec!["en".to_string()]);
 
-    eprintln!("[full_review] Turn 1: correct={:?}, wrong={:?}, langs={:?}", correct_intents, wrong_detections, languages);
+    eprintln!("[full_review] Turn 1: correct={:?}, wrong={:?}, missed={:?}, langs={:?}",
+        correct_intents, wrong_detections, missed_intents, languages);
+
+    // === Early exit: detection is perfect — skip Turns 2 + 3 ===
+    if wrong_detections.is_empty() && missed_intents.is_empty() {
+        eprintln!("[full_review] Detection perfect — skipping Turns 2+3");
+        return Ok(FullReviewResult {
+            correct_intents,
+            wrong_detections,
+            missed_intents,
+            languages,
+            detection_perfect: true,
+            phrases_to_add: HashMap::new(),
+            phrases_blocked: Vec::new(),
+            phrases_to_replace: Vec::new(),
+            safe_to_apply: true,
+            summary: "Detection correct, no changes needed.".to_string(),
+        });
+    }
 
     // === Turn 2: Fix misses (phrases to add) ===
     let existing_phrases: String = {
@@ -504,7 +530,9 @@ pub async fn full_review(
     Ok(FullReviewResult {
         correct_intents,
         wrong_detections,
+        missed_intents,
         languages,
+        detection_perfect: false,
         phrases_to_add,
         phrases_blocked,
         phrases_to_replace,

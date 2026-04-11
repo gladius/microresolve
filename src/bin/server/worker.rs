@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 use tokio::sync::Notify;
-use crate::state::{AppState, StudioEvent};
+use crate::state::{AppState, StudioEvent, get_ns_mode};
 use crate::log_store::ReviewStatus;
 use crate::llm::{full_review, apply_review};
 
@@ -16,18 +16,16 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
         // Wait for a signal that there's work to do.
         notify.notified().await;
 
-        let mode = state.review_mode.read().unwrap().clone();
-        if mode != "auto" {
-            continue;
-        }
-
         // Collect pending (app_id, id) pairs — read-only snapshot.
         let pending = state.log_store.lock().unwrap().pending_worker_ids(None);
 
+        // Deduplicate: skip records whose exact query was already processed this batch
+        let mut seen_queries: std::collections::HashSet<String> = std::collections::HashSet::new();
+
         for (app_id, id) in pending {
-            // Re-check mode before each item (user might have switched mid-batch)
-            if state.review_mode.read().unwrap().as_str() != "auto" {
-                break;
+            // Check per-namespace mode before each item
+            if get_ns_mode(&state, &app_id) != "auto" {
+                continue; // skip this namespace, not break — other namespaces may be auto
             }
 
             // Read the full record (query + detected intents)
@@ -35,6 +33,12 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
                 Some(r) => r,
                 None => continue,
             };
+
+            // Deduplicate: same query text already reviewed this batch — resolve without LLM
+            if !seen_queries.insert(record.query.clone()) {
+                state.log_store.lock().unwrap().resolve(&app_id, id);
+                continue;
+            }
 
             // Mark as processing so we don't pick it up again
             state.log_store.lock().unwrap().set_review_status(&app_id, id, ReviewStatus {
