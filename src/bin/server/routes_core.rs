@@ -10,6 +10,7 @@ use asv_router::Router;
 use crate::state::*;
 use crate::log_store::{LogRecord};
 use crate::llm::*;
+use crate::routes_events::emit_queued;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
@@ -141,13 +142,13 @@ pub async fn route_multi(
     let detected_ids: Vec<String> = output.intents.iter().map(|i| i.id.clone()).collect();
     let flag = LogRecord::compute_flag(&detected_ids, best_confidence);
 
-    log_query(&state, LogRecord {
+    let log_id = log_query(&state, LogRecord {
         id: 0, // assigned by log_store
         query: req.query.clone(),
         app_id: app_id.clone(),
         detected_intents: detected_ids,
         confidence: best_confidence.to_string(),
-        flag,
+        flag: flag.clone(),
         session_id: None,
         timestamp_ms: now_ms(),
         router_version: {
@@ -156,6 +157,8 @@ pub async fn route_multi(
         },
         source: "local".to_string(),
     });
+
+    emit_queued(&state, log_id, &req.query, &app_id, flag);
 
     Json(result)
 }

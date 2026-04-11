@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::{broadcast, Notify};
 use crate::log_store::{LogStore, LogRecord};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -35,6 +36,17 @@ fn default_namespace() -> String { "default".to_string() }
 fn default_threshold() -> f32 { 0.3 }
 fn default_languages() -> Vec<String> { vec!["en".to_string()] }
 
+/// Events broadcast to SSE subscribers (Studio page live feed).
+#[derive(Clone, serde::Serialize, Debug)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum StudioEvent {
+    ItemQueued   { id: u64, query: String, app_id: String, flag: Option<String> },
+    LlmStarted   { id: u64, query: String },
+    LlmDone      { id: u64, correct: Vec<String>, wrong: Vec<String>, phrases_added: usize, summary: String },
+    FixApplied   { id: u64, phrases_added: usize, phrases_replaced: usize, version_before: u64, version_after: u64 },
+    Escalated    { id: u64, reason: String },
+}
+
 pub struct ServerState {
     pub routers: RwLock<HashMap<String, Router>>,
     pub data_dir: Option<String>,
@@ -43,6 +55,10 @@ pub struct ServerState {
     pub llm_key: Option<String>,
     pub review_mode: RwLock<String>,
     pub ui_settings: RwLock<UiSettings>,
+    /// Broadcast channel for Studio real-time feed (SSE).
+    pub event_tx: broadcast::Sender<StudioEvent>,
+    /// Wakes the background auto-learn worker when new items are queued.
+    pub worker_notify: Arc<Notify>,
 }
 
 pub type AppState = Arc<ServerState>;
@@ -116,11 +132,9 @@ fn git_commit(data_dir: &str, message: &str) {
     });
 }
 
-/// Append a query record to the log store.
-pub fn log_query(state: &ServerState, record: LogRecord) {
-    if let Ok(mut store) = state.log_store.lock() {
-        store.append(record);
-    }
+/// Append a query record to the log store. Returns the assigned id.
+pub fn log_query(state: &ServerState, record: LogRecord) -> u64 {
+    state.log_store.lock().map(|mut s| s.append(record)).unwrap_or(0)
 }
 
 pub fn default_lang() -> String { "en".to_string() }

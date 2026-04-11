@@ -24,6 +24,37 @@ use std::path::PathBuf;
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
+/// LLM review outcome attached to a log entry (in-memory only, not persisted).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ReviewStatus {
+    /// "pending" | "processing" | "done" | "escalated"
+    pub status: String,
+    pub llm_reviewed: bool,
+    pub llm_model: Option<String>,
+    pub llm_result: Option<serde_json::Value>,
+    pub applied: bool,
+    pub phrases_added: usize,
+    pub version_before: u64,
+    pub version_after: Option<u64>,
+    pub summary: Option<String>,
+}
+
+impl ReviewStatus {
+    pub fn pending() -> Self {
+        Self {
+            status: "pending".to_string(),
+            llm_reviewed: false,
+            llm_model: None,
+            llm_result: None,
+            applied: false,
+            phrases_added: 0,
+            version_before: 0,
+            version_after: None,
+            summary: None,
+        }
+    }
+}
+
 /// A single routed query. Replaces JSONL log entry + ReviewItem.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LogRecord {
@@ -109,11 +140,13 @@ struct AppLog {
     size: u64,
     index: Vec<LogMeta>,
     next_id: u64,
+    /// In-memory LLM review status per record id — not persisted.
+    review_status: HashMap<u64, ReviewStatus>,
 }
 
 impl AppLog {
     fn in_memory() -> Self {
-        Self { file: None, size: 0, index: Vec::new(), next_id: 0 }
+        Self { file: None, size: 0, index: Vec::new(), next_id: 0, review_status: HashMap::new() }
     }
 
     fn open(path: &PathBuf) -> std::io::Result<Self> {
@@ -153,7 +186,7 @@ impl AppLog {
             offset += 5 + payload_len as u64;
         }
 
-        Ok(Self { file: Some(file), size: offset, index, next_id })
+        Ok(Self { file: Some(file), size: offset, index, next_id, review_status: HashMap::new() })
     }
 }
 
@@ -350,6 +383,52 @@ impl LogStore {
     /// Total records (alive + resolved) for an app.
     pub fn count_total(&self, app_id: &str) -> usize {
         self.apps.get(app_id).map(|al| al.index.len()).unwrap_or(0)
+    }
+
+    /// Read a single record by id from any app.
+    pub fn get_record(&mut self, app_id: &str, id: u64) -> Option<LogRecord> {
+        let al = self.apps.get(app_id)?;
+        let meta = al.index.iter().find(|m| m.id == id)?;
+        if let Some(ref cached) = meta.cached {
+            return serde_json::from_slice(cached).ok();
+        }
+        let offset = meta.offset;
+        let payload_len = meta.payload_len;
+        self.read_at(app_id, offset, payload_len)
+    }
+
+    /// Set the LLM review status for a record (in-memory only).
+    pub fn set_review_status(&mut self, app_id: &str, id: u64, status: ReviewStatus) {
+        if let Some(al) = self.apps.get_mut(app_id) {
+            al.review_status.insert(id, status);
+        }
+    }
+
+    /// Get the LLM review status for a record (in-memory only).
+    pub fn get_review_status(&self, app_id: &str, id: u64) -> Option<ReviewStatus> {
+        self.apps.get(app_id)?.review_status.get(&id).cloned()
+    }
+
+    /// Return (app_id, id) for all alive flagged records not yet reviewed by LLM.
+    /// Used by the background worker to find pending work.
+    pub fn pending_worker_ids(&self, app_id_filter: Option<&str>) -> Vec<(String, u64)> {
+        let mut pending = Vec::new();
+        for (app_id, al) in &self.apps {
+            if let Some(filter) = app_id_filter {
+                if app_id != filter { continue; }
+            }
+            for meta in &al.index {
+                if !meta.alive { continue; }
+                // Only process flagged entries (miss / low_confidence)
+                if meta.flag.is_none() { continue; }
+                let already_done = al.review_status.get(&meta.id)
+                    .map(|s| s.status == "done" || s.status == "escalated" || s.status == "processing")
+                    .unwrap_or(false);
+                if already_done { continue; }
+                pending.push((app_id.clone(), meta.id));
+            }
+        }
+        pending
     }
 
     /// Stats for all apps.

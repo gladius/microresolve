@@ -9,6 +9,14 @@ type Message =
   | { type: 'learn'; text: string }
   | { type: 'error'; text: string };
 
+// Mirrors the server's StudioEvent enum (serde tag = "type")
+type FeedEvent =
+  | { type: 'item_queued';  id: number; query: string; app_id: string; flag: string | null }
+  | { type: 'llm_started';  id: number; query: string }
+  | { type: 'llm_done';     id: number; correct: string[]; wrong: string[]; phrases_added: number; summary: string }
+  | { type: 'fix_applied';  id: number; phrases_added: number; phrases_replaced: number; version_before: number; version_after: number }
+  | { type: 'escalated';    id: number; reason: string };
+
 type SimPhase = 'idle' | 'generating' | 'baseline' | 'fixing' | 'retesting' | 'done' | 'error';
 
 const PERSONALITIES = ['casual', 'frustrated', 'formal', 'terse', 'rambling', 'polite'];
@@ -28,8 +36,11 @@ export default function StudioPage() {
   const [mode, setMode] = useState<'manual' | 'simulate'>('manual');
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ReviewItem | null>(null);
+  const [selectedFeedEvent, setSelectedFeedEvent] = useState<FeedEvent | null>(null);
   const [intents, setIntents] = useState<string[]>([]);
   const [accuracy, setAccuracy] = useState<{ before: number; after: number } | null>(null);
+  // Live feed from SSE — newest first, capped at 200 entries
+  const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
 
   const refreshQueue = useCallback(async () => {
     try {
@@ -50,6 +61,25 @@ export default function StudioPage() {
   }, []);
 
   useEffect(() => { refreshQueue(); }, [refreshQueue]);
+
+  // SSE live feed
+  useEffect(() => {
+    const es = new EventSource('/api/events');
+    es.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data) as FeedEvent;
+        setFeedEvents(prev => [event, ...prev].slice(0, 200));
+        // Refresh queue when worker finishes an item
+        if (event.type === 'llm_done' || event.type === 'fix_applied' || event.type === 'escalated') {
+          refreshQueue();
+        }
+      } catch { /* ignore parse errors */ }
+    };
+    es.onerror = () => {
+      // EventSource auto-reconnects — no action needed
+    };
+    return () => es.close();
+  }, [refreshQueue]);
 
   const onQueued = useCallback(() => {
     // Small delay so server has time to write the log entry
@@ -120,9 +150,9 @@ export default function StudioPage() {
             {reviewItems.slice(0, 8).map(item => (
               <button
                 key={item.id}
-                onClick={() => setSelectedItem(item)}
+                onClick={() => { setSelectedItem(item); setSelectedFeedEvent(null); }}
                 className={`flex-shrink-0 text-[9px] px-2 py-0.5 rounded border font-semibold uppercase transition-colors ${
-                  selectedItem?.id === item.id
+                  selectedItem?.id === item.id && !selectedFeedEvent
                     ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
                     : item.flag === 'miss'
                     ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
@@ -139,9 +169,33 @@ export default function StudioPage() {
           <button onClick={refreshQueue} className="text-[10px] text-zinc-600 hover:text-zinc-400 flex-shrink-0">↺</button>
         </div>
 
+        {/* Live feed */}
+        {feedEvents.length > 0 && (
+          <div className="border-b border-zinc-800 flex-shrink-0 max-h-36 overflow-y-auto">
+            <div className="px-3 py-1.5 flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">Live</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </div>
+            {feedEvents.slice(0, 30).map((ev, i) => (
+              <button
+                key={i}
+                onClick={() => { setSelectedFeedEvent(ev); setSelectedItem(null); }}
+                className={`w-full text-left px-3 py-1 text-[11px] font-mono hover:bg-zinc-800/60 transition-colors flex items-center gap-2 ${
+                  selectedFeedEvent === ev ? 'bg-zinc-800/80' : ''
+                }`}
+              >
+                <FeedEventDot event={ev} />
+                <FeedEventLine event={ev} />
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Detail area */}
         <div className="flex-1 overflow-y-auto">
-          {selectedItem ? (
+          {selectedFeedEvent ? (
+            <FeedEventDetail event={selectedFeedEvent} onClose={() => setSelectedFeedEvent(null)} />
+          ) : selectedItem ? (
             <ReviewDetail
               item={selectedItem}
               intents={intents}
@@ -150,19 +204,127 @@ export default function StudioPage() {
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-8">
-              {reviewItems.length === 0 ? (
+              {reviewItems.length === 0 && feedEvents.length === 0 ? (
                 <>
                   <div className="text-emerald-400 text-2xl mb-2">✓</div>
                   <div className="text-zinc-400 text-sm">Queue empty</div>
                   <div className="text-zinc-600 text-xs mt-1">Type a query on the left or run a simulation</div>
                 </>
               ) : (
-                <div className="text-zinc-600 text-sm">Select an item above to review</div>
+                <div className="text-zinc-600 text-sm">Select an item to review</div>
               )}
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Feed helpers ─────────────────────────────────────────────────────────────
+
+function FeedEventDot({ event }: { event: FeedEvent }) {
+  const cls = (() => {
+    switch (event.type) {
+      case 'item_queued': return 'bg-amber-400';
+      case 'llm_started': return 'bg-blue-400 animate-pulse';
+      case 'llm_done': return event.phrases_added > 0 ? 'bg-emerald-400' : 'bg-zinc-500';
+      case 'fix_applied': return 'bg-emerald-400';
+      case 'escalated': return 'bg-red-400';
+    }
+  })();
+  return <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cls}`} />;
+}
+
+function FeedEventLine({ event }: { event: FeedEvent }) {
+  switch (event.type) {
+    case 'item_queued':
+      return <span className="text-zinc-400 truncate">queued #{event.id} <span className="text-zinc-600">{event.flag ?? 'ok'}</span> "{event.query.slice(0, 50)}"</span>;
+    case 'llm_started':
+      return <span className="text-blue-400 truncate">llm #{event.id} "{event.query.slice(0, 50)}"</span>;
+    case 'llm_done':
+      return <span className="text-zinc-300 truncate">#{event.id} +{event.phrases_added} phrases <span className="text-zinc-500">{event.summary.slice(0, 50)}</span></span>;
+    case 'fix_applied':
+      return <span className="text-emerald-400 truncate">fixed #{event.id} v{event.version_before}→v{event.version_after}</span>;
+    case 'escalated':
+      return <span className="text-red-400 truncate">escalated #{event.id} {event.reason.slice(0, 60)}</span>;
+  }
+}
+
+function FeedEventDetail({ event, onClose }: { event: FeedEvent; onClose: () => void }) {
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-white uppercase tracking-wide">{event.type.replace(/_/g, ' ')}</h3>
+        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 text-xs">✕ close</button>
+      </div>
+
+      {'query' in event && (
+        <div>
+          <div className="text-[10px] uppercase text-zinc-500 mb-1">Query</div>
+          <div className="font-mono text-sm text-white bg-zinc-900 rounded px-3 py-2">{event.query}</div>
+        </div>
+      )}
+
+      {event.type === 'item_queued' && (
+        <div className="text-xs text-zinc-400">
+          App: <span className="font-mono text-zinc-200">{event.app_id}</span>
+          {event.flag && <> · Flag: <span className="text-amber-400">{event.flag}</span></>}
+        </div>
+      )}
+
+      {event.type === 'llm_done' && (
+        <div className="space-y-3">
+          {event.correct.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase text-zinc-500 mb-1">Correct intents</div>
+              <div className="flex flex-wrap gap-1">
+                {event.correct.map(id => (
+                  <span key={id} className="px-2 py-0.5 bg-emerald-500/15 text-emerald-400 rounded text-xs font-mono">{id}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {event.wrong.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase text-zinc-500 mb-1">Wrong detections</div>
+              <div className="flex flex-wrap gap-1">
+                {event.wrong.map(id => (
+                  <span key={id} className="px-2 py-0.5 bg-red-500/15 text-red-400 rounded text-xs font-mono">{id}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="text-xs text-zinc-400">
+            Phrases added: <span className="text-white font-semibold">{event.phrases_added}</span>
+          </div>
+          {event.summary && (
+            <div className="text-xs text-zinc-300 border-l-2 border-zinc-700 pl-3 italic">{event.summary}</div>
+          )}
+        </div>
+      )}
+
+      {event.type === 'fix_applied' && (
+        <div className="space-y-2 text-xs">
+          <div className="flex gap-4">
+            <div>Phrases added: <span className="text-emerald-400 font-semibold">{event.phrases_added}</span></div>
+            <div>Phrases replaced: <span className="text-blue-400 font-semibold">{event.phrases_replaced}</span></div>
+          </div>
+          <div className="text-zinc-400">
+            Router version: <span className="font-mono text-zinc-200">{event.version_before}</span>
+            <span className="text-zinc-600 mx-2">→</span>
+            <span className="font-mono text-emerald-400">{event.version_after}</span>
+          </div>
+        </div>
+      )}
+
+      {event.type === 'escalated' && (
+        <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded px-3 py-2">
+          {event.reason}
+        </div>
+      )}
+
+      <div className="text-[10px] text-zinc-600 font-mono">id #{event.id}</div>
     </div>
   );
 }

@@ -312,7 +312,6 @@ pub async fn build_similarity(
 
     // Include recent queries from log as real-world vocabulary
     {
-        let store = state.log_store.lock().unwrap();
         let result = state.log_store.lock().unwrap().query(&LogQuery {
             app_id: Some(app_id.clone()),
             resolved: None,

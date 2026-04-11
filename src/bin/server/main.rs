@@ -23,6 +23,8 @@ mod routes_import;
 mod routes_connect;
 mod routes_situation;
 mod routes_ui_settings;
+mod routes_events;
+mod worker;
 
 use state::*;
 use log_store::LogStore;
@@ -35,6 +37,7 @@ use axum::{
 };
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock, Mutex};
+use tokio::sync::{broadcast, Notify};
 use tower_http::cors::CorsLayer;
 
 #[tokio::main]
@@ -112,6 +115,9 @@ async fn main() {
     let log_store = LogStore::new(data_dir.as_deref());
     let ui_settings = data_dir.as_deref().map(load_ui_settings).unwrap_or_default();
 
+    let (event_tx, _) = broadcast::channel::<state::StudioEvent>(256);
+    let worker_notify = Arc::new(Notify::new());
+
     let state: AppState = Arc::new(ServerState {
         routers: RwLock::new(routers),
         data_dir,
@@ -120,7 +126,12 @@ async fn main() {
         llm_key,
         review_mode: RwLock::new("manual".to_string()),
         ui_settings: RwLock::new(ui_settings),
+        event_tx,
+        worker_notify: worker_notify.clone(),
     });
+
+    // Spawn the background auto-learn worker
+    tokio::spawn(worker::run_worker(state.clone(), worker_notify));
 
     let app = axum::Router::new()
         .route("/api/health", get(health))
@@ -142,6 +153,7 @@ async fn main() {
         .merge(routes_connect::routes())
         .merge(routes_situation::routes())
         .merge(routes_ui_settings::routes())
+        .merge(routes_events::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
