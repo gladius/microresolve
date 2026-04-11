@@ -60,18 +60,12 @@ export interface MultiRouteResult {
   source: DetectionSource;
 }
 
-export interface ProjectedContext {
-  id: string;
-  co_occurrence: number;
-  strength: number;
-}
-
 export interface MultiRouteOutput {
   confirmed: MultiRouteResult[];
   candidates: MultiRouteResult[];
   relations: { type: string; [key: string]: unknown }[];
   metadata: Record<string, Record<string, string[]>>;
-  projected_context: ProjectedContext[];
+  routing_us: number;
 }
 
 export interface IntentInfo {

@@ -54,28 +54,6 @@ pub struct RouteResult {
     pub score: f32,
 }
 
-/// An intent in a discovered workflow cluster.
-#[derive(Debug, Clone)]
-pub struct WorkflowIntent {
-    /// Intent ID.
-    pub id: String,
-    /// Number of co-occurrence connections in the cluster.
-    pub connections: u32,
-    /// Neighboring intents it co-occurs with.
-    pub neighbors: Vec<String>,
-}
-
-/// A recurring sequence pattern (potential escalation or workflow).
-#[derive(Debug, Clone)]
-pub struct EscalationPattern {
-    /// The intent sequence in temporal order.
-    pub sequence: Vec<String>,
-    /// How many times this sequence was observed.
-    pub occurrences: u32,
-    /// Frequency: occurrences / total sequences observed.
-    pub frequency: f32,
-}
-
 /// A term conflict detected by seed guard.
 #[derive(Debug, Clone)]
 pub struct TermConflict {
@@ -102,22 +80,6 @@ pub struct PhraseCheckResult {
     pub redundant: bool,
     /// Human-readable warning message, if any.
     pub warning: Option<String>,
-}
-
-/// A suggested intent based on co-occurrence patterns.
-///
-/// Returned by `Router::suggest_intents()` when detected intents frequently
-/// co-occur with other intents that were NOT detected in the current query.
-#[derive(Debug, Clone)]
-pub struct IntentSuggestion {
-    /// The suggested intent ID.
-    pub id: String,
-    /// Conditional probability: P(this intent | triggering intent).
-    pub probability: f32,
-    /// Number of times this co-occurrence was observed.
-    pub observations: u32,
-    /// Which detected intent triggered this suggestion.
-    pub because_of: String,
 }
 
 /// Maximum training phrases per language per intent. Prevents overfitting.

@@ -266,11 +266,6 @@ impl Router {
             }
         }
 
-        // Suggest intents based on co-occurrence patterns.
-        // "You detected cancel_order. 73% of customers also want refund."
-        let detected_ids: Vec<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
-        output.suggestions = self.suggest_intents(&detected_ids, 3, 0.2);
-
         output
     }
 

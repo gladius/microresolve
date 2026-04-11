@@ -413,7 +413,7 @@ impl Router {
     pub fn route_multi_anchored(&self, query: &str, threshold: f32, window: usize) -> MultiRouteOutput {
         let (positioned, query_chars) = self.extract_terms_positioned(query);
         if positioned.is_empty() {
-            return MultiRouteOutput { intents: vec![], relations: vec![], metadata: HashMap::new(), suggestions: vec![] };
+            return MultiRouteOutput { intents: vec![], relations: vec![], metadata: HashMap::new() };
         }
 
         let n = self.index.intent_count();
@@ -494,7 +494,7 @@ impl Router {
         results.sort_by_key(|r| r.position);
         let relations = multi::detect_relations_public(&results, &query_chars);
 
-        MultiRouteOutput { intents: results, relations, metadata: HashMap::new(), suggestions: vec![] }
+        MultiRouteOutput { intents: results, relations, metadata: HashMap::new() }
     }
 
     /// Query coverage: (known_terms, total_terms) — fraction of terms in the index.

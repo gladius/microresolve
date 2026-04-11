@@ -55,10 +55,6 @@ pub struct MultiRouteOutput {
     /// Opaque metadata per detected intent, keyed by intent id.
     /// Populated by `Router::route_multi()` from configured metadata.
     pub metadata: HashMap<String, HashMap<String, Vec<String>>>,
-    /// Suggested intents based on co-occurrence patterns — intents that frequently
-    /// co-occur with detected intents but were NOT found in this query.
-    /// Populated by `Router::route_multi()` from accumulated co-occurrence data.
-    pub suggestions: Vec<crate::IntentSuggestion>,
 }
 
 impl MultiRouteOutput {
@@ -99,7 +95,6 @@ pub(crate) fn route_multi(
             intents: vec![],
             relations: vec![],
             metadata: HashMap::new(),
-            suggestions: vec![],
         };
     }
 
@@ -124,7 +119,7 @@ pub(crate) fn route_multi(
         // The prefix is preserved in the positioned terms for negation tracking.
         let search_terms = build_search_terms(&remaining);
         let search_terms_stripped: Vec<String> = search_terms.iter()
-            .map(|t| strip_negation_prefix(t))
+            .map(|t| strip_negation_prefix(t).to_owned())
             .collect();
 
         // Score all intents using stripped terms
@@ -145,9 +140,9 @@ pub(crate) fn route_multi(
             None => break,
         };
 
-        // Get effective terms for the winning intent
-        let effective = match vectors.get(&best.id) {
-            Some(v) => v.effective_terms(),
+        // Get the winning intent's vector for term membership checks.
+        let best_vector = match vectors.get(&best.id) {
+            Some(v) => v,
             None => break,
         };
 
@@ -156,7 +151,7 @@ pub(crate) fn route_multi(
         let consumed_indices: Vec<usize> = remaining.iter().enumerate()
             .filter(|(_, pt)| {
                 let bare = strip_negation_prefix(&pt.term);
-                effective.contains_key(&bare)
+                best_vector.contains_term(&bare)
             })
             .map(|(i, _)| i)
             .collect();
@@ -228,7 +223,6 @@ pub(crate) fn route_multi(
         intents: detected,
         relations,
         metadata: HashMap::new(), // Populated by Router::route_multi()
-        suggestions: vec![],      // Populated by Router::route_multi()
     }
 }
 
@@ -252,8 +246,8 @@ fn apply_adjacency_boost(
     by_pos.sort_by_key(|pt| pt.offset);
 
     for r in results.iter_mut() {
-        let effective = match vectors.get(&r.id) {
-            Some(v) => v.effective_terms(),
+        let vector = match vectors.get(&r.id) {
+            Some(v) => v,
             None => continue,
         };
 
@@ -263,7 +257,7 @@ fn apply_adjacency_boost(
             .enumerate()
             .filter(|(_, pt)| {
                 let bare = strip_negation_prefix(&pt.term);
-                effective.contains_key(&bare)
+                vector.contains_term(&bare)
             })
             .map(|(i, _)| i)
             .collect();
@@ -295,8 +289,8 @@ fn apply_adjacency_boost(
 
 /// Strip the `not_` prefix from a negated term, returning the bare form.
 /// Non-negated terms are returned as-is.
-fn strip_negation_prefix(term: &str) -> String {
-    term.strip_prefix("not_").unwrap_or(term).to_string()
+fn strip_negation_prefix(term: &str) -> &str {
+    term.strip_prefix("not_").unwrap_or(term)
 }
 
 /// Check if a term carries a negation prefix.

@@ -75,9 +75,9 @@ mod router_intents;
 mod router_routing;
 mod router_learning;
 mod router_metadata;
-mod router_analytics;
 mod router_similarity;
 mod router_paraphrase;
+mod router_persist;
 mod router_situation;
 
 #[cfg(feature = "wasm")]
@@ -124,16 +124,6 @@ pub struct Router {
     /// Opaque metadata per intent. User-defined key-value pairs.
     /// ASV stores and returns this data but never interprets it.
     metadata: HashMap<String, HashMap<String, Vec<String>>>,
-    /// Co-occurrence counts: how often intent pairs fire together in route_multi.
-    /// Key: (intent_a, intent_b) where a < b lexicographically. Value: count.
-    co_occurrence: HashMap<(String, String), u32>,
-    /// Temporal ordering: how often intent A appears BEFORE intent B in positional order.
-    /// Key: (first_intent, second_intent) — NOT lexicographic, actual temporal order. Value: count.
-    temporal_order: HashMap<(String, String), u32>,
-    /// Full intent sequences observed in route_multi, for workflow/cluster discovery.
-    /// Each entry is a sorted-by-position sequence of intent IDs from a single query.
-    /// Capped at last 1000 observations to bound memory.
-    intent_sequences: Vec<Vec<String>>,
     /// Paraphrase index: phrase (lowercase) -> (intent_id, weight).
     /// Multi-word phrase matching via Aho-Corasick automaton for dual-source confidence.
     paraphrase_phrases: HashMap<String, (String, f32)>,
@@ -161,6 +151,10 @@ pub struct Router {
     /// Matched by direct substring search for state-description → action inference.
     /// Sits alongside the term index; scores are blended with SITUATION_ALPHA = 0.4.
     situation_patterns: HashMap<String, Vec<(String, f32)>>,
+    /// Human-readable description of this namespace/router instance.
+    namespace_description: String,
+    /// Descriptions for domain prefixes (e.g., "billing" in "billing:cancel_order").
+    domain_descriptions: HashMap<String, String>,
 }
 
 
@@ -176,7 +170,6 @@ impl Default for Router {
 // router_routing.rs   — route, route_multi, route_best
 // router_learning.rs  — learn, correct, reinforce, decay
 // router_metadata.rs  — intent types, descriptions, metadata
-// router_analytics.rs — co-occurrence, temporal, workflows
 // router_similarity.rs — distributional similarity, merge
 // router_paraphrase.rs — paraphrase index
 

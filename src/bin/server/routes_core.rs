@@ -6,8 +6,7 @@ use axum::{
     routing::{get, post, delete},
     Json,
 };
-use std::collections::HashMap;
-use asv_router::{Router, IntentType};
+use asv_router::Router;
 use crate::state::*;
 use crate::log_store::{LogRecord};
 use crate::llm::*;
@@ -75,17 +74,6 @@ pub async fn route_multi(
     };
     let latency_us = t0.elapsed().as_micros() as u64;
 
-    // Record intent sequence (co-occurrence + temporal order + full sequence)
-    if output.intents.len() > 1 {
-        let ids: Vec<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
-        if let Ok(mut routers) = state.routers.write() {
-            if let Some(router) = routers.get_mut(&app_id) {
-                router.record_intent_sequence(&ids);
-                maybe_persist(&state, &app_id, router);
-            }
-        }
-    }
-
     let intents: Vec<serde_json::Value> = output
         .intents
         .iter()
@@ -128,68 +116,6 @@ pub async fn route_multi(
         })
         .collect();
 
-    // Compute projected_context from co-occurrence
-    let projected_context = {
-        let routers = state.routers.read().unwrap();
-        let router = match routers.get(&app_id) {
-            Some(r) => r,
-            None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
-        };
-        let co_pairs = router.get_co_occurrence();
-        let matched_ids: std::collections::HashSet<&str> = output.intents.iter().map(|i| i.id.as_str()).collect();
-
-        // For each matched action intent, find context intents that co-occur but aren't already in results
-        let mut context_scores: HashMap<String, (u32, u32)> = HashMap::new(); // id -> (co_count, total_action_count)
-
-        for intent in &output.intents {
-            if intent.intent_type != asv_router::IntentType::Action {
-                continue;
-            }
-            // Count total co-occurrences for this action (denominator for strength)
-            let mut action_total: u32 = 0;
-            for &(a, b, count) in &co_pairs {
-                if a == intent.id || b == intent.id {
-                    action_total += count;
-                }
-            }
-            if action_total == 0 {
-                continue;
-            }
-            // Find context partners not already in results
-            for &(a, b, count) in &co_pairs {
-                let partner = if a == intent.id { b } else if b == intent.id { a } else { continue };
-                if matched_ids.contains(partner) {
-                    continue; // already in results, don't project
-                }
-                if router.get_intent_type(partner) != asv_router::IntentType::Context {
-                    continue; // only project context intents
-                }
-                let entry = context_scores.entry(partner.to_string()).or_insert((0, 0));
-                entry.0 += count;
-                entry.1 += action_total;
-            }
-        }
-
-        let mut projected: Vec<serde_json::Value> = context_scores
-            .into_iter()
-            .map(|(id, (co_count, total))| {
-                let strength = co_count as f64 / total as f64;
-                serde_json::json!({
-                    "id": id,
-                    "co_occurrence": co_count,
-                    "strength": (strength * 100.0).round() / 100.0
-                })
-            })
-            .filter(|v| v["strength"].as_f64().unwrap_or(0.0) >= 0.1) // min 10% strength
-            .collect();
-        projected.sort_by(|a, b| {
-            b["strength"].as_f64().unwrap_or(0.0)
-                .partial_cmp(&a["strength"].as_f64().unwrap_or(0.0))
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        projected
-    };
-
     // Split into confirmed (high + medium confidence) and candidates (low confidence)
     let confirmed: Vec<&serde_json::Value> = intents.iter()
         .filter(|i| i["confidence"].as_str() != Some("low"))
@@ -198,22 +124,12 @@ pub async fn route_multi(
         .filter(|i| i["confidence"].as_str() == Some("low"))
         .collect();
 
-    let suggestions: Vec<serde_json::Value> = output.suggestions.iter()
-        .map(|s| serde_json::json!({
-            "id": s.id,
-            "probability": (s.probability * 100.0).round() / 100.0,
-            "observations": s.observations,
-            "because_of": s.because_of
-        }))
-        .collect();
-
     let result = serde_json::json!({
         "confirmed": confirmed,
         "candidates": candidates,
         "relations": relations,
         "metadata": output.metadata,
-        "projected_context": projected_context,
-        "suggestions": suggestions
+        "routing_us": latency_us,
     });
 
     // Determine best confidence across all detected intents

@@ -21,9 +21,6 @@ impl Router {
             intent_types: HashMap::new(),
             descriptions: HashMap::new(),
             metadata: HashMap::new(),
-            co_occurrence: HashMap::new(),
-            temporal_order: HashMap::new(),
-            intent_sequences: Vec::new(),
             paraphrase_phrases: HashMap::new(),
             paraphrase_automaton: None,
             paraphrase_patterns: Vec::new(),
@@ -34,6 +31,8 @@ impl Router {
             similarity: HashMap::new(),
             expansion_discount: 0.3,
             situation_patterns: HashMap::new(),
+            namespace_description: String::new(),
+            domain_descriptions: HashMap::new(),
         }
     }
 
@@ -190,12 +189,6 @@ impl Router {
         let paraphrases: Vec<(String, String, f32)> = self.paraphrase_phrases.iter()
             .map(|(phrase, (intent_id, weight))| (phrase.clone(), intent_id.clone(), *weight))
             .collect();
-        let co_occurrence: Vec<(String, String, u32)> = self.co_occurrence.iter()
-            .map(|((a, b), &count)| (a.clone(), b.clone(), count))
-            .collect();
-        let temporal_order: Vec<(String, String, u32)> = self.temporal_order.iter()
-            .map(|((a, b), &count)| (a.clone(), b.clone(), count))
-            .collect();
         let state = RouterState {
             intents: self.vectors.clone(),
             training: self.training.clone(),
@@ -204,9 +197,6 @@ impl Router {
             descriptions: self.descriptions.clone(),
             metadata: self.metadata.clone(),
             paraphrases,
-            co_occurrence,
-            temporal_order,
-            intent_sequences: self.intent_sequences.clone(),
             version: self.version,
             max_intents: self.max_intents,
             similarity: self.similarity.clone(),
@@ -228,18 +218,6 @@ impl Router {
             paraphrase_phrases.insert(phrase.clone(), (intent_id.clone(), *weight));
         }
 
-        // Restore co-occurrence from serialized Vec
-        let mut co_occurrence_map: HashMap<(String, String), u32> = HashMap::new();
-        for (a, b, count) in state.co_occurrence {
-            co_occurrence_map.insert((a, b), count);
-        }
-
-        // Restore temporal ordering from serialized Vec
-        let mut temporal_order_map: HashMap<(String, String), u32> = HashMap::new();
-        for (a, b, count) in state.temporal_order {
-            temporal_order_map.insert((a, b), count);
-        }
-
         let mut router = Self {
             vectors: state.intents,
             index,
@@ -252,9 +230,6 @@ impl Router {
             intent_types: state.intent_types,
             descriptions: state.descriptions,
             metadata: state.metadata,
-            co_occurrence: co_occurrence_map,
-            temporal_order: temporal_order_map,
-            intent_sequences: state.intent_sequences,
             paraphrase_phrases,
             paraphrase_automaton: None,
             paraphrase_patterns: Vec::new(),
@@ -265,6 +240,8 @@ impl Router {
             similarity: state.similarity,
             expansion_discount: 0.3,
             situation_patterns: state.situation_patterns,
+            namespace_description: String::new(),
+            domain_descriptions: HashMap::new(),
         };
         router.rebuild_cjk_automaton_now();
         router.rebuild_paraphrase_automaton_now();
@@ -273,6 +250,10 @@ impl Router {
 
     // Number of registered intents.
 
+    /// Get the current version number. Incremented on every mutation.
+    pub fn version(&self) -> u64 {
+        self.version
+    }
 
 }
 
@@ -290,12 +271,6 @@ struct RouterState {
     metadata: HashMap<String, HashMap<String, Vec<String>>>,
     #[serde(default)]
     paraphrases: Vec<(String, String, f32)>,
-    #[serde(default)]
-    co_occurrence: Vec<(String, String, u32)>,
-    #[serde(default)]
-    temporal_order: Vec<(String, String, u32)>,
-    #[serde(default)]
-    intent_sequences: Vec<Vec<String>>,
     #[serde(default)]
     version: u64,
     #[serde(default = "default_max_intents")]

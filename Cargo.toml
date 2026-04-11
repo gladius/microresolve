@@ -2,7 +2,8 @@
 name = "asv-router"
 version = "0.1.0"
 edition = "2021"
-description = "Model-free intent routing with incremental learning. Sub-millisecond, no embeddings, no GPU."
+authors = ["Gladius Thayalarajan"]
+description = "Sub-millisecond multilingual intent routing with LLM-assisted online learning. No embeddings, no GPU, no retraining."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/gladius/asv-router"
 keywords = ["intent", "routing", "nlp", "chatbot", "sparse-vectors"]
@@ -55,3 +56,7 @@ path = "src/bin/server/main.rs"
 required-features = ["server"]
 
 [dev-dependencies]
+
+[[bin]]
+name = "profile_route"
+path = "src/bin/profile_route.rs"

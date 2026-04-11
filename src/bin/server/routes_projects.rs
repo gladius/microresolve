@@ -32,11 +32,10 @@ pub async fn list_namespaces(
     State(state): State<AppState>,
 ) -> Json<serde_json::Value> {
     let routers = state.routers.read().unwrap();
-    let descriptions = state.namespace_descriptions.read().unwrap();
-    let mut namespaces: Vec<serde_json::Value> = routers.keys()
-        .map(|id| serde_json::json!({
+    let mut namespaces: Vec<serde_json::Value> = routers.iter()
+        .map(|(id, r)| serde_json::json!({
             "id": id,
-            "description": descriptions.get(id).cloned().unwrap_or_default(),
+            "description": r.namespace_description(),
         }))
         .collect();
     namespaces.sort_by(|a, b| {
@@ -60,21 +59,10 @@ pub async fn create_namespace(
     if routers.contains_key(&req.namespace_id) {
         return Err((StatusCode::CONFLICT, format!("namespace '{}' already exists", req.namespace_id)));
     }
-    let router = Router::new();
+    let mut router = Router::new();
+    router.set_namespace_description(&req.description);
+    maybe_persist(&state, &req.namespace_id, &router);
     routers.insert(req.namespace_id.clone(), router);
-    drop(routers);
-    state.namespace_descriptions.write().unwrap()
-        .insert(req.namespace_id.clone(), req.description.clone());
-    // Create folder + _ns.json + empty _router.json
-    if let Some(ref dir) = state.data_dir {
-        let ns_dir = format!("{}/{}", dir, req.namespace_id);
-        std::fs::create_dir_all(&ns_dir).ok();
-        let ns_meta = serde_json::json!({"description": req.description});
-        let _ = std::fs::write(
-            format!("{}/_ns.json", ns_dir),
-            serde_json::to_string_pretty(&ns_meta).unwrap_or_default(),
-        );
-    }
     Ok(Json(serde_json::json!({"created": req.namespace_id})))
 }
 
@@ -95,10 +83,7 @@ pub async fn delete_namespace(
         return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)));
     }
     drop(routers);
-    state.namespace_descriptions.write().unwrap().remove(&req.namespace_id);
-    state.domain_descriptions.write().unwrap().remove(&req.namespace_id);
     if let Some(ref dir) = state.data_dir {
-        // Remove namespace folder (new format)
         let _ = std::fs::remove_dir_all(format!("{}/{}", dir, req.namespace_id));
         // Also remove old flat file if it exists (migration cleanup)
         let _ = std::fs::remove_file(format!("{}/{}.json", dir, req.namespace_id));
@@ -116,20 +101,11 @@ pub async fn update_namespace(
     State(state): State<AppState>,
     Json(req): Json<UpdateNamespaceRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    if !state.routers.read().unwrap().contains_key(&req.namespace_id) {
-        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)));
-    }
-    state.namespace_descriptions.write().unwrap()
-        .insert(req.namespace_id.clone(), req.description.clone());
-    if let Some(ref dir) = state.data_dir {
-        let ns_dir = format!("{}/{}", dir, req.namespace_id);
-        std::fs::create_dir_all(&ns_dir).ok();
-        let meta = serde_json::json!({"description": req.description});
-        let _ = std::fs::write(
-            format!("{}/_ns.json", ns_dir),
-            serde_json::to_string_pretty(&meta).unwrap_or_default(),
-        );
-    }
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&req.namespace_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)))?;
+    router.set_namespace_description(&req.description);
+    maybe_persist(&state, &req.namespace_id, router);
     Ok(Json(serde_json::json!({"updated": req.namespace_id})))
 }
 
@@ -141,28 +117,29 @@ pub async fn list_domain_groups(
 ) -> Json<serde_json::Value> {
     let namespace_id = app_id_from_headers(&headers);
     let routers = state.routers.read().unwrap();
-    let domain_descs = state.domain_descriptions.read().unwrap();
-    let ns_domain_descs = domain_descs.get(&namespace_id);
 
     let domains: Vec<serde_json::Value> = {
-        // Intent-derived domain counts
         let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut names: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut domain_descs: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+
         if let Some(router) = routers.get(&namespace_id) {
             for id in router.intent_ids() {
                 if let Some(colon) = id.find(':') {
                     *counts.entry(id[..colon].to_string()).or_default() += 1;
+                    names.insert(id[..colon].to_string());
                 }
             }
-        }
-        // Union with metadata-only domains (created explicitly but no intents yet)
-        let mut names: std::collections::HashSet<String> = counts.keys().cloned().collect();
-        if let Some(meta) = ns_domain_descs {
-            for k in meta.keys() { names.insert(k.clone()); }
+            // Include explicitly-created domains (with descriptions but no intents yet)
+            for (domain, desc) in router.domain_descriptions() {
+                names.insert(domain.clone());
+                domain_descs.insert(domain.clone(), desc.clone());
+            }
         }
         let mut names: Vec<String> = names.into_iter().collect();
         names.sort();
         names.into_iter().map(|name| {
-            let desc = ns_domain_descs.and_then(|m| m.get(&name)).cloned().unwrap_or_default();
+            let desc = domain_descs.get(&name).cloned().unwrap_or_default();
             serde_json::json!({
                 "name": name,
                 "description": desc,
@@ -186,30 +163,14 @@ pub async fn create_domain(
     Json(req): Json<CreateDomainRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let namespace_id = app_id_from_headers(&headers);
-    if !state.routers.read().unwrap().contains_key(&namespace_id) {
-        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", namespace_id)));
-    }
-    let already_exists = state.domain_descriptions.read().unwrap()
-        .get(&namespace_id)
-        .map(|m| m.contains_key(&req.domain))
-        .unwrap_or(false);
-    if already_exists {
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&namespace_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", namespace_id)))?;
+    if router.domain_description(&req.domain).is_some() {
         return Err((StatusCode::CONFLICT, format!("domain '{}' already exists", req.domain)));
     }
-    state.domain_descriptions.write().unwrap()
-        .entry(namespace_id.clone())
-        .or_default()
-        .insert(req.domain.clone(), req.description.clone());
-    // Create the domain folder + _domain.json
-    if let Some(ref dir) = state.data_dir {
-        let domain_dir = format!("{}/{}/{}", dir, namespace_id, req.domain);
-        std::fs::create_dir_all(&domain_dir).ok();
-        let meta = serde_json::json!({"description": req.description});
-        let _ = std::fs::write(
-            format!("{}/_domain.json", domain_dir),
-            serde_json::to_string_pretty(&meta).unwrap_or_default(),
-        );
-    }
+    router.set_domain_description(&req.domain, &req.description);
+    maybe_persist(&state, &namespace_id, router);
     Ok(Json(serde_json::json!({"created": req.domain})))
 }
 
@@ -224,26 +185,22 @@ pub async fn delete_domain(
     Json(req): Json<DeleteDomainRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let namespace_id = app_id_from_headers(&headers);
-    state.domain_descriptions.write().unwrap()
-        .entry(namespace_id.clone())
-        .or_default()
-        .remove(&req.domain);
-    // Remove all intents with this domain prefix from the router
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&namespace_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", namespace_id)))?;
+    router.remove_domain_description(&req.domain);
+    // Remove all intents with this domain prefix
     let prefix = format!("{}:", req.domain);
-    {
-        let mut routers = state.routers.write().unwrap();
-        if let Some(router) = routers.get_mut(&namespace_id) {
-            let to_remove: Vec<String> = router.intent_ids()
-                .into_iter()
-                .filter(|id| id.starts_with(&prefix))
-                .collect();
-            for id in to_remove {
-                router.remove_intent(&id);
-            }
-            maybe_persist(&state, &namespace_id, router);
-        }
+    let to_remove: Vec<String> = router.intent_ids()
+        .into_iter()
+        .filter(|id| id.starts_with(&prefix))
+        .collect();
+    for id in to_remove {
+        router.remove_intent(&id);
     }
-    // Remove the domain folder from disk
+    maybe_persist(&state, &namespace_id, router);
+    // Remove the domain folder from disk (save_to_dir cleanup handles intent files;
+    // the folder itself is removed here so empty domain dirs don't linger)
     if let Some(ref dir) = state.data_dir {
         let _ = std::fs::remove_dir_all(format!("{}/{}/{}", dir, namespace_id, req.domain));
     }
@@ -262,18 +219,10 @@ pub async fn update_domain(
     Json(req): Json<UpdateDomainRequest>,
 ) -> Json<serde_json::Value> {
     let namespace_id = app_id_from_headers(&headers);
-    state.domain_descriptions.write().unwrap()
-        .entry(namespace_id.clone())
-        .or_default()
-        .insert(req.domain.clone(), req.description.clone());
-    if let Some(ref dir) = state.data_dir {
-        let domain_dir = format!("{}/{}/{}", dir, namespace_id, req.domain);
-        std::fs::create_dir_all(&domain_dir).ok();
-        let meta = serde_json::json!({"description": req.description});
-        let _ = std::fs::write(
-            format!("{}/_domain.json", domain_dir),
-            serde_json::to_string_pretty(&meta).unwrap_or_default(),
-        );
+    let mut routers = state.routers.write().unwrap();
+    if let Some(router) = routers.get_mut(&namespace_id) {
+        router.set_domain_description(&req.domain, &req.description);
+        maybe_persist(&state, &namespace_id, router);
     }
     Json(serde_json::json!({"updated": req.domain}))
 }

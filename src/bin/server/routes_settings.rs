@@ -1,12 +1,11 @@
 //! Settings: reset, defaults, export/import, languages, analytics data.
 
 use axum::{
-    extract::{State, Query},
+    extract::State,
     http::{StatusCode, HeaderMap},
     routing::{get, post, delete},
     Json,
 };
-use std::collections::HashMap;
 use asv_router::{Router, IntentType};
 use crate::state::*;
 
@@ -17,11 +16,6 @@ pub fn routes() -> axum::Router<AppState> {
         .route("/api/export", get(export_state))
         .route("/api/import", post(import_state))
         .route("/api/languages", get(get_languages))
-        .route("/api/co_occurrence", get(get_co_occurrence))
-        .route("/api/projections", get(get_projections))
-        .route("/api/workflows", get(get_workflows))
-        .route("/api/temporal_order", get(get_temporal_order))
-        .route("/api/escalation_patterns", get(get_escalation_patterns))
 }
 
 pub async fn reset(State(state): State<AppState>, headers: HeaderMap) -> StatusCode {
@@ -445,173 +439,4 @@ pub async fn get_languages() -> Json<serde_json::Value> {
     Json(val)
 }
 
-// --- Co-occurrence ---
-
-pub async fn get_co_occurrence(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
-    let app_id = app_id_from_headers(&headers);
-    let routers = state.routers.read().unwrap();
-    let router = match routers.get(&app_id) {
-        Some(r) => r,
-        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
-    };
-    let pairs = router.get_co_occurrence();
-    let out: Vec<serde_json::Value> = pairs.iter().map(|(a, b, count)| {
-        serde_json::json!({"a": a, "b": b, "count": count})
-    }).collect();
-    Json(serde_json::json!(out))
-}
-
-// --- Workflows: emergent cluster discovery ---
-
-#[derive(serde::Deserialize)]
-pub struct WorkflowQuery {
-    #[serde(default = "default_min_obs")]
-    min_observations: u32,
-}
-pub fn default_min_obs() -> u32 { 3 }
-
-pub async fn get_workflows(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Query(params): Query<WorkflowQuery>,
-) -> Json<serde_json::Value> {
-    let app_id = app_id_from_headers(&headers);
-    let routers = state.routers.read().unwrap();
-    let router = match routers.get(&app_id) {
-        Some(r) => r,
-        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
-    };
-    let workflows = router.discover_workflows(params.min_observations);
-    let out: Vec<serde_json::Value> = workflows.iter().map(|cluster| {
-        let intents: Vec<serde_json::Value> = cluster.iter().map(|wi| {
-            serde_json::json!({
-                "id": wi.id,
-                "connections": wi.connections,
-                "neighbors": wi.neighbors,
-            })
-        }).collect();
-        serde_json::json!({"intents": intents, "size": cluster.len()})
-    }).collect();
-    Json(serde_json::json!({"workflows": out, "count": out.len()}))
-}
-
-// --- Temporal ordering ---
-
-pub async fn get_temporal_order(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
-    let app_id = app_id_from_headers(&headers);
-    let routers = state.routers.read().unwrap();
-    let router = match routers.get(&app_id) {
-        Some(r) => r,
-        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
-    };
-    let order = router.get_temporal_order();
-    let out: Vec<serde_json::Value> = order.iter().map(|(first, second, prob, count)| {
-        serde_json::json!({
-            "first": first,
-            "second": second,
-            "probability": (prob * 100.0).round() / 100.0,
-            "count": count,
-        })
-    }).collect();
-    Json(serde_json::json!(out))
-}
-
-// --- Escalation patterns ---
-
-#[derive(serde::Deserialize)]
-pub struct EscalationQuery {
-    #[serde(default = "default_min_occ")]
-    min_occurrences: u32,
-}
-pub fn default_min_occ() -> u32 { 2 }
-
-pub async fn get_escalation_patterns(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Query(params): Query<EscalationQuery>,
-) -> Json<serde_json::Value> {
-    let app_id = app_id_from_headers(&headers);
-    let routers = state.routers.read().unwrap();
-    let router = match routers.get(&app_id) {
-        Some(r) => r,
-        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
-    };
-    let patterns = router.detect_escalation_patterns(params.min_occurrences);
-    let out: Vec<serde_json::Value> = patterns.iter().map(|p| {
-        serde_json::json!({
-            "sequence": p.sequence,
-            "occurrences": p.occurrences,
-            "frequency": (p.frequency * 1000.0).round() / 1000.0,
-        })
-    }).collect();
-    Json(serde_json::json!({"patterns": out, "count": out.len()}))
-}
-
-// --- Projections: full action → context map ---
-
-pub async fn get_projections(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
-    let app_id = app_id_from_headers(&headers);
-    let routers = state.routers.read().unwrap();
-    let router = match routers.get(&app_id) {
-        Some(r) => r,
-        None => return Json(serde_json::json!({"error": format!("app '{}' not found", app_id)})),
-    };
-    let co_pairs = router.get_co_occurrence();
-    let ids = router.intent_ids();
-
-    // Build adjacency and totals
-    let mut adj: HashMap<String, HashMap<String, u32>> = HashMap::new();
-    let mut totals: HashMap<String, u32> = HashMap::new();
-    for &(a, b, count) in &co_pairs {
-        adj.entry(a.to_string()).or_default().insert(b.to_string(), count);
-        adj.entry(b.to_string()).or_default().insert(a.to_string(), count);
-        *totals.entry(a.to_string()).or_default() += count;
-        *totals.entry(b.to_string()).or_default() += count;
-    }
-
-    let mut projections: Vec<serde_json::Value> = Vec::new();
-    for id in &ids {
-        if router.get_intent_type(id) != asv_router::IntentType::Action {
-            continue;
-        }
-        let total = totals.get(id.as_str()).copied().unwrap_or(0);
-        if total == 0 {
-            continue;
-        }
-        let neighbors = match adj.get(id.as_str()) {
-            Some(n) => n,
-            None => continue,
-        };
-        let mut context: Vec<serde_json::Value> = neighbors.iter()
-            .filter(|(nid, _)| router.get_intent_type(nid) == asv_router::IntentType::Context)
-            .map(|(nid, &count)| {
-                let strength = count as f64 / total as f64;
-                serde_json::json!({
-                    "id": nid,
-                    "count": count,
-                    "strength": (strength * 100.0).round() / 100.0
-                })
-            })
-            .filter(|v| v["strength"].as_f64().unwrap_or(0.0) >= 0.1)
-            .collect();
-        context.sort_by(|a, b| {
-            b["strength"].as_f64().unwrap_or(0.0)
-                .partial_cmp(&a["strength"].as_f64().unwrap_or(0.0))
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        if !context.is_empty() {
-            projections.push(serde_json::json!({
-                "action": id,
-                "total_co_occurrences": total,
-                "projected_context": context,
-            }));
-        }
-    }
-    projections.sort_by(|a, b| {
-        b["total_co_occurrences"].as_u64().unwrap_or(0)
-            .cmp(&a["total_co_occurrences"].as_u64().unwrap_or(0))
-    });
-
-    Json(serde_json::json!(projections))
-}
 

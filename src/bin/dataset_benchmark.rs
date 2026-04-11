@@ -18,11 +18,6 @@ struct Example {
     intents: Vec<String>,
 }
 
-#[derive(serde::Deserialize)]
-struct Dialogue {
-    intent_sequence: Vec<String>,
-}
-
 fn main() {
     println!("╔══════════════════════════════════════════════════════════╗");
     println!("║     ASV Router — Multi-Dataset Benchmark Suite          ║");
@@ -62,14 +57,6 @@ fn main() {
         "Bitext",
     );
 
-    // === 4. SGD Workflow Discovery ===
-    println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("  BENCHMARK 4: SGD (Workflow Discovery, 34 intents)");
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-    run_workflow_benchmark(
-        &format!("{}/sgd_dialogues.json", base),
-        "SGD",
-    );
 }
 
 fn load_seeds(path: &str) -> HashMap<String, Vec<String>> {
@@ -80,11 +67,6 @@ fn load_seeds(path: &str) -> HashMap<String, Vec<String>> {
 fn load_examples(path: &str) -> Vec<Example> {
     let data = std::fs::read_to_string(path).expect("failed to read examples");
     serde_json::from_str(&data).expect("failed to parse examples")
-}
-
-fn load_dialogues(path: &str) -> Vec<Dialogue> {
-    let data = std::fs::read_to_string(path).expect("failed to read dialogues");
-    serde_json::from_str(&data).expect("failed to parse dialogues")
 }
 
 fn build_router(seeds: &HashMap<String, Vec<String>>) -> Router {
@@ -253,114 +235,3 @@ fn run_single_intent_benchmark(seeds_path: &str, test_path: &str, _name: &str) {
     }
 }
 
-fn run_workflow_benchmark(dialogues_path: &str, _name: &str) {
-    let dialogues = load_dialogues(dialogues_path);
-
-    // Collect all intents from dialogue sequences
-    let mut all_intents: HashSet<String> = HashSet::new();
-    for d in &dialogues {
-        for intent in &d.intent_sequence {
-            all_intents.insert(intent.clone());
-        }
-    }
-
-    println!("  Dialogues: {} | Unique intents: {}", dialogues.len(), all_intents.len());
-    let multi = dialogues.iter().filter(|d| d.intent_sequence.len() >= 2).count();
-    println!("  Multi-intent dialogues: {} ({:.0}%)\n", multi, multi as f32 / dialogues.len() as f32 * 100.0);
-
-    // Build router and feed sequences
-    let mut router = Router::new();
-
-    // Create intents with placeholder phrases (we only need the sequence tracking)
-    for intent in &all_intents {
-        router.add_intent(intent, &[intent.as_str()]);
-    }
-
-    // Feed all dialogue sequences
-    let t0 = Instant::now();
-    for d in &dialogues {
-        if d.intent_sequence.len() >= 2 {
-            let refs: Vec<&str> = d.intent_sequence.iter().map(|s| s.as_str()).collect();
-            router.record_intent_sequence(&refs);
-        }
-    }
-    let feed_us = t0.elapsed().as_micros();
-    println!("  Sequence recording: {} µs ({:.1} µs/dialogue)\n", feed_us, feed_us as f64 / dialogues.len() as f64);
-
-    // --- Ground truth: count actual transitions ---
-    let mut ground_truth: HashMap<(String, String), u32> = HashMap::new();
-    for d in &dialogues {
-        for i in 0..d.intent_sequence.len().saturating_sub(1) {
-            let key = (d.intent_sequence[i].clone(), d.intent_sequence[i + 1].clone());
-            *ground_truth.entry(key).or_insert(0) += 1;
-        }
-    }
-
-    // --- Temporal ordering results ---
-    println!("  --- Temporal Ordering (top 15) ---\n");
-    let order = router.get_temporal_order();
-    let mut tp = 0;  // true positives: ASV found a transition that exists in ground truth
-    let mut total_found = 0;
-    for (first, second, prob, count) in &order {
-        if *count >= 5 {
-            let gt_count = ground_truth.get(&(first.to_string(), second.to_string())).copied().unwrap_or(0);
-            let match_str = if gt_count > 0 { format!("GT={}", gt_count) } else { "NOT IN GT".to_string() };
-            if total_found < 15 {
-                println!("    {} → {}  (P={:.0}%, n={}, {})", first, second, prob * 100.0, count, match_str);
-            }
-            total_found += 1;
-            if gt_count > 0 { tp += 1; }
-        }
-    }
-    let temporal_precision = if total_found > 0 { tp as f32 / total_found as f32 * 100.0 } else { 0.0 };
-    println!("\n    Temporal ordering precision: {}/{} = {:.1}% (matches ground truth transitions)", tp, total_found, temporal_precision);
-
-    // --- Workflow clusters ---
-    println!("\n  --- Discovered Workflow Clusters (min 10 co-occurrences) ---\n");
-    let workflows = router.discover_workflows(10);
-    println!("    Found {} clusters", workflows.len());
-    for (i, cluster) in workflows.iter().enumerate().take(5) {
-        let ids: Vec<&str> = cluster.iter().map(|w| w.id.as_str()).collect();
-        println!("    Cluster {} ({} intents): {:?}", i + 1, cluster.len(), ids);
-    }
-
-    // --- Escalation patterns ---
-    println!("\n  --- Top Escalation Patterns (min 20 occurrences) ---\n");
-    let patterns = router.detect_escalation_patterns(20);
-    let mut shown = 0;
-    for p in &patterns {
-        if p.sequence.len() >= 2 && shown < 15 {
-            let gt_match = if p.sequence.len() == 2 {
-                ground_truth.get(&(p.sequence[0].clone(), p.sequence[1].clone()))
-                    .map(|c| format!("GT={}", c))
-                    .unwrap_or("no direct GT".to_string())
-            } else {
-                "compound".to_string()
-            };
-            println!("    {} ({}x, {:.1}% of traffic, {})",
-                p.sequence.join(" → "), p.occurrences, p.frequency * 100.0, gt_match);
-            shown += 1;
-        }
-    }
-
-    // --- Proactive suggestions validation ---
-    println!("\n  --- Suggestion Quality ---\n");
-    // For each intent, check if suggestions match actual co-occurrence from ground truth
-    let mut suggestion_hits = 0;
-    let mut suggestion_total = 0;
-    for intent in all_intents.iter().take(20) {
-        let suggestions = router.suggest_intents(&[intent.as_str()], 5, 0.1);
-        for s in &suggestions {
-            suggestion_total += 1;
-            // Check if this suggestion reflects a real ground truth transition
-            let has_gt = ground_truth.contains_key(&(intent.clone(), s.id.clone()))
-                || ground_truth.contains_key(&(s.id.clone(), intent.clone()));
-            if has_gt {
-                suggestion_hits += 1;
-            }
-        }
-    }
-    let suggestion_precision = if suggestion_total > 0 { suggestion_hits as f32 / suggestion_total as f32 * 100.0 } else { 0.0 };
-    println!("    Suggestions that match ground truth transitions: {}/{} = {:.1}%",
-        suggestion_hits, suggestion_total, suggestion_precision);
-}

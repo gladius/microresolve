@@ -145,25 +145,6 @@ impl Router {
             // Intents only in `other` are skipped — no seed layer here to anchor them
         }
 
-        // Merge co-occurrence (additive)
-        for ((a, b), &count) in &other.co_occurrence {
-            *self.co_occurrence.entry((a.clone(), b.clone())).or_insert(0) += count;
-        }
-
-        // Merge temporal ordering (additive)
-        for ((a, b), &count) in &other.temporal_order {
-            *self.temporal_order.entry((a.clone(), b.clone())).or_insert(0) += count;
-        }
-
-        // Merge intent sequences (append, cap at 1000)
-        for seq in &other.intent_sequences {
-            self.intent_sequences.push(seq.clone());
-        }
-        if self.intent_sequences.len() > 1000 {
-            let excess = self.intent_sequences.len() - 1000;
-            self.intent_sequences.drain(0..excess);
-        }
-
         // Merge paraphrase phrases (keep existing if conflict, add new)
         for (phrase, (intent_id, weight)) in &other.paraphrase_phrases {
             self.paraphrase_phrases
@@ -198,7 +179,7 @@ impl Router {
     /// Only includes intents that have learned weights.
     /// Much smaller than full export — just the delta from seed state.
     pub fn export_learned_only(&self) -> String {
-        let learned: HashMap<&str, &HashMap<String, f32>> = self.vectors.iter()
+        let learned: HashMap<&str, HashMap<String, f32>> = self.vectors.iter()
             .filter(|(_, v)| v.has_learned())
             .map(|(id, v)| (id.as_str(), v.learned_terms()))
             .collect();

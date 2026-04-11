@@ -55,7 +55,7 @@ fn check_and_apply(
     versions: &Arc<RwLock<HashMap<String, u64>>>,
 ) -> Result<bool, String> {
     let url = format!("{}/api/sync?version={}", config.server_url, local_version);
-    let mut req = client.get(&url).header("X-App-ID", app_id);
+    let mut req = client.get(&url).header("X-Namespace-ID", app_id);
     if let Some(ref key) = config.api_key {
         req = req.header("X-Api-Key", key);
     }

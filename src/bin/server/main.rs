@@ -83,7 +83,7 @@ async fn main() {
         println!("LLM API key: not set (LLM features disabled)");
     }
 
-    // Initialize routers
+    // Initialize routers from namespace directories
     let mut routers = HashMap::new();
 
     if let Some(ref dir) = data_dir {
@@ -94,34 +94,12 @@ async fn main() {
                 if name.starts_with('_') { continue; }
 
                 if path.is_dir() {
-                    // New format: namespace is a folder containing _router.json
-                    let router_path = path.join("_router.json");
-                    if let Ok(json) = std::fs::read_to_string(&router_path) {
-                        match Router::import_json(&json) {
-                            Ok(r) => {
-                                println!("Loaded namespace: {}", name);
-                                routers.insert(name.to_string(), r);
-                            }
-                            Err(e) => eprintln!("Failed to load {}: {}", name, e),
+                    match Router::load_from_dir(&path) {
+                        Ok(r) => {
+                            println!("Loaded namespace: {}", name);
+                            routers.insert(name.to_string(), r);
                         }
-                    } else {
-                        // Folder exists but no _router.json — empty namespace
-                        routers.insert(name.to_string(), Router::new());
-                    }
-                } else if path.extension().map(|e| e == "json").unwrap_or(false) {
-                    // Migration: old flat {ns}.json format
-                    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-                    if stem.starts_with('_') { continue; }
-                    if routers.contains_key(stem) { continue; } // folder already loaded
-                    if let Ok(json) = std::fs::read_to_string(&path) {
-                        match Router::import_json(&json) {
-                            Ok(r) => {
-                                println!("Loaded namespace (legacy): {}", stem);
-                                routers.insert(stem.to_string(), r);
-                                // Will migrate to folder structure on next persist
-                            }
-                            Err(e) => eprintln!("Failed to load {}: {}", stem, e),
-                        }
+                        Err(e) => eprintln!("Failed to load namespace {}: {}", name, e),
                     }
                 }
             }
@@ -132,7 +110,6 @@ async fn main() {
     routers.entry("default".to_string()).or_insert_with(Router::new);
 
     let log_store = LogStore::new(data_dir.as_deref());
-    let meta = data_dir.as_deref().map(load_metadata).unwrap_or_default();
     let ui_settings = data_dir.as_deref().map(load_ui_settings).unwrap_or_default();
 
     let state: AppState = Arc::new(ServerState {
@@ -142,8 +119,6 @@ async fn main() {
         http: reqwest::Client::new(),
         llm_key,
         review_mode: RwLock::new("manual".to_string()),
-        namespace_descriptions: RwLock::new(meta.namespace_descriptions),
-        domain_descriptions: RwLock::new(meta.domain_descriptions),
         ui_settings: RwLock::new(ui_settings),
     });
 

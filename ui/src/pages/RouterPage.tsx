@@ -218,7 +218,11 @@ function MessageBubble({ msg, onApplySuggestion }: {
 
       {/* Timing */}
       <div className="text-zinc-600 text-xs pl-2">
-        {confirmed.length} confirmed{candidates.length > 0 ? `, ${candidates.length} candidates` : ''} ({latency.toFixed(0)}ms)
+        {confirmed.length} confirmed{candidates.length > 0 ? `, ${candidates.length} candidates` : ''}{' '}
+        <span className="text-zinc-700">·</span>{' '}
+        <span className="text-emerald-700" title="library routing time">router {result.routing_us != null ? (result.routing_us < 1000 ? `${result.routing_us}µs` : `${(result.routing_us / 1000).toFixed(1)}ms`) : '—'}</span>
+        <span className="text-zinc-700"> · </span>
+        <span title="HTTP round trip">http {latency.toFixed(0)}ms</span>
       </div>
 
       {/* Relations */}
