@@ -177,6 +177,8 @@ pub struct AddIntentMultilingualRequest {
     #[serde(default)]
     intent_type: Option<IntentType>,
     #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
     metadata: Option<HashMap<String, Vec<String>>>,
 }
 
@@ -194,6 +196,11 @@ pub async fn add_intent_multilingual(
     router.add_intent_multilingual(&req.id, req.phrases_by_lang);
     if let Some(t) = req.intent_type {
         router.set_intent_type(&req.id, t);
+    }
+    if let Some(desc) = req.description {
+        if !desc.is_empty() {
+            router.set_description(&req.id, &desc);
+        }
     }
     if let Some(meta) = req.metadata {
         for (key, values) in meta {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import { api, type ReviewItem, type ReviewAnalyzeResult } from '@/api/client';
+import { useAppStore } from '@/store';
 
 interface PhraseEntry { phrase: string; lang: string; }
 interface IntentBlock { intentId: string; phrases: PhraseEntry[]; }
@@ -87,9 +88,8 @@ function FailureDetail({ item, intents, onAction }: { item: ReviewItem; intents:
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<ReviewAnalyzeResult | null>(null);
   const [wrongSeeds, setWrongSeeds] = useState<Record<string, string[]>>({});
-  const [enabledLangs] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('asv_languages') || '["en"]'); } catch { return ['en']; }
-  });
+  const { settings: reviewSettings } = useAppStore();
+  const enabledLangs = reviewSettings.languages;
 
   // Editable phrases (from analysis)
   const [blocks, setBlocks] = useState<IntentBlock[]>([]);

@@ -121,10 +121,12 @@ pub async fn call_llm(
 pub struct PhrasePipelineResult {
     /// Phrases that were successfully added: (intent_id, phrase)
     pub added: Vec<(String, String)>,
-    /// Phrases permanently blocked after retry: (intent_id, phrase, reason)
+    /// Phrases permanently blocked after all retry rounds: (intent_id, phrase, reason)
     pub blocked: Vec<(String, String, String)>,
-    /// How many phrases were retried via LLM
-    pub retried: usize,
+    /// How many phrases initially hit the collision guard
+    pub initially_blocked: usize,
+    /// How many of those were rescued by retry (added via alternative phrase)
+    pub recovered_by_retry: usize,
     /// LLM-suggested alternatives for user-edited phrases (when auto_apply=false)
     pub suggestions: Vec<(String, String)>, // (intent_id, suggested_phrase)
 }
@@ -177,60 +179,67 @@ pub async fn phrase_pipeline(
         }
     }
 
-    // Step 2: If any collisions and LLM available, one retry
-    let mut retried = 0;
+    // Steps 2+3: Up to 2 retry rounds for collisions — each round generates 3 alternatives
+    // per blocked phrase, giving more chances to escape a crowded intent space.
+    let initially_blocked = blocked_for_retry.len();
+    let added_before_retry = added.len();
     let mut suggestions = Vec::new();
+    let mut still_blocked = blocked_for_retry;
 
-    if !blocked_for_retry.is_empty() && state.llm_key.is_some() {
-        let blocked_desc: String = blocked_for_retry.iter()
+    for _round in 0..2 {
+        if still_blocked.is_empty() || state.llm_key.is_none() { break; }
+
+        let blocked_desc: String = still_blocked.iter()
             .map(|(intent, phrase, reason)| format!("  \"{}\" → {}: {}", phrase, intent, reason))
             .collect::<Vec<_>>().join("\n");
 
         let retry_prompt = format!(
-            "These training phrases were REJECTED by the collision guard:\n{}\n\n\
-             The guard blocks phrases containing terms that are exclusive to other intents.\n\
-             For each rejected phrase, suggest ONE alternative that:\n\
-             - Avoids the specific conflicting terms mentioned above\n\
-             - Uses completely different vocabulary\n\
-             - Still captures the same meaning\n\n\
+            "These training phrases were REJECTED by a collision guard:\n{}\n\n\
+             The guard blocks phrases whose terms are exclusive to a competing intent.\n\
+             For each rejected phrase, suggest 3 alternatives that:\n\
+             - Use completely different vocabulary (avoid ALL terms flagged above)\n\
+             - Still express the same user intent\n\
+             - Are diverse from each other\n\n\
              {}\n\n\
-             Respond with ONLY JSON:\n\
-             {{\"phrases_by_intent\": {{\"intent_name\": [\"alternative_phrase\"]}}}}\n",
+             Respond with ONLY valid JSON:\n\
+             {{\"phrases_by_intent\": {{\"intent_name\": [\"alt1\", \"alt2\", \"alt3\"]}}}}\n",
             blocked_desc, asv_router::phrase::PHRASE_QUALITY_RULES
         );
 
-        retried = blocked_for_retry.len();
+        let mut next_blocked: Vec<(String, String, String)> = Vec::new();
 
-        if let Ok(response) = call_llm(state, &retry_prompt, 500).await {
+        if let Ok(response) = call_llm(state, &retry_prompt, 1500).await {
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
                 if let Some(sbi) = parsed.get("phrases_by_intent").and_then(|v| v.as_object()) {
                     let mut routers = state.routers.write().unwrap();
                     if let Some(router) = routers.get_mut(app_id) {
                         for (intent_id, phrases) in sbi {
                             if let Some(arr) = phrases.as_array() {
+                                let mut any_passed = false;
                                 for phrase in arr {
                                     if let Some(s) = phrase.as_str() {
                                         if auto_apply_retry {
                                             let result = router.add_phrase_checked(intent_id, s, lang);
                                             if result.added {
                                                 added.push((intent_id.clone(), s.to_string()));
-                                            } else {
-                                                // Retry also blocked — give up on this one
+                                                any_passed = true;
+                                            } else if !any_passed {
+                                                // All alternatives so far blocked — carry forward for next round
                                                 let reason = if !result.conflicts.is_empty() {
                                                     result.conflicts.iter()
                                                         .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
                                                         .collect::<Vec<_>>().join("; ")
                                                 } else {
-                                                    result.warning.unwrap_or("still blocked".to_string())
+                                                    result.warning.clone().unwrap_or_else(|| "still blocked".to_string())
                                                 };
-                                                blocked_final.push((intent_id.clone(), s.to_string(), reason));
+                                                next_blocked.push((intent_id.clone(), s.to_string(), reason));
                                             }
                                         } else {
-                                            // Return as suggestion for user approval
                                             suggestions.push((intent_id.clone(), s.to_string()));
                                         }
                                     }
                                 }
+                                if any_passed { next_blocked.retain(|(id, _, _)| id != intent_id); }
                             }
                         }
                         if auto_apply_retry && !added.is_empty() {
@@ -240,12 +249,18 @@ pub async fn phrase_pipeline(
                 }
             }
         }
-    } else {
-        // No LLM available — blocked phrases are final
-        blocked_final.extend(blocked_for_retry);
+
+        // Deduplicate next_blocked (keep one per intent)
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        next_blocked.retain(|(id, _, _)| seen.insert(id.clone()));
+        still_blocked = next_blocked;
     }
 
-    PhrasePipelineResult { added, blocked: blocked_final, retried, suggestions }
+    // Anything still blocked after 2 rounds is final
+    blocked_final.extend(still_blocked);
+
+    let recovered_by_retry = added.len().saturating_sub(added_before_retry);
+    PhrasePipelineResult { added, blocked: blocked_final, initially_blocked, recovered_by_retry, suggestions }
 }
 
 // --- Shared full review: 3 turns + guard + apply ---

@@ -9,8 +9,6 @@ const links = [
   { to: '/studio',       label: 'Studio' },
   { to: '/review',       label: 'Review' },
   { to: '/import',       label: 'Import' },
-  { to: '/insights',     label: 'Insights' },
-  { to: '/auto-improve', label: 'Auto-Improve' },
   { to: '/settings',     label: 'Settings' },
 ];
 

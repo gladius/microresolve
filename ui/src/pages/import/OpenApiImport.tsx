@@ -2,6 +2,9 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
 import ImportBreadcrumb from './ImportBreadcrumb';
+import GenerationPlan from './GenerationPlan';
+import { ImportReport } from './ImportReport';
+import type { ImportResult } from './ImportReport';
 
 interface ParsedOperation {
   id: string; name: string; method: string; path: string;
@@ -15,10 +18,6 @@ interface ParseResult {
   total_operations: number; tags: string[]; operations: ParsedOperation[];
 }
 
-interface ImportResult {
-  title: string; imported: number; phrases_added: number;
-  phrases_blocked: number; intents: string[];
-}
 
 export default function OpenApiImport() {
   const navigate = useNavigate();
@@ -56,7 +55,7 @@ export default function OpenApiImport() {
     if (!rawSpec || selected.size === 0) return;
     setImporting(true); setError('');
     try {
-      const res = await fetch('/api/import/apply', { method: 'POST', headers, body: JSON.stringify({ spec: rawSpec, selected: Array.from(selected), domain: currentDomain, languages }) });
+      const res = await fetch('/api/import/apply', { method: 'POST', headers, body: JSON.stringify({ spec: rawSpec, selected: Array.from(selected), domain: currentDomain }) });
       if (!res.ok) throw new Error(await res.text());
       setResult(await res.json());
     } catch (e) { setError(e instanceof Error ? e.message : 'Import failed'); }
@@ -134,38 +133,11 @@ export default function OpenApiImport() {
               </label>
             ))}
           </div>
-          {/* Token estimate */}
-          {!importing && selected.size > 0 && (() => {
-            const langs = (() => { try { return JSON.parse(localStorage.getItem('asv_languages') || '["en"]'); } catch { return ['en']; } })() as string[];
-            const totalTokens = selected.size * 450 * langs.length;
-            return (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500">Estimated tokens</span>
-                  <span className="text-white font-mono">~{Math.round((totalTokens * 1.3) / 1000)}K tokens</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500">Languages</span>
-                  <span className="text-violet-400">{langs.map((l: string) => l.toUpperCase()).join(', ')}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500">Phrases per operation</span>
-                  <span className="text-zinc-400">10 × {langs.length} lang{langs.length > 1 ? 's' : ''}</span>
-                </div>
-                {langs.length > 1 && (
-                  <div className="text-[10px] text-amber-400">Multi-language: {langs.length}x tokens</div>
-                )}
-                <div className="text-[10px] text-zinc-600">Update languages in Settings → Languages</div>
-              </div>
-            );
-          })()}
+          {selected.size > 0 && (
+            <GenerationPlan numTools={selected.size} languages={languages} importing={importing} />
+          )}
           <div className="flex items-center justify-between pt-2">
-            {importing ? (
-              <div className="flex items-center gap-3 text-xs text-violet-400">
-                <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-                Generating phrases with AI... {Math.ceil(selected.size / 10) * 10}-{Math.ceil(selected.size / 10) * 20}s estimated.
-              </div>
-            ) : <div className="text-xs text-zinc-500">Collision guard active</div>}
+            {!importing && <div className="text-xs text-zinc-500">Collision guard active</div>}
             <button onClick={handleImport} disabled={importing || selected.size === 0}
               className="px-5 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30 shrink-0">
               {importing ? 'Importing...' : `Import ${selected.size} Operations`}
@@ -175,24 +147,11 @@ export default function OpenApiImport() {
       )}
 
       {result && (
-        <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-white font-semibold">{result.title}</div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-emerald-400">{result.imported}</div>
-              <div className="text-xs text-zinc-500">intents created</div>
-            </div>
-          </div>
-          <div className="flex gap-4 text-xs">
-            <div><span className="text-emerald-400 font-semibold">{result.phrases_added}</span> <span className="text-zinc-500">phrases added</span></div>
-            {result.phrases_blocked > 0 && <div><span className="text-amber-400 font-semibold">{result.phrases_blocked}</span> <span className="text-zinc-500">blocked</span></div>}
-          </div>
-          <div className="flex gap-3 pt-3 border-t border-zinc-700">
-            <button onClick={() => navigate('/intents')} className="px-4 py-2 text-sm bg-violet-600 text-white rounded hover:bg-violet-500">View Intents →</button>
-            <button onClick={() => { setParsed(null); setResult(null); setRawSpec(''); setSpecUrl(''); }}
-              className="px-4 py-2 text-sm border border-zinc-700 text-zinc-400 rounded hover:text-white">Import more</button>
-          </div>
-        </div>
+        <ImportReport
+          result={result}
+          onViewIntents={() => navigate('/intents')}
+          onImportMore={() => { setParsed(null); setResult(null); setRawSpec(''); setSpecUrl(''); }}
+        />
       )}
     </div>
   );

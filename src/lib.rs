@@ -59,7 +59,9 @@
 //! - You have 10K+ intents with heavy overlap
 //! - You need deep semantic multilingual matching (CJK supported via Aho-Corasick, but coverage depends on phrase quality)
 
+pub mod concept;
 pub mod discovery;
+pub mod semantic;
 pub mod import;
 pub mod connect;
 pub mod index;

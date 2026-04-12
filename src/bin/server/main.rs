@@ -24,6 +24,8 @@ mod routes_connect;
 mod routes_situation;
 mod routes_ui_settings;
 mod routes_events;
+mod routes_assembly;
+mod routes_semantic;
 mod worker;
 
 use state::*;
@@ -128,6 +130,9 @@ async fn main() {
         ui_settings: RwLock::new(ui_settings),
         event_tx,
         worker_notify: worker_notify.clone(),
+        semantic: RwLock::new(HashMap::new()),
+        semantic_nano: RwLock::new(HashMap::new()),
+        semantic_hier: RwLock::new(HashMap::new()),
     });
 
     // Spawn the background auto-learn worker
@@ -154,6 +159,8 @@ async fn main() {
         .merge(routes_situation::routes())
         .merge(routes_ui_settings::routes())
         .merge(routes_events::routes())
+        .merge(routes_assembly::routes())
+        .merge(routes_semantic::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 

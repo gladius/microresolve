@@ -20,13 +20,12 @@ export default function NamespacesPage() {
   const [loading, setLoading] = useState(true);
 
   // Per-row edit state
-  const [editing, setEditing] = useState<Record<string, { name: string; description: string; auto_learn: boolean }>>({});
+  const [editing, setEditing] = useState<Record<string, { description: string; auto_learn: boolean }>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
   // Create modal
   const [showModal, setShowModal] = useState(false);
   const [modalId, setModalId] = useState('');
-  const [modalName, setModalName] = useState('');
   const [modalDesc, setModalDesc] = useState('');
   const [modalError, setModalError] = useState('');
   const [modalBusy, setModalBusy] = useState(false);
@@ -41,7 +40,7 @@ export default function NamespacesPage() {
   const startEditing = (ns: NamespaceInfo) => {
     setEditing(prev => ({
       ...prev,
-      [ns.id]: { name: ns.name, description: ns.description, auto_learn: ns.auto_learn },
+      [ns.id]: { description: ns.description, auto_learn: ns.auto_learn },
     }));
   };
 
@@ -79,17 +78,18 @@ export default function NamespacesPage() {
     }
   };
 
-  const openModal = () => { setShowModal(true); setModalId(''); setModalName(''); setModalDesc(''); setModalError(''); };
-  const closeModal = () => { setShowModal(false); setModalId(''); setModalName(''); setModalDesc(''); setModalError(''); };
+  const openModal = () => { setShowModal(true); setModalId(''); setModalDesc(''); setModalError(''); };
+  const closeModal = () => { setShowModal(false); setModalId(''); setModalDesc(''); setModalError(''); };
 
   const submitModal = async () => {
     const id = modalId.trim();
     if (!id) return;
-    if (!/^[a-z0-9_-]+$/.test(id)) { setModalError('Lowercase letters, numbers, hyphens and underscores only.'); return; }
+    if (id.length > 40) { setModalError('Max 40 characters.'); return; }
+    if (!/^[a-z0-9_-]+$/.test(id)) { setModalError('Lowercase letters, digits, hyphens and underscores only.'); return; }
     setModalBusy(true);
     setModalError('');
     try {
-      await api.createNamespace(id, modalName.trim(), modalDesc.trim());
+      await api.createNamespace(id, '', modalDesc.trim());
       closeModal();
       refresh();
     } catch (e) {
@@ -178,26 +178,15 @@ export default function NamespacesPage() {
                 {draft ? (
                   /* Edit form */
                   <div className="space-y-2.5 border border-zinc-700/50 rounded-lg p-3 bg-zinc-900/40">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-zinc-500 uppercase tracking-wide block mb-1">Display Name</label>
-                        <input
-                          autoFocus
-                          value={draft.name}
-                          onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, name: e.target.value } }))}
-                          placeholder="e.g. Billing Assistant"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-zinc-500 uppercase tracking-wide block mb-1">Description</label>
-                        <input
-                          value={draft.description}
-                          onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, description: e.target.value } }))}
-                          placeholder="What does this namespace handle?"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
-                        />
-                      </div>
+                    <div>
+                      <label className="text-[10px] text-zinc-500 uppercase tracking-wide block mb-1">Description</label>
+                      <input
+                        autoFocus
+                        value={draft.description}
+                        onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, description: e.target.value } }))}
+                        placeholder="What does this namespace handle?"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+                      />
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
@@ -208,9 +197,9 @@ export default function NamespacesPage() {
                           role="switch"
                           aria-checked={draft.auto_learn}
                           onClick={() => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, auto_learn: !draft.auto_learn } }))}
-                          className={`relative w-9 h-5 rounded-full transition-colors ${draft.auto_learn ? 'bg-emerald-500' : 'bg-zinc-700'}`}
+                          className={`relative w-10 h-6 rounded-full transition-colors ${draft.auto_learn ? 'bg-emerald-500' : 'bg-zinc-600'}`}
                         >
-                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${draft.auto_learn ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                          <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${draft.auto_learn ? 'translate-x-4' : 'translate-x-0'}`} />
                         </button>
                         <span className="text-xs text-zinc-300">Auto-learn</span>
                         <span className="text-xs text-zinc-600">
@@ -232,10 +221,7 @@ export default function NamespacesPage() {
                   </div>
                 ) : (
                   /* Read-only view */
-                  <div className="space-y-0.5 ml-0.5">
-                    {ns.name && (
-                      <div className="text-sm font-medium text-white">{ns.name}</div>
-                    )}
+                  <div className="ml-0.5">
                     <div className="text-xs text-zinc-500">
                       {ns.description || <span className="italic text-zinc-600">No description — click Edit to add one</span>}
                     </div>
@@ -268,15 +254,6 @@ export default function NamespacesPage() {
                 />
               </div>
               <div>
-                <label className="text-xs text-zinc-400 block mb-1">Display Name <span className="text-zinc-600">(optional)</span></label>
-                <input
-                  value={modalName}
-                  onChange={e => setModalName(e.target.value)}
-                  placeholder="Billing Assistant"
-                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
-                />
-              </div>
-              <div>
                 <label className="text-xs text-zinc-400 block mb-1">Description <span className="text-zinc-600">(optional)</span></label>
                 <input
                   value={modalDesc}
@@ -287,7 +264,7 @@ export default function NamespacesPage() {
               </div>
             </div>
             {modalError && <p className="text-xs text-red-400">{modalError}</p>}
-            <p className="text-[11px] text-zinc-600">ID: lowercase letters, numbers, hyphens and underscores only.</p>
+            <p className="text-[11px] text-zinc-600">Lowercase letters, digits, hyphens, underscores · max 40 chars.</p>
             <div className="flex gap-2 justify-end pt-1">
               <button onClick={closeModal} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
               <button

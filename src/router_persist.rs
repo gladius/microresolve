@@ -57,7 +57,7 @@ impl Router {
         &self.domain_descriptions
     }
 
-    /// Load a router from a namespace directory.
+/// Load a router from a namespace directory.
     ///
     /// Reads `_ns.json`, per-domain `_domain.json`, and per-intent `*.json` files.
     /// Phrases are re-ingested so the phrase vector is always fresh.

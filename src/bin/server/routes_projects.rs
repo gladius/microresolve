@@ -58,9 +58,17 @@ pub async fn create_namespace(
     State(state): State<AppState>,
     Json(req): Json<CreateNamespaceRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    // Validate: lowercase alphanumeric, hyphens, underscores; 1–40 chars
+    let id = &req.namespace_id;
+    if id.is_empty() || id.len() > 40 {
+        return Err((StatusCode::BAD_REQUEST, "namespace ID must be 1–40 characters".to_string()));
+    }
+    if !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-') {
+        return Err((StatusCode::BAD_REQUEST, "namespace ID must contain only lowercase letters, digits, hyphens, and underscores".to_string()));
+    }
     let mut routers = state.routers.write().unwrap();
-    if routers.contains_key(&req.namespace_id) {
-        return Err((StatusCode::CONFLICT, format!("namespace '{}' already exists", req.namespace_id)));
+    if routers.contains_key(id.as_str()) {
+        return Err((StatusCode::CONFLICT, format!("namespace '{}' already exists", id)));
     }
     let mut router = Router::new();
     router.set_namespace_description(&req.description);
@@ -178,6 +186,13 @@ pub async fn create_domain(
     headers: HeaderMap,
     Json(req): Json<CreateDomainRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let id = &req.domain;
+    if id.is_empty() || id.len() > 40 {
+        return Err((StatusCode::BAD_REQUEST, "domain ID must be 1–40 characters".to_string()));
+    }
+    if !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-') {
+        return Err((StatusCode::BAD_REQUEST, "domain ID must contain only lowercase letters, digits, hyphens, and underscores".to_string()));
+    }
     let namespace_id = app_id_from_headers(&headers);
     let mut routers = state.routers.write().unwrap();
     let router = routers.get_mut(&namespace_id)

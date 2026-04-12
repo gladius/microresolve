@@ -60,6 +60,14 @@ pub struct ServerState {
     pub event_tx: broadcast::Sender<StudioEvent>,
     /// Wakes the background auto-learn worker when new items are queued.
     pub worker_notify: Arc<Notify>,
+    /// Per-namespace MiniEncoder (word embeddings + projection layer, triplet + pair trained).
+    /// Built on demand via POST /api/semantic/build.
+    /// None = not built yet; queries fall back to BM25-only routing.
+    pub semantic: RwLock<HashMap<String, asv_router::semantic::MiniEncoder>>,
+    /// Per-namespace NanoEncoder (single-head self-attention, context-dependent).
+    pub semantic_nano: RwLock<HashMap<String, asv_router::semantic::NanoEncoder>>,
+    /// Per-namespace HierarchicalEncoder (L1 domain + L2 per-domain MiniEncoders).
+    pub semantic_hier: RwLock<HashMap<String, asv_router::semantic::HierarchicalEncoder>>,
 }
 
 pub type AppState = Arc<ServerState>;

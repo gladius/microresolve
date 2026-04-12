@@ -432,6 +432,21 @@ impl LogStore {
     }
 
     /// Stats for all apps.
+    /// Delete all log files and reset in-memory state.
+    pub fn clear_all(&mut self) {
+        if let Some(ref dir) = self.data_dir.clone() {
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.extension().map(|e| e == "bin").unwrap_or(false) {
+                        let _ = fs::remove_file(&p);
+                    }
+                }
+            }
+        }
+        self.apps.clear();
+    }
+
     pub fn stats(&self) -> Vec<serde_json::Value> {
         self.apps.iter().map(|(app_id, al)| {
             let total = al.index.len();

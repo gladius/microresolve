@@ -185,7 +185,8 @@ pub async fn review_fix(
         "status": "ok",
         "added": pipeline.added.len(),
         "blocked": blocked,
-        "retried": pipeline.retried,
+        "initially_blocked": pipeline.initially_blocked,
+        "recovered_by_retry": pipeline.recovered_by_retry,
         "auto_resolved": auto_resolved,
     })))
 }

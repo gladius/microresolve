@@ -296,7 +296,7 @@ Rules:
         turns = req.turns,
     );
 
-    let text = call_llm(&state, &prompt, 2048).await?;
+    let text = call_llm(&state, &prompt, 8192).await?;
 
     let json_str = text.find('{')
         .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))

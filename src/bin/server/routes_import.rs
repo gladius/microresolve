@@ -15,10 +15,73 @@ pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/import/parse", post(import_parse))
         .route("/api/import/apply", post(import_apply))
+        .route("/api/import/params", get(import_params))
         .route("/api/import/mcp/search", get(mcp_search))
         .route("/api/import/mcp/fetch", get(mcp_fetch))
         .route("/api/import/mcp/parse", post(mcp_parse))
         .route("/api/import/mcp/apply", post(mcp_apply))
+}
+
+/// Calculate optimal batch_size and max_tokens for LLM seed generation.
+///
+/// Formula (rigorous):
+///   phrases_per_intent  = 10
+///   tokens_per_phrase   = 10  (avg across en/zh: short cmds ~4, sentences ~15, avg ~10)
+///   json_overhead       = 30  (keys, brackets, commas per intent)
+///   tokens_per_intent   = num_langs × phrases_per_intent × tokens_per_phrase + json_overhead
+///                       = num_langs × 100 + 30
+///
+///   max_api_tokens  = 8192 (ALWAYS — never reduce; give full buffer for phrase variance)
+///   batch_size      = min(10, floor(8192 / tokens_per_intent))
+///                   — only reduces when num_langs is high enough that 10 intents
+///                     would genuinely exceed 8192 output tokens
+///
+/// Examples:
+///   2 langs:  tokens/intent=230, batch=10, expected=2300, buffer=+5892  ✓
+///   5 langs:  tokens/intent=530, batch=10, expected=5300, buffer=+2892  ✓
+///   10 langs: tokens/intent=1030, batch=7, expected=7210, buffer=+982   ✓
+///
+/// Returns (batch_size, max_tokens, tokens_per_tool).
+pub fn seed_gen_params(num_langs: usize) -> (usize, u32, u32) {
+    let n = num_langs.max(1) as u32;
+    let tokens_per_intent = n * 100 + 30; // num_langs × 10 phrases × 10 tokens + JSON overhead
+    let batch_size = ((8192 / tokens_per_intent) as usize).max(1).min(10);
+    let max_tokens = 8192; // always the API ceiling — phrase variance must never truncate
+    (batch_size, max_tokens, tokens_per_intent)
+}
+
+#[derive(serde::Deserialize)]
+pub struct ImportParamsQuery {
+    num_langs: usize,
+    #[serde(default = "default_tool_count")]
+    num_tools: usize,
+}
+fn default_tool_count() -> usize { 10 }
+
+/// GET /api/import/params?num_langs=N&num_tools=M
+/// Returns the generation plan so the UI can show the user exactly what will happen.
+pub async fn import_params(
+    Query(q): Query<ImportParamsQuery>,
+) -> Json<serde_json::Value> {
+    let (batch_size, max_tokens, tokens_per_tool) = seed_gen_params(q.num_langs);
+    let total_batches = (q.num_tools + batch_size - 1) / batch_size;
+    // Expected output per batch: batch_size tools × tokens_per_tool (max_tokens=8192 is the ceiling)
+    let expected_output_per_batch = batch_size as u32 * tokens_per_tool;
+    let total_output_tokens = total_batches as u32 * expected_output_per_batch;
+    // Input: ~300 tokens/tool (prompt context) + ~200 overhead per batch
+    let total_input_tokens = q.num_tools as u32 * 300 + total_batches as u32 * 200;
+    let total_tokens = total_input_tokens + total_output_tokens;
+
+    Json(serde_json::json!({
+        "batch_size": batch_size,
+        "max_tokens_per_call": max_tokens,
+        "tokens_per_tool": tokens_per_tool,
+        "total_batches": total_batches,
+        "total_output_tokens": total_output_tokens,
+        "total_input_tokens": total_input_tokens,
+        "total_tokens": total_tokens,
+        "phrases_per_tool": q.num_langs * 10,
+    }))
 }
 
 // ============================================================
@@ -159,9 +222,6 @@ pub struct ImportApplyRequest {
     /// Optional domain prefix — imported intent IDs become "domain:intent_name"
     #[serde(default)]
     domain: String,
-    /// Languages to generate seeds for (e.g. ["en", "zh", "es"])
-    #[serde(default)]
-    languages: Vec<String>,
 }
 
 pub async fn import_apply(
@@ -253,9 +313,15 @@ pub async fn import_apply(
     // Generate LLM seeds through shared pipeline in batches
     let mut total_added = 0usize;
     let mut total_blocked = 0usize;
+    let mut per_intent_added: HashMap<String, usize> = HashMap::new();
+    let mut per_intent_blocked: HashMap<String, usize> = HashMap::new();
+    let mut per_intent_recovered: HashMap<String, usize> = HashMap::new();
 
     if state.llm_key.is_some() {
-        for batch in selected_ops.chunks(10) {
+        let setting_langs = state.ui_settings.read().unwrap().languages.clone();
+        let (batch_size, max_tokens, _) = seed_gen_params(setting_langs.len());
+
+        for batch in selected_ops.chunks(batch_size) {
             let ops_desc: Vec<String> = batch.iter().map(|op| {
                 let base = asv_router::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
                 let intent_name = if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) };
@@ -277,25 +343,25 @@ pub async fn import_apply(
                 } else { String::new() }
             };
 
-            let langs: Vec<&str> = if req.languages.is_empty() {
-                vec!["en"]
-            } else {
-                req.languages.iter().map(|s| s.as_str()).collect()
-            };
+            let langs: Vec<&str> = setting_langs.iter().map(|s| s.as_str()).collect();
             let is_multilang = langs.len() > 1;
+
+            // Build an example using the first real intent name from this batch
+            let example_intent = {
+                let op = &batch[0];
+                let base = asv_router::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
+                if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) }
+            };
 
             let (lang_instruction, response_format) = if is_multilang {
                 let lang_list = langs.join(", ");
+                let lang_keys: String = langs.iter().map(|l| format!("\"{}\": [\"phrase1\", \"phrase2\"]", l)).collect::<Vec<_>>().join(", ");
                 (
                     format!("Generate training phrases in ALL of these languages: {}. Include phrases for EACH language.\n\n", lang_list),
-                    format!(
-                        "Respond with ONLY JSON:\n\
-                         {{\"phrases_by_intent\": {{\"intent_name\": {{\"{}\": [\"phrase1\", \"phrase2\"], \"{}\": [\"phrase1\", \"phrase2\"]}}}}}}\n",
-                        langs[0], langs.get(1).copied().unwrap_or("zh")
-                    ),
+                    format!("Respond with ONLY valid JSON (no extra text):\n{{\"phrases_by_intent\": {{\"{}\": {{{}}}}}}}\n", example_intent, lang_keys),
                 )
             } else {
-                (String::new(), "Respond with ONLY JSON:\n{\"phrases_by_intent\": {\"intent_name\": [\"phrase1\", \"phrase2\", \"phrase3\", \"phrase4\", \"phrase5\"]}}\n".to_string())
+                (String::new(), format!("Respond with ONLY valid JSON (no extra text):\n{{\"phrases_by_intent\": {{\"{}\": [\"phrase1\", \"phrase2\", \"phrase3\"]}}}}\n", example_intent))
             };
 
             let prompt = format!(
@@ -310,7 +376,7 @@ pub async fn import_apply(
                 lang_instruction, ops_desc.join("\n"), existing_seeds, asv_router::phrase::PHRASE_QUALITY_RULES, response_format
             );
 
-            if let Ok(response) = call_llm(&state, &prompt, 2000).await {
+            if let Ok(response) = call_llm(&state, &prompt, max_tokens).await {
                 if let Ok(seeds_json) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
                     if let Some(sbi) = seeds_json.get("phrases_by_intent").or_else(|| seeds_json.get("seeds_by_intent")).and_then(|v| v.as_object()) {
                         if is_multilang {
@@ -324,6 +390,11 @@ pub async fn import_apply(
                                     }).collect();
                                 if !lang_map.is_empty() {
                                     let result = phrase_pipeline(&state, &app_id, &lang_map, true, lang).await;
+                                    for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
+                                    for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
+                                    if result.recovered_by_retry > 0 {
+                                        *per_intent_recovered.entry(lang_map.keys().next().cloned().unwrap_or_default()).or_default() += result.recovered_by_retry;
+                                    }
                                     total_added += result.added.len();
                                     total_blocked += result.blocked.len();
                                 }
@@ -337,6 +408,8 @@ pub async fn import_apply(
                                     })
                                 }).collect();
                             let result = phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0]).await;
+                            for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
+                            for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
                             total_added += result.added.len();
                             total_blocked += result.blocked.len();
                         }
@@ -351,6 +424,13 @@ pub async fn import_apply(
         if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) }
     }).collect();
 
+    let per_intent: Vec<serde_json::Value> = intent_names.iter().map(|name| {
+        let added = per_intent_added.get(name).copied().unwrap_or(0);
+        let blocked = per_intent_blocked.get(name).copied().unwrap_or(0);
+        let recovered = per_intent_recovered.get(name).copied().unwrap_or(0);
+        serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
+    }).collect();
+
     Ok(Json(serde_json::json!({
         "title": parsed.title,
         "version": parsed.version,
@@ -358,6 +438,7 @@ pub async fn import_apply(
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
         "intents": intent_names,
+        "per_intent": per_intent,
     })))
 }
 
@@ -437,9 +518,6 @@ pub struct McpApplyRequest {
     /// Optional domain prefix — imported intent IDs become "domain:tool_name"
     #[serde(default)]
     domain: String,
-    /// Languages to generate seeds for (e.g. ["en", "zh", "es"])
-    #[serde(default)]
-    languages: Vec<String>,
 }
 
 /// Import selected MCP tools as intents with LLM seed generation.
@@ -526,9 +604,15 @@ pub async fn mcp_apply(
     // Generate LLM seeds through shared pipeline
     let mut total_added = 0usize;
     let mut total_blocked = 0usize;
+    let mut per_intent_added: HashMap<String, usize> = HashMap::new();
+    let mut per_intent_blocked: HashMap<String, usize> = HashMap::new();
+    let mut per_intent_recovered: HashMap<String, usize> = HashMap::new();
 
     if state.llm_key.is_some() {
-        for batch in selected_tools.chunks(10) {
+        let setting_langs = state.ui_settings.read().unwrap().languages.clone();
+        let (batch_size, max_tokens, _) = seed_gen_params(setting_langs.len());
+
+        for batch in selected_tools.chunks(batch_size) {
             let tools_desc: Vec<String> = batch.iter().map(|t| {
                 let base = t.get("name").and_then(|v| v.as_str()).unwrap_or("?");
                 let name = if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) };
@@ -548,25 +632,24 @@ pub async fn mcp_apply(
                 } else { String::new() }
             };
 
-            let langs: Vec<&str> = if req.languages.is_empty() {
-                vec!["en"]
-            } else {
-                req.languages.iter().map(|s| s.as_str()).collect()
-            };
+            let langs: Vec<&str> = setting_langs.iter().map(|s| s.as_str()).collect();
             let is_multilang = langs.len() > 1;
+
+            // Build example using the first real tool name from this batch
+            let example_intent = {
+                let base = batch[0].get("name").and_then(|v| v.as_str()).unwrap_or("tool");
+                if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) }
+            };
 
             let (lang_instruction, response_format) = if is_multilang {
                 let lang_list = langs.join(", ");
+                let lang_keys: String = langs.iter().map(|l| format!("\"{}\": [\"phrase1\", \"phrase2\"]", l)).collect::<Vec<_>>().join(", ");
                 (
                     format!("Generate training phrases in ALL of these languages: {}. Include phrases for EACH language.\n\n", lang_list),
-                    format!(
-                        "Respond with ONLY JSON:\n\
-                         {{\"phrases_by_intent\": {{\"tool_name\": {{\"{}\": [\"phrase1\", \"phrase2\"], \"{}\": [\"phrase1\", \"phrase2\"]}}}}}}\n",
-                        langs[0], langs.get(1).copied().unwrap_or("zh")
-                    ),
+                    format!("Respond with ONLY valid JSON (no extra text):\n{{\"phrases_by_intent\": {{\"{}\": {{{}}}}}}}\n", example_intent, lang_keys),
                 )
             } else {
-                (String::new(), "Respond with ONLY JSON:\n{\"phrases_by_intent\": {\"tool_name\": [\"phrase1\", \"phrase2\", \"phrase3\", \"phrase4\", \"phrase5\"]}}\n".to_string())
+                (String::new(), format!("Respond with ONLY valid JSON (no extra text):\n{{\"phrases_by_intent\": {{\"{}\": [\"phrase1\", \"phrase2\", \"phrase3\"]}}}}\n", example_intent))
             };
 
             let prompt = format!(
@@ -581,7 +664,7 @@ pub async fn mcp_apply(
                 lang_instruction, tools_desc.join("\n"), existing_seeds, asv_router::phrase::PHRASE_QUALITY_RULES, response_format
             );
 
-            if let Ok(response) = call_llm(&state, &prompt, 2000).await {
+            if let Ok(response) = call_llm(&state, &prompt, max_tokens).await {
                 if let Ok(seeds_json) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
                     if let Some(sbi) = seeds_json.get("phrases_by_intent").or_else(|| seeds_json.get("seeds_by_intent")).and_then(|v| v.as_object()) {
                         if is_multilang {
@@ -595,6 +678,12 @@ pub async fn mcp_apply(
                                     }).collect();
                                 if !lang_map.is_empty() {
                                     let result = phrase_pipeline(&state, &app_id, &lang_map, true, lang).await;
+                                    for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
+                                    for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
+                                    // distribute recovered evenly across intents that had any blockage
+                                    if result.recovered_by_retry > 0 {
+                                        *per_intent_recovered.entry(lang_map.keys().next().cloned().unwrap_or_default()).or_default() += result.recovered_by_retry;
+                                    }
                                     total_added += result.added.len();
                                     total_blocked += result.blocked.len();
                                 }
@@ -608,6 +697,8 @@ pub async fn mcp_apply(
                                     })
                                 }).collect();
                             let result = phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0]).await;
+                            for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
+                            for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
                             total_added += result.added.len();
                             total_blocked += result.blocked.len();
                         }
@@ -623,10 +714,18 @@ pub async fn mcp_apply(
         }))
         .collect();
 
+    let per_intent: Vec<serde_json::Value> = tool_names.iter().map(|name| {
+        let added = per_intent_added.get(name).copied().unwrap_or(0);
+        let blocked = per_intent_blocked.get(name).copied().unwrap_or(0);
+        let recovered = per_intent_recovered.get(name).copied().unwrap_or(0);
+        serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
+    }).collect();
+
     Ok(Json(serde_json::json!({
         "imported": tool_names.len(),
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
         "intents": tool_names,
+        "per_intent": per_intent,
     })))
 }

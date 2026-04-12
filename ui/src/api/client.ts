@@ -182,6 +182,10 @@ export const api = {
     fetch(`${BASE}/import`, { method: 'POST', headers: appHeaders(), body: data }).then(r => {
       if (!r.ok) throw new Error('Import failed');
     }),
+  clearAllData: () =>
+    fetch(`${BASE}/data/all`, { method: 'DELETE', headers: appHeaders() }).then(r => {
+      if (!r.ok) throw new Error('Clear failed');
+    }),
 
   // Languages
   getLanguages: () => get<Record<string, string>>('/languages'),

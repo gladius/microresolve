@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { api, type MultiRouteOutput, type ReviewItem, type ReviewAnalyzeResult } from '@/api/client';
+import { useAppStore } from '@/store';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -459,6 +460,8 @@ function SimulatePanel({ onQueued, onAccuracy }: {
 }) {
   const [turns, setTurns] = useState(10);
   const [personality, setPersonality] = useState('casual');
+  const [sophistication, setSophistication] = useState('medium');
+  const [verbosity, setVerbosity] = useState('short');
   const [scenario, setScenario] = useState('');
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState<SimPhase>('idle');
@@ -477,7 +480,7 @@ function SimulatePanel({ onQueued, onAccuracy }: {
       // Generate
       setPhase('generating'); setPhaseLabel('Generating queries with LLM...');
       const generated = await api.trainingGenerate({
-        personality, sophistication: 'medium', verbosity: 'short',
+        personality, sophistication, verbosity,
         turns, scenario: scenario || undefined,
       });
       if (stopRef.current) { setRunning(false); return; }
@@ -557,6 +560,20 @@ function SimulatePanel({ onQueued, onAccuracy }: {
               {PERSONALITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-zinc-500">Sophistication</label>
+            <select value={sophistication} onChange={e => setSophistication(e.target.value)} disabled={running}
+              className="bg-zinc-900 border border-zinc-700 text-white text-xs rounded px-2 py-1.5 focus:outline-none focus:border-violet-500">
+              {['low', 'medium', 'high'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-zinc-500">Verbosity</label>
+            <select value={verbosity} onChange={e => setVerbosity(e.target.value)} disabled={running}
+              className="bg-zinc-900 border border-zinc-700 text-white text-xs rounded px-2 py-1.5 focus:outline-none focus:border-violet-500">
+              {['short', 'medium', 'long'].map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
         </div>
         <input
           value={scenario}
@@ -581,8 +598,7 @@ function SimulatePanel({ onQueued, onAccuracy }: {
         <div className="flex items-center gap-2">
           {running && <div className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />}
           <span className={`text-xs ${phase === 'error' ? 'text-red-400' : phase === 'done' ? 'text-emerald-400' : 'text-violet-400'}`}>
-            {phase === 'done' ? 'Complete' : phaseLabel || phase}
-            {phase === 'error' && `: ${phaseLabel}`}
+            {phase === 'done' ? 'Complete' : phase === 'error' ? `Error: ${phaseLabel}` : phaseLabel || phase}
           </span>
         </div>
       )}
@@ -633,6 +649,46 @@ function SimulatePanel({ onQueued, onAccuracy }: {
   );
 }
 
+// ─── Copy Analysis Button ─────────────────────────────────────────────────────
+
+function CopyAnalysisButton({ item, analysis }: { item: ReviewItem; analysis: ReviewAnalyzeResult }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = () => {
+    const lines: string[] = [
+      `Query: "${item.query}"`,
+      `Flag: ${item.flag}`,
+      `Detected: ${item.detected.length > 0 ? item.detected.join(', ') : 'none'}`,
+      `Wrong: ${analysis.wrong_detections.length > 0 ? analysis.wrong_detections.join(', ') : 'none'}`,
+      `Should be: ${analysis.correct_intents.length > 0 ? analysis.correct_intents.join(', ') : 'no matching intent'}`,
+    ];
+
+    if (analysis.phrases_to_replace.length > 0) {
+      lines.push('');
+      lines.push('Suggested replacements:');
+      for (const r of analysis.phrases_to_replace) {
+        lines.push(`  ${r.intent}: "${r.old_phrase}" → "${r.new_phrase}"`);
+        if (r.reason) lines.push(`    reason: ${r.reason}`);
+      }
+    }
+
+    if (analysis.summary) {
+      lines.push('');
+      lines.push(`Summary: ${analysis.summary}`);
+    }
+
+    navigator.clipboard.writeText(lines.join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button onClick={copy} className="text-[10px] text-zinc-500 hover:text-violet-400 transition-colors px-2 py-0.5 border border-zinc-800 rounded hover:border-violet-500/40">
+      {copied ? '✓ copied' : 'copy report'}
+    </button>
+  );
+}
+
 // ─── Review Detail (right panel) ─────────────────────────────────────────────
 
 interface PhraseEntry { phrase: string; lang: string; }
@@ -648,9 +704,8 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
   const [analysis, setAnalysis] = useState<ReviewAnalyzeResult | null>(null);
   const [blocks, setBlocks] = useState<IntentBlock[]>([]);
   const [wrongSeeds, setWrongSeeds] = useState<Record<string, string[]>>({});
-  const [enabledLangs] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('asv_languages') || '["en"]'); } catch { return ['en']; }
-  });
+  const { settings: studioSettings } = useAppStore();
+  const enabledLangs = studioSettings.languages;
 
   useEffect(() => { setAnalysis(null); setBlocks([]); setWrongSeeds({}); }, [item.id]);
 
@@ -726,6 +781,10 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
       {/* Analysis */}
       {analysis && (
         <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] text-zinc-500 uppercase font-semibold tracking-wide">AI Analysis</div>
+            <CopyAnalysisButton item={item} analysis={analysis} />
+          </div>
           <div className="bg-zinc-800/50 rounded-lg p-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -744,9 +803,12 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
               <div>
                 <div className="text-[10px] text-zinc-500 mb-1.5">Should be</div>
                 <div className="flex flex-wrap gap-1">
-                  {analysis.correct_intents.map(id => (
-                    <span key={id} className="text-[10px] font-mono text-emerald-400 bg-emerald-900/20 border border-emerald-800 px-1.5 py-0.5 rounded">{id}</span>
-                  ))}
+                  {analysis.correct_intents.length > 0
+                    ? analysis.correct_intents.map(id => (
+                        <span key={id} className="text-[10px] font-mono text-emerald-400 bg-emerald-900/20 border border-emerald-800 px-1.5 py-0.5 rounded">{id}</span>
+                      ))
+                    : <span className="text-[10px] text-zinc-600 italic">no matching intent</span>
+                  }
                 </div>
               </div>
             </div>
@@ -759,15 +821,25 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
               <span className="text-red-400 font-mono line-through">"{r.old_phrase}"</span>
               <span className="text-zinc-500"> → </span>
               <span className="text-emerald-400 font-mono">"{r.new_phrase}"</span>
-              {wrongSeeds[r.intent] && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {wrongSeeds[r.intent].map((s, si) => (
-                    <span key={si} className={`text-[9px] font-mono px-1 py-0.5 rounded ${
-                      s === r.old_phrase ? 'bg-red-900/30 text-red-400 border border-red-800' : 'bg-zinc-800 text-zinc-500'
-                    }`}>{s}</span>
-                  ))}
-                </div>
-              )}
+              {wrongSeeds[r.intent] && (() => {
+                const all = wrongSeeds[r.intent];
+                const idx = all.indexOf(r.old_phrase);
+                const nearby = idx === -1
+                  ? all.slice(0, 3)
+                  : all.slice(Math.max(0, idx - 1), idx + 2);
+                return (
+                  <div className="flex flex-wrap gap-1 mt-1 items-center">
+                    {idx > 1 && <span className="text-[9px] text-zinc-700">···</span>}
+                    {nearby.map((s, si) => (
+                      <span key={si} className={`text-[9px] font-mono px-1 py-0.5 rounded ${
+                        s === r.old_phrase ? 'bg-red-900/30 text-red-400 border border-red-800' : 'bg-zinc-800 text-zinc-500'
+                      }`}>{s}</span>
+                    ))}
+                    {idx !== -1 && idx < all.length - 2 && <span className="text-[9px] text-zinc-700">···</span>}
+                    <span className="text-[9px] text-zinc-700 ml-1">{all.length} phrases total</span>
+                  </div>
+                );
+              })()}
             </div>
           ))}
 

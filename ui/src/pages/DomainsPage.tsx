@@ -42,8 +42,8 @@ export default function DomainsPage() {
   const submitModal = async () => {
     const name = modalName.trim();
     if (!name) return;
-    if (!/^[a-z0-9_-]+$/.test(name)) {
-      setModalError('Lowercase letters, numbers, hyphens and underscores only.');
+    if (name.length > 40 || !/^[a-z0-9_-]+$/.test(name)) {
+      setModalError('Lowercase letters, digits, hyphens, underscores · max 40 chars.');
       return;
     }
     setModalBusy(true);
@@ -149,7 +149,8 @@ export default function DomainsPage() {
                           if (e.key === 'Enter') saveDesc(domain.name);
                           if (e.key === 'Escape') setEditingDomain(null);
                         }}
-                        className="flex-1 bg-zinc-900 border border-violet-500/50 rounded px-2 py-1 text-xs text-white focus:outline-none"
+                        placeholder="What does this domain handle?"
+                        className="flex-1 bg-zinc-900 border border-violet-500/50 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none"
                       />
                       <button onClick={() => saveDesc(domain.name)} className="text-xs text-violet-400 hover:text-violet-300">Save</button>
                       <button onClick={() => setEditingDomain(null)} className="text-xs text-zinc-500 hover:text-zinc-300">Cancel</button>

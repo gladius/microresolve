@@ -5,21 +5,12 @@ import RouterPage from '@/pages/RouterPage';
 import StudioPage from '@/pages/StudioPage';
 import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
-import AutoImprovePage from '@/pages/ScenariosPage';
 import ReviewPage from '@/pages/ReviewPage';
 import NamespacesPage from '@/pages/NamespacesPage';
 import DomainsPage from '@/pages/DomainsPage';
 import ImportLanding from '@/pages/import/ImportLanding';
 import OpenApiImport from '@/pages/import/OpenApiImport';
 import McpImport from '@/pages/import/McpImport';
-import InsightsLayout from '@/pages/insights/InsightsLayout';
-import Overview from '@/pages/insights/Overview';
-import Discovery from '@/pages/insights/Discovery';
-import Projections from '@/pages/insights/Projections';
-import Workflows from '@/pages/insights/Workflows';
-import Temporal from '@/pages/insights/Temporal';
-import Escalations from '@/pages/insights/Escalations';
-import CoOccurrence from '@/pages/insights/CoOccurrence';
 import { AppContext, defaults, type AppSettings } from '@/store';
 import { setApiNamespaceId } from '@/api/client';
 
@@ -99,16 +90,6 @@ export default function App() {
             <Route path="/import" element={<ImportLanding />} />
             <Route path="/import/openapi" element={<OpenApiImport />} />
             <Route path="/import/mcp" element={<McpImport />} />
-            <Route path="/insights" element={<InsightsLayout />}>
-              <Route index element={<Overview />} />
-              <Route path="discovery" element={<Discovery />} />
-              <Route path="projections" element={<Projections />} />
-              <Route path="workflows" element={<Workflows />} />
-              <Route path="temporal" element={<Temporal />} />
-              <Route path="escalations" element={<Escalations />} />
-              <Route path="cooccurrence" element={<CoOccurrence />} />
-            </Route>
-            <Route path="/auto-improve" element={<AutoImprovePage />} />
             <Route path="/namespaces" element={<NamespacesPage />} />
             <Route path="/namespaces/:nsId" element={<DomainsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

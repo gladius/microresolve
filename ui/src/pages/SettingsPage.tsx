@@ -289,11 +289,17 @@ function LanguagesSection() {
 }
 
 function DataSection() {
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearInput, setClearInput] = useState('');
+  const [clearing, setClearing] = useState(false);
+
+  const confirmText = 'delete all';
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-white">Data</h2>
       <p className="text-xs text-zinc-500">Export, import, or reset router state.</p>
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <button
           onClick={async () => {
             const data = await api.exportState();
@@ -332,7 +338,66 @@ function DataSection() {
         >
           Reset to Defaults
         </button>
+        <button
+          onClick={() => { setShowClearModal(true); setClearInput(''); }}
+          className="text-xs text-red-500/70 hover:text-red-400 px-3 py-1.5 border border-red-500/20 rounded"
+        >
+          Clear All Data
+        </button>
       </div>
+
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-red-500/30 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <h3 className="text-base font-semibold text-white">Clear All Data</h3>
+            </div>
+            <p className="text-sm text-zinc-400">
+              This will permanently delete <strong className="text-white">all namespaces, intents, training data, and query logs</strong>. The server will be reset to a clean state with only the default namespace.
+            </p>
+            <p className="text-xs text-zinc-500">This action cannot be undone.</p>
+            <div>
+              <label className="text-xs text-zinc-400 block mb-1.5">
+                Type <span className="font-mono text-red-400">{confirmText}</span> to confirm
+              </label>
+              <input
+                autoFocus
+                value={clearInput}
+                onChange={e => setClearInput(e.target.value)}
+                onKeyDown={async e => {
+                  if (e.key === 'Enter' && clearInput === confirmText) {
+                    setClearing(true);
+                    try { await api.clearAllData(); window.location.reload(); } catch { setClearing(false); }
+                  }
+                }}
+                placeholder="delete all"
+                className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-zinc-600 focus:outline-none focus:border-red-500"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                onClick={() => setShowClearModal(false)}
+                className="px-4 py-2 text-sm text-zinc-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setClearing(true);
+                  try { await api.clearAllData(); window.location.reload(); } catch { setClearing(false); }
+                }}
+                disabled={clearInput !== confirmText || clearing}
+                className="px-5 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {clearing ? 'Clearing…' : 'Clear All Data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

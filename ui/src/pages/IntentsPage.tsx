@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import { api, type IntentInfo, type IntentType } from '@/api/client';
+import { useAppStore } from '@/store';
 
 export default function IntentsPage() {
   const [intents, setIntents] = useState<IntentInfo[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [filter, setFilter] = useState('');
+  const [nsFilter, setNsFilter] = useState('');
 
   const refresh = useCallback(async () => {
     try {
@@ -27,6 +30,21 @@ export default function IntentsPage() {
     setSelectedId(data.length > 0 ? data[0].id : null);
   };
 
+  const namespaces = useMemo(() => {
+    const seen = new Set<string>();
+    for (const i of intents) {
+      const colon = i.id.indexOf(':');
+      if (colon > 0) seen.add(i.id.slice(0, colon));
+    }
+    return Array.from(seen).sort();
+  }, [intents]);
+
+  const filteredIntents = useMemo(() => intents.filter(i => {
+    if (nsFilter && !i.id.startsWith(nsFilter + ':')) return false;
+    if (filter && !i.id.toLowerCase().includes(filter.toLowerCase())) return false;
+    return true;
+  }), [intents, filter, nsFilter]);
+
   const selected = intents.find(i => i.id === selectedId) || null;
   const allIntentIds = useMemo(() => intents.map(i => i.id), [intents]);
 
@@ -36,7 +54,7 @@ export default function IntentsPage() {
       <div className="w-72 min-w-[18rem] border-r border-zinc-800 flex flex-col">
         <div className="px-3 py-3 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
           <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">
-            Intents ({intents.length})
+            Intents ({filteredIntents.length}{filteredIntents.length !== intents.length ? `/${intents.length}` : ''})
           </span>
           <div className="flex gap-1.5">
             <button
@@ -55,8 +73,36 @@ export default function IntentsPage() {
           </div>
         </div>
 
+        <div className="px-3 py-2 border-b border-zinc-800 space-y-1.5 flex-shrink-0">
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Search intents..."
+            className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+          />
+          {namespaces.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => setNsFilter('')}
+                className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${nsFilter === '' ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
+              >
+                all
+              </button>
+              {namespaces.map(ns => (
+                <button
+                  key={ns}
+                  onClick={() => setNsFilter(nsFilter === ns ? '' : ns)}
+                  className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${nsFilter === ns ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  {ns}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex-1 overflow-y-auto">
-          {intents.map(intent => (
+          {filteredIntents.map(intent => (
             <IntentListItem
               key={intent.id}
               intent={intent}
@@ -64,12 +110,13 @@ export default function IntentsPage() {
               onClick={() => { setSelectedId(intent.id); setShowAdd(false); }}
             />
           ))}
-          {intents.length === 0 && (
+          {filteredIntents.length === 0 && (
             <div className="text-zinc-600 text-xs text-center py-8 px-4">
-              No intents.{' '}
-              <button onClick={handleReset} className="text-violet-400 hover:text-violet-300">
-                Load defaults
-              </button>
+              {intents.length === 0 ? (
+                <>No intents.{' '}<button onClick={handleReset} className="text-violet-400 hover:text-violet-300">Load defaults</button></>
+              ) : (
+                <span>No intents match filter</span>
+              )}
             </div>
           )}
         </div>
@@ -279,18 +326,15 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
   const [bulkText, setBulkText] = useState('');
   const [showAI, setShowAI] = useState(false);
   const [aiDescription, setAIDescription] = useState('');
-  const [aiLangs, setAILangs] = useState<Set<string>>(new Set(['en']));
   const [languages, setLanguages] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState('');
-  const [enabledLangs, setEnabledLangs] = useState<Set<string>>(new Set(['en']));
+  const { settings } = useAppStore();
+  const enabledLangs = new Set(settings.languages);
+  const [aiLangs, setAILangs] = useState<Set<string>>(new Set(settings.languages));
 
   useEffect(() => {
     api.getLanguages().then(setLanguages).catch(() => {});
-    try {
-      const saved = localStorage.getItem('asv_languages');
-      if (saved) setEnabledLangs(new Set(JSON.parse(saved)));
-    } catch { /* */ }
   }, []);
 
   const handleRemovePhrase = async (phrase: string) => {
@@ -353,30 +397,65 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
     onRefresh();
   };
 
+  const [collapsedLangs, setCollapsedLangs] = useState<Set<string>>(new Set());
+  const toggleLang = (lang: string) => setCollapsedLangs(prev => {
+    const next = new Set(prev);
+    next.has(lang) ? next.delete(lang) : next.add(lang);
+    return next;
+  });
+
+  // When searching, group filtered results by lang for display
+  const groupedFiltered = useMemo(() => {
+    const groups: Record<string, string[]> = {};
+    for (const { lang, phrase } of filtered) {
+      (groups[lang] ??= []).push(phrase);
+    }
+    return groups;
+  }, [filtered]);
+
   return (
     <div className="flex flex-col h-full gap-3">
       {/* Phrase list */}
-      <div className="flex-1 border border-zinc-800 rounded-lg bg-zinc-900/50 divide-y divide-zinc-800/50 overflow-y-auto">
+      <div className="flex-1 border border-zinc-800 rounded-lg bg-zinc-900/50 overflow-y-auto">
         {filtered.length === 0 && (
           <div className="text-zinc-600 text-xs text-center py-6">
             {phraseSearch ? 'No phrases match search' : 'No phrases yet'}
           </div>
         )}
-        {filtered.map((s, i) => (
-          <div key={`${s.lang}-${i}`} className="flex items-center gap-2 px-3 py-1.5 hover:bg-zinc-800/50 transition-colors group">
-            <span className="text-[9px] text-violet-400/60 bg-zinc-800 rounded px-1 uppercase w-6 text-center flex-shrink-0">
-              {s.lang}
-            </span>
-            <span className="text-sm text-zinc-300 font-mono flex-1 truncate">{s.phrase}</span>
-            <button
-              onClick={() => handleRemovePhrase(s.phrase)}
-              className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-xs flex-shrink-0"
-              title="Remove phrase"
-            >
-              ×
-            </button>
-          </div>
-        ))}
+        {Object.entries(groupedFiltered).map(([lang, phrases]) => {
+          const isCollapsed = collapsedLangs.has(lang);
+          return (
+            <div key={lang}>
+              {/* Language section header */}
+              <button
+                onClick={() => toggleLang(lang)}
+                className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-800/60 hover:bg-zinc-800 transition-colors text-left"
+              >
+                <svg className={`w-3 h-3 text-zinc-500 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">{lang}</span>
+                <span className="text-[10px] text-zinc-600">{phrases.length} phrase{phrases.length !== 1 ? 's' : ''}</span>
+              </button>
+              {!isCollapsed && (
+                <div className="divide-y divide-zinc-800/50">
+                  {phrases.map((phrase, i) => (
+                    <div key={i} className="flex items-center gap-2 px-3 py-1.5 hover:bg-zinc-800/50 transition-colors group">
+                      <span className="text-sm text-zinc-300 flex-1 truncate">{phrase}</span>
+                      <button
+                        onClick={() => handleRemovePhrase(phrase)}
+                        className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-xs flex-shrink-0"
+                        title="Remove phrase"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Add area: single input OR bulk paste (toggle) */}
@@ -721,17 +800,14 @@ function AddIntentPanel({
   const [showAI, setShowAI] = useState(false);
   const [description, setDescription] = useState('');
   const [languages, setLanguages] = useState<Record<string, string>>({});
-  const [selectedLangs, setSelectedLangs] = useState<Set<string>>(new Set(['en']));
+  const [selectedLangs, setSelectedLangs] = useState<Set<string>>(new Set(appSettings.languages));
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState('');
-  const [enabledLangs, setEnabledLangs] = useState<Set<string>>(new Set(['en']));
+  const { settings: appSettings } = useAppStore();
+  const enabledLangs = new Set(appSettings.languages);
 
   useEffect(() => {
     api.getLanguages().then(setLanguages).catch(() => {});
-    try {
-      const saved = localStorage.getItem('asv_languages');
-      if (saved) setEnabledLangs(new Set(JSON.parse(saved)));
-    } catch { /* */ }
   }, []);
 
   const handleGenerate = async () => {
@@ -912,18 +988,15 @@ function SituationsTab({ intent, onRefresh }: { intent: IntentInfo; onRefresh: (
   // AI generation state
   const [showAI, setShowAI] = useState(false);
   const [aiDesc, setAiDesc] = useState(intent.description || '');
-  const [aiLangs, setAiLangs] = useState<Set<string>>(new Set(['en']));
   const [languages, setLanguages] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState('');
-  const [enabledLangs, setEnabledLangs] = useState<Set<string>>(new Set(['en']));
+  const { settings: sitSettings } = useAppStore();
+  const enabledLangs = new Set(sitSettings.languages);
+  const [aiLangs, setAiLangs] = useState<Set<string>>(new Set(sitSettings.languages));
 
   useEffect(() => {
     api.getLanguages().then(setLanguages).catch(() => {});
-    try {
-      const saved = localStorage.getItem('asv_languages');
-      if (saved) setEnabledLangs(new Set(JSON.parse(saved)));
-    } catch { /* */ }
   }, []);
 
   // Keep aiDesc in sync when intent changes
