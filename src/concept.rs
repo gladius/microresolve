@@ -71,6 +71,11 @@ pub struct ConceptRegistry {
     pub concepts: HashMap<String, Vec<String>>,
     /// intent_id → { concept_name → weight (0.0–1.0) }
     pub intent_profiles: HashMap<String, HashMap<String, f32>>,
+    /// intent_id → list of concept names ALL of which must fire for this intent to score.
+    /// Enforces conjunction: domain + action must both be present.
+    /// Intents with no entry here have no conjunction requirement (backwards compatible).
+    #[serde(default)]
+    pub intent_required: HashMap<String, Vec<String>>,
 }
 
 /// Result of explaining which signals fired for a query.
@@ -226,7 +231,34 @@ impl ConceptRegistry {
                 let score: f32 = profile.iter()
                     .map(|(concept, weight)| act_map.get(concept.as_str()).unwrap_or(&0.0) * weight)
                     .sum();
-                if score > 0.0 { Some((intent.clone(), score)) } else { None }
+                if score <= 0.0 { return None; }
+
+                // Conjunction: if required concepts are defined, boost when all fire,
+                // penalise when none of the required fire (but don't hard-filter —
+                // OOV queries may have signal gaps that continuous learning will fill).
+                let adjusted = if let Some(required) = self.intent_required.get(intent.as_str()) {
+                    if required.is_empty() {
+                        score
+                    } else {
+                        let fired_count = required.iter()
+                            .filter(|c| act_map.get(c.as_str()).map(|s| *s > 0.0).unwrap_or(false))
+                            .count();
+                        if fired_count == required.len() {
+                            // All required concepts fired — boost score (high confidence)
+                            score * 1.5
+                        } else if fired_count == 0 {
+                            // None of the required fired — heavy penalty (likely noise)
+                            score * 0.2
+                        } else {
+                            // Partial match — mild penalty (OOV gap, learn from this)
+                            score * 0.7
+                        }
+                    }
+                } else {
+                    score
+                };
+
+                Some((intent.clone(), adjusted))
             })
             .collect();
 

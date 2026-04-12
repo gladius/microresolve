@@ -111,9 +111,11 @@ Rules:
    - "technical_context": UI/code discussion (NOT user intent)
      signals: ["button", "the ui", "interface", "on the page", "the menu", "the form", "dropdown", "modal", "element", "component", "the api", "endpoint", "the code", "the screen"]
 
-3. For each concept provide 15-30 signals (words or short phrases):
-   - Synonyms, informal variants, morphological variants
-   - For action concepts: include all verb forms (e.g. create, creating, created, make, new, add, set up)
+3. For each concept provide 20-35 signals (words or short phrases). Be generous — more is better:
+   - Synonyms, informal variants, slang, morphological variants
+   - For action concepts include ALL verb forms: create/creating/created/make/making/made/new/add/adding/set up/set up/build/generate/establish/define/open/start
+   - For cancel: cancel/canceling/cancelled/cancellation/terminate/termination/end/ending/ended/stop/stopping/quit/quitting/discontinue/unsubscribe/close/shut down/axe/drop/get rid of/remove
+   - For list/fetch: list/show/get/fetch/retrieve/find/view/display/see/check/look up/pull up/give me/what are/tell me
    - Lowercase only
 
 Return ONLY valid JSON:
@@ -147,6 +149,7 @@ Return ONLY valid JSON:
     }).collect::<Vec<_>>().join("\n");
 
     let mut all_profiles: HashMap<String, HashMap<String, f32>> = HashMap::new();
+    let mut all_required: HashMap<String, Vec<String>> = HashMap::new();
 
     for (batch_idx, batch) in intent_list.chunks(PROFILE_BATCH_SIZE).enumerate() {
         eprintln!("[concepts/bootstrap] {} — phase 2 batch {}: {} intents",
@@ -166,27 +169,34 @@ Return ONLY valid JSON:
         let concept_list = concept_names.join(", ");
 
         let phase2_prompt = format!(
-            r#"You are assigning concept weights for intent routing.
+            r#"You are assigning concept weights and required conjunctions for intent routing.
 
 Available concepts:
 {concept_summary}
 
-For each intent below, assign weights (0.0 to 1.0) for the concepts that apply.
-Rules:
-- 1.0 = this concept strongly signals this intent
-- 0.5 = partial signal
-- 0.0 = omit (no relation needed)
-- Use -1.0 for "technical_context" on all action intents
-- Only include non-zero weights
+For each intent below:
+1. Assign weights (0.0 to 1.0) for concepts that apply.
+   - 1.0 = strongly signals this intent
+   - 0.5 = partial signal
+   - omit 0.0 weights
+   - Use -1.0 for "technical_context" on all action intents
 
-Intents to profile (id | description | example phrases):
+2. Specify "required" — the 1-3 concepts that MUST ALL fire together for this intent to match.
+   This prevents false positives: an intent only scores when its required concepts co-occur.
+   Typically: one domain concept + one action concept.
+   Example: stripe:cancel_subscription requires ["subscription_domain", "wants_to_cancel"]
+   so "list subscriptions" won't match cancel even if subscription_domain fires alone.
+
+Intents (id | description | example phrases):
 {batch_summary}
 
-Return ONLY valid JSON — only the intent_profiles for these intents:
+Return ONLY valid JSON:
 {{
   "intent_profiles": {{
-    "intent_id": {{"concept_name": 1.0, "technical_context": -1.0}},
-    ...
+    "intent_id": {{"concept_name": 1.0, "technical_context": -1.0}}
+  }},
+  "intent_required": {{
+    "intent_id": ["domain_concept", "action_concept"]
   }}
 }}
 
@@ -205,13 +215,20 @@ Use only these concept names: {concept_list}"#
             format!("Phase 2 batch {} bad profiles: {}", batch_idx + 1, e)))?;
 
         all_profiles.extend(batch_profiles);
+
+        // Parse required conjunctions (optional — ignore if missing)
+        if let Ok(batch_required) = serde_json::from_value::<HashMap<String, Vec<String>>>(
+            phase2_parsed["intent_required"].clone()
+        ) {
+            all_required.extend(batch_required);
+        }
     }
 
     let total_signals: usize = concepts.values().map(|s| s.len()).sum();
     let n_concepts = concepts.len();
     let n_intents = all_profiles.len();
 
-    let registry = ConceptRegistry { concepts, intent_profiles: all_profiles };
+    let registry = ConceptRegistry { concepts, intent_profiles: all_profiles, intent_required: all_required };
 
     // Persist
     if let Some(ref dir) = state.data_dir {
