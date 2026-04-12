@@ -26,6 +26,7 @@ mod routes_ui_settings;
 mod routes_events;
 mod routes_assembly;
 mod routes_semantic;
+mod routes_concept;
 mod worker;
 
 use state::*;
@@ -90,6 +91,7 @@ async fn main() {
 
     // Initialize routers from namespace directories
     let mut routers = HashMap::new();
+    let mut concepts_map = HashMap::new();
 
     if let Some(ref dir) = data_dir {
         if let Ok(entries) = std::fs::read_dir(dir) {
@@ -105,6 +107,10 @@ async fn main() {
                             routers.insert(name.to_string(), r);
                         }
                         Err(e) => eprintln!("Failed to load namespace {}: {}", name, e),
+                    }
+                    if let Some(reg) = routes_concept::load_concepts(dir, name) {
+                        println!("Loaded concept registry: {}", name);
+                        concepts_map.insert(name.to_string(), reg);
                     }
                 }
             }
@@ -133,6 +139,7 @@ async fn main() {
         semantic: RwLock::new(HashMap::new()),
         semantic_nano: RwLock::new(HashMap::new()),
         semantic_hier: RwLock::new(HashMap::new()),
+        concepts: RwLock::new(concepts_map),
     });
 
     // Spawn the background auto-learn worker
@@ -161,6 +168,7 @@ async fn main() {
         .merge(routes_events::routes())
         .merge(routes_assembly::routes())
         .merge(routes_semantic::routes())
+        .merge(routes_concept::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 

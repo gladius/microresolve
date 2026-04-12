@@ -68,6 +68,8 @@ pub struct ServerState {
     pub semantic_nano: RwLock<HashMap<String, asv_router::semantic::NanoEncoder>>,
     /// Per-namespace HierarchicalEncoder (L1 domain + L2 per-domain MiniEncoders).
     pub semantic_hier: RwLock<HashMap<String, asv_router::semantic::HierarchicalEncoder>>,
+    /// Per-namespace ConceptRegistry (LLM-distilled signal lists + intent profiles).
+    pub concepts: RwLock<HashMap<String, asv_router::concept::ConceptRegistry>>,
 }
 
 pub type AppState = Arc<ServerState>;
