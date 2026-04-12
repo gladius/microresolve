@@ -23,13 +23,63 @@ pub fn build_intent_descriptions(router: &Router) -> String {
 }
 
 /// Extract JSON from LLM response that may be wrapped in markdown code fences.
+/// Handles both object `{}` and array `[]` top-level values.
 pub fn extract_json(text: &str) -> &str {
     let trimmed = text.trim();
-    // Strip ```json ... ``` or ``` ... ```
-    if let Some(start) = trimmed.find('{') {
-        if let Some(end) = trimmed.rfind('}') {
-            return &trimmed[start..=end];
+
+    // First: try to extract from a ```json ... ``` code fence — most reliable signal.
+    // The LLM often wraps JSON in ``` blocks; extract whatever is between the fences.
+    if let Some(fence_start) = trimmed.find("```") {
+        // skip past the opening fence line (```json\n or ```\n)
+        let after_fence = &trimmed[fence_start + 3..];
+        let content_start = after_fence.find('\n').map(|i| i + 1).unwrap_or(0);
+        let content = &after_fence[content_start..];
+        // trim at the closing fence
+        let content = if let Some(end) = content.find("```") {
+            content[..end].trim()
+        } else {
+            content.trim()
+        };
+        // Now extract array or object from the fenced content
+        let arr = content.find('[');
+        let obj = content.find('{');
+        let use_array = match (arr, obj) {
+            (Some(a), Some(o)) => a <= o,
+            (Some(_), None)    => true,
+            _                  => false,
+        };
+        if use_array {
+            if let (Some(s), Some(e)) = (content.find('['), content.rfind(']')) {
+                return &content[s..=e];
+            }
         }
+        if let (Some(s), Some(e)) = (content.find('{'), content.rfind('}')) {
+            return &content[s..=e];
+        }
+    }
+
+    // Fallback: scan for the last `[` ... `]` or `{` ... `}` that look like JSON
+    // (the last `]` / `}` is more reliable than the first `[` / `{` in preamble text)
+    let last_array_end  = trimmed.rfind(']');
+    let last_object_end = trimmed.rfind('}');
+    match (last_array_end, last_object_end) {
+        (Some(ae), Some(oe)) if ae > oe => {
+            // array ends later — extract array
+            if let (Some(s), Some(e)) = (trimmed.find('['), trimmed.rfind(']')) {
+                return &trimmed[s..=e];
+            }
+        }
+        (None, Some(_)) | (Some(_), Some(_)) => {
+            if let (Some(s), Some(e)) = (trimmed.find('{'), trimmed.rfind('}')) {
+                return &trimmed[s..=e];
+            }
+        }
+        (Some(_), None) => {
+            if let (Some(s), Some(e)) = (trimmed.find('['), trimmed.rfind(']')) {
+                return &trimmed[s..=e];
+            }
+        }
+        _ => {}
     }
     trimmed
 }
@@ -279,7 +329,10 @@ pub struct FullReviewResult {
     pub languages: Vec<String>,
     /// True when Turn 1 found no issues — Turns 2+3 were skipped
     pub detection_perfect: bool,
-    /// Turn 2: phrases to add (passed guard + retry)
+    /// Turn 2 (concept mode): signals to add to concepts
+    #[serde(default)]
+    pub signals_to_add: Vec<(String, String)>, // (concept, signal)
+    /// Turn 2 (phrase mode): phrases to add (passed guard + retry)
     pub phrases_to_add: HashMap<String, Vec<String>>,
     /// Turn 2: phrases blocked by guard
     pub phrases_blocked: Vec<(String, String, String)>, // (intent, phrase, reason)
@@ -355,6 +408,7 @@ pub async fn full_review(
             missed_intents,
             languages,
             detection_perfect: true,
+            signals_to_add: Vec::new(),
             phrases_to_add: HashMap::new(),
             phrases_blocked: Vec::new(),
             phrases_to_replace: Vec::new(),
@@ -363,7 +417,15 @@ pub async fn full_review(
         });
     }
 
-    // === Turn 2: Fix misses (phrases to add) ===
+    // === Branch: concept registry or term index? ===
+    let has_concepts = state.concepts.read().unwrap().contains_key(app_id);
+
+    // === CONCEPT PATH: Turn 2 + 3 via signal learning ===
+    if has_concepts {
+        return concept_review_turns(state, app_id, query, &correct_intents, &wrong_detections, &missed_intents, &languages).await;
+    }
+
+    // === TERM INDEX PATH: Turn 2: Fix misses (phrases to add) ===
     let existing_phrases: String = {
         let routers = state.routers.read().unwrap();
         if let Some(router) = routers.get(app_id) {
@@ -548,10 +610,113 @@ pub async fn full_review(
         missed_intents,
         languages,
         detection_perfect: false,
+        signals_to_add: Vec::new(),
         phrases_to_add,
         phrases_blocked,
         phrases_to_replace,
         safe_to_apply,
+        summary,
+    })
+}
+
+// ── Concept-aware review turns ────────────────────────────────────────────────
+
+async fn concept_review_turns(
+    state: &AppState,
+    app_id: &str,
+    query: &str,
+    correct_intents: &[String],
+    wrong_detections: &[String],
+    missed_intents: &[String],
+    languages: &[String],
+) -> Result<FullReviewResult, String> {
+
+    // Build concept summary and what fired for this query
+    let (concept_summary, fired_summary) = {
+        let concepts = state.concepts.read().unwrap();
+        let reg = concepts.get(app_id);
+        let concept_summary = reg.map(|r| {
+            r.concepts.iter()
+                .map(|(name, sigs)| format!("  {}: [{}]", name, sigs.iter().take(6).cloned().collect::<Vec<_>>().join(", ")))
+                .collect::<Vec<_>>().join("\n")
+        }).unwrap_or_default();
+        let fired_summary = reg.map(|r| {
+            r.explain(query).iter()
+                .map(|a| format!("  {} (matched: {})", a.concept, a.matched_signals.join(", ")))
+                .collect::<Vec<_>>().join("\n")
+        }).unwrap_or_default();
+        (concept_summary, fired_summary)
+    };
+
+    // === Concept Turn 2: identify missing signals ===
+    let turn2_prompt = format!(
+        r#"An intent router uses semantic concepts. A query was misrouted.
+
+Query: "{query}"
+Correct intent(s): {correct_intents:?}
+Missed intent(s): {missed_intents:?}
+
+Available concepts and their current signals:
+{concept_summary}
+
+Concepts that fired for this query:
+{fired_summary}
+
+The query failed because signals are missing from the concept registry.
+Identify up to 3 signals to add — the key words/phrases from this query that should activate the correct concept(s).
+
+Rules:
+- Signals are 1-4 words, lowercase
+- Pick words that are semantically meaningful for the correct intent
+- Prefer specific phrases over single generic words
+- Only add signals that aren't already present
+
+Return ONLY JSON:
+{{"signals_to_add": [{{"concept": "concept_name", "signal": "the phrase"}}]}}"#
+    );
+
+    let t2_response = call_llm(state, &turn2_prompt, 256).await
+        .map_err(|e| format!("Concept Turn 2 failed: {}", e.1))?;
+    let t2_parsed: serde_json::Value = serde_json::from_str(extract_json(&t2_response))
+        .unwrap_or_default();
+
+    let signals_to_add: Vec<(String, String)> = t2_parsed["signals_to_add"]
+        .as_array().unwrap_or(&vec![])
+        .iter()
+        .filter_map(|s| {
+            let concept = s["concept"].as_str()?.to_string();
+            let signal = s["signal"].as_str()?.to_string();
+            if concept.is_empty() || signal.is_empty() { return None; }
+            Some((concept, signal))
+        })
+        .collect();
+
+    eprintln!("[concept_review] Turn 2: signals_to_add={:?}", signals_to_add);
+
+    // === Concept Turn 3: identify false positive concept signals ===
+    // For now: log wrong detections, skip complex signal removal
+    // (conjunction scoring already handles most false positives)
+    if !wrong_detections.is_empty() {
+        eprintln!("[concept_review] Turn 3: wrong_detections={:?} — conjunction scoring handles these", wrong_detections);
+    }
+
+    let summary = if !signals_to_add.is_empty() {
+        format!("Adding {} signal(s) to concept registry", signals_to_add.len())
+    } else {
+        "No signal changes needed".to_string()
+    };
+
+    Ok(FullReviewResult {
+        correct_intents: correct_intents.to_vec(),
+        wrong_detections: wrong_detections.to_vec(),
+        missed_intents: missed_intents.to_vec(),
+        languages: languages.to_vec(),
+        detection_perfect: false,
+        signals_to_add,
+        phrases_to_add: HashMap::new(),
+        phrases_blocked: Vec::new(),
+        phrases_to_replace: Vec::new(),
+        safe_to_apply: true,
         summary,
     })
 }
@@ -567,6 +732,21 @@ pub async fn apply_review(
 ) -> (usize, usize) { // (phrases_added, phrases_replaced)
     let mut added = 0;
     let mut replaced = 0;
+
+    // === Concept path: apply signals directly ===
+    if !result.signals_to_add.is_empty() {
+        let mut concepts = state.concepts.write().unwrap();
+        if let Some(reg) = concepts.get_mut(app_id) {
+            for (concept, signal) in &result.signals_to_add {
+                eprintln!("[apply_review] concept signal: '{}' → '{}'", signal, concept);
+                reg.add_signal(concept, signal);
+                added += 1;
+            }
+            if let Some(ref dir) = state.data_dir {
+                let _ = reg.save(&format!("{}/{}/_concepts.json", dir, app_id));
+            }
+        }
+    }
 
     // Apply phrases_to_add through pipeline
     if !result.phrases_to_add.is_empty() {
@@ -622,6 +802,193 @@ pub async fn apply_review(
         crate::routes_concept::learn_from_correction(state, app_id, original_query, intent_id).await;
     }
 
+    // ── Hebbian L3: full bidirectional learning ──────────────────────────────
+    //
+    // Weight derivation — all values anchored to the routing threshold (0.3):
+    //
+    //   DELTA_MISS = threshold / (min_phrase_words × expected_idf)
+    //              = 0.30 / (2 × 1.0) = 0.15
+    //   → A 2-word missed phrase accumulates 2 × 0.15 × 1.0 = 0.30, just above threshold.
+    //   → A 3-word phrase gives 0.45, comfortably routable.
+    //
+    //   DELTA_REINFORCE = DELTA_MISS / 3 = 0.05
+    //   → Steady-state nudge when router already fires correctly.
+    //
+    //   DELTA_SUPPRESS = -DELTA_REINFORCE = -0.05
+    //   → Undo one correct-reinforcement step for wrong detections.
+    //
+    // If the routing threshold changes, these three values should scale together.
+    const DELTA_MISS: f32       =  0.15;  // threshold / (2 * IDF_avg)
+    const DELTA_REINFORCE: f32  =  0.05;  // DELTA_MISS / 3
+    const DELTA_SUPPRESS: f32   = -0.05;  // -DELTA_REINFORCE
+    //
+    // missed_intents is the key new path: adds word→intent edges that didn't
+    // exist before, so L3 learns completely unknown vocabulary from real queries.
+    let has_l3_update = !result.correct_intents.is_empty()
+        || !result.missed_intents.is_empty()
+        || !result.wrong_detections.is_empty();
+
+    if has_l3_update {
+        let normalized = {
+            let hebbian = state.hebbian.read().unwrap();
+            if let Some(g) = hebbian.get(app_id) {
+                g.preprocess(original_query).expanded
+            } else {
+                original_query.to_string()
+            }
+        };
+
+        // Content words: >2 chars, not pure numbers
+        let words: Vec<String> = normalized
+            .split_whitespace()
+            .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+            .filter(|w| w.len() > 2 && !w.chars().all(|c| c.is_numeric()))
+            .collect();
+        let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
+
+        eprintln!("[auto-learn/L3] query='{}' | L1-expanded='{}'", original_query, normalized);
+        eprintln!("[auto-learn/L3] content words: {:?}", word_refs);
+
+        // Track words that are BRAND NEW to L3 (no existing edge for any intent).
+        // These need L1 morphological learning — we don't want "pinging" to miss
+        // the newly added "ping" edge because L1 doesn't know "pinging"→"ping".
+        let new_vocabulary: Vec<String> = {
+            let ig_map = state.intent_graph.read().unwrap();
+            if let Some(ig) = ig_map.get(app_id) {
+                word_refs.iter()
+                    .filter(|&&w| !ig.word_intent.contains_key(w))
+                    .map(|&w| w.to_string())
+                    .collect()
+            } else {
+                vec![]
+            }
+        };
+
+        {
+            let mut ig_map = state.intent_graph.write().unwrap();
+            if let Some(ig) = ig_map.get_mut(app_id) {
+                for intent_id in &result.correct_intents {
+                    ig.reinforce(&word_refs, intent_id, DELTA_REINFORCE);
+                    eprintln!("[auto-learn/L3] correct  → reinforce {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_REINFORCE);
+                }
+                for intent_id in &result.missed_intents {
+                    ig.reinforce(&word_refs, intent_id, DELTA_MISS);
+                    eprintln!("[auto-learn/L3] missed   → reinforce {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_MISS);
+                }
+                for intent_id in &result.wrong_detections {
+                    ig.reinforce(&word_refs, intent_id, DELTA_SUPPRESS);
+                    eprintln!("[auto-learn/L3] wrong    → suppress  {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_SUPPRESS);
+                }
+
+                // Show resulting edge weights for transparency
+                for w in &word_refs {
+                    if let Some(edges) = ig.word_intent.get(*w) {
+                        eprintln!("[auto-learn/L3] edges after: '{}' → {:?}", w,
+                            edges.iter().map(|(id, wt)| format!("{}:{:.2}", id, wt)).collect::<Vec<_>>());
+                    }
+                }
+
+                if let Some(ref dir) = state.data_dir {
+                    let path = format!("{}/{}/_intent_graph.json", dir, app_id);
+                    ig.save(&path).ok();
+                    eprintln!("[auto-learn/L3] graph persisted → {}", path);
+                }
+            }
+        }
+
+        // ── L1 turn: learn morphological variants of brand-new vocabulary ──
+        // If "ping" was just added to L3, we need L1 to know "pinging","pinged","pings"→"ping"
+        // so those variants route correctly on the next query.
+        if !new_vocabulary.is_empty() {
+            eprintln!("[auto-learn/L1] new vocabulary found: {:?} — requesting morphological variants", new_vocabulary);
+            learn_l1_morphology(state, app_id, &new_vocabulary, original_query).await;
+        }
+    }
+
     (added, replaced)
 }
 
+/// Ask the LLM for morphological variants of newly discovered words and add them to L1.
+/// This closes the gap where L3 learns "ping"→send_message but L1 doesn't know "pinging"→"ping".
+async fn learn_l1_morphology(
+    state: &AppState,
+    app_id: &str,
+    new_words: &[String],
+    context_query: &str,
+) {
+    if state.llm_key.is_none() { return; }
+
+    let words_str = new_words.join(", ");
+    let prompt = format!(
+        "These words appeared in a user query (\"{context_query}\") and were just learned by an intent router:\n\
+         Words: [{words_str}]\n\n\
+         For each word, list ONLY morphological variants (inflected forms) that users would naturally type:\n\
+         - verb forms: -ing, -ed, -s, -ion, -er suffixes\n\
+         - Do NOT include synonyms or semantically related words — only inflected forms of the same word\n\
+         - Do NOT include the word itself\n\
+         - Skip words that have no useful variants (e.g. nouns like 'team')\n\n\
+         Respond with ONLY JSON:\n\
+         {{\"variants\": {{\"canonical_word\": [\"variant1\", \"variant2\"]}}}}\n\
+         Example: {{\"variants\": {{\"ping\": [\"pinging\", \"pinged\", \"pings\", \"pinged\"]}}}}"
+    );
+
+    match call_llm(state, &prompt, 400).await {
+        Ok(response) => {
+            let json_str = extract_json(&response);
+            match serde_json::from_str::<serde_json::Value>(json_str) {
+                Ok(parsed) => {
+                    if let Some(variants_map) = parsed["variants"].as_object() {
+                        let mut hebbian = state.hebbian.write().unwrap();
+                        if let Some(graph) = hebbian.get_mut(app_id) {
+                            let mut learned = 0usize;
+                            for (canonical, var_list) in variants_map {
+                                if let Some(arr) = var_list.as_array() {
+                                    for v in arr {
+                                        if let Some(variant) = v.as_str() {
+                                            let variant = variant.trim().to_lowercase();
+                                            if !variant.is_empty() && variant != canonical.as_str() {
+                                                graph.add(&variant, canonical, 0.97,
+                                                    asv_router::hebbian::EdgeKind::Morphological);
+                                                eprintln!("[auto-learn/L1] {} → {} (morphological)", variant, canonical);
+                                                learned += 1;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if learned > 0 {
+                                if let Some(ref dir) = state.data_dir {
+                                    let path = format!("{}/{}/_hebbian.json", dir, app_id);
+                                    graph.save(&path).ok();
+                                    eprintln!("[auto-learn/L1] {} edges added, graph persisted → {}", learned, path);
+                                }
+                            } else {
+                                eprintln!("[auto-learn/L1] no morphological variants found for {:?}", new_words);
+                            }
+                        }
+                    }
+                }
+                Err(e) => eprintln!("[auto-learn/L1] parse error: {} — raw: {}", e, &response[..response.len().min(200)]),
+            }
+        }
+        Err((_, e)) => eprintln!("[auto-learn/L1] LLM call failed: {}", e),
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_extract_json_fenced_array() {
+        let s = "```json\n[\n  {\"from\": \"x\", \"to\": \"y\"}\n]\n```";
+        let r = extract_json(s);
+        assert!(r.starts_with('['), "expected array, got: {:?}", r);
+    }
+    #[test]
+    fn test_extract_json_preamble_then_fence() {
+        let s = "Here are edges for {cancel_sub, create_repo}:\n```json\n[\n  {\"from\": \"x\"}\n]\n```";
+        let r = extract_json(s);
+        assert!(r.starts_with('['), "expected array, got: {:?}", r);
+    }
+}

@@ -4,13 +4,9 @@ export declare class Router {
   constructor()
   /** Add an intent with seed phrases. */
   addIntent(id: string, seeds: Array<string>): void
-  /** Route a query — returns array of {id, score}. */
-  route(query: string): Array<RouteResult>
-  /** Route with multi-intent detection. */
-  routeMulti(query: string, threshold?: number | undefined | null): MultiRouteOutput
-  /** Learn a new paraphrase for an intent. */
+  /** Store that query maps to intentId (phrase stored for bootstrap). */
   learn(query: string, intentId: string): void
-  /** Correct a misroute. */
+  /** Move query from wrongIntent to correctIntent. */
   correct(query: string, wrongIntent: string, correctIntent: string): void
   /** Set intent type: "action" or "context". */
   setIntentType(intentId: string, intentType: string): void
@@ -18,13 +14,21 @@ export declare class Router {
   exportJson(): string
   /** Import router state from JSON string. */
   static importJson(json: string): Router
+  /** Add a seed with duplicate checking. */
+  addSeed(intentId: string, seed: string, lang?: string | undefined | null): SeedResult
+  /** Remove a seed from an intent. */
+  removeSeed(intentId: string, seed: string): boolean
+  /** Set intent description. */
+  setDescription(intentId: string, description: string): void
+  /** Get intent description. */
+  getDescription(intentId: string): string
   /** Delete an intent. */
   deleteIntent(id: string): void
   /** List all intent IDs. */
   intentIds(): Array<string>
-  /** Begin batch mode. */
+  /** Begin batch mode (no-op). */
   beginBatch(): void
-  /** End batch mode. */
+  /** End batch mode (no-op). */
   endBatch(): void
   /** Discover intent clusters from unlabeled queries. */
   static discover(queries: Array<string>, expectedIntents?: number | undefined | null): Array<DiscoveredCluster>
@@ -38,17 +42,9 @@ export interface DiscoveredCluster {
   representativeQueries: Array<string>
 }
 
-export interface MultiRouteOutput {
-  confirmed: Array<MultiRouteResult>
-}
-
-export interface MultiRouteResult {
-  id: string
-  score: number
-  intentType: string
-}
-
-export interface RouteResult {
-  id: string
-  score: number
+export interface SeedResult {
+  added: boolean
+  newTerms: Array<string>
+  redundant: boolean
+  warning?: string | null
 }

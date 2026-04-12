@@ -1,17 +1,19 @@
-//! Python bindings for ASV Router via PyO3.
+//! Python bindings for ASV Router via PyO3 (intent registry only).
+//!
+//! Routing is handled server-side by the Hebbian L1+L3 system.
 //!
 //! Usage:
 //!   from asv_router import Router
 //!   r = Router()
 //!   r.add_intent("cancel_order", ["cancel my order", "stop my order"])
-//!   result = r.route("I want to cancel")
-//!   print(result[0]["id"])  # "cancel_order"
+//!   r.learn("I want to cancel", "cancel_order")  # stores phrase for bootstrap
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::collections::HashMap;
 
-/// Intent router: sub-millisecond, model-free, incremental learning.
+/// Intent registry: stores phrases, types, descriptions, and metadata.
+/// Routing is handled by the Hebbian L1+L3 server.
 #[pyclass]
 struct Router {
     inner: asv_router_core::Router,
@@ -35,44 +37,12 @@ impl Router {
         self.inner.add_intent_multilingual(id, seeds_by_lang);
     }
 
-    /// Route a query — returns list of dicts with 'id' and 'score'.
-    fn route<'py>(&self, py: Python<'py>, query: &str) -> PyResult<Vec<Bound<'py, PyDict>>> {
-        let results = self.inner.route(query);
-        results.iter().map(|r| {
-            let d = PyDict::new(py);
-            d.set_item("id", &r.id)?;
-            d.set_item("score", r.score)?;
-            Ok(d)
-        }).collect()
-    }
-
-    /// Route with multi-intent detection.
-    #[pyo3(signature = (query, threshold=None))]
-    fn route_multi<'py>(&self, py: Python<'py>, query: &str, threshold: Option<f32>) -> PyResult<Bound<'py, PyDict>> {
-        let t = threshold.unwrap_or(0.3);
-        let output = self.inner.route_multi(query, t);
-
-        let dict = PyDict::new(py);
-
-        let confirmed: Vec<Bound<'py, PyDict>> = output.intents.iter().map(|i| {
-            let d = PyDict::new(py);
-            d.set_item("id", &i.id).unwrap();
-            d.set_item("score", i.score).unwrap();
-            d.set_item("intent_type", format!("{:?}", i.intent_type).to_lowercase()).unwrap();
-            d
-        }).collect();
-
-        dict.set_item("confirmed", confirmed)?;
-
-        Ok(dict)
-    }
-
-    /// Learn a new paraphrase for an intent.
+    /// Store that query maps to intent_id (phrase stored for bootstrap).
     fn learn(&mut self, query: &str, intent_id: &str) {
         self.inner.learn(query, intent_id);
     }
 
-    /// Correct a misroute.
+    /// Move query from wrong_intent to correct_intent.
     fn correct(&mut self, query: &str, wrong_intent: &str, correct_intent: &str) {
         self.inner.correct(query, wrong_intent, correct_intent);
     }
@@ -105,32 +75,26 @@ impl Router {
         }
     }
 
-    /// Add a seed with collision guard. Returns dict with added, conflicts, etc.
+    /// Add a seed with duplicate checking. Returns dict with added, redundant, warning.
     fn add_seed<'py>(&mut self, py: Python<'py>, intent_id: &str, seed: &str, lang: Option<&str>) -> PyResult<Bound<'py, PyDict>> {
         let result = self.inner.add_seed_checked(intent_id, seed, lang.unwrap_or("en"));
         let d = PyDict::new(py);
         d.set_item("added", result.added)?;
         d.set_item("new_terms", &result.new_terms)?;
         d.set_item("redundant", result.redundant)?;
-        let conflicts: Vec<String> = result.conflicts.iter()
-            .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
-            .collect();
-        d.set_item("conflicts", conflicts)?;
+        d.set_item("conflicts", Vec::<String>::new())?;
         d.set_item("warning", result.warning)?;
         Ok(d)
     }
 
-    /// Check a seed without adding (read-only collision check).
+    /// Check a seed without adding.
     fn check_seed<'py>(&self, py: Python<'py>, intent_id: &str, seed: &str) -> PyResult<Bound<'py, PyDict>> {
         let result = self.inner.check_seed(intent_id, seed);
         let d = PyDict::new(py);
         d.set_item("added", false)?;
         d.set_item("new_terms", &result.new_terms)?;
         d.set_item("redundant", result.redundant)?;
-        let conflicts: Vec<String> = result.conflicts.iter()
-            .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
-            .collect();
-        d.set_item("conflicts", conflicts)?;
+        d.set_item("conflicts", Vec::<String>::new())?;
         d.set_item("warning", result.warning)?;
         Ok(d)
     }
@@ -160,12 +124,12 @@ impl Router {
         self.inner.intent_ids()
     }
 
-    /// Begin batch mode (defer index rebuild).
+    /// Begin batch mode (no-op, kept for API compat).
     fn begin_batch(&mut self) {
         self.inner.begin_batch();
     }
 
-    /// End batch mode (rebuild index).
+    /// End batch mode (no-op, kept for API compat).
     fn end_batch(&mut self) {
         self.inner.end_batch();
     }

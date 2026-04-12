@@ -46,27 +46,29 @@ pub async fn route_assemble(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    let routers = state.routers.read().unwrap();
-    let router = routers.get(&app_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
+    // Route via Hebbian L3
+    let scored = {
+        let ig_map = state.intent_graph.read().unwrap();
+        let heb_map = state.hebbian.read().unwrap();
+        if let (Some(ig), Some(heb)) = (ig_map.get(&app_id), heb_map.get(&app_id)) {
+            let pre = heb.preprocess(&req.query);
+            let (scores, _) = ig.score_multi_normalized(&pre.expanded, req.threshold, 1.5);
+            scores
+        } else {
+            vec![]
+        }
+    };
 
-    // Route the query
-    let output = router.route_multi(&req.query, req.threshold);
-
-    let confirmed: Vec<String> = output.intents.iter()
-        .filter(|i| i.confidence != "low")
-        .map(|i| i.id.clone())
+    let max_score = scored.iter().map(|(_, s)| *s).fold(0f32, f32::max);
+    let confirmed: Vec<String> = scored.iter()
+        .filter(|(_, s)| *s >= max_score * 0.5)
+        .map(|(id, _)| id.clone())
         .collect();
-
-    let candidates: Vec<String> = output.intents.iter()
-        .filter(|i| i.confidence == "low")
-        .map(|i| i.id.clone())
+    let candidates: Vec<String> = scored.iter()
+        .filter(|(_, s)| *s < max_score * 0.5)
+        .map(|(id, _)| id.clone())
         .collect();
-
-    // Collect active intents = confirmed + candidates (include all for assembly)
-    let mut active_ids: Vec<String> = output.intents.iter()
-        .map(|i| i.id.clone())
-        .collect();
+    let mut active_ids: Vec<String> = scored.iter().map(|(id, _)| id.clone()).collect();
 
     // Merge metadata payloads from all active intents
     let mut all_instructions: Vec<String> = Vec::new();
@@ -78,9 +80,27 @@ pub async fn route_assemble(
     let mut execute_template: Option<String> = None;
     let mut intent_descriptions: Vec<(String, String)> = Vec::new();
 
+    // Extract intent metadata from the term-index registry (storage only).
+    // Each intent's metadata, description, and situation patterns come from here.
+    struct IntentData {
+        desc: String,
+        meta: std::collections::HashMap<String, Vec<String>>,
+    }
+    let all_intent_data: Vec<(String, IntentData)> = {
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(&app_id) {
+            active_ids.iter().map(|id| {
+                (id.clone(), IntentData {
+                    desc: router.get_description(id).to_string(),
+                    meta: router.get_metadata(id).cloned().unwrap_or_default(),
+                })
+            }).collect()
+        } else {
+            vec![]
+        }
+    };
+
     // ── __clarify__ fallback ──────────────────────────────────────────────────
-    // When nothing routes, activate a synthetic clarify intent so the LLM can
-    // gracefully recover rather than producing a null result.
     if active_ids.is_empty() {
         active_ids.push("__clarify__".to_string());
         all_instructions.push(
@@ -90,27 +110,26 @@ pub async fn route_assemble(
             "Greet them warmly, list what you can help with from the available capabilities, \
              and ask a clarifying question to understand their need.".to_string()
         );
-        let available = router.intent_ids();
-        if !available.is_empty() {
-            let cap_list = available.iter().take(20).cloned().collect::<Vec<_>>().join(", ");
-            all_context.push(format!("Available capabilities: {}", cap_list));
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(&app_id) {
+            let available = router.intent_ids();
+            if !available.is_empty() {
+                let cap_list = available.iter().take(20).cloned().collect::<Vec<_>>().join(", ");
+                all_context.push(format!("Available capabilities: {}", cap_list));
+            }
         }
     } else {
-        for id in &active_ids {
-            let meta = router.get_metadata(id).cloned().unwrap_or_default();
-            let desc = router.get_description(id);
-
-            if !desc.is_empty() {
-                intent_descriptions.push((id.clone(), desc.to_string()));
+        for (id, data) in &all_intent_data {
+            if !data.desc.is_empty() {
+                intent_descriptions.push((id.clone(), data.desc.clone()));
             }
-
-            if let Some(instructions) = meta.get("ip_instructions") {
+            if let Some(instructions) = data.meta.get("ip_instructions") {
                 all_instructions.extend(instructions.clone());
             }
-            if let Some(guardrails) = meta.get("ip_guardrails") {
+            if let Some(guardrails) = data.meta.get("ip_guardrails") {
                 all_guardrails.extend(guardrails.clone());
             }
-            if let Some(schema) = meta.get("ip_schema") {
+            if let Some(schema) = data.meta.get("ip_schema") {
                 for field in schema {
                     if field.starts_with("required:") {
                         required_fields.push(field.trim_start_matches("required:").to_string());
@@ -119,16 +138,14 @@ pub async fn route_assemble(
                     }
                 }
             }
-            if let Some(context) = meta.get("ip_context") {
+            if let Some(context) = data.meta.get("ip_context") {
                 all_context.extend(context.clone());
             }
-            // ip_next_if: conditional branching rules
-            if let Some(next_if) = meta.get("ip_next_if") {
+            if let Some(next_if) = data.meta.get("ip_next_if") {
                 all_next_if.extend(next_if.clone());
             }
-            // ip_execute: take the first one found (primary confirmed intent)
             if execute_template.is_none() {
-                if let Some(exec) = meta.get("ip_execute") {
+                if let Some(exec) = data.meta.get("ip_execute") {
                     if let Some(first) = exec.first() {
                         execute_template = Some(first.clone());
                     }
@@ -150,12 +167,11 @@ pub async fn route_assemble(
         &req.history,
     );
 
-    let routing_details: Vec<serde_json::Value> = output.intents.iter().map(|i| {
+    let routing_details: Vec<serde_json::Value> = scored.iter().map(|(id, score)| {
         serde_json::json!({
-            "id": i.id,
-            "score": (i.score * 100.0).round() / 100.0,
-            "confidence": i.confidence,
-            "source": i.source,
+            "id": id,
+            "score": (*score * 100.0).round() / 100.0,
+            "source": "hebbian_l3",
         })
     }).collect();
 

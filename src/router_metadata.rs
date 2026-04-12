@@ -2,8 +2,6 @@
 
 use crate::*;
 use crate::tokenizer::*;
-use crate::vector::LearnedVector;
-use crate::index::InvertedIndex;
 use std::collections::{HashMap, HashSet};
 
 impl Router {

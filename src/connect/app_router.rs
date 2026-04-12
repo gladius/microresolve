@@ -3,8 +3,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::{Router, RouteResult};
-use crate::multi::MultiRouteOutput;
+use crate::Router;
 use super::types::{ConnectConfig, LogEntry, SyncResponse};
 use super::sync::build_client;
 
@@ -59,14 +58,6 @@ impl AppRouter {
             .name("asv-connect-sync".into())
             .spawn(move || super::sync::run_background(apps, versions, config, log_buf))
             .expect("failed to spawn asv-connect thread")
-    }
-
-    pub fn route(&self, app_id: &str, query: &str) -> Vec<RouteResult> {
-        self.get_router(app_id).map(|r| r.route(query)).unwrap_or_default()
-    }
-
-    pub fn route_multi(&self, app_id: &str, query: &str, threshold: f32) -> Option<MultiRouteOutput> {
-        self.get_router(app_id).map(|r| r.route_multi(query, threshold))
     }
 
     /// Push a log entry (non-blocking, dropped if buffer full).

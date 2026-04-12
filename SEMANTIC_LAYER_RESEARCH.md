@@ -262,11 +262,303 @@ Open:
 
 ---
 
+---
+
+## Session 2 — Concept System + Hebbian Graph (2026-04-12)
+
+### Why the Semantic Encoders Failed (Root Cause)
+
+All three encoders (Mini, Nano, Hierarchical) tried to **learn** semantic associations from training
+phrases via gradient descent. The training corpus (6–20 phrases per intent) is three orders of
+magnitude too small to learn meaningful embeddings. This is a data starvation problem, not an
+architecture problem. The crossover point for NanoEncoder is ~50 phrases/intent with full-sentence
+pairs — far beyond what a bootstrapped namespace has.
+
+**Key realisation:** the LLM already knows the semantic associations. The task is to
+**extract** that knowledge into a lightweight runtime structure, not re-learn it from scratch.
+
+---
+
+### Concept-Signal System (Experiment 1)
+
+**Architecture:**
+```
+LLM (bootstrap, one-time)
+  → defines 20-35 named concepts with signal word lists
+  → assigns intent profiles: {concept → weight} per intent
+  → defines intent_required: conjunction constraints
+
+Runtime (no LLM):
+  query → concept activation (signal string matching) → dot product → intent scores
+```
+
+**Results (20 intents, 4 domains, gap=2.5):**
+- Clean queries: 13/13 = 100%
+- OOV informal queries: 4/8 = 50%
+- Multi-intent recall (gap=2.5): 78%  
+- Multi-intent recall (gap=4.0, raw-score gap filter): **98%**
+
+**Critical fix — gap filter used adjusted scores:** The conjunction multiplier (1.5× when all
+required concepts fire) created artificial score gaps, dropping valid second intents. Fixed in
+`score_query_multi` by computing gap on **raw scores** (pre-conjunction) and returning
+**adjusted scores** (post-conjunction) for confidence tiering.
+
+**Auto-learn for concept system:**
+Turn 2 prompt shows concept registry + what fired → LLM identifies missing signal → `add_signal(concept, signal)`.
+One signal addition benefits all intents sharing that concept. Tested: "ping" added to `action_send`
+fixed "ping the team" routing. Auto-learn only triggers on flagged records (miss or low confidence).
+Multi-intent partial misses (one intent routed, second missed) are NOT flagged — fundamental gap.
+
+**Honest assessment of concept system:**
+- NOT truly semantic — it is LLM-seeded keyword matching. Signal lists are string-matched at runtime.
+  The LLM's intelligence is frozen at bootstrap; inference is deterministic lookup.
+- Better than human keyword lists (wider vocabulary from LLM)
+- Worse than BM25 for precision (fires on individual words globally, no span awareness)
+- False positives: `create_repo` appearing in send_message queries because `action_create` fires
+  on words like "project" or "launch" in the same query.
+
+**Concept system vs term-index:**
+
+| Property | Term-index (BM25) | Concept system |
+|---|---|---|
+| Cold start | Needs phrases | Zero-shot bootstrap |
+| Precision | High (exact phrases) | Lower (global word matching) |
+| OOV | Hard miss | Catches synonyms in signal list |
+| Multi-intent | Span-aware | Gap-filter only, no spans |
+| False positives | Rare | Common (word fires globally) |
+| Learning unit | Phrase per intent | Signal per concept (shared) |
+
+**Verdict:** Concept system is not a term-index replacement. It is a cold-start tool and a
+semantic verification layer. Best role: **concept activations guide auto-learn** rather than
+routing directly.
+
+---
+
+### The Right Architecture: Concept as Wrapper
+
+```
+Concept (semantic space definition)
+  ├── pre:   query expansion / normalisation
+  ├── inner: term-index (precision scoring, span tracking, learned weights)
+  └── post:  concept profile re-ranking, disambiguation
+```
+
+Concept system is the semantic envelope; term-index is the precision engine inside.
+
+**How auto-learn works in this architecture:**
+1. Query arrives
+2. Term-index routes (or misses)
+3. Concept activation runs in parallel — identifies semantic space
+4. If term-index is confident and concept agrees → high confidence, no flag
+5. If term-index is uncertain and concept fires strongly → auto-learn: LLM sees both signals,
+   adds phrase to term-index. Concept provides the oracle (which intent), term-index learns the
+   exact phrase.
+6. Next query: term-index hits directly. Concept system unchanged.
+
+Single auto-learn pipeline. Concept is the semantic oracle, not the learner.
+
+---
+
+### Span Tracking — Is It Critical?
+
+ASV's `multi.rs` tracks WHERE in the query each matched token cluster appears. Two clusters at
+different positions → two intents. The question: is this critical for functional correctness or
+just for visual display?
+
+**Functional role of span tracking:**
+
+1. **Multi-intent detection** — NOT strictly required. Gap-based filtering (return all intents
+   within N of top score) achieves 98% recall without spans. Two genuine intents score close
+   because both concept clusters fire independently.
+
+2. **False positive suppression** — THIS is where spans matter. "I listed all the ways to cancel"
+   — "listed" and "cancel" appear but belong to the same intent cluster. Span tracking sees they're
+   distant with low token density per cluster → rejects multi-intent. Gap filter alone can't see this.
+
+3. **Intent ordering** — "cancel then refund" vs "refund then cancel". Span gives ordering for
+   sequential intent relations. Gap filter has no ordering information.
+
+**Verdict:** Span tracking is NOT required for basic multi-intent detection. It IS useful for
+suppressing false positive multi-intents (rare in practice) and for intent ordering (niche use
+case). For the current routing use case, gap-based filtering is sufficient. Spans are a precision
+improvement, not a prerequisite.
+
+---
+
+### Hebbian Association Graph (Experiment 2)
+
+**Why Hebbian is the right structure for synonym expansion:**
+
+The failed encoders tried to learn a dense weight matrix from training data. Not enough data.
+The Hebbian graph instead: ask the LLM to generate association weights directly (LLM already knows
+"terminate" and "cancel" are related). Weights are initialised from LLM knowledge, not learned from
+scratch. True Hebbian update rule can reinforce edges from routing confirmations later.
+
+**Structure:**
+
+```rust
+HebbianGraph {
+  edges: HashMap<String, Vec<HebbianEdge>>,  // source → [(target, weight, kind)]
+  synonym_threshold: f32,                    // default 0.80
+}
+
+EdgeKind { Morphological, Abbreviation, Synonym, Semantic }
+```
+
+**Weight tiers and query actions:**
+
+| Weight   | Kind          | Action at query time                      |
+|----------|---------------|-------------------------------------------|
+| 0.97–1.0 | Morphological | Normalize — substitute in place           |
+| 0.97–1.0 | Abbreviation  | Normalize — substitute in place           |
+| 0.80–0.96| Synonym       | Expand — append canonical term            |
+| 0.60–0.79| Semantic      | Signal only — no query modification       |
+
+**Pipeline:**
+```
+raw query: "terminate my sub"
+  ↓ normalize (morph + abbrev substitution)
+"terminate my subscription"
+  ↓ expand (synonym injection above threshold)
+"terminate my subscription cancel"
+  ↓ term-index BM25 on expanded query
+cancel_subscription ✓
+```
+
+**Test results (21/21 unit tests passing, `src/hebbian.rs`):**
+- Morphological: "canceling" → "cancel", "shipped" → "ship", "merged the pr" → "merge the pull request"
+- Abbreviation: "cancel my sub" → "cancel my subscription"
+- Synonym: "terminate" injects "cancel", "kill" injects "cancel", "ping" injects "send"
+- Semantic (no expand): "stop" fires semantic signal to cancel but does NOT expand query
+- Reinforcement: `reinforce("terminate", "cancel", 0.05)` strengthens existing edge, creates new edge for unknown words
+
+**Key safety decision — ambiguous words excluded:**
+"pull", "open", "get", "end" excluded from synonym edges. "pull" in "pull request" would
+incorrectly expand to "list". "open" in "open a file" ≠ "create". Single-word synonyms
+must be unambiguous in the domain. Multi-word synonyms ("spin up" → create) require
+phrase matching, not yet implemented.
+
+**LLM bootstrap prompt for Hebbian:**
+Single call per namespace after intents are defined. LLM generates all four edge types
+with weights and types. Stored as `_hebbian.json` per namespace. Never regenerated unless
+namespace intents change significantly.
+
+---
+
+### Can Hebbian Replace Term-Index? (Analysis)
+
+**Two-layer Hebbian as full intent detector:**
+
+```
+Layer 1 (word → word):    terminate → cancel (0.92, synonym)
+Layer 2 (word → intent):  cancel → cancel_subscription (0.85)
+                           subscription → cancel_subscription (0.90)
+
+Spreading activation:
+  "terminate my subscription"
+  L1: terminate → cancel (0.92), subscription stays
+  L2: cancel(0.92) × 0.85 + subscription(1.0) × 0.90 = 1.68
+  → routes to cancel_subscription ✓
+```
+
+This IS routing via Hebbian spreading activation. No term-index. No BM25.
+
+**Why it could beat BM25:**
+- BM25 weights by document frequency (statistical). Hebbian weights by semantic discriminativeness (domain-distilled).
+- BM25 has no synonym awareness. Hebbian does natively.
+- Continuous Hebbian update from routing confirmations — every confirmed routing strengthens relevant edges.
+
+**Current gaps vs term-index:**
+1. **No span tracking** — global activation, no position information
+2. **No conjunction natively** — pairwise Hebbian can't represent "cancel AND subscription must both fire". Needs AND-gate nodes or Layer 2 uses phrase-level nodes rather than word-level.
+3. **Activation calibration** — spreading activation scores are unbounded; BM25 scores are well-studied.
+
+**Verdict:** Full Hebbian intent detection is viable and theoretically cleaner. Not a quick swap — requires building Layer 2 (word-intent edges) and conjunction handling. Should be built alongside term-index and benchmarked.
+
+---
+
+### Hierarchical Multi-Layer Hebbian (Vision)
+
+Each layer handles a distinct level of abstraction. All LLM-bootstrappable. All Hebbian-updatable.
+
+```
+Layer 0 — Sub-word (optional)
+  Character n-grams, suffix rules
+  Handles: typos, unknown morphological forms ("uncanceled" → suppress cancel)
+  LLM generates: suffix → base rules
+
+Layer 1 — Lexical (BUILT: src/hebbian.rs)
+  Word → word associations
+  Handles: morphology, abbreviations, synonyms, semantic neighbours
+  LLM generates: edge list with weights and kinds
+
+Layer 2 — Phrase / Pattern
+  (word + word) → phrase node, phrase node → intent
+  Handles: conjunction ("cancel" + "subscription" together → cancel_subscription node)
+  Handles: negation ("not" + intent_word → suppression node)
+  Handles: context markers ("I want", "please" → user_requesting boost)
+  LLM generates: phrase patterns with conjunction and suppression rules
+
+Layer 3 — Intent
+  Phrase nodes → intent activation
+  Direct equivalent of term-index word-intent associations
+  LLM bootstraps from intent descriptions; auto-learn adds edges from routing confirmations
+
+Layer 4 — Discourse / Session (future)
+  Previous intent + current query → informed routing
+  "I also want to..." → additive to last intent
+  "Actually..." → correction signal
+  Built from session logs, not LLM
+
+Layer 5 — Confidence / Meta
+  Aggregate activation across layers
+  Multi-intent gap detection
+  Escalation threshold (when to ask for clarification)
+```
+
+**Why this is the right long-term architecture:**
+
+1. **Unified learning mechanism** — same Hebbian update rule at every layer. No seam between BM25 and semantic layers.
+2. **LLM-bootstrappable at every layer** — no training data needed at cold start.
+3. **Continuously refinable** — routing confirmations flow back as Hebbian updates at the relevant layer.
+4. **Interpretable** — every routing decision traceable to specific edges. Explainability is built-in.
+5. **Per-namespace** — each namespace gets its own graph, distilled from its own domain context.
+6. **No embeddings required** — graph is sparse, structured, human-readable. Not a dense matrix.
+
+**What nano/mini encoder was trying to be:** Layer 1 + Layer 3 collapsed into a single dense matrix, learned from scratch. The matrix couldn't be bootstrapped from LLM and needed data it didn't have.
+
+**What Hebbian graph is:** Same knowledge, stored as a sparse edge list, bootstrapped from LLM. The Hebbian update rule applies when data is available. Starts useful from day one.
+
+---
+
+### Implementation Status
+
+| Component | Status | Location |
+|---|---|---|
+| HebbianGraph struct + EdgeKind | ✅ Built, 21 tests passing | `src/hebbian.rs` |
+| saas_test_graph (hand-crafted) | ✅ Built | `src/hebbian.rs` |
+| Demo binary | ✅ Built | `src/bin/test_hebbian.rs` |
+| LLM bootstrap endpoint | ⬜ Not started | `routes_concept.rs` or new file |
+| Integration with routes_core.rs | ⬜ Not started | pre-processing before term-index |
+| Layer 2 (phrase/conjunction nodes) | ⬜ Design only | — |
+| Layer 3 (word-intent edges) | ⬜ Design only | — |
+| Concept system as post-ranker | ⬜ Design only | `routes_core.rs` |
+
+### Next Steps (Priority Order)
+
+1. **Wire Layer 1 into routing** — call `hebbian.preprocess(query)` before term-index in `routes_core.rs`. Immediate gain for inflected queries and abbreviations.
+2. **LLM bootstrap for Hebbian** — `POST /api/hebbian/bootstrap` generates the graph for a namespace.
+3. **Debug endpoint** — `GET /api/hebbian/expand?query=...` shows normalization + expansion for a query.
+4. **Layer 2 — phrase conjunction nodes** — "cancel" + "subscription" activating a shared node that strongly points to cancel_subscription. This replaces `intent_required` from concept system.
+5. **Layer 3 — word-intent edges** — initialize from training phrases (term-index becomes a Hebbian subgraph). Benchmark spreading activation vs BM25.
+
 ## Files
 
 - `src/semantic.rs` — all encoders + helpers + tests (139 tests, all passing)
 - `src/bin/server/routes_semantic.rs` — HTTP API (build/score/compare/pairs endpoints)
 - `src/bin/server/state.rs` — ServerState fields for all three model caches
+- `src/hebbian.rs` — Hebbian graph (Layer 1), 21 tests passing
+- `src/bin/test_hebbian.rs` — standalone demo binary
 
 ## Test Coverage (139 lib tests)
 

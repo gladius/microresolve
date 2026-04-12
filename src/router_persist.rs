@@ -13,7 +13,7 @@
 
 use crate::*;
 use crate::types::IntentType;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 impl Router {
@@ -182,17 +182,12 @@ impl Router {
                 path.join(format!("{}.json", name))
             };
 
-            let learned: HashMap<String, f32> = self.vectors.get(&intent_id)
-                .map(|v| v.learned_terms())
-                .unwrap_or_default();
-
             let intent_json = serde_json::json!({
                 "description": self.get_description(&intent_id),
                 "type": self.get_intent_type(&intent_id),
                 "phrases": self.get_training_by_lang(&intent_id).cloned().unwrap_or_default(),
                 "metadata": self.get_metadata(&intent_id).cloned().unwrap_or_default(),
                 "situation_patterns": self.get_situation_patterns(&intent_id).cloned().unwrap_or_default(),
-                "learned": learned,
             });
 
             std::fs::write(&file_path, serde_json::to_string_pretty(&intent_json).unwrap_or_default())
@@ -269,16 +264,7 @@ fn load_intent_file(router: &mut Router, path: &Path, intent_id: &str) {
         }
     }
 
-    // Restore learned weights (skip empty map to avoid unnecessary allocation)
-    if let Some(learned) = val.get("learned")
-        .and_then(|l| serde_json::from_value::<HashMap<String, f32>>(l.clone()).ok())
-    {
-        if !learned.is_empty() {
-            if let Some(vector) = router.vectors.get_mut(intent_id) {
-                vector.set_learned_terms(learned);
-            }
-        }
-    }
+    // "learned" field is ignored — weights are now managed by Hebbian L3.
 }
 
 /// Remove `*.json` files in `ns_dir` (and one level of subdirs) not in `written`.

@@ -1,7 +1,10 @@
-//! WebAssembly bindings for ASV Router.
+//! WebAssembly bindings for ASV Router (intent registry only).
+//!
+//! Routing is handled server-side by the Hebbian L1+L3 system.
+//! This WASM module exposes the intent registry for browser-based management.
 
 use wasm_bindgen::prelude::*;
-use crate::{Router, IntentRelation, IntentType, phrase};
+use crate::{Router, IntentType, phrase};
 
 #[wasm_bindgen]
 pub struct WasmRouter {
@@ -30,7 +33,7 @@ impl WasmRouter {
         self.inner.add_intent_multilingual(id, seeds);
     }
 
-    /// Add a single training phrase with collision guard. Returns JSON with result.
+    /// Add a single training phrase with duplicate guard. Returns JSON with result.
     pub fn add_phrase(&mut self, intent_id: &str, seed: &str) -> String {
         let result = self.inner.add_phrase_checked(intent_id, seed, "en");
         serde_json::json!({
@@ -77,47 +80,6 @@ impl WasmRouter {
         }
     }
 
-    /// Route a query. Returns JSON array of {id, score}.
-    pub fn route(&self, query: &str) -> String {
-        let results = self.inner.route(query);
-        let out: Vec<serde_json::Value> = results.iter().map(|r| {
-            serde_json::json!({"id": r.id, "score": (r.score * 100.0).round() / 100.0})
-        }).collect();
-        serde_json::to_string(&out).unwrap_or_default()
-    }
-
-    /// Route multi-intent. Returns JSON with intents, relations, and metadata.
-    pub fn route_multi(&self, query: &str, threshold: f32) -> String {
-        let output = self.inner.route_multi(query, threshold);
-        let intents: Vec<serde_json::Value> = output.intents.iter().map(|i| {
-            serde_json::json!({
-                "id": i.id,
-                "score": (i.score * 100.0).round() / 100.0,
-                "position": i.position,
-                "span": [i.span.0, i.span.1],
-                "intent_type": i.intent_type
-            })
-        }).collect();
-        let relations: Vec<serde_json::Value> = output.relations.iter().map(|r| {
-            match r {
-                IntentRelation::Parallel => serde_json::json!({"type": "Parallel"}),
-                IntentRelation::Sequential { first, then } =>
-                    serde_json::json!({"type": "Sequential", "first": first, "then": then}),
-                IntentRelation::Conditional { primary, fallback } =>
-                    serde_json::json!({"type": "Conditional", "primary": primary, "fallback": fallback}),
-                IntentRelation::Reverse { stated_first, execute_first } =>
-                    serde_json::json!({"type": "Reverse", "stated_first": stated_first, "execute_first": execute_first}),
-                IntentRelation::Negation { do_this, not_this } =>
-                    serde_json::json!({"type": "Negation", "do_this": do_this, "not_this": not_this}),
-            }
-        }).collect();
-        serde_json::to_string(&serde_json::json!({
-            "intents": intents,
-            "relations": relations,
-            "metadata": output.metadata
-        })).unwrap_or_default()
-    }
-
     pub fn learn(&mut self, query: &str, intent_id: &str) {
         self.inner.learn(query, intent_id);
     }
@@ -138,22 +100,19 @@ impl WasmRouter {
         self.inner.end_batch();
     }
 
-    /// Get all intents as JSON: [{id, phrases, phrases_by_lang, learned_count, intent_type, metadata}]
+    /// Get all intents as JSON: [{id, phrases, phrases_by_lang, intent_type, metadata}]
     pub fn get_intents_json(&self) -> String {
         let mut ids = self.inner.intent_ids();
         ids.sort();
         let intents: Vec<serde_json::Value> = ids.iter().map(|id| {
             let all_phrases = self.inner.get_training(id).unwrap_or_default();
             let by_lang = self.inner.get_training_by_lang(id).cloned().unwrap_or_default();
-            let learned = self.inner.get_vector(id)
-                .map(|v| v.learned_term_count()).unwrap_or(0);
             let intent_type = self.inner.get_intent_type(id);
             let metadata = self.inner.get_metadata(id).cloned().unwrap_or_default();
             serde_json::json!({
                 "id": id,
                 "phrases": all_phrases,
                 "phrases_by_lang": by_lang,
-                "learned_count": learned,
                 "intent_type": intent_type,
                 "metadata": metadata
             })
@@ -178,14 +137,12 @@ impl WasmRouter {
     }
 
     /// Build an LLM prompt for phrase generation.
-    /// languages_json: JSON array of language codes, e.g. ["en", "zh"]
     pub fn build_phrase_prompt(&self, intent_id: &str, description: &str, languages_json: &str) -> String {
         let languages: Vec<String> = serde_json::from_str(languages_json).unwrap_or_default();
         phrase::build_prompt(intent_id, description, &languages)
     }
 
     /// Parse an LLM response into phrases grouped by language.
-    /// Returns JSON: {"phrases_by_lang": {...}, "total": N} or {"error": "..."}
     pub fn parse_phrase_response(&self, response_text: &str, languages_json: &str) -> String {
         let languages: Vec<String> = serde_json::from_str(languages_json).unwrap_or_default();
         match phrase::parse_response(response_text, &languages) {

@@ -44,10 +44,10 @@ impl Router {
     ///     ("prod", 0.8),
     /// ]);
     ///
-    /// // Now "the build failed on prod" routes to create_issue
-    /// // even though it contains no action vocabulary.
-    /// let result = router.route("the build failed on prod");
-    /// assert_eq!(result[0].id, "create_issue");
+    /// // Situation patterns are stored and fed into Hebbian bootstrap.
+    /// // Routing runs server-side via Hebbian L3 (POST /api/route_multi).
+    /// let patterns = router.get_situation_patterns("create_issue").unwrap();
+    /// assert_eq!(patterns.len(), 4);
     /// ```
     pub fn add_situation_patterns(&mut self, intent_id: &str, patterns: &[(&str, f32)]) {
         self.require_local();

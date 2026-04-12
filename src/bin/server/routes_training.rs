@@ -325,23 +325,29 @@ pub async fn training_run(
     Json(req): Json<TrainingRunRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let routers = state.routers.read().unwrap();
-    let router = routers.get(&app_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
     let mut results = Vec::new();
 
     for turn in &req.turns {
-        let output = router.route_multi(&turn.message, 0.3);
-
-        // Confirmed = high + medium confidence (paraphrase-confirmed)
-        // Candidates = low confidence (routing-only, needs LLM verification)
-        let confirmed: Vec<String> = output.intents.iter()
-            .filter(|i| i.confidence != "low")
-            .map(|i| i.id.clone())
+        // Route via Hebbian L3
+        let scored = {
+            let ig_map = state.intent_graph.read().unwrap();
+            let heb_map = state.hebbian.read().unwrap();
+            if let (Some(ig), Some(heb)) = (ig_map.get(&app_id), heb_map.get(&app_id)) {
+                let pre = heb.preprocess(&turn.message);
+                let (scores, _) = ig.score_multi_normalized(&pre.expanded, 0.3, 1.5);
+                scores
+            } else {
+                vec![]
+            }
+        };
+        let max_score = scored.iter().map(|(_, s)| *s).fold(0f32, f32::max);
+        let confirmed: Vec<String> = scored.iter()
+            .filter(|(_, s)| *s >= max_score * 0.5)
+            .map(|(id, _)| id.clone())
             .collect();
-        let candidates: Vec<String> = output.intents.iter()
-            .filter(|i| i.confidence == "low")
-            .map(|i| i.id.clone())
+        let candidates: Vec<String> = scored.iter()
+            .filter(|(_, s)| *s < max_score * 0.5)
+            .map(|(id, _)| id.clone())
             .collect();
 
         let ground_set: std::collections::HashSet<&str> = turn.ground_truth.iter().map(|s| s.as_str()).collect();
@@ -378,12 +384,12 @@ pub async fn training_run(
             "missed": missed,
             "extra": extra,
             "status": status,
-            "details": output.intents.iter().map(|i| serde_json::json!({
-                "id": i.id,
-                "score": (i.score * 100.0).round() / 100.0,
-                "confidence": i.confidence,
-                "source": i.source,
-                "negated": i.negated,
+            "details": scored.iter().map(|(id, score)| serde_json::json!({
+                "id": id,
+                "score": (*score * 100.0).round() / 100.0,
+                "confidence": if *score >= max_score * 0.8 { "high" } else if *score >= max_score * 0.5 { "medium" } else { "low" },
+                "source": "hebbian_l3",
+                "negated": false,
             })).collect::<Vec<_>>(),
         }));
     }

@@ -42,10 +42,7 @@ pub async fn list_intents(
         .map(|id| {
             let seeds = router.get_training(id).unwrap_or_default();
             let by_lang = router.get_training_by_lang(id).cloned().unwrap_or_default();
-            let learned = router
-                .get_vector(id)
-                .map(|v| v.learned_term_count())
-                .unwrap_or(0);
+            let learned = 0usize; // routing vectors removed; count always 0
             let intent_type = router.get_intent_type(id);
             let metadata = router.get_metadata(id).cloned().unwrap_or_default();
             let description = router.get_description(id);
@@ -70,6 +67,7 @@ pub async fn list_intents(
 #[derive(serde::Deserialize)]
 pub struct AddIntentRequest {
     id: String,
+    #[serde(default)]
     phrases: Vec<String>,
     #[serde(default)]
     intent_type: Option<IntentType>,
@@ -84,10 +82,7 @@ pub async fn add_intent(
 ) -> StatusCode {
     let app_id = app_id_from_headers(&headers);
     let mut routers = state.routers.write().unwrap();
-    let router = match routers.get_mut(&app_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
+    let router = routers.entry(app_id.clone()).or_insert_with(Router::new);
     let seed_refs: Vec<&str> = req.phrases.iter().map(|s| s.as_str()).collect();
     router.add_intent(&req.id, &seed_refs);
     if let Some(t) = req.intent_type {

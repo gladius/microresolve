@@ -269,24 +269,42 @@ impl ConceptRegistry {
     /// Multi-intent scoring.
     ///
     /// Returns all intents that:
-    /// 1. Score >= threshold (absolute floor)
-    /// 2. Score within `gap` of the top-scoring intent
+    /// 1. Raw score >= threshold (absolute floor, before conjunction multiplier)
+    /// 2. Raw score within `gap` of the top raw score
     ///
-    /// A genuine second intent scores close to the first because it has its own
-    /// independent concept cluster that fires. Noise or weak partial matches
-    /// score much lower and are excluded by the gap filter.
+    /// Gap filtering uses raw scores (pre-conjunction) so that the 1.5x conjunction
+    /// boost on intent A doesn't artificially push intent B outside the gap window.
+    /// Both intents in a multi-intent query get their own concept clusters firing,
+    /// and their raw scores reflect that — conjunction only affects confidence tier.
     pub fn score_query_multi(
         &self,
         query: &str,
         threshold: f32,
         gap: f32,
     ) -> Vec<(String, f32)> {
-        let scores = self.score_query(query);
-        if scores.is_empty() { return Vec::new(); }
+        let adjusted = self.score_query(query);
+        if adjusted.is_empty() { return Vec::new(); }
 
-        let top = scores[0].1;
-        scores.into_iter()
-            .filter(|(_, s)| *s >= threshold && top - s <= gap)
+        // Compute raw scores (no conjunction multiplier) for gap filtering only
+        let activations = self.activate(query);
+        let act_map: std::collections::HashMap<&str, f32> = activations.iter()
+            .map(|a| (a.concept.as_str(), a.score))
+            .collect();
+        let raw: std::collections::HashMap<&str, f32> = self.intent_profiles.iter()
+            .map(|(intent, profile)| {
+                let raw_score: f32 = profile.iter()
+                    .map(|(c, w)| act_map.get(c.as_str()).unwrap_or(&0.0) * w)
+                    .sum();
+                (intent.as_str(), raw_score)
+            })
+            .collect();
+
+        let top_raw = raw.values().cloned().fold(0f32, f32::max);
+        adjusted.into_iter()
+            .filter(|(id, _)| {
+                let r = *raw.get(id.as_str()).unwrap_or(&0.0);
+                r >= threshold && top_raw - r <= gap
+            })
             .collect()
     }
 

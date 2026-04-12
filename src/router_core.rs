@@ -1,52 +1,30 @@
 //! Router: constructor, configuration, persistence, accessors.
 
 use crate::*;
-use crate::tokenizer::*;
-use crate::vector::LearnedVector;
-use crate::index::InvertedIndex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 impl Router {
-    /// Create a new empty router in local mode.
+    /// Create a new empty router.
     pub fn new() -> Self {
         Self {
-            vectors: HashMap::new(),
-            index: InvertedIndex::new(),
             training: HashMap::new(),
-            top_k: 10,
-            cjk_automaton: None,
-            cjk_patterns: Vec::new(),
-            batch_mode: false,
-            cjk_dirty: false,
             intent_types: HashMap::new(),
             descriptions: HashMap::new(),
             metadata: HashMap::new(),
-            paraphrase_phrases: HashMap::new(),
-            paraphrase_automaton: None,
-            paraphrase_patterns: Vec::new(),
-            paraphrase_dirty: false,
             version: 0,
-            max_intents: 5,
             connected: false,
             similarity: HashMap::new(),
-            expansion_discount: 0.3,
             situation_patterns: HashMap::new(),
             namespace_name: String::new(),
             namespace_description: String::new(),
             domain_descriptions: HashMap::new(),
+            top_k: 10,
+            max_intents: 5,
+            batch_mode: false,
         }
     }
 
     /// Create a router with configuration.
-    ///
-    /// ```
-    /// use asv_router::{Router, RouterConfig};
-    /// let r = Router::with_config(RouterConfig {
-    ///     top_k: 5,
-    ///     max_intents: 10,
-    ///     ..Default::default()
-    /// });
-    /// ```
     pub fn with_config(config: RouterConfig) -> Self {
         let mut r = Self::new();
         r.top_k = config.top_k;
@@ -57,7 +35,7 @@ impl Router {
         r
     }
 
-    /// Load router state from a JSON file. Returns error if file not found or invalid.
+    /// Load router state from a JSON file.
     pub fn load(path: &str) -> Result<Self, String> {
         let json = std::fs::read_to_string(path)
             .map_err(|e| format!("Failed to read {}: {}", path, e))?;
@@ -79,13 +57,13 @@ impl Router {
         self.connected
     }
 
-    /// Set the maximum number of results returned by `route()`.
+    /// Set the maximum number of results returned by route(). Legacy config.
     pub fn with_top_k(mut self, top_k: usize) -> Self {
         self.top_k = top_k;
         self
     }
 
-    /// Set the maximum number of intents detected by `route_multi()`. Default: 5.
+    /// Set the maximum number of intents for multi-intent routing. Legacy config.
     pub fn set_max_intents(&mut self, max: usize) {
         self.max_intents = max;
     }
@@ -98,71 +76,35 @@ impl Router {
     /// Guard: panics if router is in connected (read-only) mode.
     pub(crate) fn require_local(&self) {
         if self.connected {
-            panic!("Cannot modify router in connected mode — server manages state. \
-                    Use the server UI or API to make changes.");
+            panic!("Cannot modify router in connected mode — server manages state.");
         }
     }
 
-    /// Begin batch mode: defers CJK automaton rebuilds until `end_batch()`.
-    ///
-    /// Use this when calling `learn()` or `correct()` many times in sequence.
-    /// The inverted index is still updated incrementally per call, so routing
-    /// remains functional. Only the CJK automaton rebuild is deferred.
-    ///
-    /// ```
-    /// use asv_router::Router;
-    ///
-    /// let mut router = Router::new();
-    /// router.add_intent("cancel", &["取消 订单"]);
-    ///
-    /// router.begin_batch();
-    /// for i in 0..100 {
-    ///     router.learn(&format!("query {}", i), "cancel");
-    /// }
-    /// router.end_batch(); // single automaton rebuild
-    /// ```
+    /// Begin batch mode. No-op since automata have been removed; kept for API compat.
     pub fn begin_batch(&mut self) {
         self.batch_mode = true;
-        self.cjk_dirty = false;
-        self.paraphrase_dirty = false;
     }
 
-    /// End batch mode and rebuild automatons if needed.
+    /// End batch mode. No-op since automata have been removed; kept for API compat.
     pub fn end_batch(&mut self) {
         self.batch_mode = false;
-        if self.cjk_dirty {
-            self.rebuild_cjk_automaton_now();
-            self.cjk_dirty = false;
-        }
-        if self.paraphrase_dirty {
-            self.rebuild_paraphrase_automaton_now();
-            self.paraphrase_dirty = false;
-        }
     }
 
-    /// Add an intent with seed phrases.
-    ///
-    /// Seed phrases are example queries that should route to this intent.
-    /// They are tokenized into term weights and used for matching.
-    ///
-    /// ```
-    /// use asv_router::Router;
-    ///
-    /// let mut router = Router::new();
-    /// router.add_intent("greeting", &["hello", "hi there", "hey"]);
-
+    /// Number of registered intents.
     pub fn intent_count(&self) -> usize {
-        self.vectors.len()
+        self.training.len()
     }
 
-    /// Get the vector for an intent (for inspection/debugging).
-    pub fn get_vector(&self, intent_id: &str) -> Option<&LearnedVector> {
-        self.vectors.get(intent_id)
-    }
-
-    /// Get all intent IDs.
+    /// Get all intent IDs. Canonical source is the training map.
     pub fn intent_ids(&self) -> Vec<String> {
-        self.vectors.keys().cloned().collect()
+        // Union of training keys and intent_types keys to include intents
+        // that have a type/description set but no training phrases yet.
+        let mut ids: std::collections::HashSet<String> = self.training.keys().cloned().collect();
+        ids.extend(self.intent_types.keys().cloned());
+        ids.extend(self.descriptions.keys().cloned());
+        let mut v: Vec<String> = ids.into_iter().collect();
+        v.sort();
+        v
     }
 
     /// Get all training phrases for an intent (flat, all languages combined).
@@ -180,28 +122,29 @@ impl Router {
     /// Get seed counts per language for an intent.
     pub fn seed_counts_by_lang(&self, intent_id: &str) -> HashMap<String, usize> {
         self.training.get(intent_id)
-            .map(|lang_map| lang_map.iter().map(|(lang, seeds)| (lang.clone(), seeds.len())).collect())
+            .map(|m| m.iter().map(|(lang, seeds)| (lang.clone(), seeds.len())).collect())
             .unwrap_or_default()
     }
 
-    /// Check a seed phrase for collisions and redundancy before adding.
+    /// Get the current version number. Incremented on every mutation.
+    pub fn version(&self) -> u64 {
+        self.version
+    }
 
+    /// Export router state as JSON (training phrases, types, descriptions, metadata).
     pub fn export_json(&self) -> String {
-        let paraphrases: Vec<(String, String, f32)> = self.paraphrase_phrases.iter()
-            .map(|(phrase, (intent_id, weight))| (phrase.clone(), intent_id.clone(), *weight))
-            .collect();
         let state = RouterState {
-            intents: self.vectors.clone(),
             training: self.training.clone(),
-            top_k: self.top_k,
             intent_types: self.intent_types.clone(),
             descriptions: self.descriptions.clone(),
             metadata: self.metadata.clone(),
-            paraphrases,
             version: self.version,
+            top_k: self.top_k,
             max_intents: self.max_intents,
             similarity: self.similarity.clone(),
             situation_patterns: self.situation_patterns.clone(),
+            intents: serde_json::Value::Null,
+            paraphrases: serde_json::Value::Null,
         };
         serde_json::to_string(&state).unwrap_or_default()
     }
@@ -211,60 +154,29 @@ impl Router {
         let state: RouterState =
             serde_json::from_str(json).map_err(|e| format!("invalid JSON: {}", e))?;
 
-        let index = InvertedIndex::build(&state.intents);
-
-        // Restore paraphrase phrases from serialized Vec<(phrase, intent_id, weight)>
-        let mut paraphrase_phrases: HashMap<String, (String, f32)> = HashMap::new();
-        for (phrase, intent_id, weight) in &state.paraphrases {
-            paraphrase_phrases.insert(phrase.clone(), (intent_id.clone(), *weight));
-        }
-
-        let mut router = Self {
-            vectors: state.intents,
-            index,
+        Ok(Self {
             training: state.training,
-            top_k: state.top_k,
-            cjk_automaton: None,
-            cjk_patterns: Vec::new(),
-            batch_mode: false,
-            cjk_dirty: false,
             intent_types: state.intent_types,
             descriptions: state.descriptions,
             metadata: state.metadata,
-            paraphrase_phrases,
-            paraphrase_automaton: None,
-            paraphrase_patterns: Vec::new(),
-            paraphrase_dirty: false,
             version: state.version,
-            max_intents: state.max_intents,
             connected: false,
             similarity: state.similarity,
-            expansion_discount: 0.3,
             situation_patterns: state.situation_patterns,
             namespace_name: String::new(),
             namespace_description: String::new(),
             domain_descriptions: HashMap::new(),
-        };
-        router.rebuild_cjk_automaton_now();
-        router.rebuild_paraphrase_automaton_now();
-        Ok(router)
+            top_k: state.top_k,
+            max_intents: state.max_intents,
+            batch_mode: false,
+        })
     }
-
-    // Number of registered intents.
-
-    /// Get the current version number. Incremented on every mutation.
-    pub fn version(&self) -> u64 {
-        self.version
-    }
-
 }
 
-// Serializable router state for persistence.
+/// Serializable router state for persistence.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct RouterState {
-    intents: HashMap<String, LearnedVector>,
     training: HashMap<String, HashMap<String, Vec<String>>>,
-    top_k: usize,
     #[serde(default)]
     intent_types: HashMap<String, IntentType>,
     #[serde(default)]
@@ -272,15 +184,23 @@ struct RouterState {
     #[serde(default)]
     metadata: HashMap<String, HashMap<String, Vec<String>>>,
     #[serde(default)]
-    paraphrases: Vec<(String, String, f32)>,
-    #[serde(default)]
     version: u64,
+    #[serde(default = "default_top_k")]
+    top_k: usize,
     #[serde(default = "default_max_intents")]
     max_intents: usize,
     #[serde(default)]
     similarity: HashMap<String, Vec<(String, f32)>>,
     #[serde(default)]
     situation_patterns: HashMap<String, Vec<(String, f32)>>,
+    // Old fields present in saved JSON — ignored during load.
+    #[serde(default, skip_serializing)]
+    #[allow(dead_code)]
+    intents: serde_json::Value,
+    #[serde(default, skip_serializing)]
+    #[allow(dead_code)]
+    paraphrases: serde_json::Value,
 }
 
+fn default_top_k() -> usize { 10 }
 fn default_max_intents() -> usize { 5 }

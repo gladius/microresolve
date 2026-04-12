@@ -157,22 +157,28 @@ pub async fn review_fix(
     // Re-check other unresolved flagged entries against updated router
     let mut auto_resolved = 0usize;
     if !pipeline.added.is_empty() {
-        let routers = state.routers.read().unwrap();
-        if let Some(router) = routers.get(&app_id) {
-            let unresolved = state.log_store.lock().unwrap().query(&LogQuery {
-                app_id: Some(app_id.clone()),
-                resolved: Some(false),
-                limit: 1000,
-                ..Default::default()
-            });
-            for record in &unresolved.records {
-                let result = router.route_multi(&record.query, 0.3);
-                let passes = result.intents.iter()
-                    .any(|i| i.confidence == "high" || i.confidence == "medium");
-                if passes {
-                    state.log_store.lock().unwrap().resolve(&app_id, record.id);
-                    auto_resolved += 1;
+        let unresolved = state.log_store.lock().unwrap().query(&LogQuery {
+            app_id: Some(app_id.clone()),
+            resolved: Some(false),
+            limit: 1000,
+            ..Default::default()
+        });
+        for record in &unresolved.records {
+            // Re-check via Hebbian L3
+            let passes = {
+                let ig_map = state.intent_graph.read().unwrap();
+                let heb_map = state.hebbian.read().unwrap();
+                if let (Some(ig), Some(heb)) = (ig_map.get(&app_id), heb_map.get(&app_id)) {
+                    let pre = heb.preprocess(&record.query);
+                    let (scores, _) = ig.score_multi_normalized(&pre.expanded, 0.3, 1.5);
+                    !scores.is_empty()
+                } else {
+                    false
                 }
+            };
+            if passes {
+                state.log_store.lock().unwrap().resolve(&app_id, record.id);
+                auto_resolved += 1;
             }
         }
     }

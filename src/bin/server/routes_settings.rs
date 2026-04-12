@@ -392,18 +392,6 @@ pub async fn load_defaults(State(state): State<AppState>, headers: HeaderMap) ->
     }
     router.end_batch();
 
-    // Paraphrase index starts empty at cold start.
-    // Populated only through learn()/add_seed calls (training arena, learn mode, API).
-    // Load previously learned paraphrases if available.
-    if let Ok(data) = std::fs::read_to_string("tests/data/paraphrases.json") {
-        if let Ok(paraphrases) = serde_json::from_str::<std::collections::HashMap<String, Vec<String>>>(&data) {
-            router.begin_batch();
-            router.add_paraphrases_bulk(&paraphrases);
-            router.end_batch();
-            eprintln!("Loaded {} learned paraphrase phrases", router.paraphrase_count());
-        }
-    }
-
     maybe_persist(&state, &app_id, router);
     StatusCode::OK
 }

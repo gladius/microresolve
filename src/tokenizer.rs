@@ -276,6 +276,10 @@ fn expand_cjk_run(
         return;
     }
 
+    if chars.is_empty() {
+        return;
+    }
+
     // Single char: add as unigram
     if chars.len() == 1 {
         words.push(chars[0].to_string());

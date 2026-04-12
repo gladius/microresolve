@@ -1,33 +1,16 @@
-//! Node.js bindings for ASV Router via napi-rs.
+//! Node.js bindings for ASV Router via napi-rs (intent registry only).
+//!
+//! Routing is handled server-side by the Hebbian L1+L3 system.
 //!
 //! Usage:
 //!   const { Router } = require('asv-router');
 //!   const r = new Router();
 //!   r.addIntent("cancel_order", ["cancel my order", "stop my order"]);
-//!   const result = r.route("I want to cancel");
-//!   console.log(result[0].id);  // "cancel_order"
+//!   r.learn("I want to cancel", "cancel_order");  // store phrase for bootstrap
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
-
-#[napi(object)]
-pub struct RouteResult {
-    pub id: String,
-    pub score: f64,
-}
-
-#[napi(object)]
-pub struct MultiRouteResult {
-    pub id: String,
-    pub score: f64,
-    pub intent_type: String,
-}
-
-#[napi(object)]
-pub struct MultiRouteOutput {
-    pub confirmed: Vec<MultiRouteResult>,
-}
 
 #[napi(object)]
 pub struct DiscoveredCluster {
@@ -43,7 +26,6 @@ pub struct SeedResult {
     pub added: bool,
     pub new_terms: Vec<String>,
     pub redundant: bool,
-    pub conflicts: Vec<String>,
     pub warning: Option<String>,
 }
 
@@ -66,36 +48,13 @@ impl Router {
         self.inner.add_intent(&id, &refs);
     }
 
-    /// Route a query — returns array of {id, score}.
-    #[napi]
-    pub fn route(&self, query: String) -> Vec<RouteResult> {
-        self.inner.route(&query).iter().map(|r| RouteResult {
-            id: r.id.clone(),
-            score: r.score as f64,
-        }).collect()
-    }
-
-    /// Route with multi-intent detection.
-    #[napi]
-    pub fn route_multi(&self, query: String, threshold: Option<f64>) -> MultiRouteOutput {
-        let t = threshold.unwrap_or(0.3) as f32;
-        let output = self.inner.route_multi(&query, t);
-        MultiRouteOutput {
-            confirmed: output.intents.iter().map(|i| MultiRouteResult {
-                id: i.id.clone(),
-                score: i.score as f64,
-                intent_type: format!("{:?}", i.intent_type).to_lowercase(),
-            }).collect(),
-        }
-    }
-
-    /// Learn a new paraphrase for an intent.
+    /// Store that query maps to intent_id (phrase stored for bootstrap).
     #[napi]
     pub fn learn(&mut self, query: String, intent_id: String) {
         self.inner.learn(&query, &intent_id);
     }
 
-    /// Correct a misroute.
+    /// Move query from wrong_intent to correct_intent.
     #[napi]
     pub fn correct(&mut self, query: String, wrong_intent: String, correct_intent: String) {
         self.inner.correct(&query, &wrong_intent, &correct_intent);
@@ -126,7 +85,7 @@ impl Router {
         }
     }
 
-    /// Add a seed with collision guard.
+    /// Add a seed with duplicate checking.
     #[napi]
     pub fn add_seed(&mut self, intent_id: String, seed: String, lang: Option<String>) -> SeedResult {
         let result = self.inner.add_seed_checked(&intent_id, &seed, lang.as_deref().unwrap_or("en"));
@@ -134,9 +93,6 @@ impl Router {
             added: result.added,
             new_terms: result.new_terms,
             redundant: result.redundant,
-            conflicts: result.conflicts.iter()
-                .map(|c| format!("'{}' conflicts with {}", c.term, c.competing_intent))
-                .collect(),
             warning: result.warning,
         }
     }
@@ -171,13 +127,13 @@ impl Router {
         self.inner.intent_ids()
     }
 
-    /// Begin batch mode.
+    /// Begin batch mode (no-op, kept for API compat).
     #[napi]
     pub fn begin_batch(&mut self) {
         self.inner.begin_batch();
     }
 
-    /// End batch mode.
+    /// End batch mode (no-op, kept for API compat).
     #[napi]
     pub fn end_batch(&mut self) {
         self.inner.end_batch();
