@@ -617,10 +617,9 @@ pub async fn apply_review(
         }
     }
 
-    // Update concept registry from this correction (add unmatched content words
-    // as signals to the dominant concept for each correct intent).
+    // Update concept registry — LLM picks the right signal for the right concept.
     for intent_id in &result.correct_intents {
-        crate::routes_concept::learn_from_correction(state, app_id, original_query, intent_id);
+        crate::routes_concept::learn_from_correction(state, app_id, original_query, intent_id).await;
     }
 
     (added, replaced)
