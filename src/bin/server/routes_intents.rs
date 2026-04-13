@@ -177,11 +177,9 @@ pub async fn add_intent_multilingual(
     Json(req): Json<AddIntentMultilingualRequest>,
 ) -> StatusCode {
     let app_id = app_id_from_headers(&headers);
+    ensure_app(&state, &app_id);
     let mut routers = state.routers.write().unwrap();
-    let router = match routers.get_mut(&app_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
+    let router = routers.get_mut(&app_id).unwrap();
     router.add_intent_multilingual(&req.id, req.phrases_by_lang);
     if let Some(t) = req.intent_type {
         router.set_intent_type(&req.id, t);

@@ -73,7 +73,6 @@ impl Router {
         self.intent_types.remove(id);
         self.descriptions.remove(id);
         self.metadata.remove(id);
-        self.situation_patterns.remove(id);
         self.version += 1;
     }
 

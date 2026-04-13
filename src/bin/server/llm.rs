@@ -329,9 +329,6 @@ pub struct FullReviewResult {
     pub languages: Vec<String>,
     /// True when Turn 1 found no issues — Turns 2+3 were skipped
     pub detection_perfect: bool,
-    /// Turn 2 (concept mode): signals to add to concepts
-    #[serde(default)]
-    pub signals_to_add: Vec<(String, String)>, // (concept, signal)
     /// Turn 2 (phrase mode): phrases to add (passed guard + retry)
     pub phrases_to_add: HashMap<String, Vec<String>>,
     /// Turn 2: phrases blocked by guard
@@ -408,7 +405,7 @@ pub async fn full_review(
             missed_intents,
             languages,
             detection_perfect: true,
-            signals_to_add: Vec::new(),
+
             phrases_to_add: HashMap::new(),
             phrases_blocked: Vec::new(),
             phrases_to_replace: Vec::new(),
@@ -417,15 +414,7 @@ pub async fn full_review(
         });
     }
 
-    // === Branch: concept registry or term index? ===
-    let has_concepts = state.concepts.read().unwrap().contains_key(app_id);
-
-    // === CONCEPT PATH: Turn 2 + 3 via signal learning ===
-    if has_concepts {
-        return concept_review_turns(state, app_id, query, &correct_intents, &wrong_detections, &missed_intents, &languages).await;
-    }
-
-    // === TERM INDEX PATH: Turn 2: Fix misses (phrases to add) ===
+    // === Turn 2: Fix misses (phrases to add) ===
     let existing_phrases: String = {
         let routers = state.routers.read().unwrap();
         if let Some(router) = routers.get(app_id) {
@@ -610,7 +599,6 @@ pub async fn full_review(
         missed_intents,
         languages,
         detection_perfect: false,
-        signals_to_add: Vec::new(),
         phrases_to_add,
         phrases_blocked,
         phrases_to_replace,
@@ -619,107 +607,6 @@ pub async fn full_review(
     })
 }
 
-// ── Concept-aware review turns ────────────────────────────────────────────────
-
-async fn concept_review_turns(
-    state: &AppState,
-    app_id: &str,
-    query: &str,
-    correct_intents: &[String],
-    wrong_detections: &[String],
-    missed_intents: &[String],
-    languages: &[String],
-) -> Result<FullReviewResult, String> {
-
-    // Build concept summary and what fired for this query
-    let (concept_summary, fired_summary) = {
-        let concepts = state.concepts.read().unwrap();
-        let reg = concepts.get(app_id);
-        let concept_summary = reg.map(|r| {
-            r.concepts.iter()
-                .map(|(name, sigs)| format!("  {}: [{}]", name, sigs.iter().take(6).cloned().collect::<Vec<_>>().join(", ")))
-                .collect::<Vec<_>>().join("\n")
-        }).unwrap_or_default();
-        let fired_summary = reg.map(|r| {
-            r.explain(query).iter()
-                .map(|a| format!("  {} (matched: {})", a.concept, a.matched_signals.join(", ")))
-                .collect::<Vec<_>>().join("\n")
-        }).unwrap_or_default();
-        (concept_summary, fired_summary)
-    };
-
-    // === Concept Turn 2: identify missing signals ===
-    let turn2_prompt = format!(
-        r#"An intent router uses semantic concepts. A query was misrouted.
-
-Query: "{query}"
-Correct intent(s): {correct_intents:?}
-Missed intent(s): {missed_intents:?}
-
-Available concepts and their current signals:
-{concept_summary}
-
-Concepts that fired for this query:
-{fired_summary}
-
-The query failed because signals are missing from the concept registry.
-Identify up to 3 signals to add — the key words/phrases from this query that should activate the correct concept(s).
-
-Rules:
-- Signals are 1-4 words, lowercase
-- Pick words that are semantically meaningful for the correct intent
-- Prefer specific phrases over single generic words
-- Only add signals that aren't already present
-
-Return ONLY JSON:
-{{"signals_to_add": [{{"concept": "concept_name", "signal": "the phrase"}}]}}"#
-    );
-
-    let t2_response = call_llm(state, &turn2_prompt, 256).await
-        .map_err(|e| format!("Concept Turn 2 failed: {}", e.1))?;
-    let t2_parsed: serde_json::Value = serde_json::from_str(extract_json(&t2_response))
-        .unwrap_or_default();
-
-    let signals_to_add: Vec<(String, String)> = t2_parsed["signals_to_add"]
-        .as_array().unwrap_or(&vec![])
-        .iter()
-        .filter_map(|s| {
-            let concept = s["concept"].as_str()?.to_string();
-            let signal = s["signal"].as_str()?.to_string();
-            if concept.is_empty() || signal.is_empty() { return None; }
-            Some((concept, signal))
-        })
-        .collect();
-
-    eprintln!("[concept_review] Turn 2: signals_to_add={:?}", signals_to_add);
-
-    // === Concept Turn 3: identify false positive concept signals ===
-    // For now: log wrong detections, skip complex signal removal
-    // (conjunction scoring already handles most false positives)
-    if !wrong_detections.is_empty() {
-        eprintln!("[concept_review] Turn 3: wrong_detections={:?} — conjunction scoring handles these", wrong_detections);
-    }
-
-    let summary = if !signals_to_add.is_empty() {
-        format!("Adding {} signal(s) to concept registry", signals_to_add.len())
-    } else {
-        "No signal changes needed".to_string()
-    };
-
-    Ok(FullReviewResult {
-        correct_intents: correct_intents.to_vec(),
-        wrong_detections: wrong_detections.to_vec(),
-        missed_intents: missed_intents.to_vec(),
-        languages: languages.to_vec(),
-        detection_perfect: false,
-        signals_to_add,
-        phrases_to_add: HashMap::new(),
-        phrases_blocked: Vec::new(),
-        phrases_to_replace: Vec::new(),
-        safe_to_apply: true,
-        summary,
-    })
-}
 
 /// Apply a full review result: add phrases + replace broad phrases.
 /// `original_query` is the failing query — used to learn situation n-grams for each
@@ -732,21 +619,6 @@ pub async fn apply_review(
 ) -> (usize, usize) { // (phrases_added, phrases_replaced)
     let mut added = 0;
     let mut replaced = 0;
-
-    // === Concept path: apply signals directly ===
-    if !result.signals_to_add.is_empty() {
-        let mut concepts = state.concepts.write().unwrap();
-        if let Some(reg) = concepts.get_mut(app_id) {
-            for (concept, signal) in &result.signals_to_add {
-                eprintln!("[apply_review] concept signal: '{}' → '{}'", signal, concept);
-                reg.add_signal(concept, signal);
-                added += 1;
-            }
-            if let Some(ref dir) = state.data_dir {
-                let _ = reg.save(&format!("{}/{}/_concepts.json", dir, app_id));
-            }
-        }
-    }
 
     // Apply phrases_to_add through pipeline
     if !result.phrases_to_add.is_empty() {
@@ -903,11 +775,12 @@ pub async fn apply_review(
         if !result.correct_intents.is_empty() {
             let mut heb_map = state.hebbian.write().unwrap();
             if let Some(heb) = heb_map.get_mut(app_id) {
-                let orig_words = crate::hebbian::HebbianGraph::l1_tokens_pub(original_query);
+                let pre = heb.preprocess(original_query);
+                let orig_words = asv_router::hebbian::HebbianGraph::l1_tokens_pub(original_query);
                 for word in &orig_words {
-                    if let Some(edges) = heb.edges.get(word.as_str()) {
-                        for edge in edges.clone() {
-                            if matches!(edge.kind, crate::hebbian::EdgeKind::Synonym)
+                    if let Some(edges) = heb.edges.get(word.as_str()).cloned() {
+                        for edge in edges {
+                            if matches!(edge.kind, asv_router::hebbian::EdgeKind::Synonym)
                                 && pre.injected.contains(&edge.target)
                             {
                                 heb.reinforce(word, &edge.target, DELTA_REINFORCE);

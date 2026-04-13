@@ -24,7 +24,6 @@ pub fn routes() -> axum::Router<AppState> {
         .route("/api/review/stats",        get(review_stats))
         .route("/api/review/mode",         get(get_review_mode))
         .route("/api/review/mode",         post(set_review_mode))
-        .route("/api/similarity/build",    post(build_similarity))
 }
 
 // ─── Queue (filtered log view) ───────────────────────────────────────────────
@@ -282,56 +281,4 @@ pub async fn set_review_mode(
     state.review_mode.write().unwrap().insert(app_id.clone(), req.mode.clone());
     state.worker_notify.notify_one(); // wake worker in case mode just switched to auto
     Ok(Json(serde_json::json!({"mode": req.mode, "app_id": app_id})))
-}
-
-#[derive(serde::Deserialize)]
-pub struct BuildSimilarityRequest {
-    #[serde(default)]
-    corpus: Vec<String>,
-}
-
-pub async fn build_similarity(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<BuildSimilarityRequest>,
-) -> Json<serde_json::Value> {
-    let app_id = app_id_from_headers(&headers);
-    let mut texts: Vec<String> = Vec::new();
-
-    {
-        let routers = state.routers.read().unwrap();
-        if let Some(router) = routers.get(&app_id) {
-            for intent_id in router.intent_ids() {
-                if let Some(training) = router.get_training(&intent_id) {
-                    texts.extend(training);
-                }
-            }
-        }
-    }
-
-    // Include recent queries from log as real-world vocabulary
-    {
-        let result = state.log_store.lock().unwrap().query(&LogQuery {
-            app_id: Some(app_id.clone()),
-            resolved: None,
-            limit: 2000,
-            ..Default::default()
-        });
-        for r in result.records {
-            texts.push(r.query);
-        }
-    }
-
-    texts.extend(req.corpus);
-    let text_count = texts.len();
-
-    {
-        let mut routers = state.routers.write().unwrap();
-        if let Some(router) = routers.get_mut(&app_id) {
-            router.build_similarity(&texts);
-            maybe_persist(&state, &app_id, router);
-        }
-    }
-
-    Json(serde_json::json!({"status": "built", "texts_used": text_count}))
 }

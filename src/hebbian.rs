@@ -133,7 +133,7 @@ impl HebbianGraph {
     // ── Query preprocessing ───────────────────────────────────────────────
 
     /// Token split for L1 substitution — pub(crate) so auto-learn can scan original query words.
-    pub(crate) fn l1_tokens_pub(query: &str) -> Vec<String> {
+    pub fn l1_tokens_pub(query: &str) -> Vec<String> {
         Self::l1_tokens(query)
     }
 
