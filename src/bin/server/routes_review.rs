@@ -164,7 +164,7 @@ pub async fn review_fix(
             ..Default::default()
         });
         for record in &unresolved.records {
-            // Re-check via Hebbian L3
+            // Re-check via Hebbian L2
             let passes = {
                 let ig_map = state.intent_graph.read().unwrap();
                 let heb_map = state.hebbian.read().unwrap();

@@ -328,7 +328,7 @@ pub async fn training_run(
     let mut results = Vec::new();
 
     for turn in &req.turns {
-        // Route via Hebbian L3
+        // Route via Hebbian L2
         let scored = {
             let ig_map = state.intent_graph.read().unwrap();
             let heb_map = state.hebbian.read().unwrap();
@@ -388,7 +388,7 @@ pub async fn training_run(
                 "id": id,
                 "score": (*score * 100.0).round() / 100.0,
                 "confidence": if *score >= max_score * 0.8 { "high" } else if *score >= max_score * 0.5 { "medium" } else { "low" },
-                "source": "hebbian_l3",
+                "source": "hebbian_l2",
                 "negated": false,
             })).collect::<Vec<_>>(),
         }));

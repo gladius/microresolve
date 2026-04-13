@@ -802,7 +802,7 @@ pub async fn apply_review(
         crate::routes_concept::learn_from_correction(state, app_id, original_query, intent_id).await;
     }
 
-    // ── Hebbian L3: full bidirectional learning ──────────────────────────────
+    // ── Hebbian L2: full bidirectional learning ──────────────────────────────
     //
     // Weight derivation — all values anchored to the routing threshold (0.3):
     //
@@ -812,10 +812,13 @@ pub async fn apply_review(
     //   → A 3-word phrase gives 0.45, comfortably routable.
     //
     //   DELTA_REINFORCE = DELTA_MISS / 3 = 0.05
-    //   → Steady-state nudge when router already fires correctly.
+    //   → Asymptotic nudge: Δw = 0.05 × (1 - w). Diminishing returns prevent
+    //     runaway growth — 1000 reinforcements converge to 1.0, never exceed it.
     //
     //   DELTA_SUPPRESS = -DELTA_REINFORCE = -0.05
-    //   → Undo one correct-reinforcement step for wrong detections.
+    //   → Asymptotic decay: w = w × (1 - 0.05) = w × 0.95. Approaches 0,
+    //     never goes negative. Strong edges (right 100 times) survive a few
+    //     wrong routings — intentional.
     //
     // If the routing threshold changes, these three values should scale together.
     const DELTA_MISS: f32       =  0.15;  // threshold / (2 * IDF_avg)
@@ -823,7 +826,7 @@ pub async fn apply_review(
     const DELTA_SUPPRESS: f32   = -0.05;  // -DELTA_REINFORCE
     //
     // missed_intents is the key new path: adds word→intent edges that didn't
-    // exist before, so L3 learns completely unknown vocabulary from real queries.
+    // exist before, so L2 learns completely unknown vocabulary from real queries.
     let has_l3_update = !result.correct_intents.is_empty()
         || !result.missed_intents.is_empty()
         || !result.wrong_detections.is_empty();
@@ -846,8 +849,8 @@ pub async fn apply_review(
             .collect();
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
 
-        eprintln!("[auto-learn/L3] query='{}' | L1-expanded='{}'", original_query, normalized);
-        eprintln!("[auto-learn/L3] content words: {:?}", word_refs);
+        eprintln!("[auto-learn/L2] query='{}' | L1-expanded='{}'", original_query, normalized);
+        eprintln!("[auto-learn/L2] content words: {:?}", word_refs);
 
         // Track words that are BRAND NEW to L3 (no existing edge for any intent).
         // These need L1 morphological learning — we don't want "pinging" to miss
@@ -869,34 +872,76 @@ pub async fn apply_review(
             if let Some(ig) = ig_map.get_mut(app_id) {
                 for intent_id in &result.correct_intents {
                     ig.reinforce(&word_refs, intent_id, DELTA_REINFORCE);
-                    eprintln!("[auto-learn/L3] correct  → reinforce {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_REINFORCE);
+                    eprintln!("[auto-learn/L2] correct  → reinforce {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_REINFORCE);
                 }
                 for intent_id in &result.missed_intents {
                     ig.reinforce(&word_refs, intent_id, DELTA_MISS);
-                    eprintln!("[auto-learn/L3] missed   → reinforce {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_MISS);
+                    eprintln!("[auto-learn/L2] missed   → reinforce {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_MISS);
                 }
                 for intent_id in &result.wrong_detections {
                     ig.reinforce(&word_refs, intent_id, DELTA_SUPPRESS);
-                    eprintln!("[auto-learn/L3] wrong    → suppress  {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_SUPPRESS);
+                    eprintln!("[auto-learn/L2] wrong    → suppress  {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_SUPPRESS);
                 }
 
                 // Show resulting edge weights for transparency
                 for w in &word_refs {
                     if let Some(edges) = ig.word_intent.get(*w) {
-                        eprintln!("[auto-learn/L3] edges after: '{}' → {:?}", w,
+                        eprintln!("[auto-learn/L2] edges after: '{}' → {:?}", w,
                             edges.iter().map(|(id, wt)| format!("{}:{:.2}", id, wt)).collect::<Vec<_>>());
+                    }
+                }
+
+                // ── L2 conjunction reinforcement ────────────────────────────
+                // Which conjunction rules fired for this query?
+                // Reinforce for correct intents, suppress for wrong intents.
+                let fired = ig.fired_conjunction_indices(&word_refs);
+                for idx in &fired {
+                    let intent = ig.conjunctions[*idx].intent.clone();
+                    if result.correct_intents.contains(&intent) {
+                        ig.reinforce_conjunction(*idx, DELTA_REINFORCE);
+                        eprintln!("[auto-learn/L2] conjunction[{}] → '{}' reinforce ({:+.2})", idx, intent, DELTA_REINFORCE);
+                    } else if result.wrong_detections.contains(&intent) {
+                        ig.reinforce_conjunction(*idx, DELTA_SUPPRESS);
+                        eprintln!("[auto-learn/L2] conjunction[{}] → '{}' suppress ({:+.2})", idx, intent, DELTA_SUPPRESS);
                     }
                 }
 
                 if let Some(ref dir) = state.data_dir {
                     let path = format!("{}/{}/_intent_graph.json", dir, app_id);
                     ig.save(&path).ok();
-                    eprintln!("[auto-learn/L3] graph persisted → {}", path);
+                    eprintln!("[auto-learn/L2] graph persisted → {}", path);
                 }
             }
         }
 
-        // ── L1 turn: learn morphological variants of brand-new vocabulary ──
+        // ── L1 synonym reinforcement ─────────────────────────────────────────
+        // Reinforce L1 synonym edges that fired and contributed to correct routing.
+        // L1 only gets positive updates — synonyms are global, suppressing them
+        // could hurt other intents that use the same synonym correctly.
+        if !result.correct_intents.is_empty() {
+            let mut heb_map = state.hebbian.write().unwrap();
+            if let Some(heb) = heb_map.get_mut(app_id) {
+                let orig_words = crate::hebbian::HebbianGraph::l1_tokens_pub(original_query);
+                for word in &orig_words {
+                    if let Some(edges) = heb.edges.get(word.as_str()) {
+                        for edge in edges.clone() {
+                            if matches!(edge.kind, crate::hebbian::EdgeKind::Synonym)
+                                && pre.injected.contains(&edge.target)
+                            {
+                                heb.reinforce(word, &edge.target, DELTA_REINFORCE);
+                                eprintln!("[auto-learn/L1] synonym '{}' → '{}' reinforce ({:+.2})", word, edge.target, DELTA_REINFORCE);
+                            }
+                        }
+                    }
+                }
+                if let Some(ref dir) = state.data_dir {
+                    let path = format!("{}/{}/_hebbian.json", dir, app_id);
+                    heb.save(&path).ok();
+                }
+            }
+        }
+
+        // ── L1 morphology: learn variants of brand-new vocabulary ────────────
         // If "ping" was just added to L3, we need L1 to know "pinging","pinged","pings"→"ping"
         // so those variants route correctly on the next query.
         if !new_vocabulary.is_empty() {

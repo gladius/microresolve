@@ -477,43 +477,48 @@ This IS routing via Hebbian spreading activation. No term-index. No BM25.
 
 ---
 
-### Hierarchical Multi-Layer Hebbian (Vision)
+### Hierarchical Multi-Layer Hebbian
 
 Each layer handles a distinct level of abstraction. All LLM-bootstrappable. All Hebbian-updatable.
 
 ```
-Layer 0 — Sub-word (optional)
-  Character n-grams, suffix rules
-  Handles: typos, unknown morphological forms ("uncanceled" → suppress cancel)
-  LLM generates: suffix → base rules
+Layer 0 — Sub-word (SKIPPED — L1 morphological edges cover this sufficiently)
+  Was: character n-grams, suffix rules for typos and unknown inflections
+  Decision: L1 handles morphological variants explicitly via LLM-bootstrapped edges.
+  Char n-gram approach adds noise (see semantic.rs char-n-gram contamination bug).
 
-Layer 1 — Lexical (BUILT: src/hebbian.rs)
+Layer 1 — Lexical ✅ BUILT (src/hebbian.rs: HebbianGraph)
   Word → word associations
   Handles: morphology, abbreviations, synonyms, semantic neighbours
-  LLM generates: edge list with weights and kinds
+  LLM generates: edge list with weights and EdgeKind
+  Anti-Hebbian: reinforce() / suppress() live-update edges from routing feedback
 
-Layer 2 — Phrase / Pattern
-  (word + word) → phrase node, phrase node → intent
-  Handles: conjunction ("cancel" + "subscription" together → cancel_subscription node)
-  Handles: negation ("not" + intent_word → suppression node)
-  Handles: context markers ("I want", "please" → user_requesting boost)
-  LLM generates: phrase patterns with conjunction and suppression rules
+Layer 2 — Phrase / Conjunction ✅ BUILT (src/hebbian.rs: ConjunctionRule inside IntentGraph)
+  Word sets that together boost an intent score
+  Handles: conjunction bonus ("cancel" + "subscription" → boost cancel_subscription)
+  Handles: negation via [not_X] token suppression (not_ prefix in score_normalized)
+  LLM bootstraps conjunction rules; negation handled structurally
 
-Layer 3 — Intent
-  Phrase nodes → intent activation
-  Direct equivalent of term-index word-intent associations
-  LLM bootstraps from intent descriptions; auto-learn adds edges from routing confirmations
+Layer 3 — Intent ✅ BUILT (src/hebbian.rs: IntentGraph)
+  Word → intent spreading activation (the router)
+  Handles: word-intent edges with live IDF weighting
+  Handles: suppressor edges for disambiguation
+  LLM bootstraps from intent descriptions + training phrases
+  Auto-learn: DELTA_MISS/REINFORCE/SUPPRESS applied from routing feedback
+  Re-bootstrap preserves reinforced weights via max() merge
 
-Layer 4 — Discourse / Session (future)
+Layer 4 — Discourse / Session ⬜ NOT BUILT
   Previous intent + current query → informed routing
   "I also want to..." → additive to last intent
-  "Actually..." → correction signal
-  Built from session logs, not LLM
+  "Actually, never mind the refund..." → correction signal
+  Would be built from session logs, not LLM (no cold-start bootstrapping possible)
+  Requires: session_id tracking (already logged), sequence model over intent history
 
-Layer 5 — Confidence / Meta
-  Aggregate activation across layers
-  Multi-intent gap detection
-  Escalation threshold (when to ask for clarification)
+Layer 5 — Confidence / Meta ⬜ NOT BUILT
+  Aggregate activation quality assessment across layers
+  Multi-intent gap calibration (current gap filter is fixed threshold)
+  Escalation decision: when confidence is too low → ask for clarification vs forward to LLM
+  Inputs: L3 score distribution, conjunction firing rate, L1 injection count
 ```
 
 **Why this is the right long-term architecture:**
@@ -535,22 +540,20 @@ Layer 5 — Confidence / Meta
 
 | Component | Status | Location |
 |---|---|---|
-| HebbianGraph struct + EdgeKind | ✅ Built, 21 tests passing | `src/hebbian.rs` |
-| saas_test_graph (hand-crafted) | ✅ Built | `src/hebbian.rs` |
-| Demo binary | ✅ Built | `src/bin/test_hebbian.rs` |
-| LLM bootstrap endpoint | ⬜ Not started | `routes_concept.rs` or new file |
-| Integration with routes_core.rs | ⬜ Not started | pre-processing before term-index |
-| Layer 2 (phrase/conjunction nodes) | ⬜ Design only | — |
-| Layer 3 (word-intent edges) | ⬜ Design only | — |
-| Concept system as post-ranker | ⬜ Design only | `routes_core.rs` |
-
-### Next Steps (Priority Order)
-
-1. **Wire Layer 1 into routing** — call `hebbian.preprocess(query)` before term-index in `routes_core.rs`. Immediate gain for inflected queries and abbreviations.
-2. **LLM bootstrap for Hebbian** — `POST /api/hebbian/bootstrap` generates the graph for a namespace.
-3. **Debug endpoint** — `GET /api/hebbian/expand?query=...` shows normalization + expansion for a query.
-4. **Layer 2 — phrase conjunction nodes** — "cancel" + "subscription" activating a shared node that strongly points to cancel_subscription. This replaces `intent_required` from concept system.
-5. **Layer 3 — word-intent edges** — initialize from training phrases (term-index becomes a Hebbian subgraph). Benchmark spreading activation vs BM25.
+| Layer 1: HebbianGraph + EdgeKind | ✅ Built, tests passing | `src/hebbian.rs` |
+| Layer 1: LLM bootstrap endpoint | ✅ Built | `src/bin/server/routes_hebbian.rs` |
+| Layer 1: Debug expand endpoint | ✅ Built | `GET /api/hebbian/expand` |
+| Layer 1: Anti-Hebbian suppression | ✅ Built | `llm.rs` DELTA_SUPPRESS |
+| Layer 2: ConjunctionRule | ✅ Built (inside IntentGraph) | `src/hebbian.rs` |
+| Layer 2: Negation via [not_X] token | ✅ Built | `score_normalized` in `src/hebbian.rs` |
+| Layer 3: IntentGraph + live IDF | ✅ Built, primary router | `src/hebbian.rs` |
+| Layer 3: LLM bootstrap endpoint | ✅ Built | `POST /api/hebbian/bootstrap_intent` |
+| Layer 3: Re-bootstrap merge (max()) | ✅ Built | `routes_hebbian.rs` lines 383–391 |
+| Layer 3: Auto-learn (reinforce/suppress) | ✅ Built | `llm.rs` apply_review |
+| L1→L3 pipeline as primary router | ✅ Built | `src/bin/server/routes_core.rs` |
+| BM25 term-index removed | ✅ Done | `src/index.rs` deleted |
+| Layer 4: Discourse / Session | ⬜ Not built | — |
+| Layer 5: Confidence / Meta | ⬜ Not built | — |
 
 ## Files
 

@@ -65,7 +65,7 @@ pub struct ServerState {
     /// Per-namespace Hebbian association graph (morphology + synonyms + abbreviations).
     /// Pre-processes queries before term-index: normalize variants, expand synonyms.
     pub hebbian: RwLock<HashMap<String, asv_router::hebbian::HebbianGraph>>,
-    /// Per-namespace Layer 3 intent graph (spreading activation router).
+    /// Per-namespace Layer 2 intent graph (spreading activation router).
     /// Replaces term-index as the primary router when bootstrapped.
     pub intent_graph: RwLock<HashMap<String, asv_router::hebbian::IntentGraph>>,
 }

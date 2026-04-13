@@ -335,10 +335,10 @@ pub async fn bootstrap_intent(
     };
 
     let intents_str = intent_ids.join(", ");
-    eprintln!("[hebbian/bootstrap_intent] {} — generating L3 graph for {} intents", app_id, intent_ids.len());
+    eprintln!("[hebbian/bootstrap_intent] {} — generating L2 graph for {} intents", app_id, intent_ids.len());
 
     let prompt = format!(
-r#"Generate a Layer 3 Hebbian intent graph for spreading activation intent routing.
+r#"Generate a Layer 2 Hebbian intent graph for spreading activation intent routing.
 
 Intents: {intents_str}
 

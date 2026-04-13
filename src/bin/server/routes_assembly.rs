@@ -46,7 +46,7 @@ pub async fn route_assemble(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    // Route via Hebbian L3
+    // Route via Hebbian L2
     let scored = {
         let ig_map = state.intent_graph.read().unwrap();
         let heb_map = state.hebbian.read().unwrap();
@@ -171,7 +171,7 @@ pub async fn route_assemble(
         serde_json::json!({
             "id": id,
             "score": (*score * 100.0).round() / 100.0,
-            "source": "hebbian_l3",
+            "source": "hebbian_l2",
         })
     }).collect();
 

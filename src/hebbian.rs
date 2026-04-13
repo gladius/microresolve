@@ -113,14 +113,15 @@ impl HebbianGraph {
     }
 
     /// Hebbian update: strengthen an edge from observed routing confirmation.
-    /// delta is typically small (0.01–0.05). Clamps at 1.0.
+    /// Uses asymptotic update: Δw = delta × (1 - w), so weight approaches 1.0
+    /// but never exceeds it regardless of how many reinforcements occur.
     pub fn reinforce(&mut self, from: &str, to: &str, delta: f32) {
         let from = from.to_lowercase();
         let to   = to.to_lowercase();
         if let Some(edges) = self.edges.get_mut(&from) {
             for e in edges.iter_mut() {
                 if e.target == to {
-                    e.weight = (e.weight + delta).min(1.0);
+                    e.weight = (e.weight + delta * (1.0 - e.weight)).min(1.0);
                     return;
                 }
             }
@@ -130,6 +131,11 @@ impl HebbianGraph {
     }
 
     // ── Query preprocessing ───────────────────────────────────────────────
+
+    /// Token split for L1 substitution — pub(crate) so auto-learn can scan original query words.
+    pub(crate) fn l1_tokens_pub(query: &str) -> Vec<String> {
+        Self::l1_tokens(query)
+    }
 
     /// Token split for Layer 1 substitution.
     /// Latin: whitespace split (preserves stop words so normalized phrases stay coherent).
@@ -554,7 +560,7 @@ mod tests {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Layer 3 — Intent Graph (spreading activation router)
+// Layer 2 — Intent Graph (spreading activation router)
 // ════════════════════════════════════════════════════════════════════════════
 
 /// A conjunction rule fires when ALL listed words appear in the normalized query.
@@ -570,9 +576,9 @@ pub struct ConjunctionRule {
 
 /// Layer 3 — word-to-intent spreading activation graph.
 ///
-/// Works with Layer 1 (HebbianGraph): Layer 1 normalizes the query first
-/// (morphology, abbreviations, synonyms), then Layer 3 activates intent nodes
-/// from the canonical words.
+/// Works with L1 (HebbianGraph): L1 normalizes the query first
+/// (morphology, abbreviations, synonyms), then L2 activates intent nodes
+/// from the canonical words. Conjunction bonuses are computed in the same pass.
 ///
 /// Bootstrapped by LLM; updated online by Hebbian reinforcement from routing
 /// confirmations ("fire together, wire together").
@@ -586,8 +592,8 @@ pub struct IntentGraph {
     /// disambiguation between similar intents (e.g. "order" suppresses
     /// cancel_subscription but boosts cancel_order).
     pub suppressors: HashMap<String, Vec<(String, f32)>>,
-    /// Layer 2: conjunction bonuses — word pairs/sets that together
-    /// strongly indicate a specific intent.
+    /// Conjunction bonuses — word pairs/sets that together strongly indicate
+    /// a specific intent. Part of L2 scoring, not a separate layer.
     pub conjunctions: Vec<ConjunctionRule>,
 }
 
@@ -618,18 +624,54 @@ impl IntentGraph {
 
     /// Hebbian reinforcement from a routing confirmation.
     /// `words` must already be Layer-1 normalized canonical terms.
-    /// Positive delta (+0.05): "fire together, wire together" — strengthens correct edges.
-    /// Negative delta (-0.05): anti-Hebbian — weakens edges that caused wrong routing.
-    /// Weight is clamped to [-1.0, 1.0]. New edges are only created for positive delta.
+    ///
+    /// Positive delta (+0.05): asymptotic strengthening — Δw = delta × (1 - w).
+    ///   Weight approaches 1.0, never exceeds it. 1000 reinforcements converge
+    ///   the same as 10 — diminishing returns prevent runaway weight growth.
+    ///
+    /// Negative delta (-0.05): asymptotic suppression — w = w × (1 + delta).
+    ///   Weight approaches 0, never goes negative. Slow to suppress a strong
+    ///   edge — intentional, a word right 100 times shouldn't die from 3 wrong routings.
+    ///
+    /// New edges are only created for positive delta.
     pub fn reinforce(&mut self, words: &[&str], intent: &str, delta: f32) {
         for word in words {
             let entries = self.word_intent.entry(word.to_string()).or_default();
             if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
-                e.1 = (e.1 + delta).clamp(-1.0, 1.0);
+                if delta >= 0.0 {
+                    // Asymptotic approach to 1.0
+                    e.1 = (e.1 + delta * (1.0 - e.1)).min(1.0);
+                } else {
+                    // Asymptotic decay toward 0.0
+                    e.1 = (e.1 * (1.0 + delta)).max(0.0);
+                }
             } else if delta > 0.0 {
                 // New word seen in context of this intent — create edge for positive learning only.
                 // For suppression (delta < 0): no edge to suppress, skip.
                 entries.push((intent.to_string(), delta.min(1.0)));
+            }
+        }
+    }
+
+    /// Returns indices of conjunction rules that fire for the given canonical word set.
+    /// Used by auto-learn to know which conjunction bonuses contributed to a routing.
+    pub fn fired_conjunction_indices(&self, words: &[&str]) -> Vec<usize> {
+        let word_set: std::collections::HashSet<&str> = words.iter().copied().collect();
+        self.conjunctions.iter().enumerate()
+            .filter(|(_, rule)| rule.words.iter().all(|w| word_set.contains(w.as_str())))
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    /// Asymptotic Hebbian update on a conjunction rule's bonus.
+    /// Positive delta: bonus approaches 1.0 (strengthen useful conjunction).
+    /// Negative delta: bonus decays toward 0.0 (weaken misleading conjunction).
+    pub fn reinforce_conjunction(&mut self, idx: usize, delta: f32) {
+        if let Some(rule) = self.conjunctions.get_mut(idx) {
+            if delta >= 0.0 {
+                rule.bonus = (rule.bonus + delta * (1.0 - rule.bonus)).min(1.0);
+            } else {
+                rule.bonus = (rule.bonus * (1.0 + delta)).max(0.0);
             }
         }
     }
@@ -706,7 +748,7 @@ impl IntentGraph {
             }
         }
 
-        // Layer 2: conjunction bonuses (all tokens count — negated included)
+        // Conjunction bonuses — word sets that together boost a specific intent.
         let all_bases: std::collections::HashSet<&str> = tokens.iter()
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();

@@ -1,4 +1,4 @@
-//! Primary routing endpoints — Hebbian L1+L3 is the sole router.
+//! Primary routing endpoints — Hebbian L1+L2 is the sole router.
 
 use axum::{
     extract::State,
@@ -27,7 +27,7 @@ pub struct RouteMultiRequest {
 fn default_threshold() -> f32 { 0.3 }
 fn default_gap() -> f32 { 1.5 }
 
-/// Multi-intent routing via Hebbian L1+L3.
+/// Multi-intent routing via Hebbian L1+L2.
 pub async fn route_multi(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -51,7 +51,7 @@ pub async fn route_multi(
         }
     };
 
-    // ── Layer 3: Intent graph (spreading activation) ──────────────────────────
+    // ── Layer 2: Intent graph (spreading activation + conjunction) ───────────
     let (intent_graph_results, query_has_negation): (Option<Vec<(String, f32)>>, bool) = {
         let ig_map = state.intent_graph.read().unwrap();
         match ig_map.get(&app_id) {
@@ -76,7 +76,7 @@ pub async fn route_multi(
                 "id": id,
                 "score": (*score * 100.0).round() / 100.0,
                 "confidence": confidence,
-                "source": "hebbian_l3",
+                "source": "hebbian_l2",
                 "position": 0,
                 "span": [0, req.query.len()],
                 "intent_type": "Action",
@@ -110,7 +110,7 @@ pub async fn route_multi(
                 state.routers.read().unwrap()
                     .get(&app_id).map(|r| r.version()).unwrap_or(0)
             },
-            source: "hebbian_l3".to_string(),
+            source: "hebbian_l2".to_string(),
         });
 
         emit_queued(&state, log_id, &req.query, &app_id, flag);
@@ -121,7 +121,7 @@ pub async fn route_multi(
             "relations": [],
             "metadata": {},
             "routing_us": latency_us,
-            "source": "hebbian_l3",
+            "source": "hebbian_l2",
             "hebbian": if hebbian_injected.is_empty() { serde_json::json!(null) }
                        else { serde_json::json!({"injected": hebbian_injected, "processed_query": processed_query}) },
         }));
