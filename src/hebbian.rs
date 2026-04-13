@@ -16,8 +16,8 @@
 //!
 //! ## Example
 //! ```no_run
-//! use asv_router::hebbian::{HebbianGraph, EdgeKind};
-//! let mut g = HebbianGraph::new();
+//! use asv_router::hebbian::{LexicalGraph, EdgeKind};
+//! let mut g = LexicalGraph::new();
 //! g.add("canceling", "cancel", 0.99, EdgeKind::Morphological);
 //! g.add("terminate", "cancel", 0.92, EdgeKind::Synonym);
 //! g.add("sub",       "subscription", 0.99, EdgeKind::Abbreviation);
@@ -63,7 +63,7 @@ pub struct HebbianEdge {
 /// Weighted term association graph, per namespace.
 /// Serializes to JSON alongside the concept registry.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct HebbianGraph {
+pub struct LexicalGraph {
     /// source_term (lowercase) → outgoing edges
     pub edges: HashMap<String, Vec<HebbianEdge>>,
     /// Minimum synonym weight to trigger query expansion (default 0.80).
@@ -91,7 +91,7 @@ pub struct PreprocessResult {
 
 // ── Core impl ─────────────────────────────────────────────────────────────────
 
-impl HebbianGraph {
+impl LexicalGraph {
     pub fn new() -> Self {
         Self {
             edges: HashMap::new(),
@@ -269,8 +269,8 @@ impl HebbianGraph {
 
 /// Hand-crafted test graph for the 20-intent SaaS namespace (stripe/shopify/github/slack).
 /// Used by unit tests and the standalone demo binary.
-pub fn saas_test_graph() -> HebbianGraph {
-    let mut g = HebbianGraph::new();
+pub fn saas_test_graph() -> LexicalGraph {
+    let mut g = LexicalGraph::new();
 
     // ── Morphological (0.99) ─────────────────────────────────────────────
     // cancel family
@@ -586,7 +586,7 @@ pub struct ConjunctionRule {
 
 /// Layer 3 — word-to-intent spreading activation graph.
 ///
-/// Works with L1 (HebbianGraph): L1 normalizes the query first
+/// Works with L1 (LexicalGraph): L1 normalizes the query first
 /// (morphology, abbreviations, synonyms), then L2 activates intent nodes
 /// from the canonical words. Conjunction bonuses are computed in the same pass.
 ///
@@ -918,7 +918,7 @@ impl IntentGraph {
     }
 
     /// Convenience: score with L1 preprocessing included.
-    pub fn score(&self, layer1: &HebbianGraph, query: &str) -> (Vec<(String, f32)>, bool) {
+    pub fn score(&self, layer1: &LexicalGraph, query: &str) -> (Vec<(String, f32)>, bool) {
         let preprocessed = layer1.preprocess(query);
         self.score_normalized(&preprocessed.expanded)
     }
@@ -926,7 +926,7 @@ impl IntentGraph {
     /// Multi-intent score: returns all intents above threshold within gap of the top.
     pub fn score_multi(
         &self,
-        layer1: &HebbianGraph,
+        layer1: &LexicalGraph,
         query: &str,
         threshold: f32,
         gap: f32,
@@ -1048,7 +1048,7 @@ impl IntentGraph {
 mod intent_graph_tests {
     use super::*;
 
-    fn mini_intent_graph() -> (HebbianGraph, IntentGraph) {
+    fn mini_intent_graph() -> (LexicalGraph, IntentGraph) {
         let layer1 = saas_test_graph();
         let mut ig = IntentGraph::new();
 

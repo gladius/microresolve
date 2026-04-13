@@ -743,7 +743,7 @@ pub async fn apply_review(
             let mut heb_map = state.hebbian.write().unwrap();
             if let Some(heb) = heb_map.get_mut(app_id) {
                 let pre = heb.preprocess(original_query);
-                let orig_words = asv_router::hebbian::HebbianGraph::l1_tokens_pub(original_query);
+                let orig_words = asv_router::hebbian::LexicalGraph::l1_tokens_pub(original_query);
                 for word in &orig_words {
                     if let Some(edges) = heb.edges.get(word.as_str()).cloned() {
                         for edge in edges {

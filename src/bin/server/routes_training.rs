@@ -342,12 +342,12 @@ pub async fn training_run(
     let mut results = Vec::new();
 
     for turn in &req.turns {
-        // Route via Hebbian L2 — fall back to empty L1 if HebbianGraph not yet built
+        // Route via Hebbian L2 — fall back to empty L1 if LexicalGraph not yet built
         let scored = {
             let ig_map  = state.intent_graph.read().unwrap();
             let heb_map = state.hebbian.read().unwrap();
             if let Some(ig) = ig_map.get(&app_id) {
-                let default_heb = asv_router::hebbian::HebbianGraph::default();
+                let default_heb = asv_router::hebbian::LexicalGraph::default();
                 let heb = heb_map.get(&app_id).unwrap_or(&default_heb);
                 let pre = heb.preprocess(&turn.message);
                 let threshold = ig.default_threshold();

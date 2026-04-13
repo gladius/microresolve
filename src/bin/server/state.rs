@@ -60,9 +60,9 @@ pub struct ServerState {
     pub event_tx: broadcast::Sender<StudioEvent>,
     /// Wakes the background auto-learn worker when new items are queued.
     pub worker_notify: Arc<Notify>,
-    /// Per-namespace Hebbian association graph (morphology + synonyms + abbreviations).
+    /// Per-namespace LexicalGraph (morphology + synonyms + abbreviations).
     /// Pre-processes queries before term-index: normalize variants, expand synonyms.
-    pub hebbian: RwLock<HashMap<String, asv_router::hebbian::HebbianGraph>>,
+    pub hebbian: RwLock<HashMap<String, asv_router::hebbian::LexicalGraph>>,
     /// Per-namespace Layer 2 intent graph (spreading activation router).
     /// Replaces term-index as the primary router when bootstrapped.
     pub intent_graph: RwLock<HashMap<String, asv_router::hebbian::IntentGraph>>,

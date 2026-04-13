@@ -15,7 +15,7 @@ use axum::{
     Json,
 };
 use std::collections::HashMap;
-use asv_router::hebbian::{HebbianGraph, EdgeKind, IntentGraph, ConjunctionRule};
+use asv_router::hebbian::{LexicalGraph, EdgeKind, IntentGraph, ConjunctionRule};
 use crate::state::*;
 use crate::llm::{call_llm, extract_json};
 
@@ -118,7 +118,7 @@ Generate 60-120 edges covering morphology, abbreviations, synonyms, and multilin
             format!("LLM parse error: {} — extracted: {:?}",
                 e, &json_str[..json_str.len().min(200)])))?;
 
-    let mut graph = HebbianGraph::new();
+    let mut graph = LexicalGraph::new();
     if let Some(t) = req.synonym_threshold {
         graph.synonym_threshold = t;
     }
@@ -276,9 +276,9 @@ pub async fn reinforce_edge(
 }
 
 /// Load a hebbian graph from disk for a namespace. Called at startup.
-pub fn load_hebbian(data_dir: &str, namespace: &str) -> Option<HebbianGraph> {
+pub fn load_hebbian(data_dir: &str, namespace: &str) -> Option<LexicalGraph> {
     let path = format!("{}/{}/_hebbian.json", data_dir, namespace);
-    HebbianGraph::load(&path).ok()
+    LexicalGraph::load(&path).ok()
 }
 
 /// Load an intent graph from disk for a namespace. Called at startup.
