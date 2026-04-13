@@ -5,21 +5,36 @@ use std::collections::HashMap;
 use asv_router::Router;
 use crate::state::*;
 
-pub fn build_intent_descriptions(router: &Router) -> String {
-    router.intent_ids().iter().map(|id| {
+/// Turn 1 (Judge): id + description only. No phrases — descriptions are the interface contract.
+/// Flat cost regardless of how many phrases have been learned.
+pub fn build_intent_labels(router: &Router) -> String {
+    let mut ids = router.intent_ids();
+    ids.sort();
+    ids.iter().map(|id| {
         let desc = router.get_description(id);
-        let seeds = router.get_training(id)
-            .unwrap_or_default()
-            .into_iter()
-            .take(4)
-            .collect::<Vec<_>>()
-            .join("\", \"");
         if desc.is_empty() {
-            format!("- {}: [\"{}\"]", id, seeds)
+            format!("- {} [NO DESCRIPTION — cannot classify reliably]", id)
         } else {
-            format!("- {} ({}): [\"{}\"]", id, desc, seeds)
+            format!("- {} ({})", id, desc)
         }
     }).collect::<Vec<_>>().join("\n")
+}
+
+/// Turn 2 context: phrases for specific intents, capped to avoid token bloat.
+/// Shows most-recently-added phrases first (they reflect what was learned, not just bootstrap seeds).
+fn intent_phrases_context(router: &Router, intent_ids: &[String], cap: usize) -> String {
+    intent_ids.iter().map(|id| {
+        let desc = router.get_description(id);
+        let phrases = router.get_training(id).unwrap_or_default();
+        let shown: Vec<&String> = phrases.iter().rev().take(cap).collect();
+        let desc_str = if desc.is_empty() { String::new() } else { format!(" ({})", desc) };
+        format!("  {}{}: {:?}", id, desc_str, shown)
+    }).collect::<Vec<_>>().join("\n")
+}
+
+/// Legacy: kept for any callers outside the review pipeline.
+pub fn build_intent_descriptions(router: &Router) -> String {
+    build_intent_labels(router)
 }
 
 /// Extract JSON from LLM response that may be wrapped in markdown code fences.
@@ -341,7 +356,7 @@ pub struct FullReviewResult {
 }
 
 
-/// Run the full 3-turn review for a query.
+/// Run the full review for a query.
 /// Used by: auto-learn (applies immediately), manual review (returns for approval), auto-improve.
 pub async fn full_review(
     state: &AppState,
@@ -349,21 +364,62 @@ pub async fn full_review(
     query: &str,
     detected: &[String],
 ) -> Result<FullReviewResult, String> {
-    let intent_descriptions = {
+    // Turn 1 context: intent labels (id + description only — no phrases)
+    let intent_labels = {
         let routers = state.routers.read().unwrap();
-        routers.get(app_id).map(|r| build_intent_descriptions(r)).unwrap_or_default()
+        routers.get(app_id).map(|r| build_intent_labels(r)).unwrap_or_default()
     };
 
-    // === Turn 1: Diagnose ===
+    // L2 scores for detected intents — helps Turn 1 judge confidence level
+    let detected_with_scores: String = {
+        let ig_map = state.intent_graph.read().unwrap();
+        let heb_map = state.hebbian.read().unwrap();
+        if let (Some(ig), Some(heb)) = (ig_map.get(app_id), heb_map.get(app_id)) {
+            let pre = heb.preprocess(query);
+            let (all_scores, _) = ig.score_multi_normalized(&pre.expanded, 0.05, 10.0);
+            let score_map: HashMap<&str, f32> = all_scores.iter().map(|(id, s)| (id.as_str(), *s)).collect();
+            if detected.is_empty() {
+                "(none detected)".to_string()
+            } else {
+                detected.iter().map(|id| {
+                    let score = score_map.get(id.as_str()).copied().unwrap_or(0.0);
+                    format!("  {} (L2 score: {:.2})", id, score)
+                }).collect::<Vec<_>>().join("\n")
+            }
+        } else if detected.is_empty() {
+            "(none detected)".to_string()
+        } else {
+            detected.iter().map(|id| format!("  {}", id)).collect::<Vec<_>>().join("\n")
+        }
+    };
+
+    // L1 expansion context — show if the query was normalized before routing
+    let l1_context: String = {
+        let heb_map = state.hebbian.read().unwrap();
+        if let Some(heb) = heb_map.get(app_id) {
+            let pre = heb.preprocess(query);
+            if pre.was_modified && !pre.injected.is_empty() {
+                format!("Router expanded query via synonyms: injected {:?} → processed as \"{}\"\n", pre.injected, pre.expanded)
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        }
+    };
+
+    // === Turn 1: Judge ===
     let turn1_prompt = format!(
-        "Customer query: \"{}\"\nDetected intents: {:?}\n\n\
-         Available intents (with descriptions and example seeds):\n{}\n\n\
-         Which intents does this query EXPLICITLY express? Only literal requests.\n\
-         Which detected intents are WRONG for this query?\n\
+        "Customer query: \"{query}\"\n\
+         {l1_context}\
+         Router detected:\n{detected_with_scores}\n\n\
+         Available intents:\n{intent_labels}\n\n\
+         Which intents does this query EXPLICITLY express? Only literal, not implied.\n\
+         Which detected intents are WRONG (false positives)?\n\
          Which intents does the query express that were NOT detected (missed)?\n\
+         What language is the query in?\n\
          Respond with ONLY JSON:\n\
-         {{\"correct_intents\": [\"intent1\"], \"wrong_detections\": [\"wrong1\"], \"missed_intents\": [\"missed1\"], \"languages\": [\"en\"]}}\n",
-        query, detected, intent_descriptions
+         {{\"correct_intents\": [\"intent_id\"], \"wrong_detections\": [\"intent_id\"], \"missed_intents\": [\"intent_id\"], \"languages\": [\"en\"]}}\n"
     );
 
     let t1_response = call_llm(state, &turn1_prompt, 256).await
@@ -404,34 +460,58 @@ pub async fn full_review(
         });
     }
 
-    // === Turn 2: Fix misses (phrases to add) ===
+    // === Turn 2: Fix misses — generate training phrases for missed intents ===
+    // Show the MISSED intents' current phrases so LLM avoids duplicating what's already there.
+    // Include descriptions so the LLM understands each intent's scope.
+    let all_relevant_intents: Vec<String> = missed_intents.iter()
+        .chain(correct_intents.iter())
+        .cloned()
+        .collect::<std::collections::LinkedList<_>>()
+        .into_iter()
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
     let existing_phrases: String = {
         let routers = state.routers.read().unwrap();
         if let Some(router) = routers.get(app_id) {
-            correct_intents.iter()
-                .map(|id| format!("  {}: {:?}", id, router.get_training(id).unwrap_or_default()))
-                .collect::<Vec<_>>().join("\n")
+            intent_phrases_context(router, &all_relevant_intents, 15)
         } else { String::new() }
     };
 
-    let lang_instruction = if languages.is_empty() || languages == vec!["en"] {
+    // Language instruction: if non-English, generate phrases in that language too
+    let detected_lang = languages.first().map(|s| s.as_str()).unwrap_or("en");
+    let lang_instruction = if detected_lang == "en" {
         String::new()
     } else {
-        format!("\nThe query is in {:?}. Generate phrases in the detected language.\n", languages)
+        format!("\nThe query is in \"{detected_lang}\". Generate phrases in \"{detected_lang}\" for missed intents.\n")
+    };
+
+    let missed_labels: String = {
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(app_id) {
+            missed_intents.iter().map(|id| {
+                let desc = router.get_description(id);
+                if desc.is_empty() { format!("  - {}", id) }
+                else { format!("  - {} ({})", id, desc) }
+            }).collect::<Vec<_>>().join("\n")
+        } else {
+            missed_intents.iter().map(|id| format!("  - {}", id)).collect::<Vec<_>>().join("\n")
+        }
     };
 
     let turn2_prompt = format!(
-        "{}\n\n\
-         Customer query: \"{}\"\n\
-         Correct intents: {:?}\n\n\
-         Current phrases in the index:\n{}\n\n\
-         {}\
-         {}\n\n\
+        "{guidelines}\n\n\
+         Customer query: \"{query}\"\n\
+         Missed intents (router failed to detect these):\n{missed_labels}\n\n\
+         Current phrases already in the system (do not duplicate):\n{existing_phrases}\n\
+         {lang_instruction}\
+         {quality}\n\n\
+         Generate 2-3 new training phrases per missed intent that would help route this query.\n\
          Respond with ONLY JSON:\n\
-         {{\"phrases_by_intent\": {{\"intent_name\": [\"phrase1\", \"phrase2\"]}}}}\n",
-        asv_router::phrase::REVIEW_FIX_GUIDELINES,
-        query, correct_intents, existing_phrases, lang_instruction,
-        asv_router::phrase::PHRASE_QUALITY_RULES
+         {{\"phrases_by_intent\": {{\"intent_id\": [\"phrase1\", \"phrase2\"]}}}}\n",
+        guidelines = asv_router::phrase::REVIEW_FIX_GUIDELINES,
+        quality = asv_router::phrase::PHRASE_QUALITY_RULES,
     );
 
     let t2_response = call_llm(state, &turn2_prompt, 300).await
@@ -605,9 +685,10 @@ pub async fn apply_review(
     let mut added = 0;
     let mut suppressors_added = 0;
 
-    // Apply phrases_to_add through pipeline
+    // Apply phrases_to_add through pipeline — use detected language, not hardcoded "en"
     if !result.phrases_to_add.is_empty() {
-        let pipeline_result = phrase_pipeline(state, app_id, &result.phrases_to_add, true, "en").await;
+        let lang = result.languages.first().map(|s| s.as_str()).unwrap_or("en");
+        let pipeline_result = phrase_pipeline(state, app_id, &result.phrases_to_add, true, lang).await;
         added = pipeline_result.added.len();
     }
 
@@ -650,16 +731,13 @@ pub async fn apply_review(
             }
         };
 
-        // Content words: >2 chars, not pure numbers
-        let words: Vec<String> = normalized
-            .split_whitespace()
-            .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
-            .filter(|w| w.len() > 2 && !w.chars().all(|c| c.is_numeric()))
-            .collect();
+        // Use the ASV tokenizer for consistent stop-word removal, CJK bigrams, and not_X negation.
+        // This ensures L2 edges are built on the same vocabulary the router actually uses.
+        let words: Vec<String> = asv_router::tokenizer::tokenize(&normalized);
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
 
         eprintln!("[auto-learn/L2] query='{}' | L1-expanded='{}'", original_query, normalized);
-        eprintln!("[auto-learn/L2] content words: {:?}", word_refs);
+        eprintln!("[auto-learn/L2] content words (tokenized): {:?}", word_refs);
 
         // Track words that are BRAND NEW to L3 (no existing edge for any intent).
         // These need L1 morphological learning — we don't want "pinging" to miss
@@ -760,22 +838,27 @@ pub async fn apply_review(
             }
         }
 
-        // ── L1 morphology: learn variants of brand-new vocabulary ────────────
-        // If "ping" was just added to L2, we need L1 to know "pinging","pinged","pings"→"ping"
-        // so those variants route correctly on the next query.
-        if !new_vocabulary.is_empty() {
-            eprintln!("[auto-learn/L1] new vocabulary found: {:?} — requesting morphological variants", new_vocabulary);
-            learn_l1_morphology(state, app_id, &new_vocabulary, original_query).await;
-        }
+        // ── L1 learning: morphology + synonym discovery run in parallel ──────
+        // Both are independent LLM calls — no shared state, safe to join.
+        let do_morph = !new_vocabulary.is_empty();
+        let do_syn = !result.missed_intents.is_empty();
 
-        // ── L1 synonym discovery: map query words → existing L2 vocabulary ───
-        // For missed intents: query words like "suscripción" may not be in L2
-        // at all, but "subscription" already has a strong edge. Adding
-        // "suscripción"→"subscription" to L1 immediately activates that path
-        // instead of starting a new weak edge from scratch.
-        // This is the main mechanism for multilingual and paraphrase recovery.
-        if !result.missed_intents.is_empty() {
-            learn_l1_synonyms(state, app_id, &word_refs, &result.missed_intents, original_query).await;
+        match (do_morph, do_syn) {
+            (true, true) => {
+                eprintln!("[auto-learn/L1] parallel: morphology({:?}) + synonym discovery", new_vocabulary);
+                tokio::join!(
+                    learn_l1_morphology(state, app_id, &new_vocabulary, original_query),
+                    learn_l1_synonyms(state, app_id, &word_refs, &result.missed_intents, original_query)
+                );
+            }
+            (true, false) => {
+                eprintln!("[auto-learn/L1] morphology only: {:?}", new_vocabulary);
+                learn_l1_morphology(state, app_id, &new_vocabulary, original_query).await;
+            }
+            (false, true) => {
+                learn_l1_synonyms(state, app_id, &word_refs, &result.missed_intents, original_query).await;
+            }
+            (false, false) => {}
         }
     }
 
