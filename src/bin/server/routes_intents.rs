@@ -20,8 +20,6 @@ pub fn routes() -> axum::Router<AppState> {
         .route("/api/intents/multilingual", post(add_intent_multilingual))
         .route("/api/intents/type", post(set_intent_type))
         .route("/api/intents/description", post(set_intent_description))
-        .route("/api/intents/add_situation", post(add_situation_pattern))
-        .route("/api/intents/remove_situation", post(remove_situation_pattern))
 }
 
 pub async fn list_intents(
@@ -46,9 +44,6 @@ pub async fn list_intents(
             let intent_type = router.get_intent_type(id);
             let metadata = router.get_metadata(id).cloned().unwrap_or_default();
             let description = router.get_description(id);
-            let situation_patterns = router.get_situation_patterns(id)
-                .cloned()
-                .unwrap_or_default();
             serde_json::json!({
                 "id": id,
                 "description": description,
@@ -57,7 +52,6 @@ pub async fn list_intents(
                 "learned_count": learned,
                 "intent_type": intent_type,
                 "metadata": metadata,
-                "situation_patterns": situation_patterns
             })
         })
         .collect();
@@ -271,65 +265,3 @@ pub async fn delete_intent(
     StatusCode::OK
 }
 
-#[derive(serde::Deserialize)]
-pub struct AddSituationPatternRequest {
-    intent_id: String,
-    pattern: String,
-    weight: f32,
-}
-
-pub async fn add_situation_pattern(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<AddSituationPatternRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = routers.get_mut(&app_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-    if router.get_training(&req.intent_id).is_none() {
-        return Err((StatusCode::NOT_FOUND, format!("intent '{}' not found", req.intent_id)));
-    }
-    let result = router.add_situation_pattern_checked(&req.intent_id, &req.pattern, req.weight);
-    if result.added {
-        maybe_persist(&state, &app_id, router);
-    }
-    let conflicts: Vec<serde_json::Value> = result.conflicts.iter().map(|c| serde_json::json!({
-        "competing_intent": c.competing_intent,
-        "competing_weight": c.competing_weight,
-    })).collect();
-    Ok(Json(serde_json::json!({
-        "added": result.added,
-        "duplicate": result.duplicate,
-        "too_generic": result.too_generic,
-        "conflicts": conflicts,
-        "warning": result.warning,
-    })))
-}
-
-#[derive(serde::Deserialize)]
-pub struct RemoveSituationPatternRequest {
-    intent_id: String,
-    pattern: String,
-}
-
-pub async fn remove_situation_pattern(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<RemoveSituationPatternRequest>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = routers.get_mut(&app_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-    if let Some(patterns) = router.get_situation_patterns(&req.intent_id) {
-        if !patterns.iter().any(|(p, _)| p == &req.pattern) {
-            return Err((StatusCode::NOT_FOUND, "pattern not found".to_string()));
-        }
-    } else {
-        return Err((StatusCode::NOT_FOUND, format!("intent '{}' not found", req.intent_id)));
-    }
-    router.remove_situation_pattern(&req.intent_id, &req.pattern);
-    maybe_persist(&state, &app_id, router);
-    Ok(StatusCode::OK)
-}

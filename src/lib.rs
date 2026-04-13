@@ -2,7 +2,7 @@
 //!
 //! Intent registry and Hebbian-layer routing.
 //! Training phrases and intent metadata are stored here; routing is handled
-//! by the Hebbian L1+L3 system in `src/hebbian.rs`.
+//! by the Hebbian L1+L2 system in `src/hebbian.rs`.
 //!
 //! ## Quick Start (server mode)
 //!
@@ -24,7 +24,6 @@
 //! ]);
 //! ```
 
-pub mod concept;
 pub mod hebbian;
 pub mod discovery;
 pub mod import;
@@ -38,9 +37,7 @@ mod router_core;
 mod router_intents;
 mod router_learning;
 mod router_metadata;
-mod router_similarity;
 mod router_persist;
-mod router_situation;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
@@ -48,12 +45,11 @@ pub mod wasm;
 pub use types::*;
 
 use std::collections::HashMap;
-use tokenizer::is_cjk;
 
 /// Intent registry with incremental phrase learning.
 ///
 /// Stores intent definitions, training phrases, types, descriptions, and metadata.
-/// Routing is handled externally by the Hebbian L1+L3 system.
+/// Routing is handled externally by the Hebbian L1+L2 system.
 /// This struct is the training-data store that feeds Hebbian bootstrap.
 pub struct Router {
     /// Raw training phrases per intent, grouped by language code.
@@ -74,9 +70,6 @@ pub struct Router {
     /// Distributional similarity: term → [(similar_term, score)].
     /// Built from accumulated text. Used for analysis, not routing.
     similarity: HashMap<String, Vec<(String, f32)>>,
-    /// Situation patterns: intent_id → [(pattern, weight)].
-    /// Stored here for persistence; CJK state-description → action inference.
-    situation_patterns: HashMap<String, Vec<(String, f32)>>,
     /// Human-readable display name for this namespace.
     namespace_name: String,
     /// Human-readable description of this namespace.

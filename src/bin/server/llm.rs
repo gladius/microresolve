@@ -753,19 +753,6 @@ pub async fn apply_review(
         let pipeline_result = phrase_pipeline(state, app_id, &result.phrases_to_add, true, "en").await;
         added = pipeline_result.added.len();
 
-        // Learn situation n-grams from the failing query for each intent that got phrases.
-        // This lets the situation index pick up state signals from real failed queries.
-        if added > 0 {
-            let seen_intents: std::collections::HashSet<String> =
-                pipeline_result.added.iter().map(|(intent, _)| intent.clone()).collect();
-            let mut routers = state.routers.write().unwrap();
-            if let Some(router) = routers.get_mut(app_id) {
-                for intent_id in &seen_intents {
-                    router.learn_situation(original_query, intent_id);
-                }
-                maybe_persist(state, app_id, router);
-            }
-        }
     }
 
     // Apply phrase replacements (remove old + add new through guard)
@@ -795,11 +782,6 @@ pub async fn apply_review(
             }
             maybe_persist(state, app_id, router);
         }
-    }
-
-    // Update concept registry — LLM picks the right signal for the right concept.
-    for intent_id in &result.correct_intents {
-        crate::routes_concept::learn_from_correction(state, app_id, original_query, intent_id).await;
     }
 
     // ── Hebbian L2: full bidirectional learning ──────────────────────────────

@@ -1,7 +1,7 @@
 //! Router: learning from corrections (phrase storage only).
 //!
 //! `learn()` and `correct()` store phrase associations in the training map.
-//! Routing-weight updates are handled by the Hebbian L3 auto-learn system.
+//! Routing-weight updates are handled by the Hebbian L2 auto-learn system.
 
 use crate::*;
 use crate::tokenizer::is_cjk;
@@ -21,11 +21,6 @@ impl Router {
         let phrases = lang_map.entry(lang.to_string()).or_default();
         if !phrases.contains(&query.to_string()) {
             phrases.push(query.to_string());
-        }
-
-        // CJK: store as situation pattern for persistence
-        if query.chars().any(is_cjk) {
-            self.learn_situation(query, intent_id);
         }
 
         self.version += 1;

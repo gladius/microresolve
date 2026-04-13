@@ -21,11 +21,9 @@ mod log_store;
 mod routes_review;
 mod routes_import;
 mod routes_connect;
-mod routes_situation;
 mod routes_ui_settings;
 mod routes_events;
 mod routes_assembly;
-mod routes_concept;
 mod routes_hebbian;
 mod worker;
 
@@ -91,7 +89,6 @@ async fn main() {
 
     // Initialize routers from namespace directories
     let mut routers = HashMap::new();
-    let mut concepts_map = HashMap::new();
     let mut hebbian_map = HashMap::new();
     let mut intent_graph_map = HashMap::new();
 
@@ -109,10 +106,6 @@ async fn main() {
                             routers.insert(name.to_string(), r);
                         }
                         Err(e) => eprintln!("Failed to load namespace {}: {}", name, e),
-                    }
-                    if let Some(reg) = routes_concept::load_concepts(dir, name) {
-                        println!("Loaded concept registry: {}", name);
-                        concepts_map.insert(name.to_string(), reg);
                     }
                     if let Some(graph) = routes_hebbian::load_hebbian(dir, name) {
                         println!("Loaded hebbian graph: {}", name);
@@ -146,7 +139,6 @@ async fn main() {
         ui_settings: RwLock::new(ui_settings),
         event_tx,
         worker_notify: worker_notify.clone(),
-        concepts: RwLock::new(concepts_map),
         hebbian: RwLock::new(hebbian_map),
         intent_graph: RwLock::new(intent_graph_map),
     });
@@ -172,11 +164,9 @@ async fn main() {
         .merge(routes_review::routes())
         .merge(routes_import::routes())
         .merge(routes_connect::routes())
-        .merge(routes_situation::routes())
         .merge(routes_ui_settings::routes())
         .merge(routes_events::routes())
         .merge(routes_assembly::routes())
-        .merge(routes_concept::routes())
         .merge(routes_hebbian::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());

@@ -136,21 +136,6 @@ pub async fn review_fix(
 
     let pipeline = phrase_pipeline(&state, &app_id, &seeds_map, true, "en").await;
 
-    // For each intent that got seeds added, learn situation n-grams from the original
-    // failing query. CJK queries always learn; Latin queries learn only if the intent
-    // already has situation patterns (avoiding noise from generic Latin bigrams).
-    if !pipeline.added.is_empty() {
-        let mut routers = state.routers.write().unwrap();
-        if let Some(router) = routers.get_mut(&app_id) {
-            let seen_intents: std::collections::HashSet<String> =
-                pipeline.added.iter().map(|(intent, _)| intent.clone()).collect();
-            for intent_id in &seen_intents {
-                router.learn_situation(&original_query, intent_id);
-            }
-            maybe_persist(&state, &app_id, router);
-        }
-    }
-
     // Resolve this entry
     state.log_store.lock().unwrap().resolve(&app_id, req.id);
 

@@ -14,7 +14,6 @@ impl Router {
             version: 0,
             connected: false,
             similarity: HashMap::new(),
-            situation_patterns: HashMap::new(),
             namespace_name: String::new(),
             namespace_description: String::new(),
             domain_descriptions: HashMap::new(),
@@ -142,7 +141,6 @@ impl Router {
             top_k: self.top_k,
             max_intents: self.max_intents,
             similarity: self.similarity.clone(),
-            situation_patterns: self.situation_patterns.clone(),
             intents: serde_json::Value::Null,
             paraphrases: serde_json::Value::Null,
         };
@@ -162,7 +160,6 @@ impl Router {
             version: state.version,
             connected: false,
             similarity: state.similarity,
-            situation_patterns: state.situation_patterns,
             namespace_name: String::new(),
             namespace_description: String::new(),
             domain_descriptions: HashMap::new(),
@@ -191,8 +188,6 @@ struct RouterState {
     max_intents: usize,
     #[serde(default)]
     similarity: HashMap<String, Vec<(String, f32)>>,
-    #[serde(default)]
-    situation_patterns: HashMap<String, Vec<(String, f32)>>,
     // Old fields present in saved JSON — ignored during load.
     #[serde(default, skip_serializing)]
     #[allow(dead_code)]

@@ -1,7 +1,7 @@
 //! Standalone Hebbian graph demo — run with:
 //!   cargo run --bin test_hebbian
 
-use asv_router::hebbian::{HebbianGraph, saas_test_graph};
+use asv_router::hebbian::saas_test_graph;
 
 fn main() {
     let g = saas_test_graph();

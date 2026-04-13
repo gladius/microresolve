@@ -187,7 +187,6 @@ impl Router {
                 "type": self.get_intent_type(&intent_id),
                 "phrases": self.get_training_by_lang(&intent_id).cloned().unwrap_or_default(),
                 "metadata": self.get_metadata(&intent_id).cloned().unwrap_or_default(),
-                "situation_patterns": self.get_situation_patterns(&intent_id).cloned().unwrap_or_default(),
             });
 
             std::fs::write(&file_path, serde_json::to_string_pretty(&intent_json).unwrap_or_default())
@@ -255,16 +254,7 @@ fn load_intent_file(router: &mut Router, path: &Path, intent_id: &str) {
         }
     }
 
-    if let Some(patterns) = val.get("situation_patterns")
-        .and_then(|p| serde_json::from_value::<Vec<(String, f32)>>(p.clone()).ok())
-    {
-        if !patterns.is_empty() {
-            let refs: Vec<(&str, f32)> = patterns.iter().map(|(s, w)| (s.as_str(), *w)).collect();
-            router.add_situation_patterns(intent_id, &refs);
-        }
-    }
-
-    // "learned" field is ignored — weights are now managed by Hebbian L3.
+    // "learned" field is ignored — weights are now managed by Hebbian L2.
 }
 
 /// Remove `*.json` files in `ns_dir` (and one level of subdirs) not in `written`.

@@ -44,7 +44,6 @@ pub async fn bootstrap(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    // Collect intent IDs + concept signals for context
     let intent_ids: Vec<String> = {
         let routers = state.routers.read().unwrap();
         routers.get(&app_id)
@@ -52,23 +51,8 @@ pub async fn bootstrap(
             .intent_ids()
     };
 
-    let concept_signals: String = {
-        let concepts = state.concepts.read().unwrap();
-        if let Some(reg) = concepts.get(&app_id) {
-            reg.concepts.iter()
-                .map(|(name, sigs)| format!("  {}: {}", name, sigs[..sigs.len().min(6)].join(", ")))
-                .collect::<Vec<_>>().join("\n")
-        } else {
-            String::new()
-        }
-    };
-
     let intents_str = intent_ids.join(", ");
-    let context = if concept_signals.is_empty() {
-        format!("Intents: {}", intents_str)
-    } else {
-        format!("Intents: {}\n\nConcept signals (sample):\n{}", intents_str, concept_signals)
-    };
+    let context = format!("Intents: {}", intents_str);
 
     eprintln!("[hebbian/bootstrap] {} — generating graph for {} intents", app_id, intent_ids.len());
 

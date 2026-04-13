@@ -1,8 +1,7 @@
 //! Router: intent types, descriptions, and metadata.
 
 use crate::*;
-use crate::tokenizer::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 impl Router {
     pub fn set_intent_type(&mut self, intent_id: &str, intent_type: IntentType) {

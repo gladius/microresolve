@@ -60,8 +60,6 @@ pub struct ServerState {
     pub event_tx: broadcast::Sender<StudioEvent>,
     /// Wakes the background auto-learn worker when new items are queued.
     pub worker_notify: Arc<Notify>,
-    /// Per-namespace ConceptRegistry (LLM-distilled signal lists + intent profiles).
-    pub concepts: RwLock<HashMap<String, asv_router::concept::ConceptRegistry>>,
     /// Per-namespace Hebbian association graph (morphology + synonyms + abbreviations).
     /// Pre-processes queries before term-index: normalize variants, expand synonyms.
     pub hebbian: RwLock<HashMap<String, asv_router::hebbian::HebbianGraph>>,

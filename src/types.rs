@@ -1,7 +1,5 @@
 //! Public types for the ASV Router.
 
-use std::collections::HashMap;
-
 /// Router configuration. Pass to `Router::with_config()`.
 ///
 /// ```

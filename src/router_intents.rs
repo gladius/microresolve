@@ -2,7 +2,6 @@
 
 use crate::*;
 use crate::types::{PhraseCheckResult, MAX_PHRASES_PER_LANGUAGE};
-use crate::tokenizer::is_cjk;
 use std::collections::HashMap;
 
 impl Router {
