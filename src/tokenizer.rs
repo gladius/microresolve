@@ -54,14 +54,14 @@ const PSEUDO_NEGATION: &[&str] = &[
 /// after "can not" (can't = inability) or "is not" (isn't = state).
 fn find_negated_positions(words: &[&str], stop_set: &HashSet<String>) -> HashSet<usize> {
     let mut negated: HashSet<usize> = HashSet::new();
-    let mut negate_next = 0u8; // counter: negate next N content words
+    // Once negation is triggered, all content words are negated until a clause boundary.
+    // Stop words inside the scope are skipped but do NOT end the scope.
+    let mut negating = false;
 
     // Check for pseudo-negation phrases first
     let joined = words.join(" ");
     for phrase in PSEUDO_NEGATION {
         if joined.contains(phrase) {
-            // Find which word positions this phrase covers and skip them
-            // Simple approach: if the phrase is present, don't negate in that region
             return negated; // bail out — pseudo-negation disables negation for this text
         }
     }
@@ -69,29 +69,25 @@ fn find_negated_positions(words: &[&str], stop_set: &HashSet<String>) -> HashSet
     for (i, &word) in words.iter().enumerate() {
         // "do not" → true intent negation (from expanded "don't")
         if word == "not" && i > 0 && words[i - 1] == "do" {
-            negate_next = 1;
+            negating = true;
             continue;
         }
 
         // Standalone negation words
         if word == "never" || word == "without" || word == "except" {
-            negate_next = 1;
+            negating = true;
             continue;
         }
 
-        // Clause boundaries reset negation
+        // Clause boundaries reset negation scope
         if word == "and" || word == "but" || word == "or" || word == "then" {
-            negate_next = 0;
+            negating = false;
             continue;
         }
 
-        // Negation scope counts all words (stop words absorb it too).
-        // Only content words actually get marked as negated.
-        if negate_next > 0 {
-            if !stop_set.contains(word) {
-                negated.insert(i);
-            }
-            negate_next -= 1;
+        // Content words in scope get marked; stop words pass through without ending scope.
+        if negating && !stop_set.contains(word) {
+            negated.insert(i);
         }
     }
 
@@ -165,8 +161,30 @@ pub fn tokenize(query: &str) -> Vec<String> {
     let lower = query.to_lowercase();
     let expanded = expand_contractions(&lower);
 
+    // Process each sentence independently so negation never crosses sentence boundaries.
+    // "I don't trust this. Just cancel it" → sentence 1 negates "trust"; sentence 2 is clean.
+    // '.' '!' '?' are already stripped during word splitting, so we must split *before* that.
+    let mut all_terms: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+
+    for segment in expanded.split(|c: char| matches!(c, '.' | '!' | '?')) {
+        let segment = segment.trim();
+        if segment.is_empty() { continue; }
+        for term in tokenize_segment(segment) {
+            if seen.insert(term.clone()) {
+                all_terms.push(term);
+            }
+        }
+    }
+
+    all_terms
+}
+
+/// Tokenize a single sentence segment (no cross-sentence negation concerns).
+/// Called by `tokenize` after splitting on sentence-ending punctuation.
+fn tokenize_segment(text: &str) -> Vec<String> {
     // Split into words, but also break CJK runs from Latin text
-    let raw_words: Vec<&str> = expanded
+    let raw_words: Vec<&str> = text
         .split(|c: char| !c.is_alphanumeric() && c != '-')
         .filter(|w| !w.is_empty())
         .collect();
@@ -795,11 +813,13 @@ mod tests {
     #[test]
     fn tokenize_contractions() {
         // "don't" expands cleanly — no garbage "don"/"t" tokens
-        // "want" absorbs the negation scope, so "cancel" survives bare
+        // Negation scope covers all content words until clause boundary
         let terms = tokenize("I don't want to cancel");
         assert!(!terms.contains(&"don".to_string()));
         assert!(!terms.contains(&"t".to_string()));
-        assert!(terms.contains(&"cancel".to_string())); // survives — scope absorbed by "want"
+        // Both "want" and "cancel" are negated (scope extends through clause)
+        assert!(terms.contains(&"not_cancel".to_string()), "cancel should be negated");
+        assert!(!terms.contains(&"cancel".to_string()), "bare cancel should not appear");
 
         // "can't" expands cleanly — NOT negation (inability)
         let terms = tokenize("I can't log in");
@@ -811,44 +831,46 @@ mod tests {
         assert!(!terms.contains(&"s".to_string()));
         assert!(terms.contains(&"happening".to_string()));
 
-        // "won't" irregular contraction — will not → "not" triggers negation on next content word
+        // "won't" → "will not" — "not" not preceded by "do", no negation triggered
         let terms = tokenize("it won't work");
         assert!(!terms.contains(&"won".to_string()));
-        // "will not work" → "not" preceded by "will" (not "do"), so no negation triggered
-        // Actually: find_negated_positions only triggers on "do not", "never", "without", "except"
-        // "will not" is NOT a negation trigger → "work" survives bare
         assert!(terms.contains(&"work".to_string()));
     }
 
     #[test]
     fn tokenize_negation_prefix() {
-        // "don't cancel" → "do not cancel" → "cancel" gets not_ prefix
+        // "don't cancel my order" → both "cancel" and "order" negated
         let terms = tokenize("don't cancel my order");
         assert!(!terms.contains(&"cancel".to_string()), "bare 'cancel' should not appear");
         assert!(terms.contains(&"not_cancel".to_string()), "should have not_cancel");
-        assert!(terms.contains(&"order".to_string()), "order is not negated");
+        assert!(!terms.contains(&"order".to_string()), "bare 'order' should not appear");
+        assert!(terms.contains(&"not_order".to_string()), "order is also in negation scope");
 
-        // "don't want to cancel" → "want" absorbs scope → "cancel" survives bare
+        // "don't want to cancel my order" → scope covers whole clause: want, cancel, order all negated
         let terms = tokenize("don't want to cancel my order");
-        assert!(terms.contains(&"cancel".to_string()), "cancel should survive — scope absorbed by 'want'");
-        assert!(terms.contains(&"order".to_string()));
+        assert!(terms.contains(&"not_cancel".to_string()), "cancel should be negated");
+        assert!(terms.contains(&"not_order".to_string()), "order should be negated");
+        assert!(!terms.contains(&"cancel".to_string()));
+        assert!(!terms.contains(&"order".to_string()));
 
-        // "don't have my card" → "have" (stop word) absorbs scope → "card" survives bare
+        // "don't have my card" → "have" is stop word (skipped), "card" is negated
         let terms = tokenize("I don't have my card");
-        assert!(terms.contains(&"card".to_string()));
+        assert!(!terms.contains(&"card".to_string()), "card is in negation scope");
+        assert!(terms.contains(&"not_card".to_string()));
 
         // "can't log in" → NOT negated (inability, not intent negation)
         let terms = tokenize("I can't log in");
         assert!(terms.contains(&"log".to_string()));
         assert!(!terms.contains(&"not_log".to_string()), "can't is inability, not negation");
 
-        // "never received" → "received" gets not_ prefix
+        // "never received" → "received" and "card" both negated
         let terms = tokenize("I never received my card");
         assert!(!terms.contains(&"received".to_string()));
         assert!(terms.contains(&"not_received".to_string()));
-        assert!(terms.contains(&"card".to_string()));
+        assert!(!terms.contains(&"card".to_string()), "card is also in scope after never");
+        assert!(terms.contains(&"not_card".to_string()));
 
-        // "without cancelling" → "cancelling" gets not_ prefix
+        // "without cancelling" → "cancelling" negated; "track" and "order" precede it, not negated
         let terms = tokenize("track my order without cancelling");
         assert!(terms.contains(&"track".to_string()));
         assert!(terms.contains(&"order".to_string()));

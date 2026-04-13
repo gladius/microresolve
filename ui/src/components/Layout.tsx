@@ -7,7 +7,6 @@ const links = [
   { to: '/namespaces',   label: 'Namespaces' },
   { to: '/intents',      label: 'Intents' },
   { to: '/studio',       label: 'Studio' },
-  { to: '/review',       label: 'Review' },
   { to: '/import',       label: 'Import' },
   { to: '/settings',     label: 'Settings' },
 ];
@@ -20,16 +19,14 @@ export default function Layout() {
   const [domains, setDomains] = useState<string[]>([]);
   const [showNsMenu, setShowNsMenu] = useState(false);
   const [showDomainMenu, setShowDomainMenu] = useState(false);
-  const [reviewMode, setReviewMode] = useState('manual');
 
   useEffect(() => {
     api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
   }, []);
 
-  // Reload domains and review mode when namespace changes
+  // Reload domains when namespace changes
   useEffect(() => {
     api.listDomains().then(ds => setDomains(ds.map(d => d.name))).catch(() => setDomains([]));
-    api.getReviewMode().then(d => setReviewMode(d.mode)).catch(() => {});
   }, [settings.selectedNamespaceId]);
 
   const switchNamespace = (namespaceId: string) => {
@@ -167,13 +164,6 @@ export default function Layout() {
               </>
             )}
 
-            {/* Review mode indicator */}
-            {reviewMode === 'auto' && (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-500/30 animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                AUTO
-              </span>
-            )}
           </div>
         </div>
       </nav>

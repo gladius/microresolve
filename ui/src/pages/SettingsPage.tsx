@@ -4,10 +4,9 @@ import { api } from '@/api/client';
 import SidebarLayout, { type SidebarItem } from '@/components/SidebarLayout';
 
 export default function SettingsPage() {
-  const [section, setSection] = useState('review_mode');
+  const [section, setSection] = useState('llm');
 
   const items: SidebarItem[] = [
-    { id: 'review_mode', label: 'Review Mode' },
     { id: 'llm', label: 'LLM / AI' },
     { id: 'languages', label: 'Languages' },
     { id: 'data', label: 'Data' },
@@ -21,71 +20,11 @@ export default function SettingsPage() {
       onSelect={setSection}
     >
       <div className="p-5 max-w-2xl">
-        {section === 'review_mode' && <ReviewModeSection />}
         {section === 'llm' && <LLMSection />}
         {section === 'languages' && <LanguagesSection />}
         {section === 'data' && <DataSection />}
       </div>
     </SidebarLayout>
-  );
-}
-
-function ReviewModeSection() {
-  const { settings } = useAppStore();
-  const [mode, setMode] = useState('manual');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    api.getReviewMode().then(d => { setMode(d.mode); setLoading(false); }).catch(() => setLoading(false));
-  }, [settings.selectedNamespaceId]);
-
-  const handleChange = async (newMode: string) => {
-    setMode(newMode);
-    await api.setReviewMode(newMode);
-  };
-
-  if (loading) return <div className="text-zinc-500 text-sm">Loading...</div>;
-
-  const modes = [
-    { id: 'manual', label: 'Manual', desc: 'Review failures manually. You analyze with AI and apply fixes when ready.', color: 'emerald' },
-    { id: 'auto', label: 'Auto', desc: 'Every query is reviewed by LLM automatically. Fixes applied immediately. System learns continuously but costs LLM tokens on every query.', color: 'red' },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-white">Review Mode</h2>
-        <p className="text-xs text-zinc-500 mt-1">
-          Controls how the system learns from queries.
-          <span className="ml-2 px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono text-[10px]">
-            namespace: {settings.selectedNamespaceId}
-          </span>
-        </p>
-      </div>
-      <div className="space-y-2">
-        {modes.map(m => (
-          <button
-            key={m.id}
-            onClick={() => handleChange(m.id)}
-            className={`w-full text-left p-3 rounded-lg border transition-colors ${
-              mode === m.id
-                ? 'border-violet-400/50 bg-violet-400/10'
-                : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className={`w-2 h-2 rounded-full ${mode === m.id ? 'bg-violet-400' : 'bg-zinc-600'}`} />
-              <span className={`font-semibold text-sm ${mode === m.id ? 'text-violet-400' : 'text-zinc-400'}`}>{m.label}</span>
-            </div>
-            <p className="text-xs text-zinc-500 pl-4">{m.desc}</p>
-          </button>
-        ))}
-      </div>
-      <p className="text-xs text-zinc-600">
-        Auto mode requires <code className="text-violet-400">LLM_API_KEY</code> in the server's <code className="text-violet-400">.env</code> file.
-      </p>
-    </div>
   );
 }
 

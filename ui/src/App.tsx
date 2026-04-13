@@ -5,7 +5,6 @@ import RouterPage from '@/pages/RouterPage';
 import StudioPage from '@/pages/StudioPage';
 import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
-import ReviewPage from '@/pages/ReviewPage';
 import NamespacesPage from '@/pages/NamespacesPage';
 import DomainsPage from '@/pages/DomainsPage';
 import ImportLanding from '@/pages/import/ImportLanding';
@@ -86,7 +85,6 @@ export default function App() {
             <Route path="/" element={<RouterPage />} />
             <Route path="/studio" element={<StudioPage />} />
             <Route path="/intents" element={<IntentsPage />} />
-            <Route path="/review" element={<ReviewPage />} />
             <Route path="/import" element={<ImportLanding />} />
             <Route path="/import/openapi" element={<OpenApiImport />} />
             <Route path="/import/mcp" element={<McpImport />} />

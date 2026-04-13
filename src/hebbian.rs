@@ -139,15 +139,25 @@ impl HebbianGraph {
 
     /// Token split for Layer 1 substitution.
     /// Latin: whitespace split (preserves stop words so normalized phrases stay coherent).
+    /// Sentence-ending punctuation ('.', '!', '?') is preserved as a standalone "." token
+    /// so downstream tokenize() calls can split on sentence boundaries and scope negation correctly.
     /// CJK:   tokenizer bigrams (Chinese/Japanese/Korean have no whitespace between words).
     fn l1_tokens(query: &str) -> Vec<String> {
         let lower = query.to_lowercase();
         let has_cjk = lower.chars().any(crate::tokenizer::is_cjk);
         if !has_cjk {
-            lower.split_whitespace()
-                .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_string())
-                .filter(|w| !w.is_empty())
-                .collect()
+            let mut out = Vec::new();
+            for w in lower.split_whitespace() {
+                let has_boundary = w.ends_with('.') || w.ends_with('!') || w.ends_with('?');
+                let clean: String = w.trim_matches(|c: char| !c.is_alphanumeric()).to_string();
+                if !clean.is_empty() {
+                    out.push(clean);
+                }
+                if has_boundary {
+                    out.push(".".to_string()); // sentence boundary sentinel
+                }
+            }
+            out
         } else {
             // For CJK, tokenize() gives us bigrams + individual content chars.
             // stop-word filtering is acceptable here — CJK stop chars rarely match edges.
@@ -732,15 +742,18 @@ impl IntentGraph {
         let mut has_negation = cjk_negated;
 
         for token in &tokens {
-            // not_X tokens (English NegEx): score base word normally, flag negation.
-            let base = token.strip_prefix("not_").unwrap_or(token.as_str());
-            if token.starts_with("not_") {
+            // not_X tokens: the query is about X but negated — subtract activations.
+            // "I do not want a refund" → not_refund → billing:refund score goes negative → filtered out.
+            let is_negated = token.starts_with("not_");
+            let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
+            if is_negated {
                 has_negation = true;
             }
             if let Some(activations) = self.word_intent.get(base) {
                 let idf = (total_intents / activations.len() as f32).ln().max(0.0);
                 for (intent, weight) in activations {
-                    *scores.entry(intent.clone()).or_insert(0.0) += weight * idf;
+                    let delta = weight * idf;
+                    *scores.entry(intent.clone()).or_insert(0.0) += if is_negated { -delta } else { delta };
                 }
             }
         }
@@ -911,21 +924,18 @@ mod intent_graph_tests {
     #[test]
     fn layer3_negation_flags_not_suppresses() {
         let (l1, ig) = mini_intent_graph();
-        // New behaviour: negation sets has_negation=true but still routes to the intent.
-        // "don't cancel my subscription" is ABOUT cancellation — the flag tells the app.
+        // Negation subtracts activations: "don't cancel my subscription" should NOT route.
         let (with_neg, neg_flag) = ig.score(&l1, "don't cancel my subscription");
         let (without_neg, _) = ig.score(&l1, "cancel my subscription");
 
-        // Intent is still detected
         let neg_score = with_neg.iter()
             .find(|(id, _)| id == "cancel_subscription").map(|(_, s)| *s).unwrap_or(0.0);
         let pos_score = without_neg.iter()
             .find(|(id, _)| id == "cancel_subscription").map(|(_, s)| *s).unwrap_or(0.0);
 
-        assert!(neg_score > 0.0, "cancel_subscription should still be detected when negated");
+        assert!(neg_score <= 0.0, "cancel_subscription should be suppressed by negation (score={neg_score})");
+        assert!(pos_score > 0.0, "cancel_subscription should route without negation");
         assert!(neg_flag, "has_negation flag should be true");
-        // Scores may differ because not_cancel token also scores the base word
-        let _ = pos_score; // both route — the flag is the signal, not suppression
     }
 
     #[test]

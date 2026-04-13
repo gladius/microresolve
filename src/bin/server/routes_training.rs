@@ -15,6 +15,7 @@ pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/simulate/turn", post(simulate_turn))
         .route("/api/simulate/respond", post(simulate_respond))
+        .route("/api/simulate/history", get(sim_history_get).post(sim_history_save))
         .route("/api/training/generate", post(training_generate))
         .route("/api/training/run", post(training_run))
         .route("/api/training/review", post(training_review))
@@ -29,6 +30,8 @@ pub struct SimulateTurnRequest {
     history: Vec<serde_json::Value>, // previous turns [{role, message}]
     intents: Vec<String>,    // available intent IDs
     mode: String,            // "normal" or "adversarial"
+    #[serde(default)]
+    language: String,        // e.g. "English", "Spanish", "Chinese", "French", "German" — defaults to "English"
 }
 
 pub async fn simulate_turn(
@@ -80,6 +83,7 @@ ADVERSARIAL MODE: Deliberately try to break the routing system:
         ""
     };
 
+    let language = if req.language.is_empty() { "English".to_string() } else { req.language.clone() };
     let prompt = format!(
 r#"You are simulating a customer interacting with a support system. Generate the next customer message.
 
@@ -87,6 +91,7 @@ r#"You are simulating a customer interacting with a support system. Generate the
 - Personality: {personality}
 - Sophistication: {sophistication} (how technical/precise your language is)
 - Verbosity: {verbosity}
+- Language: {language} (write the customer message entirely in this language)
 {adversarial}
 
 ## Available intents in the system:
@@ -96,26 +101,29 @@ r#"You are simulating a customer interacting with a support system. Generate the
 {history}
 
 ## Instructions:
-Generate a realistic customer message. You must also specify which intent(s) you are trying to express as ground truth.
+Generate a realistic customer message in {language}. You must also specify which intent(s) you are trying to express as ground truth.
 
 {turn_guidance}
 
 Return ONLY a JSON object:
 {{
-  "message": "the customer message text",
+  "message": "the customer message text (in {language})",
   "ground_truth": ["intent_id_1", "intent_id_2"],
-  "intent_description": "brief note on what the customer wants"
+  "intent_description": "brief note on what the customer wants (in English)"
 }}
 
 Rules:
 - ground_truth must use exact intent IDs from the list above
 - Use 1-3 intents per message (multi-intent is encouraged)
 - Stay in character for your persona throughout
+- Write the message field entirely in {language}
+- intent_description is always in English regardless of language
 - If this is a follow-up turn, react naturally to the agent's previous response
 - Return ONLY the JSON object"#,
         personality = req.personality,
         sophistication = req.sophistication,
         verbosity = req.verbosity,
+        language = language,
         adversarial = adversarial_instructions,
         intents = intent_defs,
         history = history_text,
@@ -222,6 +230,8 @@ pub struct TrainingGenerateRequest {
     verbosity: String,
     turns: usize,
     scenario: Option<String>,
+    #[serde(default)]
+    language: String,  // e.g. "English", "Spanish", "Chinese" — defaults to "English"
 }
 
 pub async fn training_generate(
@@ -255,6 +265,7 @@ pub async fn training_generate(
         "\nGenerate a random customer support conversation. Pick different intents across turns to test variety.\n".to_string()
     };
 
+    let language = if req.language.is_empty() { "English".to_string() } else { req.language.clone() };
     let prompt = format!(
 r#"You are generating a simulated customer support conversation for testing an intent routing system.
 
@@ -262,21 +273,22 @@ r#"You are generating a simulated customer support conversation for testing an i
 - Personality: {personality}
 - Sophistication: {sophistication} (how technical/precise their language is)
 - Verbosity: {verbosity}
+- Language: {language} (write ALL customer messages in this language)
 {scenario}
 ## Available intents in the system:
 {intents}
 
 ## Instructions:
-Generate a {turns}-turn conversation. For each turn, provide the customer message, what intents they are expressing (ground truth), and a brief agent response.
+Generate a {turns}-turn conversation in {language}. For each turn, provide the customer message, what intents they are expressing (ground truth), and a brief agent response.
 
 Return ONLY a JSON object:
 {{
   "turns": [
     {{
-      "customer_message": "the customer's message",
+      "customer_message": "the customer's message (in {language})",
       "ground_truth": ["intent_id_1", "intent_id_2"],
-      "intent_description": "brief note on what the customer wants",
-      "agent_response": "the agent's helpful response (2-3 sentences)"
+      "intent_description": "brief note on what the customer wants (always in English)",
+      "agent_response": "the agent's helpful response (2-3 sentences, in {language})"
     }}
   ]
 }}
@@ -285,12 +297,14 @@ Rules:
 - ground_truth must use exact intent IDs from the list above
 - Use 1-3 intents per turn (multi-intent is encouraged)
 - Stay in character for the persona throughout ALL turns
+- Write customer_message and agent_response in {language}; intent_description always in English
 - Each turn should build on or react to the previous agent response
 - Make conversations realistic — customers don't always state things clearly
 - Return ONLY the JSON object, no other text"#,
         personality = req.personality,
         sophistication = req.sophistication,
         verbosity = req.verbosity,
+        language = language,
         scenario = scenario_section,
         intents = intent_defs,
         turns = req.turns,
@@ -561,3 +575,50 @@ pub async fn training_apply(
     })))
 }
 
+
+// ─── Simulation history ───────────────────────────────────────────────────────
+// Persists as {data_dir}/{app_id}/simulations.json — at most 20 records.
+
+pub async fn sim_history_get(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let runs = load_sim_history(&state, &app_id);
+    Json(serde_json::json!({ "runs": runs }))
+}
+
+pub async fn sim_history_save(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(record): Json<serde_json::Value>,
+) -> StatusCode {
+    let app_id = app_id_from_headers(&headers);
+    let mut runs = load_sim_history(&state, &app_id);
+    runs.insert(0, record);
+    runs.truncate(20);
+    save_sim_history(&state, &app_id, &runs);
+    StatusCode::OK
+}
+
+fn sim_history_path(state: &crate::state::AppState, app_id: &str) -> Option<std::path::PathBuf> {
+    state.data_dir.as_ref().map(|d| {
+        std::path::PathBuf::from(d).join(app_id).join("simulations.json")
+    })
+}
+
+fn load_sim_history(state: &crate::state::AppState, app_id: &str) -> Vec<serde_json::Value> {
+    let Some(path) = sim_history_path(state, app_id) else { return vec![] };
+    let Ok(json) = std::fs::read_to_string(&path) else { return vec![] };
+    serde_json::from_str::<Vec<serde_json::Value>>(&json).unwrap_or_default()
+}
+
+fn save_sim_history(state: &crate::state::AppState, app_id: &str, runs: &[serde_json::Value]) {
+    let Some(path) = sim_history_path(state, app_id) else { return };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Ok(json) = serde_json::to_string(runs) {
+        let _ = std::fs::write(path, json);
+    }
+}

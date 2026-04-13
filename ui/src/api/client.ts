@@ -108,8 +108,8 @@ export const api = {
   health: () => get<string>('/health'),
 
   // Routing
-  routeMulti: (query: string, threshold = 0.3) =>
-    post<MultiRouteOutput>('/route_multi', { query, threshold }),
+  routeMulti: (query: string, threshold = 0.3, log = true) =>
+    post<MultiRouteOutput>('/route_multi', { query, threshold, log }),
 
   // Intents
   listIntents: () => get<IntentInfo[]>('/intents'),
@@ -202,6 +202,7 @@ export const api = {
     verbosity: string;
     turns: number;
     scenario?: string;
+    language?: string;
   }) => post<{ turns: { customer_message: string; ground_truth: string[]; intent_description: string; agent_response: string }[] }>('/training/generate', config),
 
   trainingRun: (turns: { message: string; ground_truth: string[] }[]) =>
@@ -324,8 +325,14 @@ export const api = {
   reviewIntentPhrases: (intent_ids: string[]) =>
     post<Record<string, string[]>>('/review/intent_phrases', { intent_ids }),
   getReviewStats: () => get<ReviewStats>('/review/stats'),
-  getReviewMode: () => get<{ mode: string }>('/review/mode'),
-  setReviewMode: (mode: string) => post<{ mode: string }>('/review/mode', { mode }),
+
+  // Synchronous learn — bypasses worker queue, returns immediately with SSE events fired
+  learnNow: (query: string, detected_intents: string[] = []) =>
+    post<{
+      correct_intents: string[]; wrong_detections: string[]; missed_intents: string[];
+      phrases_added: number; suppressors_added: number; summary: string;
+      languages: string[]; version_before: number; version_after: number; model: string;
+    }>('/learn/now', { query, detected_intents }),
 
   // Spec Import
   importSpec: (spec: string) =>

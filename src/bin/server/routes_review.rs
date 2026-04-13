@@ -16,14 +16,14 @@ use crate::llm::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/review/queue",        get(review_queue))
-        .route("/api/review/reject",       post(review_reject))
-        .route("/api/review/fix",          post(review_fix))
-        .route("/api/review/analyze",      post(review_analyze))
+        .route("/api/review/queue",          get(review_queue))
+        .route("/api/review/reject",         post(review_reject))
+        .route("/api/review/fix",            post(review_fix))
+        .route("/api/review/analyze",        post(review_analyze))
         .route("/api/review/intent_phrases", post(review_intent_phrases))
-        .route("/api/review/stats",        get(review_stats))
-        .route("/api/review/mode",         get(get_review_mode))
-        .route("/api/review/mode",         post(set_review_mode))
+        .route("/api/review/stats",          get(review_stats))
+        .route("/api/learn/now",             post(learn_now))
+        .route("/api/report",                post(report_query))
 }
 
 // ─── Queue (filtered log view) ───────────────────────────────────────────────
@@ -254,28 +254,120 @@ pub async fn review_stats(
     }))
 }
 
-pub async fn get_review_mode(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Json<serde_json::Value> {
-    let app_id = app_id_from_headers(&headers);
-    let mode = get_ns_mode(&state, &app_id);
-    Json(serde_json::json!({"mode": mode, "app_id": app_id}))
-}
+// ─── Synchronous learn (instant queue) ───────────────────────────────────────
+// Bypasses the background worker. Runs full_review + apply_review immediately,
+// fires SSE events so the UI live feed updates, and returns the result.
+// Used by Manual and Simulate tabs where the user wants instant feedback.
 
 #[derive(serde::Deserialize)]
-pub struct SetReviewModeRequest { mode: String }
+pub struct LearnNowRequest {
+    query: String,
+    #[serde(default)]
+    detected_intents: Vec<String>,
+}
 
-pub async fn set_review_mode(
+pub async fn learn_now(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(req): Json<SetReviewModeRequest>,
+    Json(req): Json<LearnNowRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    if !["manual", "auto"].contains(&req.mode.as_str()) {
-        return Err((StatusCode::BAD_REQUEST, "mode must be 'manual' or 'auto'".to_string()));
-    }
     let app_id = app_id_from_headers(&headers);
-    state.review_mode.write().unwrap().insert(app_id.clone(), req.mode.clone());
-    state.worker_notify.notify_one(); // wake worker in case mode just switched to auto
-    Ok(Json(serde_json::json!({"mode": req.mode, "app_id": app_id})))
+
+    // Ensure namespace exists
+    if !state.routers.read().unwrap().contains_key(&app_id) {
+        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", app_id)));
+    }
+
+    let version_before = state.routers.read().unwrap()
+        .get(&app_id).map(|r| r.version()).unwrap_or(0);
+
+    // Broadcast that we're starting (id=0 = ad-hoc, not from log store)
+    let _ = state.event_tx.send(StudioEvent::LlmStarted {
+        id: 0,
+        query: req.query.clone(),
+    });
+
+    let review = full_review(&state, &app_id, &req.query, &req.detected_intents).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+
+    let (phrases_added, suppressors_added) =
+        apply_review(&state, &app_id, &review, &req.query).await;
+
+    let version_after = state.routers.read().unwrap()
+        .get(&app_id).map(|r| r.version()).unwrap_or(0);
+
+    let model = std::env::var("LLM_MODEL")
+        .unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
+
+    let _ = state.event_tx.send(StudioEvent::LlmDone {
+        id: 0,
+        correct: review.correct_intents.clone(),
+        wrong: review.wrong_detections.clone(),
+        phrases_added,
+        summary: review.summary.clone(),
+    });
+
+    if phrases_added > 0 || suppressors_added > 0 {
+        let _ = state.event_tx.send(StudioEvent::FixApplied {
+            id: 0,
+            phrases_added,
+            phrases_replaced: suppressors_added,
+            version_before,
+            version_after,
+        });
+    }
+
+    Ok(Json(serde_json::json!({
+        "correct_intents":  review.correct_intents,
+        "wrong_detections": review.wrong_detections,
+        "missed_intents":   review.missed_intents,
+        "phrases_added":    phrases_added,
+        "suppressors_added": suppressors_added,
+        "summary":          review.summary,
+        "languages":        review.languages,
+        "version_before":   version_before,
+        "version_after":    version_after,
+        "model":            model,
+    })))
+}
+
+// ─── Explicit report (for simulate/client-side flagging) ─────────────────────
+// Adds a query to the review queue with an explicit flag.
+// Returns the log entry ID so the caller can track it via SSE.
+
+#[derive(serde::Deserialize)]
+pub struct ReportRequest {
+    query: String,
+    #[serde(default)]
+    detected: Vec<String>,
+    #[serde(default)]
+    flag: Option<String>,
+    #[serde(default)]
+    session_id: Option<String>,
+}
+
+pub async fn report_query(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ReportRequest>,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let flag = req.flag.unwrap_or_else(|| {
+        if req.detected.is_empty() { "miss".to_string() } else { "low_confidence".to_string() }
+    });
+    let log_id = log_query(&state, LogRecord {
+        id: 0,
+        query: req.query.clone(),
+        app_id: app_id.clone(),
+        detected_intents: req.detected,
+        confidence: if flag == "miss" { "none".to_string() } else { "low".to_string() },
+        flag: Some(flag),
+        session_id: req.session_id,
+        timestamp_ms: now_ms(),
+        router_version: state.routers.read().unwrap()
+            .get(&app_id).map(|r| r.version()).unwrap_or(0),
+        source: "client_report".to_string(),
+    });
+    state.worker_notify.notify_one();
+    Json(serde_json::json!({ "id": log_id }))
 }
