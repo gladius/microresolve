@@ -11,6 +11,37 @@ use asv_router::{Router, IntentType};
 use crate::state::*;
 use crate::llm::*;
 
+/// Feed accepted import phrases into the L2 count model (IntentGraph).
+///
+/// Called once after all batch phrase-generation is complete.
+/// Creates the IntentGraph if it doesn't exist yet for this app.
+/// Uses L1 preprocessing if available — same tokenisation path as routing.
+fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
+    if accepted.is_empty() { return; }
+
+    let l1 = state.hebbian.read().unwrap().get(app_id).cloned().unwrap_or_default();
+
+    let mut ig_map = state.intent_graph.write().unwrap();
+    let ig = ig_map.entry(app_id.to_string()).or_insert_with(asv_router::hebbian::IntentGraph::new);
+
+    for (intent_id, phrase) in accepted {
+        let preprocessed = l1.preprocess(phrase);
+        let words = asv_router::tokenizer::tokenize(&preprocessed.expanded);
+        let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
+        if !word_refs.is_empty() {
+            ig.learn_phrase(&word_refs, intent_id);
+        }
+    }
+
+    // Persist
+    if let Some(ref dir) = state.data_dir {
+        let path = format!("{}/{}/_intent_graph.json", dir, app_id);
+        std::fs::create_dir_all(format!("{}/{}", dir, app_id)).ok();
+        ig.save(&path).ok();
+        eprintln!("[import/L2] seeded {} phrases into count model for '{}'", accepted.len(), app_id);
+    }
+}
+
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/import/parse", post(import_parse))
@@ -24,29 +55,20 @@ pub fn routes() -> axum::Router<AppState> {
 
 /// Calculate optimal batch_size and max_tokens for LLM seed generation.
 ///
-/// Formula (rigorous):
-///   phrases_per_intent  = 10
-///   tokens_per_phrase   = 10  (avg across en/zh: short cmds ~4, sentences ~15, avg ~10)
-///   json_overhead       = 30  (keys, brackets, commas per intent)
-///   tokens_per_intent   = num_langs × phrases_per_intent × tokens_per_phrase + json_overhead
-///                       = num_langs × 100 + 30
+/// Formula:
+///   phrases_per_intent  = 5  (focused, spec-driven — quality over quantity)
+///   tokens_per_phrase   = 10 (avg across en/zh: short cmds ~4, sentences ~15)
+///   json_overhead       = 30 (keys, brackets, commas per intent)
+///   tokens_per_intent   = num_langs × 5 × 10 + 30 = num_langs × 50 + 30
 ///
-///   max_api_tokens  = 8192 (ALWAYS — never reduce; give full buffer for phrase variance)
-///   batch_size      = min(10, floor(8192 / tokens_per_intent))
-///                   — only reduces when num_langs is high enough that 10 intents
-///                     would genuinely exceed 8192 output tokens
-///
-/// Examples:
-///   2 langs:  tokens/intent=230, batch=10, expected=2300, buffer=+5892  ✓
-///   5 langs:  tokens/intent=530, batch=10, expected=5300, buffer=+2892  ✓
-///   10 langs: tokens/intent=1030, batch=7, expected=7210, buffer=+982   ✓
+///   batch_size = min(10, floor(8192 / tokens_per_intent))
 ///
 /// Returns (batch_size, max_tokens, tokens_per_tool).
 pub fn seed_gen_params(num_langs: usize) -> (usize, u32, u32) {
     let n = num_langs.max(1) as u32;
-    let tokens_per_intent = n * 100 + 30; // num_langs × 10 phrases × 10 tokens + JSON overhead
+    let tokens_per_intent = n * 50 + 30; // num_langs × 5 phrases × 10 tokens + JSON overhead
     let batch_size = ((8192 / tokens_per_intent) as usize).max(1).min(10);
-    let max_tokens = 8192; // always the API ceiling — phrase variance must never truncate
+    let max_tokens = 8192;
     (batch_size, max_tokens, tokens_per_intent)
 }
 
@@ -80,7 +102,7 @@ pub async fn import_params(
         "total_output_tokens": total_output_tokens,
         "total_input_tokens": total_input_tokens,
         "total_tokens": total_tokens,
-        "phrases_per_tool": q.num_langs * 10,
+        "phrases_per_tool": q.num_langs * 5,
     }))
 }
 
@@ -316,6 +338,8 @@ pub async fn import_apply(
     let mut per_intent_added: HashMap<String, usize> = HashMap::new();
     let mut per_intent_blocked: HashMap<String, usize> = HashMap::new();
     let mut per_intent_recovered: HashMap<String, usize> = HashMap::new();
+    // Collect all accepted phrases to feed into L2 count model after all batches
+    let mut all_accepted: Vec<(String, String)> = Vec::new();
 
     if state.llm_key.is_some() {
         let setting_langs = state.ui_settings.read().unwrap().languages.clone();
@@ -365,8 +389,10 @@ pub async fn import_apply(
             };
 
             let prompt = format!(
-                "Generate 10 diverse training phrases for each API operation below.\n\
-                 These train a keyword-matching router. VOCABULARY DIVERSITY is critical.\n\n\
+                "Generate 5 diverse training phrases for each API operation below.\n\
+                 You have the full operation context — use it to generate TARGETED phrases.\n\
+                 These phrases train both a keyword router and a statistical count model.\n\
+                 Phrases must use vocabulary specific to THIS operation, not generic API terms.\n\n\
                  {}Operations:\n{}\n\n\
                  Current phrases (avoid duplicating these):\n{}\n\n\
                  {}\n\n\
@@ -395,6 +421,7 @@ pub async fn import_apply(
                                     if result.recovered_by_retry > 0 {
                                         *per_intent_recovered.entry(lang_map.keys().next().cloned().unwrap_or_default()).or_default() += result.recovered_by_retry;
                                     }
+                                    all_accepted.extend(result.added.iter().cloned());
                                     total_added += result.added.len();
                                     total_blocked += result.blocked.len();
                                 }
@@ -410,6 +437,7 @@ pub async fn import_apply(
                             let result = phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0]).await;
                             for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
                             for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
+                            all_accepted.extend(result.added.iter().cloned());
                             total_added += result.added.len();
                             total_blocked += result.blocked.len();
                         }
@@ -418,6 +446,9 @@ pub async fn import_apply(
             }
         }
     }
+
+    // Feed all accepted phrases into L2 count model — same phrases, zero extra LLM cost
+    seed_into_l2(&state, &app_id, &all_accepted);
 
     let intent_names: Vec<String> = selected_ops.iter().map(|op| {
         let base = asv_router::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
@@ -431,12 +462,16 @@ pub async fn import_apply(
         serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
     }).collect();
 
+    let l2_words = state.intent_graph.read().unwrap()
+        .get(&app_id).map(|ig| ig.counts.len()).unwrap_or(0);
+
     Ok(Json(serde_json::json!({
         "title": parsed.title,
         "version": parsed.version,
         "imported": intent_names.len(),
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
+        "l2_unique_words": l2_words,
         "intents": intent_names,
         "per_intent": per_intent,
     })))
@@ -607,6 +642,7 @@ pub async fn mcp_apply(
     let mut per_intent_added: HashMap<String, usize> = HashMap::new();
     let mut per_intent_blocked: HashMap<String, usize> = HashMap::new();
     let mut per_intent_recovered: HashMap<String, usize> = HashMap::new();
+    let mut all_accepted: Vec<(String, String)> = Vec::new();
 
     if state.llm_key.is_some() {
         let setting_langs = state.ui_settings.read().unwrap().languages.clone();
@@ -653,8 +689,10 @@ pub async fn mcp_apply(
             };
 
             let prompt = format!(
-                "Generate 10 diverse training phrases for each MCP tool below.\n\
-                 These train a keyword-matching router. VOCABULARY DIVERSITY is critical.\n\n\
+                "Generate 5 diverse training phrases for each MCP tool below.\n\
+                 You have the full tool description — use it to generate TARGETED phrases.\n\
+                 These phrases train both a keyword router and a statistical count model.\n\
+                 Phrases must use vocabulary specific to THIS tool, not generic action terms.\n\n\
                  {}Tools:\n{}\n\n\
                  Current phrases (avoid duplicating):\n{}\n\n\
                  {}\n\n\
@@ -680,10 +718,10 @@ pub async fn mcp_apply(
                                     let result = phrase_pipeline(&state, &app_id, &lang_map, true, lang).await;
                                     for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
                                     for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
-                                    // distribute recovered evenly across intents that had any blockage
                                     if result.recovered_by_retry > 0 {
                                         *per_intent_recovered.entry(lang_map.keys().next().cloned().unwrap_or_default()).or_default() += result.recovered_by_retry;
                                     }
+                                    all_accepted.extend(result.added.iter().cloned());
                                     total_added += result.added.len();
                                     total_blocked += result.blocked.len();
                                 }
@@ -699,6 +737,7 @@ pub async fn mcp_apply(
                             let result = phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0]).await;
                             for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
                             for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
+                            all_accepted.extend(result.added.iter().cloned());
                             total_added += result.added.len();
                             total_blocked += result.blocked.len();
                         }
@@ -707,6 +746,9 @@ pub async fn mcp_apply(
             }
         }
     }
+
+    // Feed all accepted phrases into L2 count model — same phrases, zero extra LLM cost
+    seed_into_l2(&state, &app_id, &all_accepted);
 
     let tool_names: Vec<String> = selected_tools.iter()
         .filter_map(|t| t.get("name").and_then(|v| v.as_str()).map(|base| {
@@ -721,10 +763,14 @@ pub async fn mcp_apply(
         serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
     }).collect();
 
+    let l2_words = state.intent_graph.read().unwrap()
+        .get(&app_id).map(|ig| ig.counts.len()).unwrap_or(0);
+
     Ok(Json(serde_json::json!({
         "imported": tool_names.len(),
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
+        "l2_unique_words": l2_words,
         "intents": tool_names,
         "per_intent": per_intent,
     })))
