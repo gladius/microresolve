@@ -29,7 +29,7 @@ impl AppRouter {
         let client = build_client()?;
         for app_id in &self.config.app_ids {
             let url = format!("{}/api/sync?version=0", self.config.server_url);
-            let mut req = client.get(&url).header("X-App-ID", app_id.as_str());
+            let mut req = client.get(&url).header("X-Namespace-ID", app_id.as_str());
             if let Some(ref key) = self.config.api_key { req = req.header("X-Api-Key", key); }
             let resp = req.send().map_err(|e| format!("connect failed for {}: {}", app_id, e))?;
             if !resp.status().is_success() {

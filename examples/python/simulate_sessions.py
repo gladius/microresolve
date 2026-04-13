@@ -12,7 +12,7 @@ import requests
 
 BASE = "http://localhost:3001/api"
 APP_ID = "ecommerce-demo"
-HEADERS = {"X-App-ID": APP_ID, "Content-Type": "application/json"}
+HEADERS = {"X-Namespace-ID": APP_ID, "Content-Type": "application/json"}
 
 DEFAULT_INTENTS = {
     "cancel_order": ["cancel my order", "I want to cancel", "stop my order", "cancel purchase", "cancel it"],

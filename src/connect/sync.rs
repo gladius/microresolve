@@ -91,7 +91,7 @@ fn flush_logs(
     let mut failed: Vec<LogEntry> = Vec::new();
     for (app_id, batch) in by_app {
         let url = format!("{}/api/ingest", config.server_url);
-        let mut req = client.post(&url).header("X-App-ID", &app_id).json(&batch);
+        let mut req = client.post(&url).header("X-Namespace-ID", &app_id).json(&batch);
         if let Some(ref key) = config.api_key { req = req.header("X-Api-Key", key); }
         if let Err(e) = req.send() {
             eprintln!("[asv-connect] log flush error app={}: {}", app_id, e);

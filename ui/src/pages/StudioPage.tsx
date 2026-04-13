@@ -511,13 +511,11 @@ function SimulatePanel({ onAccuracy }: {
       setBefore(calcMetrics(baseline.results));
       if (stopRef.current) return;
 
-      // ── Step 3: Learn only queries with MISSED intents (not just extras) ─
-      // PARTIAL with no misses = correct intent found + false positives. learn_now
-      // can suppress extras but single-step suppressor (Δ=0.05) is too weak vs
-      // bootstrap (0.85). Only learn when there are genuinely missed intents.
+      // ── Step 3: Learn from ALL non-pass results ───────────────────────────
+      // Includes false-positive-only partials — L3 inhibition fires immediately
+      // from one learn_now call (learn_inhibition delta=0.4 >= threshold=0.35).
       const failures = baseline.results.filter((r: any) =>
-        r.status === 'fail' ||
-        (r.status === 'partial' && (r.missed?.length ?? 0) > 0)
+        r.status === 'fail' || r.status === 'partial'
       );
       if (failures.length > 0) {
         setPhase('fixing');

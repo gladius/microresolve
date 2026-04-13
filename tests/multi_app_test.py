@@ -26,7 +26,7 @@ def curl(method: str, path: str, body=None, app_id: str = None) -> tuple[int, an
     cmd = ["curl", "-s", "-w", "\n%{http_code}", "-X", method, f"{BASE_URL}{path}",
            "-H", "Content-Type: application/json"]
     if app_id:
-        cmd += ["-H", f"X-App-ID: {app_id}"]
+        cmd += ["-H", f"X-Namespace-ID: {app_id}"]
     if body is not None:
         cmd += ["-d", json.dumps(body)]
     result = subprocess.run(cmd, capture_output=True, text=True)
