@@ -592,19 +592,32 @@ pub struct ConjunctionRule {
 ///
 /// Bootstrapped by LLM; updated online by Hebbian reinforcement from routing
 /// confirmations ("fire together, wire together").
+///
+/// Two modes:
+///   Legacy mode  (`counts` is empty): LLM-assigned absolute activation weights.
+///                 Used for old graphs. `add_activation` / `add_suppressor` / `reinforce`.
+///   Count  mode  (`counts` is non-empty): Discriminative log-odds from phrase counts.
+///                 `learn_phrase` adds phrases → counts increment → log-odds recomputed.
+///                 No separate suppressor table — negative log-odds handle disambiguation.
+///                 One new phrase = immediate improvement. Bootstrap = phrase generation.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct IntentGraph {
-    /// word → [(intent_id, activation_weight)]
-    /// Layer 1 canonical terms only — variants are handled upstream.
+    /// word → [(intent_id, weight)]
+    /// Legacy mode: LLM-assigned activation weights (0.0–1.0).
+    /// Count  mode: precomputed log-odds from `counts` (can be negative).
     pub word_intent: HashMap<String, Vec<(String, f32)>>,
-    /// word → [(intent_id, suppression_weight)]
-    /// Reduces activation for an intent when the word appears — used for
-    /// disambiguation between similar intents (e.g. "order" suppresses
-    /// cancel_subscription but boosts cancel_order).
+    /// Legacy mode only: word → [(intent_id, suppression_weight)].
+    /// Count mode makes this obsolete — negative log-odds suppress naturally.
     pub suppressors: HashMap<String, Vec<(String, f32)>>,
-    /// Conjunction bonuses — word pairs/sets that together strongly indicate
-    /// a specific intent. Part of L2 scoring, not a separate layer.
+    /// Conjunction bonuses — word pairs that together strongly indicate an intent.
     pub conjunctions: Vec<ConjunctionRule>,
+    /// Count model: word → intent → number of phrase occurrences.
+    /// Non-empty signals that count/log-odds mode is active.
+    #[serde(default)]
+    pub counts: HashMap<String, HashMap<String, u32>>,
+    /// Count model: total word token count per intent (denominator for P(word|intent)).
+    #[serde(default)]
+    pub intent_totals: HashMap<String, u32>,
 }
 
 impl IntentGraph {
@@ -639,6 +652,100 @@ impl IntentGraph {
         for word in words {
             self.add_suppressor(word, intent, weight);
         }
+    }
+
+    // ── Count model (log-odds) ────────────────────────────────────────────
+
+    /// True when the count-based log-odds model is active.
+    /// False when the legacy LLM-assigned absolute-weight model is used.
+    pub fn is_count_model(&self) -> bool {
+        !self.counts.is_empty()
+    }
+
+    /// Add a phrase to the count model for an intent.
+    /// `words` must already be L1-normalized canonical terms (stop words removed).
+    ///
+    /// Increments per-word counts for this intent, then immediately recomputes
+    /// log-odds for affected words. One phrase = one meaningful update.
+    /// Discriminative words (rare elsewhere) get high log-odds automatically.
+    /// Common words (appear in all intents equally) converge toward 0 — ignored.
+    pub fn learn_phrase(&mut self, words: &[&str], intent: &str) {
+        if words.is_empty() { return; }
+        for word in words {
+            *self.counts
+                .entry(word.to_string())
+                .or_default()
+                .entry(intent.to_string())
+                .or_insert(0) += 1;
+        }
+        *self.intent_totals.entry(intent.to_string()).or_insert(0) += words.len() as u32;
+        let affected: Vec<String> = words.iter().map(|w| w.to_string()).collect();
+        self.recompute_log_odds_for(&affected);
+    }
+
+    /// Recompute log-odds cache (`word_intent`) for the given words from counts.
+    ///
+    /// log_odds(word, intent) = ln( P(word|intent) / P(word|¬intent) )
+    ///
+    /// With Laplace smoothing (α=1):
+    ///   P(word|intent) = (count(word,intent)+1) / (total_words_in_intent + vocab_size)
+    ///   P(word|¬intent) = (count(word,not_intent)+1) / (total_words_not_intent + vocab_size)
+    ///
+    /// Positive log-odds: word is more common in this intent → boosts score.
+    /// Negative log-odds: word is more common in other intents → naturally suppresses.
+    /// Near-zero: word appears uniformly → doesn't affect routing.
+    pub fn recompute_log_odds_for(&mut self, words: &[String]) {
+        let vocab_size = self.counts.len().max(1) as f32;
+        let total_all: u32 = self.intent_totals.values().sum();
+
+        for word in words {
+            let Some(intent_counts) = self.counts.get(word) else { continue };
+            let word_total: u32 = intent_counts.values().sum();
+
+            let mut new_log_odds: Vec<(String, f32)> = Vec::new();
+            for (intent, &count_in) in intent_counts {
+                let total_in  = self.intent_totals.get(intent).copied().unwrap_or(1) as f32;
+                let total_out = total_all.saturating_sub(
+                    self.intent_totals.get(intent).copied().unwrap_or(0)
+                ) as f32;
+                let count_out = word_total.saturating_sub(count_in) as f32;
+
+                let p_in  = (count_in as f32 + 1.0) / (total_in  + vocab_size);
+                let p_out = (count_out         + 1.0) / (total_out.max(1.0) + vocab_size);
+                let lo = (p_in / p_out).ln();
+                new_log_odds.push((intent.clone(), lo));
+            }
+
+            let entries = self.word_intent.entry(word.clone()).or_default();
+            for (intent, lo) in new_log_odds {
+                if let Some(e) = entries.iter_mut().find(|(id, _)| id == &intent) {
+                    e.1 = lo;
+                } else {
+                    entries.push((intent, lo));
+                }
+            }
+        }
+    }
+
+    /// Rebuild the entire log-odds cache from scratch. Call after bulk imports.
+    pub fn recompute_all_log_odds(&mut self) {
+        self.word_intent.clear();
+        let words: Vec<String> = self.counts.keys().cloned().collect();
+        self.recompute_log_odds_for(&words);
+    }
+
+    /// Appropriate routing threshold for the active model.
+    /// Count model: 1.0 (require at least 1 log-odds unit of evidence).
+    /// Legacy model: 0.3 (raw activation sum).
+    pub fn default_threshold(&self) -> f32 {
+        if self.is_count_model() { 1.0 } else { 0.3 }
+    }
+
+    /// Appropriate gap for multi-intent filtering.
+    /// Count model: 5.0 (within 5 log-odds units of top intent).
+    /// Legacy model: 1.5 (raw activation gap).
+    pub fn default_gap(&self) -> f32 {
+        if self.is_count_model() { 5.0 } else { 1.5 }
     }
 
     /// Hebbian reinforcement from a routing confirmation.
@@ -728,52 +835,66 @@ impl IntentGraph {
 
         let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
 
-        // Live IDF: ln(total_intents / n_intents_this_word_fires_for).
-        let total_intents: f32 = {
-            let mut all: std::collections::HashSet<&str> = std::collections::HashSet::new();
-            for entries in self.word_intent.values() {
-                for (id, _) in entries { all.insert(id.as_str()); }
-            }
-            all.len().max(1) as f32
-        };
-
         let mut scores: HashMap<String, f32> = HashMap::new();
-        // has_negation: CJK negation marker OR English not_X token from NegEx
         let mut has_negation = cjk_negated;
 
-        for token in &tokens {
-            // not_X tokens: the query is about X but negated — subtract activations.
-            // "I do not want a refund" → not_refund → billing:refund score goes negative → filtered out.
-            let is_negated = token.starts_with("not_");
-            let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
-            if is_negated {
-                has_negation = true;
-            }
-            if let Some(activations) = self.word_intent.get(base) {
-                let idf = (total_intents / activations.len() as f32).ln().max(0.0);
-                for (intent, weight) in activations {
-                    let delta = weight * idf;
-                    *scores.entry(intent.clone()).or_insert(0.0) += if is_negated { -delta } else { delta };
+        // Pre-compute base tokens (not_X → X) for conjunction matching
+        let all_bases: std::collections::HashSet<&str> = tokens.iter()
+            .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
+            .collect();
+
+        if self.is_count_model() {
+            // ── Count model: log-odds scoring ──────────────────────────────────
+            // Positive log-odds → word is more likely in this intent than others.
+            // Negative log-odds → word is more likely elsewhere → natural suppression.
+            // No IDF needed (implicit in log-odds). No suppressor table needed.
+            for token in &tokens {
+                let is_negated = token.starts_with("not_");
+                let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
+                if is_negated { has_negation = true; }
+                if let Some(entries) = self.word_intent.get(base) {
+                    for (intent, log_odds) in entries {
+                        let delta = if is_negated { -*log_odds } else { *log_odds };
+                        *scores.entry(intent.clone()).or_insert(0.0) += delta;
+                    }
                 }
             }
-        }
-
-        // Explicit suppressors (disambiguation, not negation) — unchanged
-        for token in &tokens {
-            let base = token.strip_prefix("not_").unwrap_or(token);
-            if let Some(suppressions) = self.suppressors.get(base) {
-                for (intent, weight) in suppressions {
-                    if let Some(s) = scores.get_mut(intent) {
-                        *s -= weight;
+        } else {
+            // ── Legacy model: spreading activation with IDF + explicit suppressors ─
+            let total_intents: f32 = {
+                let mut all: std::collections::HashSet<&str> = std::collections::HashSet::new();
+                for entries in self.word_intent.values() {
+                    for (id, _) in entries { all.insert(id.as_str()); }
+                }
+                all.len().max(1) as f32
+            };
+            for token in &tokens {
+                let is_negated = token.starts_with("not_");
+                let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
+                if is_negated { has_negation = true; }
+                if let Some(activations) = self.word_intent.get(base) {
+                    let idf = (total_intents / activations.len() as f32).ln().max(0.0);
+                    for (intent, weight) in activations {
+                        let delta = weight * idf;
+                        *scores.entry(intent.clone()).or_insert(0.0) +=
+                            if is_negated { -delta } else { delta };
+                    }
+                }
+            }
+            // Explicit suppressors (legacy only)
+            for token in &tokens {
+                let base = token.strip_prefix("not_").unwrap_or(token);
+                if let Some(suppressions) = self.suppressors.get(base) {
+                    for (intent, weight) in suppressions {
+                        if let Some(s) = scores.get_mut(intent) {
+                            *s -= weight;
+                        }
                     }
                 }
             }
         }
 
-        // Conjunction bonuses — word sets that together boost a specific intent.
-        let all_bases: std::collections::HashSet<&str> = tokens.iter()
-            .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
-            .collect();
+        // Conjunction bonuses apply to both models
         for rule in &self.conjunctions {
             if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
                 *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
@@ -833,11 +954,17 @@ impl IntentGraph {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 
-    /// Stats summary.
+    /// Stats summary: (unique_words, activation_edges, suppressor_edges, conjunctions).
     pub fn stats(&self) -> (usize, usize, usize, usize) {
         let activation_edges: usize = self.word_intent.values().map(|v| v.len()).sum();
         let suppressor_edges: usize = self.suppressors.values().map(|v| v.len()).sum();
         (self.word_intent.len(), activation_edges, suppressor_edges, self.conjunctions.len())
+    }
+
+    /// Count model stats: (unique_words_in_counts, total_phrase_tokens).
+    pub fn count_stats(&self) -> (usize, u64) {
+        let total: u64 = self.intent_totals.values().map(|&v| v as u64).sum();
+        (self.counts.len(), total)
     }
 }
 

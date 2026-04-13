@@ -376,7 +376,7 @@ pub async fn full_review(
         let heb_map = state.hebbian.read().unwrap();
         if let (Some(ig), Some(heb)) = (ig_map.get(app_id), heb_map.get(app_id)) {
             let pre = heb.preprocess(query);
-            let (all_scores, _) = ig.score_multi_normalized(&pre.expanded, 0.05, 10.0);
+            let (all_scores, _) = ig.score_multi_normalized(&pre.expanded, 0.0, 100.0);
             let score_map: HashMap<&str, f32> = all_scores.iter().map(|(id, s)| (id.as_str(), *s)).collect();
             if detected.is_empty() {
                 "(none detected)".to_string()
@@ -599,67 +599,9 @@ pub async fn full_review(
 
     eprintln!("[full_review] Turn 2: phrases_to_add={:?}, blocked={}", phrases_to_add, phrases_blocked.len());
 
-    // === Turn 3: Discriminating suppressor word discovery ===
-    // For each wrongly-detected intent, identify which specific words in the query
-    // indicate the query does NOT belong to that intent. These become explicit L2
-    // suppressor edges — precise and immediate, unlike blanket suppression or
-    // phrase replacement which had no effect on L2 routing.
-    let mut suppressor_words: HashMap<String, Vec<String>> = HashMap::new();
-    let mut summary = String::new();
-
-    if !wrong_detections.is_empty() {
-        // Build intent labels for wrong detections (id + description only — no phrases needed)
-        let wrong_intent_labels: String = {
-            let routers = state.routers.read().unwrap();
-            if let Some(router) = routers.get(app_id) {
-                wrong_detections.iter().map(|id| {
-                    let desc = router.get_description(id);
-                    if desc.is_empty() { format!("- {}", id) }
-                    else { format!("- {} ({})", id, desc) }
-                }).collect::<Vec<_>>().join("\n")
-            } else { String::new() }
-        };
-
-        let correct_labels: String = correct_intents.iter().map(|id| id.as_str()).collect::<Vec<_>>().join(", ");
-
-        let turn3_prompt = format!(
-            "Query: \"{query}\"\n\
-             Correct intent(s): {correct_labels}\n\n\
-             These intents were WRONGLY detected (false positives):\n{wrong_intent_labels}\n\n\
-             For each wrongly-detected intent, identify 1-3 words from the query that most \
-             specifically indicate this query does NOT belong to that intent.\n\
-             Choose words that are discriminating: they appear in a context that contradicts \
-             the wrong intent, not just words that happen to be absent.\n\
-             Only use words that actually appear in the query.\n\n\
-             Respond with ONLY JSON:\n\
-             {{\"suppressors\": {{\"intent_id\": [\"word1\", \"word2\"]}}, \"summary\": \"one sentence\"}}\n\
-             If no discriminating words exist for an intent, omit it from suppressors.\n\
-             Example: {{\"suppressors\": {{\"billing:cancel_subscription\": [\"order\"]}}, \
-             \"summary\": \"order disambiguates shipping cancel from subscription cancel\"}}"
-        );
-
-        if let Ok(t3_response) = call_llm(state, &turn3_prompt, 400).await {
-            if let Ok(t3_parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&t3_response)) {
-                if let Some(sups) = t3_parsed["suppressors"].as_object() {
-                    for (intent_id, words) in sups {
-                        if let Some(arr) = words.as_array() {
-                            let ws: Vec<String> = arr.iter()
-                                .filter_map(|v| v.as_str())
-                                .map(|s| s.trim().to_lowercase())
-                                .filter(|s| !s.is_empty())
-                                .collect();
-                            if !ws.is_empty() {
-                                suppressor_words.insert(intent_id.clone(), ws);
-                            }
-                        }
-                    }
-                }
-                summary = t3_parsed["summary"].as_str().unwrap_or("").to_string();
-            }
-        }
-    }
-
-    eprintln!("[full_review] Turn 3: suppressors={:?}, summary={}", suppressor_words, summary);
+    // Turn 3 removed: count/log-odds model handles false positives without explicit suppressors.
+    // As more correct phrases are learned, wrong intents' log-odds naturally decrease.
+    let summary = String::new();
 
     Ok(FullReviewResult {
         correct_intents,
@@ -669,7 +611,7 @@ pub async fn full_review(
         detection_perfect: false,
         phrases_to_add,
         phrases_blocked,
-        suppressor_words,
+        suppressor_words: HashMap::new(),
         summary,
     })
 }
@@ -692,31 +634,14 @@ pub async fn apply_review(
         added = pipeline_result.added.len();
     }
 
-    // ── Hebbian L2: full bidirectional learning ──────────────────────────────
-    //
-    // Weight derivation — all values anchored to the routing threshold (0.3):
-    //
-    //   DELTA_MISS = threshold / (min_phrase_words × expected_idf)
-    //              = 0.30 / (2 × 1.0) = 0.15
-    //   → A 2-word missed phrase accumulates 2 × 0.15 × 1.0 = 0.30, just above threshold.
-    //   → A 3-word phrase gives 0.45, comfortably routable.
-    //
-    //   DELTA_REINFORCE = DELTA_MISS / 3 = 0.05
-    //   → Asymptotic nudge: Δw = 0.05 × (1 - w). Diminishing returns prevent
-    //     runaway growth — 1000 reinforcements converge to 1.0, never exceed it.
-    //
-    //   DELTA_SUPPRESS = -DELTA_REINFORCE = -0.05
-    //   → Asymptotic decay: w = w × (1 - 0.05) = w × 0.95. Approaches 0,
-    //     never goes negative. Strong edges (right 100 times) survive a few
-    //     wrong routings — intentional.
-    //
-    // If the routing threshold changes, these three values should scale together.
-    const DELTA_MISS: f32       =  0.15;  // threshold / (2 * IDF_avg)
-    const DELTA_REINFORCE: f32  =  0.05;  // DELTA_MISS / 3
-    const DELTA_SUPPRESS: f32   = -0.05;  // -DELTA_REINFORCE
-    //
-    // missed_intents is the key new path: adds word→intent edges that didn't
-    // exist before, so L2 learns completely unknown vocabulary from real queries.
+    // ── L2 update ────────────────────────────────────────────────────────────
+    // Count model: learn_phrase() on new phrases — counts increment, log-odds recompute.
+    //              One phrase = immediate discriminative update. No delta tuning.
+    // Legacy model: reinforce() with delta nudges (kept for backward compat).
+    const DELTA_MISS: f32      =  0.15;
+    const DELTA_REINFORCE: f32 =  0.05;
+    const DELTA_SUPPRESS: f32  = -0.05;
+
     let has_l3_update = !result.correct_intents.is_empty()
         || !result.missed_intents.is_empty()
         || !result.wrong_detections.is_empty();
@@ -730,18 +655,12 @@ pub async fn apply_review(
                 original_query.to_string()
             }
         };
-
-        // Use the ASV tokenizer for consistent stop-word removal, CJK bigrams, and not_X negation.
-        // This ensures L2 edges are built on the same vocabulary the router actually uses.
         let words: Vec<String> = asv_router::tokenizer::tokenize(&normalized);
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
 
-        eprintln!("[auto-learn/L2] query='{}' | L1-expanded='{}'", original_query, normalized);
-        eprintln!("[auto-learn/L2] content words (tokenized): {:?}", word_refs);
+        eprintln!("[auto-learn/L2] query='{}' | expanded='{}'", original_query, normalized);
+        eprintln!("[auto-learn/L2] tokens: {:?}", word_refs);
 
-        // Track words that are BRAND NEW to L3 (no existing edge for any intent).
-        // These need L1 morphological learning — we don't want "pinging" to miss
-        // the newly added "ping" edge because L1 doesn't know "pinging"→"ping".
         let new_vocabulary: Vec<String> = {
             let ig_map = state.intent_graph.read().unwrap();
             if let Some(ig) = ig_map.get(app_id) {
@@ -749,56 +668,59 @@ pub async fn apply_review(
                     .filter(|&&w| !ig.word_intent.contains_key(w))
                     .map(|&w| w.to_string())
                     .collect()
-            } else {
-                vec![]
-            }
+            } else { vec![] }
         };
 
         {
             let mut ig_map = state.intent_graph.write().unwrap();
             if let Some(ig) = ig_map.get_mut(app_id) {
-                for intent_id in &result.correct_intents {
-                    ig.reinforce(&word_refs, intent_id, DELTA_REINFORCE);
-                    eprintln!("[auto-learn/L2] correct  → reinforce {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_REINFORCE);
-                }
-                for intent_id in &result.missed_intents {
-                    ig.reinforce(&word_refs, intent_id, DELTA_MISS);
-                    eprintln!("[auto-learn/L2] missed   → reinforce {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_MISS);
-                }
-                // Wrong detections: use Turn 3 targeted suppressor words if available.
-                // Fall back to blanket activation suppression only when Turn 3 produced nothing.
-                for intent_id in &result.wrong_detections {
-                    if let Some(sup_words) = result.suppressor_words.get(intent_id) {
-                        // Targeted: only the discriminating words get suppressor edges
-                        let sup_refs: Vec<&str> = sup_words.iter().map(|s| s.as_str()).collect();
-                        ig.add_suppressors(&sup_refs, intent_id, DELTA_SUPPRESS.abs());
-                        eprintln!("[auto-learn/L2] wrong    → targeted suppressor {:?} ⊣ '{}' ({:.2})", sup_refs, intent_id, DELTA_SUPPRESS.abs());
-                        suppressors_added += sup_words.len();
-                    } else {
-                        // Fallback: blanket activation suppression (less precise)
-                        ig.reinforce(&word_refs, intent_id, DELTA_SUPPRESS);
-                        eprintln!("[auto-learn/L2] wrong    → blanket suppress {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_SUPPRESS);
+                if ig.is_count_model() {
+                    // ── Count model: learn phrases directly ────────────────
+                    // Correct intents: learn the query as an example phrase (positive reinforcement).
+                    for intent_id in &result.correct_intents {
+                        ig.learn_phrase(&word_refs, intent_id);
+                        eprintln!("[auto-learn/L2] correct  → learn_phrase {:?} → '{}'", word_refs, intent_id);
                     }
-                }
-
-                // Show resulting edge weights for transparency
-                for w in &word_refs {
-                    if let Some(edges) = ig.word_intent.get(*w) {
-                        eprintln!("[auto-learn/L2] edges after: '{}' → {:?}", w,
-                            edges.iter().map(|(id, wt)| format!("{}:{:.2}", id, wt)).collect::<Vec<_>>());
+                    // Missed intents: learn new phrases generated by Turn 2.
+                    for (intent_id, phrases) in &result.phrases_to_add {
+                        for phrase in phrases {
+                            let phrase_words: Vec<String> = asv_router::tokenizer::tokenize(phrase);
+                            let phrase_refs: Vec<&str> = phrase_words.iter().map(|s| s.as_str()).collect();
+                            ig.learn_phrase(&phrase_refs, intent_id);
+                            eprintln!("[auto-learn/L2] missed   → learn_phrase {:?} → '{}'", phrase_refs, intent_id);
+                        }
                     }
-                }
-
-                // ── L2 conjunction reinforcement ────────────────────────────
-                let fired = ig.fired_conjunction_indices(&word_refs);
-                for idx in &fired {
-                    let intent = ig.conjunctions[*idx].intent.clone();
-                    if result.correct_intents.contains(&intent) {
-                        ig.reinforce_conjunction(*idx, DELTA_REINFORCE);
-                        eprintln!("[auto-learn/L2] conjunction[{}] → '{}' reinforce ({:+.2})", idx, intent, DELTA_REINFORCE);
-                    } else if result.wrong_detections.contains(&intent) {
-                        ig.reinforce_conjunction(*idx, DELTA_SUPPRESS);
-                        eprintln!("[auto-learn/L2] conjunction[{}] → '{}' suppress ({:+.2})", idx, intent, DELTA_SUPPRESS);
+                    // Wrong detections: no explicit action — as correct phrases accumulate,
+                    // the false positive's log-odds naturally decrease relative to correct intent.
+                    for intent_id in &result.wrong_detections {
+                        eprintln!("[auto-learn/L2] wrong    → '{}' (no action — log-odds self-correct)", intent_id);
+                    }
+                } else {
+                    // ── Legacy model: delta nudges ─────────────────────────
+                    for intent_id in &result.correct_intents {
+                        ig.reinforce(&word_refs, intent_id, DELTA_REINFORCE);
+                    }
+                    for intent_id in &result.missed_intents {
+                        ig.reinforce(&word_refs, intent_id, DELTA_MISS);
+                    }
+                    for intent_id in &result.wrong_detections {
+                        if let Some(sup_words) = result.suppressor_words.get(intent_id) {
+                            let sup_refs: Vec<&str> = sup_words.iter().map(|s| s.as_str()).collect();
+                            ig.add_suppressors(&sup_refs, intent_id, DELTA_SUPPRESS.abs());
+                            suppressors_added += sup_words.len();
+                        } else {
+                            ig.reinforce(&word_refs, intent_id, DELTA_SUPPRESS);
+                        }
+                    }
+                    // Conjunction reinforcement (legacy only)
+                    let fired = ig.fired_conjunction_indices(&word_refs);
+                    for idx in &fired {
+                        let intent = ig.conjunctions[*idx].intent.clone();
+                        if result.correct_intents.contains(&intent) {
+                            ig.reinforce_conjunction(*idx, DELTA_REINFORCE);
+                        } else if result.wrong_detections.contains(&intent) {
+                            ig.reinforce_conjunction(*idx, DELTA_SUPPRESS);
+                        }
                     }
                 }
 

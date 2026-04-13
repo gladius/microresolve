@@ -287,7 +287,11 @@ pub fn load_intent_graph(data_dir: &str, namespace: &str) -> Option<IntentGraph>
     IntentGraph::load(&path).ok()
 }
 
-// ── Bootstrap L3 intent graph ─────────────────────────────────────────────
+// ── Bootstrap L3 intent graph (count/log-odds model) ─────────────────────
+//
+// The LLM generates diverse training phrases per intent.
+// We tokenize them, build a count table, and derive log-odds weights.
+// One phrase = one meaningful discriminative update. No hand-tuned weights.
 
 pub async fn bootstrap_intent(
     State(state): State<AppState>,
@@ -296,155 +300,129 @@ pub async fn bootstrap_intent(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    // Collect intent IDs
-    let intent_ids: Vec<String> = {
+    // Collect intents with descriptions and seed phrases (for LLM context)
+    let intent_defs: Vec<(String, String, Vec<String>)> = {
         let routers = state.routers.read().unwrap();
-        routers.get(&app_id)
-            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("Namespace '{}' not found", app_id)))?
-            .intent_ids()
+        let router = routers.get(&app_id)
+            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("Namespace '{}' not found", app_id)))?;
+        let mut ids = router.intent_ids();
+        ids.sort();
+        ids.into_iter().map(|id| {
+            let desc = router.get_description(&id).to_string();
+            let seeds: Vec<String> = router.get_training(&id).unwrap_or_default()
+                .into_iter().take(5).collect();
+            (id, desc, seeds)
+        }).collect()
     };
 
-    // Collect L1 Hebbian edges summary (so LLM knows which synonyms are already handled)
-    let l1_summary: String = {
-        let hebbian = state.hebbian.read().unwrap();
-        if let Some(g) = hebbian.get(&app_id) {
-            let synonyms: Vec<String> = g.edges.iter()
-                .flat_map(|(from, edges)| edges.iter().map(move |e| format!("{}→{}", from, e.target)))
-                .take(40)
-                .collect();
-            format!("Layer 1 already maps: {}", synonyms.join(", "))
-        } else {
-            "No Layer 1 graph — include morphological variants in activate words.".to_string()
-        }
-    };
+    let n_intents = intent_defs.len();
+    eprintln!("[bootstrap_intent] {} — generating phrase corpus for {} intents", app_id, n_intents);
 
-    let intents_str = intent_ids.join(", ");
-    eprintln!("[hebbian/bootstrap_intent] {} — generating L2 graph for {} intents", app_id, intent_ids.len());
+    // Build intent list for the prompt
+    let intent_list = intent_defs.iter().map(|(id, desc, seeds)| {
+        let desc_str = if desc.is_empty() { String::new() } else { format!(" ({})", desc) };
+        let seeds_str = if seeds.is_empty() { String::new() }
+            else { format!("\n  existing phrases: {}", seeds.join(" | ")) };
+        format!("- {}{}{}", id, desc_str, seeds_str)
+    }).collect::<Vec<_>>().join("\n");
 
     let prompt = format!(
-r#"Generate a Layer 2 Hebbian intent graph for spreading activation intent routing.
+r#"You are building training data for an intent classification system.
 
-Intents: {intents_str}
+For each intent below, generate 20 diverse, realistic phrases a user might say to express that intent.
+Include: short queries, long sentences, informal language, indirect phrasing, different vocabulary.
+Do NOT repeat the existing phrases — generate NEW ones that cover different vocabulary.
 
-Context: {l1_summary}
+Intents:
+{intent_list}
+
+Return ONLY a JSON object mapping each intent ID to an array of 20 phrase strings:
+{{
+  "intent_id_1": ["phrase 1", "phrase 2", ...],
+  "intent_id_2": ["phrase 1", "phrase 2", ...],
+  ...
+}}
 
 Rules:
-1. Use CANONICAL terms only in activate/suppress/conjunction words — Layer 1 already handles morphological variants and synonyms
-2. "activate" words: content words that indicate this intent. Weight 0.7-1.0 for highly discriminative words, 0.3-0.6 for weak signals
-3. "suppress" words: words that appear with SIMILAR intents but NOT this one — used for disambiguation. Only add if genuinely confusing
-4. "conjunctions": pairs of words that TOGETHER strongly confirm this intent (bonus on top of individual activations). Use sparingly — only the most reliable pairs
-5. Cover every intent listed above
-
-Output a JSON array only, no explanation:
-[
-  {{
-    "intent": "cancel_subscription",
-    "activate": [
-      {{"word": "cancel", "weight": 0.90}},
-      {{"word": "subscription", "weight": 0.85}},
-      {{"word": "plan", "weight": 0.55}}
-    ],
-    "suppress": [
-      {{"word": "order", "weight": 0.50}}
-    ],
-    "conjunctions": [
-      {{"words": ["cancel", "subscription"], "bonus": 0.50}}
-    ]
-  }},
-  ...
-]"#
+- Use exact intent IDs as keys
+- All 20 phrases per intent must be distinct
+- Vary vocabulary, style, and length across phrases
+- Return ONLY the JSON object, no explanation"#
     );
 
-    let raw = call_llm(&state, &prompt, 8000).await
+    let raw = call_llm(&state, &prompt, 16000).await
         .map_err(|(_, e)| (StatusCode::BAD_GATEWAY, e))?;
 
     let json_str = extract_json(&raw);
-    let entries: Vec<serde_json::Value> = serde_json::from_str(json_str)
+    let phrase_map: std::collections::HashMap<String, Vec<String>> = serde_json::from_str(json_str)
         .map_err(|e| (StatusCode::UNPROCESSABLE_ENTITY,
             format!("LLM parse error: {} — raw[..200]: {:?}", e, &raw[..raw.len().min(200)])))?;
 
-    // Merge into existing graph rather than replacing it.
-    // add_activation / add_suppressor both use max(), so any edge that was
-    // reinforced above the bootstrap weight is preserved. New words from the
-    // LLM are added on top. Conjunctions are replaced (no live learning there).
-    let mut graph = {
-        state.intent_graph.read().unwrap()
+    // Start from an empty count model (full rebuild from LLM corpus + existing seeds)
+    let mut graph = asv_router::hebbian::IntentGraph::new();
+
+    // Also include the existing seed phrases from the router
+    let all_phrases: Vec<(String, Vec<String>)> = {
+        let routers = state.routers.read().unwrap();
+        let router = routers.get(&app_id).unwrap();
+        let mut ids = router.intent_ids();
+        ids.sort();
+        ids.into_iter().map(|id| {
+            let mut phrases: Vec<String> = router.get_training(&id).unwrap_or_default();
+            if let Some(llm_phrases) = phrase_map.get(&id) {
+                phrases.extend(llm_phrases.iter().cloned());
+            }
+            (id, phrases)
+        }).collect()
+    };
+
+    // L1 preprocessing for tokenization consistency
+    let l1_graph = {
+        state.hebbian.read().unwrap()
             .get(&app_id).cloned()
             .unwrap_or_default()
     };
-    // Clear only conjunctions — these come entirely from the bootstrap prompt
-    // and there's no live conjunction learning to preserve.
-    graph.conjunctions.clear();
 
-    let mut activation_count = 0usize;
-    let mut suppressor_count = 0usize;
-    let mut conjunction_count = 0usize;
+    let mut total_phrases = 0usize;
+    let mut total_words = 0usize;
 
-    for entry in &entries {
-        let intent = match entry["intent"].as_str() {
-            Some(s) if !s.is_empty() => s.to_string(),
-            _ => continue,
-        };
-
-        if let Some(activations) = entry["activate"].as_array() {
-            for a in activations {
-                let word = a["word"].as_str().unwrap_or("").trim().to_lowercase();
-                let weight = a["weight"].as_f64().unwrap_or(0.0) as f32;
-                if !word.is_empty() && weight > 0.0 {
-                    graph.add_activation(&word, &intent, weight);
-                    activation_count += 1;
-                }
-            }
-        }
-
-        if let Some(suppressors) = entry["suppress"].as_array() {
-            for s in suppressors {
-                let word = s["word"].as_str().unwrap_or("").trim().to_lowercase();
-                let weight = s["weight"].as_f64().unwrap_or(0.0) as f32;
-                if !word.is_empty() && weight > 0.0 {
-                    graph.add_suppressor(&word, &intent, weight);
-                    suppressor_count += 1;
-                }
-            }
-        }
-
-        if let Some(conjunctions) = entry["conjunctions"].as_array() {
-            for c in conjunctions {
-                let words: Vec<String> = c["words"].as_array()
-                    .map(|arr| arr.iter()
-                        .filter_map(|w| w.as_str())
-                        .map(|w| w.trim().to_lowercase())
-                        .filter(|w| !w.is_empty())
-                        .collect())
-                    .unwrap_or_default();
-                let bonus = c["bonus"].as_f64().unwrap_or(0.0) as f32;
-                if words.len() >= 2 && bonus > 0.0 {
-                    graph.conjunctions.push(ConjunctionRule { words, intent: intent.clone(), bonus });
-                    conjunction_count += 1;
-                }
+    for (intent_id, phrases) in &all_phrases {
+        for phrase in phrases {
+            // L1 preprocess then tokenize — same pipeline as routing
+            let preprocessed = l1_graph.preprocess(phrase);
+            let words = asv_router::tokenizer::tokenize(&preprocessed.expanded);
+            let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
+            if !word_refs.is_empty() {
+                graph.learn_phrase(&word_refs, intent_id);
+                total_words += word_refs.len();
+                total_phrases += 1;
             }
         }
     }
 
-    eprintln!("[hebbian/bootstrap_intent] {} — {} activations, {} suppressors, {} conjunctions",
-        app_id, activation_count, suppressor_count, conjunction_count);
+    eprintln!("[bootstrap_intent] {} — {} intents, {} phrases, {} word tokens, {} unique words",
+        app_id, n_intents, total_phrases, total_words, graph.counts.len());
 
     // Persist
     if let Some(ref dir) = state.data_dir {
         let path = format!("{}/{}/_intent_graph.json", dir, app_id);
         std::fs::create_dir_all(format!("{}/{}", dir, app_id)).ok();
         if let Err(e) = graph.save(&path) {
-            eprintln!("[hebbian/bootstrap_intent] save error: {}", e);
+            eprintln!("[bootstrap_intent] save error: {}", e);
         }
     }
 
-    state.intent_graph.write().unwrap().insert(app_id, graph);
+    let (unique_words, _) = graph.count_stats();
+    state.intent_graph.write().unwrap().insert(app_id.clone(), graph);
 
     Ok(Json(serde_json::json!({
-        "intents": entries.len(),
-        "activation_edges": activation_count,
-        "suppressor_edges": suppressor_count,
-        "conjunctions": conjunction_count,
+        "model": "count_log_odds",
+        "intents": n_intents,
+        "phrases": total_phrases,
+        "word_tokens": total_words,
+        "unique_words": unique_words,
+        "threshold": 1.0,
+        "gap": 5.0,
     })))
 }
 

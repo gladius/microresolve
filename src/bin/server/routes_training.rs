@@ -348,7 +348,9 @@ pub async fn training_run(
             let heb_map = state.hebbian.read().unwrap();
             if let (Some(ig), Some(heb)) = (ig_map.get(&app_id), heb_map.get(&app_id)) {
                 let pre = heb.preprocess(&turn.message);
-                let (scores, _) = ig.score_multi_normalized(&pre.expanded, 0.3, 1.5);
+                let threshold = ig.default_threshold();
+                let gap       = ig.default_gap();
+                let (scores, _) = ig.score_multi_normalized(&pre.expanded, threshold, gap);
                 scores
             } else {
                 vec![]
@@ -539,23 +541,19 @@ pub async fn training_apply(
     Json(req): Json<TrainingApplyRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = routers.get_mut(&app_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-    router.begin_batch();
 
-    let mut applied = 0;
+    // Collect (phrase, intent) pairs for valid add_seed corrections
+    let mut to_apply: Vec<(String, String)> = Vec::new();
     let mut errors = Vec::new();
 
     for correction in &req.corrections {
         let action = correction["action"].as_str().unwrap_or("");
         match action {
             "add_seed" => {
-                let phrase = correction["phrase"].as_str().unwrap_or("");
-                let intent = correction["intent"].as_str().unwrap_or("");
+                let phrase = correction["phrase"].as_str().unwrap_or("").to_string();
+                let intent = correction["intent"].as_str().unwrap_or("").to_string();
                 if !phrase.is_empty() && !intent.is_empty() {
-                    router.learn(phrase, intent);
-                    applied += 1;
+                    to_apply.push((phrase, intent));
                 } else {
                     errors.push("add_seed: missing phrase or intent".to_string());
                 }
@@ -566,11 +564,51 @@ pub async fn training_apply(
         }
     }
 
-    router.end_batch();
-    maybe_persist(&state, &app_id, router);
+    // Apply to Router training store
+    {
+        let mut routers = state.routers.write().unwrap();
+        let router = routers.get_mut(&app_id)
+            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
+        router.begin_batch();
+        for (phrase, intent) in &to_apply {
+            router.learn(phrase, intent);
+        }
+        router.end_batch();
+        maybe_persist(&state, &app_id, router);
+    }
+
+    // Also update the count model (if active) — this is the key:
+    // a newly learned phrase should immediately improve routing for similar queries.
+    {
+        let l1_preprocessed: Vec<(Vec<String>, String)> = {
+            let heb = state.hebbian.read().unwrap();
+            let g = heb.get(&app_id);
+            to_apply.iter().map(|(phrase, intent)| {
+                let normalized = g.map(|g| g.preprocess(phrase).expanded)
+                    .unwrap_or_else(|| phrase.clone());
+                let words = asv_router::tokenizer::tokenize(&normalized);
+                (words, intent.clone())
+            }).collect()
+        };
+
+        let mut ig_map = state.intent_graph.write().unwrap();
+        if let Some(ig) = ig_map.get_mut(&app_id) {
+            if ig.is_count_model() {
+                for (words, intent) in &l1_preprocessed {
+                    let refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
+                    ig.learn_phrase(&refs, intent);
+                    eprintln!("[training_apply] learn_phrase {:?} → '{}'", refs, intent);
+                }
+                if let Some(ref dir) = state.data_dir {
+                    let path = format!("{}/{}/_intent_graph.json", dir, app_id);
+                    ig.save(&path).ok();
+                }
+            }
+        }
+    }
 
     Ok(Json(serde_json::json!({
-        "applied": applied,
+        "applied": to_apply.len(),
         "errors": errors,
     })))
 }

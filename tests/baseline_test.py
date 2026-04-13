@@ -11,7 +11,7 @@ Usage:
     python3 tests/baseline_test.py --base-url http://localhost:3001
 """
 
-import json, subprocess, sys, argparse, time
+import json, subprocess, sys, argparse, time, threading
 
 BASE_URL = "http://localhost:3001"
 NS = "baseline-test"
@@ -347,6 +347,58 @@ def show_graph_stats():
     else:
         print("  L2 IntentGraph  : not bootstrapped")
 
+# ─── Auto-learn cycle ────────────────────────────────────────────────────────
+
+def enable_auto_mode():
+    post("/review/mode", {"mode": "auto"})
+
+def wait_for_worker(timeout=120):
+    """Poll review stats until pending count drops to 0 or timeout."""
+    print(f"\n  Waiting for worker to process flagged entries (timeout={timeout}s)...")
+    t0 = time.time()
+    last_pending = None
+    while time.time() - t0 < timeout:
+        _, stats = get("/review/stats")
+        pending = stats.get("pending", "?") if stats else "?"
+        if pending != last_pending:
+            print(f"  → pending: {pending}")
+            last_pending = pending
+        if isinstance(pending, int) and pending == 0:
+            elapsed = time.time() - t0
+            print(f"  ✓ Worker done in {elapsed:.1f}s")
+            return True
+        time.sleep(3)
+    print(f"  ✗ Timeout after {timeout}s — some entries may still be pending")
+    return False
+
+def run_auto_learn_cycle():
+    print(f"\n{'='*60}")
+    print("AUTO-LEARN CYCLE")
+    print('='*60)
+
+    # Enable auto mode
+    enable_auto_mode()
+    print("  Mode set to: auto")
+
+    # Route all failing test queries — flags them for the worker
+    print(f"\n  Routing {len(TESTS)} test queries to generate flags...")
+    flagged = 0
+    for query, expected, test_type, _ in TESTS:
+        confirmed, candidates, disposition = route(query, threshold=0.25)
+        all_detected = confirmed + candidates
+        # Check if this is a failure or partial
+        if expected:
+            hits = [e for e in expected if e in all_detected]
+            if len(hits) < len(expected):
+                flagged += 1
+        else:
+            if all_detected:
+                flagged += 1
+    print(f"  Flagged {flagged} queries for auto-learn")
+
+    # Wait for worker to process all flags
+    wait_for_worker(timeout=300)
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
@@ -354,6 +406,7 @@ def main():
     parser.add_argument("--base-url", default="http://localhost:3001")
     parser.add_argument("--skip-setup", action="store_true", help="Reuse existing intents")
     parser.add_argument("--skip-bootstrap", action="store_true", help="Reuse existing graphs")
+    parser.add_argument("--auto-learn", action="store_true", help="Run auto-learn cycle then re-test")
     args = parser.parse_args()
 
     global BASE_URL
@@ -377,7 +430,20 @@ def main():
             print("\nWARNING: Bootstrap failed — routing will use existing graphs only")
 
     show_graph_stats()
+
+    print("\n" + "="*60)
+    print("BEFORE AUTO-LEARN")
+    print("="*60)
     run_tests()
+
+    if args.auto_learn:
+        run_auto_learn_cycle()
+
+        print("\n" + "="*60)
+        print("AFTER AUTO-LEARN")
+        print("="*60)
+        show_graph_stats()
+        run_tests()
 
 if __name__ == "__main__":
     main()

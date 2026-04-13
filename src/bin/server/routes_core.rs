@@ -22,10 +22,14 @@ pub struct RouteMultiRequest {
     pub threshold: f32,
     #[serde(default = "default_gap")]
     pub gap: f32,
+    /// If false, skip logging to review queue (use for UI test/explore)
+    #[serde(default = "default_log")]
+    pub log: bool,
 }
 
 fn default_threshold() -> f32 { 0.3 }
 fn default_gap() -> f32 { 1.5 }
+fn default_log() -> bool { true }
 
 /// Multi-intent routing via Hebbian L1+L2.
 pub async fn route_multi(
@@ -110,23 +114,24 @@ pub async fn route_multi(
         let best_confidence = if !confirmed.is_empty() { "high" } else { "low" };
         let flag = LogRecord::compute_flag(&detected_ids, best_confidence);
 
-        let log_id = log_query(&state, LogRecord {
-            id: 0,
-            query: req.query.clone(),
-            app_id: app_id.clone(),
-            detected_intents: detected_ids,
-            confidence: best_confidence.to_string(),
-            flag: flag.clone(),
-            session_id: None,
-            timestamp_ms: now_ms(),
-            router_version: {
-                state.routers.read().unwrap()
-                    .get(&app_id).map(|r| r.version()).unwrap_or(0)
-            },
-            source: "hebbian_l2".to_string(),
-        });
-
-        emit_queued(&state, log_id, &req.query, &app_id, flag);
+        if req.log {
+            let log_id = log_query(&state, LogRecord {
+                id: 0,
+                query: req.query.clone(),
+                app_id: app_id.clone(),
+                detected_intents: detected_ids,
+                confidence: best_confidence.to_string(),
+                flag: flag.clone(),
+                session_id: None,
+                timestamp_ms: now_ms(),
+                router_version: {
+                    state.routers.read().unwrap()
+                        .get(&app_id).map(|r| r.version()).unwrap_or(0)
+                },
+                source: "hebbian_l2".to_string(),
+            });
+            emit_queued(&state, log_id, &req.query, &app_id, flag);
+        }
 
         return Json(serde_json::json!({
             "confirmed": confirmed,
@@ -144,20 +149,22 @@ pub async fn route_multi(
     // ── No match — log and return empty (triggers auto-learn in "auto" mode) ──
     let latency_us = t0.elapsed().as_micros() as u64;
     let flag = LogRecord::compute_flag(&[], "none");
-    let log_id = log_query(&state, LogRecord {
-        id: 0,
-        query: req.query.clone(),
-        app_id: app_id.clone(),
-        detected_intents: vec![],
-        confidence: "none".to_string(),
-        flag: flag.clone(),
-        session_id: None,
-        timestamp_ms: now_ms(),
-        router_version: state.routers.read().unwrap()
-            .get(&app_id).map(|r| r.version()).unwrap_or(0),
-        source: "none".to_string(),
-    });
-    emit_queued(&state, log_id, &req.query, &app_id, flag);
+    if req.log {
+        let log_id = log_query(&state, LogRecord {
+            id: 0,
+            query: req.query.clone(),
+            app_id: app_id.clone(),
+            detected_intents: vec![],
+            confidence: "none".to_string(),
+            flag: flag.clone(),
+            session_id: None,
+            timestamp_ms: now_ms(),
+            router_version: state.routers.read().unwrap()
+                .get(&app_id).map(|r| r.version()).unwrap_or(0),
+            source: "none".to_string(),
+        });
+        emit_queued(&state, log_id, &req.query, &app_id, flag);
+    }
 
     Json(serde_json::json!({
         "confirmed": [],
