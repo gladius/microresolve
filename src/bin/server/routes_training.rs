@@ -428,7 +428,9 @@ pub async fn training_run(
 #[derive(serde::Deserialize)]
 pub struct TrainingReviewRequest {
     message: String,
-    detected: Vec<serde_json::Value>,
+    /// Intent IDs the router returned (confirmed + false positives). Strings only.
+    #[serde(default)]
+    detected: Vec<String>,
     ground_truth: Vec<String>,
 }
 
@@ -438,19 +440,44 @@ pub async fn training_review(
     Json(req): Json<TrainingReviewRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
+
+    // ── Compute miss/false-positive sets (pure logic, no LLM needed) ──────────
+    let gt_set: std::collections::HashSet<&str> = req.ground_truth.iter().map(|s| s.as_str()).collect();
+    let det_set: std::collections::HashSet<&str> = req.detected.iter().map(|s| s.as_str()).collect();
+
+    let missed: Vec<&str>          = req.ground_truth.iter().map(|s| s.as_str()).filter(|s| !det_set.contains(s)).collect();
+    let false_positives: Vec<&str> = req.detected.iter().map(|s| s.as_str()).filter(|s| !gt_set.contains(s)).collect();
+    let correct: Vec<&str>         = req.detected.iter().map(|s| s.as_str()).filter(|s| gt_set.contains(s)).collect();
+
+    // ── Build inhibition pairs: each FP paired with each confirmed correct intent ─
+    // No LLM required — ground truth tells us exactly which pairs to inhibit.
+    let inhibitions: Vec<serde_json::Value> = false_positives.iter().flat_map(|fp| {
+        correct.iter().map(move |c| serde_json::json!({
+            "correct": c,
+            "false_positive": fp,
+        }))
+    }).collect();
+
+    // ── LLM prompt only for missed intents (seed generation) ─────────────────
+    if missed.is_empty() {
+        // Nothing for LLM to do — only false positives (handled by inhibition)
+        return Ok(Json(serde_json::json!({
+            "analysis": format!("No missed intents. {} false positive(s) will be suppressed via inhibition layer.",
+                false_positives.len()),
+            "corrections": [],
+            "inhibitions": inhibitions,
+            "missed": missed,
+            "false_positives": false_positives,
+        })));
+    }
+
     let intent_seeds = {
         let routers = state.routers.read().unwrap();
         let router = routers.get(&app_id)
             .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
         let mut relevant_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
-        for gt in &req.ground_truth {
-            relevant_ids.insert(gt.clone());
-        }
-        for d in &req.detected {
-            if let Some(id) = d["id"].as_str() {
-                relevant_ids.insert(id.to_string());
-            }
-        }
+        for gt in &req.ground_truth { relevant_ids.insert(gt.clone()); }
+        for d in &req.detected     { relevant_ids.insert(d.clone()); }
         let mut defs = Vec::new();
         for id in &relevant_ids {
             let seeds = router.get_training(id).unwrap_or_default();
@@ -463,9 +490,12 @@ pub async fn training_review(
         defs.join("\n")
     };
 
-    let detected_str: Vec<String> = req.detected.iter().map(|d| {
-        format!("{} (score: {})", d["id"].as_str().unwrap_or("?"), d["score"].as_f64().unwrap_or(0.0))
-    }).collect();
+    let fp_note = if false_positives.is_empty() {
+        String::new()
+    } else {
+        format!("\n## False positives (detected but WRONG — will be suppressed automatically):\n{}\nDo NOT generate seeds for these.\n",
+            false_positives.join(", "))
+    };
 
     let prompt = format!(
 r#"You are reviewing a failed intent routing result from ASV Router, a keyword-based intent classifier.
@@ -478,7 +508,7 @@ r#"You are reviewing a failed intent routing result from ASV Router, a keyword-b
 
 ## What the router detected:
 {detected}
-
+{fp_note}
 ## Relevant intent seeds (existing phrases the router knows):
 {seeds}
 
@@ -491,14 +521,8 @@ Seed quality guidelines:
 CRITICAL RULES:
 - ONLY use action "add_seed". No other action types.
 - NEVER use the customer's exact words as a seed. Create a generalized pattern.
-- Do NOT suggest corrections for false positives (extra detected intents). Ignore them.
-- Only suggest seeds for MISSED intents, not for intents already detected.
+- Only suggest seeds for MISSED intents: {missed}
 - Use exact intent IDs from the lists above.
-
-Example: If the message is "I got the wrong item and I want my money back and someone needs to call me"
-and missed intents are [refund, contact_human]:
-- add_seed "get my money back for wrong item" → refund
-- add_seed "need someone to call me" → contact_human
 
 Return ONLY a JSON object:
 {{
@@ -513,9 +537,11 @@ Return ONLY a JSON object:
 }}"#,
         message = req.message,
         ground_truth = req.ground_truth.join(", "),
-        detected = if detected_str.is_empty() { "nothing detected".to_string() } else { detected_str.join(", ") },
+        detected = if req.detected.is_empty() { "nothing detected".to_string() } else { req.detected.join(", ") },
+        fp_note = fp_note,
         seeds = intent_seeds,
         quality = asv_router::phrase::PHRASE_QUALITY_RULES,
+        missed = missed.join(", "),
     );
 
     let text = call_llm(&state, &prompt, 1024).await?;
@@ -524,15 +550,31 @@ Return ONLY a JSON object:
         .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))
         .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No JSON in review response".to_string()))?;
 
-    let review_result: serde_json::Value = serde_json::from_str(json_str)
+    let mut review_result: serde_json::Value = serde_json::from_str(json_str)
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Invalid JSON from review: {}", e)))?;
+
+    // Merge server-side inhibitions into LLM result
+    review_result["inhibitions"]    = serde_json::json!(inhibitions);
+    review_result["missed"]         = serde_json::json!(missed);
+    review_result["false_positives"] = serde_json::json!(false_positives);
 
     Ok(Json(review_result))
 }
 
+#[derive(serde::Deserialize, Default)]
+pub struct InhibitionPair {
+    correct: String,
+    false_positive: String,
+}
+
 #[derive(serde::Deserialize)]
 pub struct TrainingApplyRequest {
+    #[serde(default)]
     corrections: Vec<serde_json::Value>,
+    /// L3 inhibition pairs generated by training_review.
+    /// Each pair teaches the model: when `correct` fires, suppress `false_positive`.
+    #[serde(default)]
+    inhibitions: Vec<InhibitionPair>,
 }
 
 pub async fn training_apply(
@@ -599,16 +641,24 @@ pub async fn training_apply(
                     ig.learn_phrase(&refs, intent);
                     eprintln!("[training_apply] learn_phrase {:?} → '{}'", refs, intent);
                 }
-                if let Some(ref dir) = state.data_dir {
-                    let path = format!("{}/{}/_intent_graph.json", dir, app_id);
-                    ig.save(&path).ok();
+            }
+            // L3: apply inhibition learning regardless of count model status
+            for pair in &req.inhibitions {
+                if !pair.correct.is_empty() && !pair.false_positive.is_empty() {
+                    ig.learn_inhibition(&pair.correct, &pair.false_positive);
                 }
+            }
+            // Persist after all updates
+            if let Some(ref dir) = state.data_dir {
+                let path = format!("{}/{}/_intent_graph.json", dir, app_id);
+                ig.save(&path).ok();
             }
         }
     }
 
     Ok(Json(serde_json::json!({
         "applied": to_apply.len(),
+        "inhibitions_learned": req.inhibitions.len(),
         "errors": errors,
     })))
 }

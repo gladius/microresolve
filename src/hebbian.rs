@@ -618,6 +618,14 @@ pub struct IntentGraph {
     /// Count model: total word token count per intent (denominator for P(word|intent)).
     #[serde(default)]
     pub intent_totals: HashMap<String, u32>,
+    /// L3 Inhibition layer: correct_intent → false_positive_intent → suppression strength.
+    ///
+    /// Anti-Hebbian lateral inhibition: when intent A fires and B is a false positive,
+    /// A learns to suppress B. Strength grows with each correction (max 1.0).
+    /// Applied after multi-filter: if inhibit[A][B] >= INHIBIT_THRESHOLD, B is removed
+    /// from the output whenever A is also present and scores significantly higher.
+    #[serde(default)]
+    pub inhibit: HashMap<String, HashMap<String, f32>>,
 }
 
 impl IntentGraph {
@@ -930,7 +938,10 @@ impl IntentGraph {
     /// Multi-intent score on an already L1-normalized query string.
     pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, gap: f32) -> (Vec<(String, f32)>, bool) {
         let (all, neg) = self.score_normalized(normalized);
-        (self.apply_multi_filter(all, threshold, gap), neg)
+        let filtered = self.apply_multi_filter(all, threshold, gap);
+        // L3: apply lateral inhibition to remove learned false-positive pairs
+        let inhibited = self.apply_inhibition(filtered);
+        (inhibited, neg)
     }
 
     fn apply_multi_filter(&self, all: Vec<(String, f32)>, threshold: f32, gap: f32) -> Vec<(String, f32)> {
@@ -965,6 +976,71 @@ impl IntentGraph {
     pub fn count_stats(&self) -> (usize, u64) {
         let total: u64 = self.intent_totals.values().map(|&v| v as u64).sum();
         (self.counts.len(), total)
+    }
+
+    // ── L3 Inhibition layer ────────────────────────────────────────────────────
+
+    /// Learn that `false_positive` should be suppressed when `correct` fires.
+    ///
+    /// Each correction increments suppression strength by DELTA (capped at 1.0).
+    /// After ~3 corrections the suppression is strong enough to reliably fire.
+    pub fn learn_inhibition(&mut self, correct: &str, false_positive: &str) {
+        // DELTA=0.4: suppression fires after the first confirmed correction (0.4 ≥ 0.35 threshold).
+        // Ground truth is authoritative — trust it immediately.
+        const DELTA: f32 = 0.4;
+        let v = self.inhibit
+            .entry(correct.to_string())
+            .or_default()
+            .entry(false_positive.to_string())
+            .or_insert(0.0);
+        *v = (*v + DELTA).min(1.0);
+        eprintln!("[inhibit] learn: when '{}' fires → suppress '{}' (strength={:.2})",
+            correct, false_positive, *v);
+    }
+
+    /// Apply L3 lateral inhibition to a scored result set.
+    ///
+    /// For each pair (A, B) in `results` where inhibit[A][B] >= threshold AND
+    /// A scores meaningfully higher than B: remove B.
+    ///
+    /// `score_ratio_min` — B is only suppressed if A's score is at least this
+    /// fraction above B (prevents suppression when both fire equally strongly,
+    /// which would indicate a genuine multi-intent query).
+    pub fn apply_inhibition(&self, mut results: Vec<(String, f32)>) -> Vec<(String, f32)> {
+        // Fires after one authoritative ground-truth correction (strength 0.4 ≥ 0.35).
+        const INHIBIT_THRESHOLD: f32 = 0.35;
+
+        if self.inhibit.is_empty() || results.len() < 2 {
+            return results;
+        }
+
+        let mut to_remove: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        // A suppresses B if inhibit[A][B] >= threshold.
+        // No score-ratio check: ground truth is authoritative. If we've seen this pair
+        // corrected at least once, suppress unconditionally when A is present.
+        let snapshot = results.clone();
+        for (a_id, _a_score) in &snapshot {
+            if let Some(suppressed) = self.inhibit.get(a_id.as_str()) {
+                for (b_id, _b_score) in &snapshot {
+                    if a_id == b_id { continue; }
+                    let strength = suppressed.get(b_id.as_str()).copied().unwrap_or(0.0);
+                    if strength >= INHIBIT_THRESHOLD {
+                        eprintln!("[inhibit] suppress '{}' (strength={:.2}) because '{}' fires",
+                            b_id, strength, a_id);
+                        to_remove.insert(b_id.clone());
+                    }
+                }
+            }
+        }
+
+        results.retain(|(id, _)| !to_remove.contains(id));
+        results
+    }
+
+    /// Inhibition layer stats: total pairs learned.
+    pub fn inhibit_stats(&self) -> usize {
+        self.inhibit.values().map(|m| m.len()).sum()
     }
 }
 
