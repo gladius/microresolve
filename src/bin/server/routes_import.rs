@@ -11,104 +11,165 @@ use asv_router::{Router, IntentType};
 use crate::state::*;
 use crate::llm::*;
 
-/// Seed L1 (LexicalGraph) with synonym/morphology/abbreviation edges for new domain vocabulary.
+/// Seed L1 (LexicalGraph) using the accepted phrases as canonical vocabulary context.
 ///
-/// Called after phrase generation. Only processes words NOT already in L1 — safe to call
-/// on incremental imports (new intents added to existing namespace). Saves to `_hebbian.json`
-/// so startup `load_hebbian()` picks it up automatically.
+/// Phrases are passed raw (no stop-word filtering) grouped by intent — multilingual safe.
+/// The LLM sees the actual vocabulary L2 learned and decides what abbreviations,
+/// morphological variants, and synonyms are worth mapping TO those words.
+///
+/// Already-covered source words are skipped — safe for incremental imports.
+/// Saves to `_hebbian.json` so `load_hebbian()` picks it up automatically on restart.
 async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
+    eprintln!("[import/L1] seed_into_l1 called: {} accepted phrases, llm_key={}", accepted.len(), state.llm_key.is_some());
     if accepted.is_empty() || state.llm_key.is_none() { return; }
 
-    // Collect content words from accepted phrases (skip very short tokens)
-    let mut all_words: std::collections::HashSet<String> = Default::default();
-    for (_, phrase) in accepted {
-        for w in asv_router::tokenizer::tokenize(phrase) {
-            if w.len() >= 3 {
-                all_words.insert(w);
-            }
-        }
+    // Group phrases by intent_id
+    let mut by_intent: std::collections::HashMap<&str, Vec<&str>> = Default::default();
+    for (id, phrase) in accepted {
+        by_intent.entry(id.as_str()).or_default().push(phrase.as_str());
     }
+    eprintln!("[import/L1] {} unique intents", by_intent.len());
 
-    // Filter to words NOT already in L1 — prevents regenerating existing associations
-    let new_words: Vec<String> = {
-        let heb_map = state.hebbian.read().unwrap();
-        let existing = heb_map.get(app_id);
-        all_words.into_iter()
-            .filter(|w| existing.map_or(true, |h| !h.edges.contains_key(w.as_str())))
-            .collect()
+    // Build intent blocks: description + phrases (raw, no filtering — multilingual safe)
+    let intent_blocks: Vec<String> = {
+        let routers = state.routers.read().unwrap();
+        eprintln!("[import/L1] router lookup for '{}'", app_id);
+        let router = match routers.get(app_id) { Some(r) => r, None => { eprintln!("[import/L1] ERROR: router not found for '{}'", app_id); return; } };
+
+        let mut blocks: Vec<String> = by_intent.iter().map(|(&id, phrases)| {
+            let desc = router.get_description(id);
+            // 2 phrases per intent — enough vocabulary context, keeps prompt compact
+            let phrase_list = phrases.iter().take(2)
+                .map(|p| format!("  \"{}\"", p))
+                .collect::<Vec<_>>().join("\n");
+            if desc.is_empty() {
+                format!("{}:\n{}", id, phrase_list)
+            } else {
+                format!("{} ({}): \n{}", id, desc, phrase_list)
+            }
+        }).collect();
+        blocks.sort(); // deterministic order
+        blocks
     };
 
-    if new_words.is_empty() {
-        eprintln!("[import/L1] all words already covered in L1 graph, skipping");
-        return;
-    }
+    // Source words already in L1 — skip to avoid regenerating (incremental safety)
+    let existing_from_words: std::collections::HashSet<String> = {
+        let heb_map = state.hebbian.read().unwrap();
+        heb_map.get(app_id)
+            .map(|h| h.edges.keys().cloned().collect())
+            .unwrap_or_default()
+    };
 
-    // Domain context from intent IDs (first few)
-    let domain_context: String = accepted.iter()
-        .take(5)
-        .map(|(id, _)| id.as_str())
-        .collect::<Vec<_>>().join(", ");
-
-    // Limit to 80 words per call (~500 token budget for word list)
-    let capped = new_words.iter().take(80).cloned().collect::<Vec<_>>();
-    let words_list = capped.join(", ");
+    let skip_hint = if existing_from_words.is_empty() {
+        String::new()
+    } else {
+        format!("\nAlready mapped (skip FROM these): {}\n",
+            existing_from_words.iter().take(60).cloned().collect::<Vec<_>>().join(", "))
+    };
 
     let prompt = format!(
-        "You are building a lexical association graph for a domain that includes: {}.\n\
-         For each domain-specific word below, generate synonyms, morphological variants, \
-         and abbreviations that should map to it — in this domain context.\n\
-         Skip common English stop words and very common verbs (\"get\", \"set\", \"use\", etc.).\n\
-         Only map technical and domain-specific vocabulary.\n\n\
-         Words: {}\n\n\
+        "You are building a lexical graph for an intent router.\n\
+         Below are the intents and the EXACT phrases already learned (these are the canonical vocabulary).\n\
+         Your job: generate mappings FROM words a real user would type → TO words already in the phrases.\n\
+         The target word MUST appear in the phrases shown — do not invent new canonical forms.\n\
+         Works for any language — generate cross-lingual mappings where relevant.\n\n\
+         {}\
+         {}\n\
          Edge kinds:\n\
-         - \"morphological\": inflected/derived forms → canonical (canceling→cancel, shipped→ship, weight 0.97-0.99)\n\
-         - \"abbreviation\": short form → full form (pr→pull request, repo→repository, weight 0.97-0.99)\n\
-         - \"synonym\": different word, same domain meaning (terminate→cancel, weight 0.80-0.96)\n\n\
-         Only generate edges where FROM is a real variant users would type.\n\
-         Omit entries for words that need no mapping (already canonical).\n\n\
+         - \"abbreviation\": shorthand → canonical phrase word (pr→pull request, sub→subscription, w=0.97-0.99)\n\
+         - \"morphological\": inflected form → base form in phrases (cancellation→cancel, merging→merge, w=0.97-0.99)\n\
+           Skip trivial English inflections (gets→get, using→use) unless non-obvious\n\
+         - \"synonym\": different word same meaning → phrase word (terminate→cancel, w=0.80-0.96)\n\n\
          Respond with ONLY valid JSON:\n\
          {{\"edges\": [\n\
-           {{\"from\": \"canceling\", \"to\": \"cancel\", \"weight\": 0.99, \"kind\": \"morphological\"}},\n\
-           {{\"from\": \"terminate\", \"to\": \"cancel\", \"weight\": 0.92, \"kind\": \"synonym\"}},\n\
-           {{\"from\": \"pr\", \"to\": \"pull request\", \"weight\": 0.99, \"kind\": \"abbreviation\"}}\n\
+           {{\"from\": \"pr\", \"to\": \"pull request\", \"kind\": \"abbreviation\", \"weight\": 0.99}},\n\
+           {{\"from\": \"cancellation\", \"to\": \"cancel\", \"kind\": \"morphological\", \"weight\": 0.98}},\n\
+           {{\"from\": \"terminate\", \"to\": \"cancel\", \"kind\": \"synonym\", \"weight\": 0.88}}\n\
          ]}}",
-        domain_context, words_list
+        intent_blocks.join("\n\n"), skip_hint
     );
 
-    let Ok(response) = call_llm(state, &prompt, 4096).await else { return };
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) else { return };
-    let Some(edges) = json.get("edges").and_then(|e| e.as_array()) else { return };
+    // ── Turn 1: generate candidate edges ────────────────────────────────────
+    eprintln!("[import/L1] Turn 1: generating candidates ({} intent blocks, prompt ~{} chars)", intent_blocks.len(), prompt.len());
+    let t1_response = match call_llm(state, &prompt, 4096).await {
+        Ok(r) => r,
+        Err((_, e)) => { eprintln!("[import/L1] Turn 1 failed: {}", e); return; }
+    };
+    let t1_json = match serde_json::from_str::<serde_json::Value>(extract_json(&t1_response)) {
+        Ok(j) => j,
+        Err(e) => { eprintln!("[import/L1] Turn 1 parse failed: {} — raw: {}", e, &t1_response[..t1_response.len().min(200)]); return; }
+    };
+    let Some(candidates) = t1_json.get("edges").and_then(|e| e.as_array()) else {
+        eprintln!("[import/L1] Turn 1: no 'edges' array");
+        return;
+    };
+    eprintln!("[import/L1] Turn 1: {} candidate edges", candidates.len());
+
+    // ── Turn 2: fix direction errors and obvious duds only ───────────────────
+    let candidates_json = serde_json::to_string_pretty(candidates).unwrap_or_default();
+    let verify_prompt = format!(
+        "Review these lexical graph edges. Keep good ones, fix or remove bad ones.\n\n\
+         REMOVE only if clearly wrong:\n\
+         1. Morphological direction is reversed: FROM must be the longer/inflected form, TO must be\n\
+            the shorter base form. 'listing→list' is CORRECT. 'list→listing' is WRONG — remove it.\n\
+         2. TO word is longer than 4 words — too long for a routing target, remove it.\n\
+         3. FROM and TO are the same word.\n\
+         4. The mapping is clearly wrong domain-wise (e.g. 'terms→subscription' is too vague).\n\n\
+         KEEP everything else — synonyms, cross-lingual mappings, abbreviations, morphological variants.\n\
+         Do NOT remove edges just because FROM word is common — 'terminate→cancel' is valuable.\n\n\
+         Candidate edges:\n{}\n\n\
+         Respond with ONLY valid JSON:\n\
+         {{\"edges\": [{{\"from\": \"...\", \"to\": \"...\", \"kind\": \"...\", \"weight\": 0.0}}]}}",
+        candidates_json
+    );
+
+    eprintln!("[import/L1] Turn 2: verifying {} candidates", candidates.len());
+    let t2_response = match call_llm(state, &verify_prompt, 4096).await {
+        Ok(r) => r,
+        Err((_, e)) => { eprintln!("[import/L1] Turn 2 failed: {}", e); return; }
+    };
+    let t2_json = match serde_json::from_str::<serde_json::Value>(extract_json(&t2_response)) {
+        Ok(j) => j,
+        Err(e) => { eprintln!("[import/L1] Turn 2 parse failed: {}", e); return; }
+    };
+    let Some(edges) = t2_json.get("edges").and_then(|e| e.as_array()) else {
+        eprintln!("[import/L1] Turn 2: no 'edges' array");
+        return;
+    };
+    eprintln!("[import/L1] Turn 2: {} edges after verification (removed {})", edges.len(), candidates.len().saturating_sub(edges.len()));
 
     let mut heb_map = state.hebbian.write().unwrap();
     let heb = heb_map.entry(app_id.to_string())
         .or_insert_with(asv_router::hebbian::LexicalGraph::new);
 
-    let mut added = 0usize;
+    let mut n_abbrev = 0usize;
+    let mut n_morph  = 0usize;
+    let mut n_syn    = 0usize;
+
     for edge in edges {
-        let from    = edge.get("from").and_then(|v| v.as_str()).unwrap_or_default();
-        let to      = edge.get("to").and_then(|v| v.as_str()).unwrap_or_default();
-        let weight  = edge.get("weight").and_then(|v| v.as_f64()).unwrap_or(0.9) as f32;
-        let kind_s  = edge.get("kind").and_then(|v| v.as_str()).unwrap_or("synonym");
-        if from.is_empty() || to.is_empty() { continue; }
-        // Skip if source word already has edges (incremental safety)
+        let from   = edge.get("from").and_then(|v| v.as_str()).unwrap_or_default().trim();
+        let to     = edge.get("to").and_then(|v| v.as_str()).unwrap_or_default().trim();
+        let weight = edge.get("weight").and_then(|v| v.as_f64()).unwrap_or(0.9) as f32;
+        let kind_s = edge.get("kind").and_then(|v| v.as_str()).unwrap_or("synonym");
+        if from.is_empty() || to.is_empty() || from == to { continue; }
         if heb.edges.contains_key(from) { continue; }
+
         let kind = match kind_s {
-            "morphological" => asv_router::hebbian::EdgeKind::Morphological,
-            "abbreviation"  => asv_router::hebbian::EdgeKind::Abbreviation,
-            "semantic"      => asv_router::hebbian::EdgeKind::Semantic,
-            _               => asv_router::hebbian::EdgeKind::Synonym,
+            "abbreviation"  => { n_abbrev += 1; asv_router::hebbian::EdgeKind::Abbreviation }
+            "morphological" => { n_morph  += 1; asv_router::hebbian::EdgeKind::Morphological }
+            _               => { n_syn    += 1; asv_router::hebbian::EdgeKind::Synonym }
         };
+        eprintln!("[import/L1] {:>14}: {} → {} (w={:.2})", kind_s, from, to, weight);
         heb.add(from, to, weight, kind);
-        added += 1;
     }
 
-    // Persist to _hebbian.json — same file load_hebbian() reads at startup
     if let Some(ref dir) = state.data_dir {
         let path = format!("{}/{}/_hebbian.json", dir, app_id);
         std::fs::create_dir_all(format!("{}/{}", dir, app_id)).ok();
         heb.save(&path).ok();
     }
-    eprintln!("[import/L1] added {} lexical edges ({} new words processed) for '{}'", added, capped.len(), app_id);
+    eprintln!("[import/L1] total: {} abbreviations + {} morphological + {} synonyms for '{}'",
+        n_abbrev, n_morph, n_syn, app_id);
 }
 
 /// Feed accepted import phrases into the L2 count model (IntentGraph).

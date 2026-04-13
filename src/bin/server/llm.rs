@@ -103,17 +103,43 @@ pub fn extract_json(text: &str) -> &str {
 /// - "anthropic": Anthropic Messages API (/v1/messages)
 /// - "openai" (or anything else): OpenAI Chat Completions format (/v1/chat/completions)
 ///   Covers: OpenAI, Ollama, Groq, Together, DeepSeek, vLLM, LM Studio, any compatible endpoint.
+/// Call the "smart" model for one-time, high-quality tasks (e.g. L1 import seeding).
+/// Uses LLM_SMART_MODEL if set, otherwise falls back to LLM_MODEL.
+/// Set in .env: LLM_SMART_MODEL=claude-sonnet-4-6
+pub async fn call_llm_smart(
+    state: &ServerState,
+    prompt: &str,
+    max_tokens: u32,
+) -> Result<String, (StatusCode, String)> {
+    let smart = std::env::var("LLM_SMART_MODEL").ok();
+    if let Some(model) = smart {
+        eprintln!("[llm] using smart model: {}", model);
+        call_llm_with_model(state, prompt, max_tokens, &model).await
+    } else {
+        call_llm(state, prompt, max_tokens).await
+    }
+}
+
 pub async fn call_llm(
     state: &ServerState,
     prompt: &str,
     max_tokens: u32,
+) -> Result<String, (StatusCode, String)> {
+    let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
+    call_llm_with_model(state, prompt, max_tokens, &model).await
+}
+
+async fn call_llm_with_model(
+    state: &ServerState,
+    prompt: &str,
+    max_tokens: u32,
+    model: &str,
 ) -> Result<String, (StatusCode, String)> {
     let key = state.llm_key.as_ref().ok_or_else(|| {
         (StatusCode::SERVICE_UNAVAILABLE, "LLM_API_KEY not set. Add it to .env file.".to_string())
     })?;
 
     let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
-    let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
     let url = std::env::var("LLM_API_URL").unwrap_or_else(|_| {
         if provider == "anthropic" {
             "https://api.anthropic.com/v1/messages".to_string()
