@@ -690,10 +690,13 @@ pub async fn apply_review(
                             eprintln!("[auto-learn/L2] missed   → learn_phrase {:?} → '{}'", phrase_refs, intent_id);
                         }
                     }
-                    // Wrong detections: no explicit action — as correct phrases accumulate,
-                    // the false positive's log-odds naturally decrease relative to correct intent.
-                    for intent_id in &result.wrong_detections {
-                        eprintln!("[auto-learn/L2] wrong    → '{}' (no action — log-odds self-correct)", intent_id);
+                    // Wrong detections: teach L3 inhibition — when correct intent fires,
+                    // suppress the false positive. One correction fires immediately (delta=0.4).
+                    for wrong in &result.wrong_detections {
+                        for correct in &result.correct_intents {
+                            ig.learn_inhibition(correct, wrong);
+                            eprintln!("[auto-learn/L3] inhibit  → '{}' suppresses '{}'", correct, wrong);
+                        }
                     }
                 } else {
                     // ── Legacy model: delta nudges ─────────────────────────

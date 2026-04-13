@@ -513,14 +513,20 @@ r#"You are reviewing a failed intent routing result from ASV Router, a keyword-b
 {seeds}
 
 ## Your task:
-For each MISSED intent (in ground truth but not detected), generate a NEW seed phrase that captures the GENERAL PATTERN of what the customer is asking for. Do NOT copy phrases from the customer message directly — create clean, reusable pattern phrases.
+For each MISSED intent (in ground truth but not detected), generate a NEW seed phrase.
+
+CRITICAL: The router is vocabulary-based — it scores by matching words. A seed only helps THIS
+query if it shares key words with the customer's message. So:
+- USE the customer's actual vocabulary — the specific words they used
+- GENERALIZE the structure, not the words (e.g. "cancel my $49 plan" → "cancel monthly plan")
+- A seed that shares zero words with the message does nothing for this routing failure
 
 Seed quality guidelines:
 {quality}
 
-CRITICAL RULES:
+RULES:
 - ONLY use action "add_seed". No other action types.
-- NEVER use the customer's exact words as a seed. Create a generalized pattern.
+- Seed must contain at least one key word from the customer's message
 - Only suggest seeds for MISSED intents: {missed}
 - Use exact intent IDs from the lists above.
 
@@ -530,7 +536,7 @@ Return ONLY a JSON object:
   "corrections": [
     {{
       "action": "add_seed",
-      "phrase": "short focused phrase from the message",
+      "phrase": "short phrase using the customer's vocabulary for this intent",
       "intent": "missed_intent_id"
     }}
   ]
