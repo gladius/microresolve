@@ -66,7 +66,20 @@ pub async fn route_multi(
     let latency_us = t0.elapsed().as_micros() as u64;
 
     if let Some(scored) = intent_graph_results.filter(|s| !s.is_empty()) {
-        let max_score = scored.iter().map(|(_, s)| *s).fold(0f32, f32::max);
+        let top_score = scored[0].1;
+        let max_score = top_score;
+
+        // ── L5 Disposition: score distribution shape ─────────────────────────
+        // "confident"      — clear winner; system is sure
+        // "low_confidence" — top score barely above threshold; verify before acting
+        // "escalate"       — 3+ intents at similar scores; query is genuinely ambiguous
+        let disposition = if scored.len() >= 3 && scored[2].1 / top_score >= 0.75 {
+            "escalate"        // tight cluster of ≥3 — can't rank, need clarification
+        } else if top_score < req.threshold * 2.0 {
+            "low_confidence"  // marginally above detection threshold
+        } else {
+            "confident"
+        };
 
         let intents: Vec<serde_json::Value> = scored.iter().map(|(id, score)| {
             let confidence = if *score >= max_score * 0.8 { "high" }
@@ -118,6 +131,7 @@ pub async fn route_multi(
         return Json(serde_json::json!({
             "confirmed": confirmed,
             "candidates": candidates,
+            "disposition": disposition,
             "relations": [],
             "metadata": {},
             "routing_us": latency_us,
@@ -148,6 +162,7 @@ pub async fn route_multi(
     Json(serde_json::json!({
         "confirmed": [],
         "candidates": [],
+        "disposition": "no_match",
         "relations": [],
         "metadata": {},
         "routing_us": latency_us,

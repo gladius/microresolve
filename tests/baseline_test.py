@@ -262,10 +262,11 @@ def bootstrap():
 def route(query, threshold=0.25):
     status, resp = post("/route_multi", {"query": query, "threshold": threshold})
     if status != 200 or not resp:
-        return [], []
+        return [], [], "no_match"
     confirmed = [r["id"] for r in resp.get("confirmed", [])]
     candidates = [r["id"] for r in resp.get("candidates", [])]
-    return confirmed, candidates
+    disposition = resp.get("disposition", "?")
+    return confirmed, candidates, disposition
 
 def run_tests():
     print(f"\n{'='*60}")
@@ -276,7 +277,7 @@ def run_tests():
     by_type = {}
 
     for query, expected, test_type, notes in TESTS:
-        confirmed, candidates = route(query)
+        confirmed, candidates, disposition = route(query)
         all_detected = confirmed + candidates
 
         if not expected:
@@ -307,12 +308,13 @@ def run_tests():
         else:            t["fail"] += 1
 
         # Print result
+        disp_tag = f"[{disposition}]"
         query_display = query[:52] + "…" if len(query) > 53 else query
         print(f"  {status_icon} [{test_type:12}] {query_display:<54} ", end="")
         if expected:
-            print(f"→ {confirmed[:2]} | cand={candidates[:2]}")
+            print(f"→ {confirmed[:2]} | cand={candidates[:2]} {disp_tag}")
         else:
-            print(f"→ (expect empty) got={all_detected[:2]}")
+            print(f"→ (expect empty) got={all_detected[:2]} {disp_tag}")
         if ok is False and expected:
             print(f"      expected: {expected}")
 
