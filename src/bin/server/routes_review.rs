@@ -212,10 +212,7 @@ pub async fn review_analyze(
         "languages": review.languages,
         "phrases_to_add": review.phrases_to_add,
         "phrases_blocked": review.phrases_blocked.iter().map(|(i,s,r)| serde_json::json!({"intent":i,"phrase":s,"reason":r})).collect::<Vec<_>>(),
-        "phrases_to_replace": review.phrases_to_replace.iter().map(|r| serde_json::json!({
-            "intent": r.intent, "old_phrase": r.old_phrase, "new_phrase": r.new_phrase, "reason": r.reason,
-        })).collect::<Vec<_>>(),
-        "safe_to_apply": review.safe_to_apply,
+        "suppressor_words": review.suppressor_words,
         "summary": review.summary,
     })))
 }

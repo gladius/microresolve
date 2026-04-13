@@ -333,22 +333,13 @@ pub struct FullReviewResult {
     pub phrases_to_add: HashMap<String, Vec<String>>,
     /// Turn 2: phrases blocked by guard
     pub phrases_blocked: Vec<(String, String, String)>, // (intent, phrase, reason)
-    /// Turn 3: phrases to replace in wrong intents
-    pub phrases_to_replace: Vec<PhraseReplacement>,
-    /// Turn 3: safe to apply
-    pub safe_to_apply: bool,
+    /// Turn 3: discriminating suppressor words per wrong intent — added as L2 suppressor edges.
+    /// These are query words that specifically indicate the query does NOT belong to that intent.
+    pub suppressor_words: HashMap<String, Vec<String>>, // wrong_intent → [words]
     /// Turn 3: summary
     pub summary: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-#[derive(serde::Deserialize)]
-pub struct PhraseReplacement {
-    pub intent: String,
-    pub old_phrase: String,
-    pub new_phrase: String,
-    pub reason: String,
-}
 
 /// Run the full 3-turn review for a query.
 /// Used by: auto-learn (applies immediately), manual review (returns for approval), auto-improve.
@@ -408,8 +399,7 @@ pub async fn full_review(
 
             phrases_to_add: HashMap::new(),
             phrases_blocked: Vec::new(),
-            phrases_to_replace: Vec::new(),
-            safe_to_apply: true,
+            suppressor_words: HashMap::new(),
             summary: "Detection correct, no changes needed.".to_string(),
         });
     }
@@ -529,69 +519,67 @@ pub async fn full_review(
 
     eprintln!("[full_review] Turn 2: phrases_to_add={:?}, blocked={}", phrases_to_add, phrases_blocked.len());
 
-    // === Turn 3: Fix false positives (replace broad phrases) ===
-    let mut phrases_to_replace = Vec::new();
-    let mut safe_to_apply = true;
+    // === Turn 3: Discriminating suppressor word discovery ===
+    // For each wrongly-detected intent, identify which specific words in the query
+    // indicate the query does NOT belong to that intent. These become explicit L2
+    // suppressor edges — precise and immediate, unlike blanket suppression or
+    // phrase replacement which had no effect on L2 routing.
+    let mut suppressor_words: HashMap<String, Vec<String>> = HashMap::new();
     let mut summary = String::new();
 
     if !wrong_detections.is_empty() {
-        let wrong_intent_phrases: String = {
+        // Build intent labels for wrong detections (id + description only — no phrases needed)
+        let wrong_intent_labels: String = {
             let routers = state.routers.read().unwrap();
             if let Some(router) = routers.get(app_id) {
                 wrong_detections.iter().map(|id| {
-                    let phrases = router.get_training(id).unwrap_or_default();
-                    format!("- {}: {:?}", id, phrases.iter().take(10).collect::<Vec<_>>())
+                    let desc = router.get_description(id);
+                    if desc.is_empty() { format!("- {}", id) }
+                    else { format!("- {} ({})", id, desc) }
                 }).collect::<Vec<_>>().join("\n")
             } else { String::new() }
         };
 
+        let correct_labels: String = correct_intents.iter().map(|id| id.as_str()).collect::<Vec<_>>().join(", ");
+
         let turn3_prompt = format!(
-            "Customer query: \"{}\"\n\n\
-             These intents were WRONGLY detected (false positives):\n{}\n\n\
-             Phrases being added for correct intents:\n{}\n\n\
-             For each wrong intent:\n\
-             1. Which phrase caused the false match?\n\
-             2. Suggest a MORE SPECIFIC replacement phrase that keeps the intent's coverage but stops matching this query.\n\
-             Do NOT suggest removing phrases — suggest replacements that narrow the match.\n\n\
-             Replacement phrase quality rules:\n\
-             {}\n\n\
+            "Query: \"{query}\"\n\
+             Correct intent(s): {correct_labels}\n\n\
+             These intents were WRONGLY detected (false positives):\n{wrong_intent_labels}\n\n\
+             For each wrongly-detected intent, identify 1-3 words from the query that most \
+             specifically indicate this query does NOT belong to that intent.\n\
+             Choose words that are discriminating: they appear in a context that contradicts \
+             the wrong intent, not just words that happen to be absent.\n\
+             Only use words that actually appear in the query.\n\n\
              Respond with ONLY JSON:\n\
-             {{\n\
-               \"replacements\": [{{\"intent\": \"name\", \"old_phrase\": \"the broad phrase\", \"new_phrase\": \"more specific version\", \"reason\": \"why\"}}],\n\
-               \"safe_to_apply\": true,\n\
-               \"summary\": \"one sentence\"\n\
-             }}\n\
-             If no replacement needed, use empty replacements array.\n",
-            query,
-            wrong_intent_phrases,
-            phrases_to_add.iter().map(|(id, phrases)| format!("  {}: {:?}", id, phrases)).collect::<Vec<_>>().join("\n"),
-            asv_router::phrase::PHRASE_QUALITY_RULES,
+             {{\"suppressors\": {{\"intent_id\": [\"word1\", \"word2\"]}}, \"summary\": \"one sentence\"}}\n\
+             If no discriminating words exist for an intent, omit it from suppressors.\n\
+             Example: {{\"suppressors\": {{\"billing:cancel_subscription\": [\"order\"]}}, \
+             \"summary\": \"order disambiguates shipping cancel from subscription cancel\"}}"
         );
 
-        if let Ok(t3_response) = call_llm(state, &turn3_prompt, 1024).await {
+        if let Ok(t3_response) = call_llm(state, &turn3_prompt, 400).await {
             if let Ok(t3_parsed) = serde_json::from_str::<serde_json::Value>(extract_json(&t3_response)) {
-                if let Some(replacements) = t3_parsed["replacements"].as_array() {
-                    for r in replacements {
-                        if let (Some(intent), Some(old), Some(new), Some(reason)) = (
-                            r["intent"].as_str(), r["old_phrase"].as_str(),
-                            r["new_phrase"].as_str(), r["reason"].as_str(),
-                        ) {
-                            phrases_to_replace.push(PhraseReplacement {
-                                intent: intent.to_string(),
-                                old_phrase: old.to_string(),
-                                new_phrase: new.to_string(),
-                                reason: reason.to_string(),
-                            });
+                if let Some(sups) = t3_parsed["suppressors"].as_object() {
+                    for (intent_id, words) in sups {
+                        if let Some(arr) = words.as_array() {
+                            let ws: Vec<String> = arr.iter()
+                                .filter_map(|v| v.as_str())
+                                .map(|s| s.trim().to_lowercase())
+                                .filter(|s| !s.is_empty())
+                                .collect();
+                            if !ws.is_empty() {
+                                suppressor_words.insert(intent_id.clone(), ws);
+                            }
                         }
                     }
                 }
-                safe_to_apply = t3_parsed["safe_to_apply"].as_bool().unwrap_or(true);
                 summary = t3_parsed["summary"].as_str().unwrap_or("").to_string();
             }
         }
     }
 
-    eprintln!("[full_review] Turn 3: replacements={}, safe={}, summary={}", phrases_to_replace.len(), safe_to_apply, summary);
+    eprintln!("[full_review] Turn 3: suppressors={:?}, summary={}", suppressor_words, summary);
 
     Ok(FullReviewResult {
         correct_intents,
@@ -601,59 +589,26 @@ pub async fn full_review(
         detection_perfect: false,
         phrases_to_add,
         phrases_blocked,
-        phrases_to_replace,
-        safe_to_apply,
+        suppressor_words,
         summary,
     })
 }
 
 
-/// Apply a full review result: add phrases + replace broad phrases.
-/// `original_query` is the failing query — used to learn situation n-grams for each
-/// intent that gets phrases added (CJK always; Latin only if intent has situation patterns).
+/// Apply a full review result: add phrases, update L2 edges, add L1 synonyms.
 pub async fn apply_review(
     state: &AppState,
     app_id: &str,
     result: &FullReviewResult,
     original_query: &str,
-) -> (usize, usize) { // (phrases_added, phrases_replaced)
+) -> (usize, usize) { // (phrases_added, suppressors_added)
     let mut added = 0;
-    let mut replaced = 0;
+    let mut suppressors_added = 0;
 
     // Apply phrases_to_add through pipeline
     if !result.phrases_to_add.is_empty() {
         let pipeline_result = phrase_pipeline(state, app_id, &result.phrases_to_add, true, "en").await;
         added = pipeline_result.added.len();
-
-    }
-
-    // Apply phrase replacements (remove old + add new through guard)
-    if !result.phrases_to_replace.is_empty() {
-        let mut routers = state.routers.write().unwrap();
-        if let Some(router) = routers.get_mut(app_id) {
-            for replacement in &result.phrases_to_replace {
-                // Verify old phrase exists before removing
-                let old_exists = router.get_training(&replacement.intent)
-                    .map(|phrases| phrases.contains(&replacement.old_phrase))
-                    .unwrap_or(false);
-
-                if old_exists {
-                    // Add new phrase first (through guard)
-                    let check = router.add_phrase_checked(&replacement.intent, &replacement.new_phrase, "en");
-                    if check.added {
-                        // Only remove old if new was accepted
-                        router.remove_phrase(&replacement.intent, &replacement.old_phrase);
-                        replaced += 1;
-                        eprintln!("[apply_review] Replaced in {}: \"{}\" → \"{}\"",
-                            replacement.intent, replacement.old_phrase, replacement.new_phrase);
-                    } else {
-                        eprintln!("[apply_review] Replacement blocked for {}: new phrase \"{}\" rejected",
-                            replacement.intent, replacement.new_phrase);
-                    }
-                }
-            }
-            maybe_persist(state, app_id, router);
-        }
     }
 
     // ── Hebbian L2: full bidirectional learning ──────────────────────────────
@@ -732,9 +687,20 @@ pub async fn apply_review(
                     ig.reinforce(&word_refs, intent_id, DELTA_MISS);
                     eprintln!("[auto-learn/L2] missed   → reinforce {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_MISS);
                 }
+                // Wrong detections: use Turn 3 targeted suppressor words if available.
+                // Fall back to blanket activation suppression only when Turn 3 produced nothing.
                 for intent_id in &result.wrong_detections {
-                    ig.reinforce(&word_refs, intent_id, DELTA_SUPPRESS);
-                    eprintln!("[auto-learn/L2] wrong    → suppress  {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_SUPPRESS);
+                    if let Some(sup_words) = result.suppressor_words.get(intent_id) {
+                        // Targeted: only the discriminating words get suppressor edges
+                        let sup_refs: Vec<&str> = sup_words.iter().map(|s| s.as_str()).collect();
+                        ig.add_suppressors(&sup_refs, intent_id, DELTA_SUPPRESS.abs());
+                        eprintln!("[auto-learn/L2] wrong    → targeted suppressor {:?} ⊣ '{}' ({:.2})", sup_refs, intent_id, DELTA_SUPPRESS.abs());
+                        suppressors_added += sup_words.len();
+                    } else {
+                        // Fallback: blanket activation suppression (less precise)
+                        ig.reinforce(&word_refs, intent_id, DELTA_SUPPRESS);
+                        eprintln!("[auto-learn/L2] wrong    → blanket suppress {:?} → '{}' ({:+.2})", word_refs, intent_id, DELTA_SUPPRESS);
+                    }
                 }
 
                 // Show resulting edge weights for transparency
@@ -746,8 +712,6 @@ pub async fn apply_review(
                 }
 
                 // ── L2 conjunction reinforcement ────────────────────────────
-                // Which conjunction rules fired for this query?
-                // Reinforce for correct intents, suppress for wrong intents.
                 let fired = ig.fired_conjunction_indices(&word_refs);
                 for idx in &fired {
                     let intent = ig.conjunctions[*idx].intent.clone();
@@ -797,19 +761,134 @@ pub async fn apply_review(
         }
 
         // ── L1 morphology: learn variants of brand-new vocabulary ────────────
-        // If "ping" was just added to L3, we need L1 to know "pinging","pinged","pings"→"ping"
+        // If "ping" was just added to L2, we need L1 to know "pinging","pinged","pings"→"ping"
         // so those variants route correctly on the next query.
         if !new_vocabulary.is_empty() {
             eprintln!("[auto-learn/L1] new vocabulary found: {:?} — requesting morphological variants", new_vocabulary);
             learn_l1_morphology(state, app_id, &new_vocabulary, original_query).await;
         }
+
+        // ── L1 synonym discovery: map query words → existing L2 vocabulary ───
+        // For missed intents: query words like "suscripción" may not be in L2
+        // at all, but "subscription" already has a strong edge. Adding
+        // "suscripción"→"subscription" to L1 immediately activates that path
+        // instead of starting a new weak edge from scratch.
+        // This is the main mechanism for multilingual and paraphrase recovery.
+        if !result.missed_intents.is_empty() {
+            learn_l1_synonyms(state, app_id, &word_refs, &result.missed_intents, original_query).await;
+        }
     }
 
-    (added, replaced)
+    (added, suppressors_added)
+}
+
+/// For missed intents, map query words → existing L2 vocabulary words as new L1 synonym edges.
+/// Handles cross-lingual and paraphrase cases: "suscripción"→"subscription" routes via the
+/// already-strong "subscription"→cancel_subscription L2 edge instead of starting a weak new one.
+async fn learn_l1_synonyms(
+    state: &AppState,
+    app_id: &str,
+    query_words: &[&str],
+    missed_intents: &[String],
+    context_query: &str,
+) {
+    if state.llm_key.is_none() || query_words.is_empty() { return; }
+
+    // Get L2 vocabulary that already activates the missed intents — these are
+    // the target words we want new synonyms to map TO.
+    let graph_vocab: Vec<String> = {
+        let ig_map = state.intent_graph.read().unwrap();
+        match ig_map.get(app_id) {
+            Some(ig) => ig.word_intent.iter()
+                .filter(|(_, acts)| acts.iter().any(|(id, _)| missed_intents.contains(id)))
+                .map(|(w, _)| w.clone())
+                .collect(),
+            None => return,
+        }
+    };
+
+    if graph_vocab.is_empty() { return; }
+
+    // Only consider query words not already in L2 — words that ARE in L2 don't need a synonym path.
+    let unknown_words: Vec<&str> = {
+        let ig_map = state.intent_graph.read().unwrap();
+        match ig_map.get(app_id) {
+            Some(ig) => query_words.iter()
+                .filter(|&&w| !ig.word_intent.contains_key(w))
+                .copied()
+                .collect(),
+            None => query_words.to_vec(),
+        }
+    };
+
+    if unknown_words.is_empty() {
+        eprintln!("[auto-learn/L1] all query words already in L2 — synonym pass skipped");
+        return;
+    }
+
+    let words_str = unknown_words.join(", ");
+    let vocab_str = graph_vocab.join(", ");
+    let intents_str = missed_intents.join(", ");
+
+    let prompt = format!(
+        "An intent router missed routing this query to the correct intent(s).\n\
+         Query: \"{context_query}\"\n\
+         Missed intent(s): {intents_str}\n\n\
+         Query words NOT yet in the graph: [{words_str}]\n\
+         Existing graph vocabulary for these intents: [{vocab_str}]\n\n\
+         Map each query word to an existing graph word if they are synonyms, translations, or paraphrases.\n\
+         Only map to words from the graph vocabulary list above — do not invent new words.\n\
+         Skip query words that have no good match in the graph vocabulary.\n\n\
+         Respond with ONLY JSON:\n\
+         {{\"synonyms\": {{\"query_word\": \"graph_word\"}}}}\n\
+         Example: {{\"synonyms\": {{\"suscripción\": \"subscription\", \"cancelar\": \"cancel\"}}}}\n\
+         If no useful mappings exist: {{\"synonyms\": {{}}}}"
+    );
+
+    match call_llm(state, &prompt, 300).await {
+        Ok(response) => {
+            let json_str = extract_json(&response);
+            match serde_json::from_str::<serde_json::Value>(json_str) {
+                Ok(parsed) => {
+                    if let Some(syn_map) = parsed["synonyms"].as_object() {
+                        let mut heb_map = state.hebbian.write().unwrap();
+                        if let Some(graph) = heb_map.get_mut(app_id) {
+                            let mut learned = 0usize;
+                            for (from_word, to_word) in syn_map {
+                                if let Some(target) = to_word.as_str() {
+                                    let target = target.trim().to_lowercase();
+                                    let from = from_word.trim().to_lowercase();
+                                    if !target.is_empty() && target != from
+                                        && graph_vocab.contains(&target)
+                                    {
+                                        graph.add(&from, &target, 0.88,
+                                            asv_router::hebbian::EdgeKind::Synonym);
+                                        eprintln!("[auto-learn/L1] synonym {} → {} (semantic/cross-lingual)", from, target);
+                                        learned += 1;
+                                    }
+                                }
+                            }
+                            if learned > 0 {
+                                if let Some(ref dir) = state.data_dir {
+                                    let path = format!("{}/{}/_hebbian.json", dir, app_id);
+                                    graph.save(&path).ok();
+                                    eprintln!("[auto-learn/L1] {} synonym edges saved → {}", learned, path);
+                                }
+                            } else {
+                                eprintln!("[auto-learn/L1] no synonym mappings found for {:?}", unknown_words);
+                            }
+                        }
+                    }
+                }
+                Err(e) => eprintln!("[auto-learn/L1] synonym parse error: {} — raw: {}", e, &response[..response.len().min(200)]),
+            }
+        }
+        Err((_, e)) => eprintln!("[auto-learn/L1] synonym LLM call failed: {}", e),
+    }
 }
 
 /// Ask the LLM for morphological variants of newly discovered words and add them to L1.
-/// This closes the gap where L3 learns "ping"→send_message but L1 doesn't know "pinging"→"ping".
+/// This closes the gap where L2 learns "ping"→send_message but L1 doesn't know "pinging"→"ping".
 async fn learn_l1_morphology(
     state: &AppState,
     app_id: &str,

@@ -622,6 +622,15 @@ impl IntentGraph {
         }
     }
 
+    /// Add suppressor edges for a slice of discriminating words → one intent.
+    /// Used by auto-learn Turn 3: targeted suppression of specific words rather
+    /// than blanket activation decay.
+    pub fn add_suppressors(&mut self, words: &[&str], intent: &str, weight: f32) {
+        for word in words {
+            self.add_suppressor(word, intent, weight);
+        }
+    }
+
     /// Hebbian reinforcement from a routing confirmation.
     /// `words` must already be Layer-1 normalized canonical terms.
     ///
