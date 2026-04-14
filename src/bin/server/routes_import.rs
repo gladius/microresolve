@@ -192,6 +192,8 @@ pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)
         if !word_refs.is_empty() {
             ig.learn_phrase(&word_refs, intent_id);
         }
+        // Also seed n-gram patterns from the original phrase (stop words preserved).
+        ig.learn_ngrams_from_phrase(phrase, intent_id, 4, 2);
     }
 
     // Persist
@@ -636,7 +638,7 @@ pub async fn import_apply(
     }).collect();
 
     let l2_words = state.intent_graph.read().unwrap()
-        .get(&app_id).map(|ig| ig.word_intent.len()).unwrap_or(0);
+        .get(&app_id).map(|ig| ig.pattern_intent.len()).unwrap_or(0);
     let l1_edges = state.hebbian.read().unwrap()
         .get(&app_id).map(|h| h.edges.len()).unwrap_or(0);
 
@@ -942,7 +944,7 @@ pub async fn mcp_apply(
     }).collect();
 
     let l2_words = state.intent_graph.read().unwrap()
-        .get(&app_id).map(|ig| ig.word_intent.len()).unwrap_or(0);
+        .get(&app_id).map(|ig| ig.pattern_intent.len()).unwrap_or(0);
     let l1_edges = state.hebbian.read().unwrap()
         .get(&app_id).map(|h| h.edges.len()).unwrap_or(0);
 

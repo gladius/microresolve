@@ -87,13 +87,13 @@ fn compute_idf(ig: &IntentGraph, token: &str) -> f32 {
     // Count total distinct intents in the graph
     let total_intents: usize = {
         let mut all: HashSet<&str> = HashSet::new();
-        for entries in ig.word_intent.values() {
+        for entries in ig.pattern_intent.values() {
             for (id, _) in entries { all.insert(id.as_str()); }
         }
         all.len().max(1)
     };
 
-    match ig.word_intent.get(token) {
+    match ig.pattern_intent.get(token) {
         None => 0.0,
         Some(entries) => {
             let df = entries.len();
@@ -110,7 +110,7 @@ fn score_with_weights(ig: &IntentGraph, token_weights: &HashMap<String, f32>) ->
     // Pre-compute N once
     let total_intents: usize = {
         let mut all: HashSet<&str> = HashSet::new();
-        for entries in ig.word_intent.values() {
+        for entries in ig.pattern_intent.values() {
             for (id, _) in entries { all.insert(id.as_str()); }
         }
         all.len().max(1)
@@ -120,7 +120,7 @@ fn score_with_weights(ig: &IntentGraph, token_weights: &HashMap<String, f32>) ->
 
     for (token, &tw) in token_weights {
         if tw <= 0.0 { continue; }
-        if let Some(entries) = ig.word_intent.get(token.as_str()) {
+        if let Some(entries) = ig.pattern_intent.get(token.as_str()) {
             let idf = (total_intents as f32 / entries.len() as f32).ln().max(0.0);
             for (intent_id, intent_weight) in entries {
                 let intent_weight = *intent_weight;
@@ -174,7 +174,7 @@ fn omp_route(
 
         // Soft-subtract: for each token, reduce its weight proportional to
         // how strongly it's associated with the just-detected intent.
-        if let Some(entries) = ig.word_intent.get(&top_intent) {
+        if let Some(entries) = ig.pattern_intent.get(&top_intent) {
             // Build a lookup: token → weight for this intent
             // (word_intent maps token→[(intent,weight)], we need the reverse)
             let _ = entries; // unused
@@ -183,7 +183,7 @@ fn omp_route(
         // Walk through all tokens in query and reduce weight based on their
         // association with the detected intent.
         for (token, weight) in &mut token_weights {
-            if let Some(entries) = ig.word_intent.get(token.as_str()) {
+            if let Some(entries) = ig.pattern_intent.get(token.as_str()) {
                 for (intent_id, intent_weight) in entries {
                 let intent_weight = *intent_weight;
                     if intent_id == &top_intent {

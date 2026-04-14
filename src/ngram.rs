@@ -126,7 +126,7 @@ pub fn build_for_namespace(
         }
     }
     if let Some(ig) = intent_graph {
-        terms.extend(ig.word_intent.keys().cloned());
+        terms.extend(ig.pattern_intent.keys().cloned());
     }
     NgramIndex::build(terms.into_iter())
 }

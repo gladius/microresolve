@@ -827,6 +827,10 @@ pub async fn apply_review(
                     ig.learn_phrase(&word_refs, intent_id);
                     eprintln!("[auto-learn/L2] missed → learn query tokens {:?} → '{}'", word_refs, intent_id);
                 }
+                // Learn n-gram patterns from the original query (stop words preserved).
+                // Captures phrase-level patterns like "been_waiting", "this_is_ridiculous".
+                ig.learn_ngrams_from_phrase(&normalized, intent_id, 4, 2);
+                eprintln!("[auto-learn/ngram] missed → learn n-grams from query → '{}'", intent_id);
             }
             // Wrong detections: L3 inhibition — correct intent suppresses false positive.
             for wrong in &result.wrong_detections {
@@ -934,7 +938,7 @@ async fn learn_l1_synonyms(
     let graph_vocab: Vec<String> = {
         let ig_map = state.intent_graph.read().unwrap();
         match ig_map.get(app_id) {
-            Some(ig) => ig.word_intent.iter()
+            Some(ig) => ig.pattern_intent.iter()
                 .filter(|(_, acts)| acts.iter().any(|(id, _)| missed_intents.contains(id)))
                 .map(|(w, _)| w.clone())
                 .collect(),
@@ -949,7 +953,7 @@ async fn learn_l1_synonyms(
         let ig_map = state.intent_graph.read().unwrap();
         match ig_map.get(app_id) {
             Some(ig) => query_words.iter()
-                .filter(|&&w| !ig.word_intent.contains_key(w))
+                .filter(|&&w| !ig.pattern_intent.contains_key(w))
                 .copied()
                 .collect(),
             None => query_words.to_vec(),

@@ -145,6 +145,54 @@ pub fn cjk_stop_char_set() -> &'static HashSet<char> {
     &stop_data().cjk_chars
 }
 
+/// Tokenize a query preserving ALL words (no stop word removal).
+///
+/// Used for n-gram pattern matching where stop words like "been", "this", "is"
+/// are essential structural components of learned patterns.
+/// Expands contractions, lowercases, splits on non-alphanumeric, keeps tokens ≥ 2 chars.
+/// CJK characters are extracted individually for character n-gram matching.
+pub fn tokenize_full(text: &str) -> Vec<String> {
+    let text = expand_contractions(text);
+    let lower = text.to_lowercase();
+
+    let mut tokens: Vec<String> = Vec::new();
+
+    for raw_word in lower.split(|c: char| !c.is_alphanumeric() && c != '\'' ) {
+        let word = raw_word.trim_matches('\'');
+        if word.is_empty() { continue; }
+
+        // Split CJK and Latin within the same token
+        let has_cjk = word.chars().any(is_cjk);
+        if has_cjk {
+            // Extract CJK characters individually (for character n-gram generation)
+            for c in word.chars() {
+                if is_cjk(c) {
+                    tokens.push(c.to_string());
+                }
+            }
+        } else if word.len() >= 2 {
+            tokens.push(word.to_string());
+        }
+    }
+
+    tokens
+}
+
+/// Generate skip-bigrams: pairs of tokens within a window, allowing gaps.
+/// For tokens [A, B, C, D] with max_gap=2:
+///   (A,C) gap=1, (A,D) gap=2, (B,D) gap=1
+/// Key format: "token1~token2" (tilde separator distinguishes from contiguous).
+pub fn generate_skip_bigrams(tokens: &[String], max_gap: usize) -> Vec<String> {
+    let mut result = Vec::new();
+    for i in 0..tokens.len() {
+        // j starts at i+2 (gap of 1) up to i+1+max_gap
+        for j in (i + 2)..=(i + 1 + max_gap).min(tokens.len().saturating_sub(1)) {
+            result.push(format!("{}~{}", tokens[i], tokens[j]));
+        }
+    }
+    result
+}
+
 /// Tokenize a query into searchable terms (unigrams + bigrams).
 ///
 /// ```

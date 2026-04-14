@@ -596,10 +596,25 @@ pub struct ConjunctionRule {
 /// One new phrase = immediate weight update — no accumulation needed.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct IntentGraph {
-    /// word → [(intent_id, weight 0.0–1.0)]
+    /// Unified pattern → intent mapping. Patterns include:
+    /// - 1-grams: "vpn", "password" (replaces old word_intent)
+    /// - 2-grams: "been_waiting", "internet_is" (contiguous)
+    /// - 3-grams: "this_is_ridiculous" (contiguous)
+    /// - 4/5-grams: "been_waiting_all_morning" (contiguous)
+    /// - skip-grams: "this~ridiculous" (gap-tolerant, tilde separator)
+    /// - CJK char n-grams: "不能登录" (character-level)
+    ///
     /// Hebbian weights updated asymptotically: w' = w + 0.4*(1-w) per phrase.
+    /// IDF at query time: score += weight * ln(N/df) * length_bonus.
     #[serde(default)]
-    pub word_intent: HashMap<String, Vec<(String, f32)>>,
+    pub pattern_intent: HashMap<String, Vec<(String, f32)>>,
+
+    /// Legacy alias: old serialized data has "word_intent" key.
+    /// On load, merged into pattern_intent. On save, not written.
+    #[serde(default, alias = "word_intent")]
+    #[serde(skip_serializing)]
+    word_intent_legacy: HashMap<String, Vec<(String, f32)>>,
+
     /// Conjunction bonuses — word pairs that together strongly indicate an intent.
     #[serde(default)]
     pub conjunctions: Vec<ConjunctionRule>,
@@ -614,20 +629,82 @@ impl IntentGraph {
         Self::default()
     }
 
-    /// Add a phrase to the intent graph.
+    /// Migrate legacy word_intent data into pattern_intent after deserialization.
+    pub fn migrate_legacy(&mut self) {
+        if !self.word_intent_legacy.is_empty() {
+            for (word, entries) in std::mem::take(&mut self.word_intent_legacy) {
+                let target = self.pattern_intent.entry(word).or_default();
+                for (intent, weight) in entries {
+                    if let Some(e) = target.iter_mut().find(|(id, _)| id == &intent) {
+                        e.1 = e.1.max(weight);
+                    } else {
+                        target.push((intent, weight));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Backward-compatible accessor for code that reads word_intent.
+    /// Returns the unified pattern_intent (which includes 1-grams = old word_intent).
+    pub fn word_intent(&self) -> &HashMap<String, Vec<(String, f32)>> {
+        &self.pattern_intent
+    }
+
+    const PHRASE_RATE: f32 = 0.4;
+
+    /// Learn a single pattern → intent association.
+    /// Pattern can be any key: "vpn" (1-gram), "been_waiting" (2-gram),
+    /// "this~ridiculous" (skip-gram), "不能登录" (CJK).
+    pub fn learn_pattern(&mut self, pattern: &str, intent: &str) {
+        if pattern.is_empty() { return; }
+        let entries = self.pattern_intent.entry(pattern.to_string()).or_default();
+        if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
+            e.1 = (e.1 + Self::PHRASE_RATE * (1.0 - e.1)).min(1.0);
+        } else {
+            entries.push((intent.to_string(), Self::PHRASE_RATE));
+        }
+    }
+
+    /// Learn a phrase as 1-grams (backward compatible with old learn_phrase).
     /// `words` must already be L1-normalized canonical terms (stop words removed).
-    ///
-    /// Asymptotic Hebbian update: w' = w + 0.4*(1-w). One phrase = immediate
-    /// weight update. IDF at query time discounts words shared across many intents.
     pub fn learn_phrase(&mut self, words: &[&str], intent: &str) {
-        const PHRASE_RATE: f32 = 0.4;
         for word in words {
-            if word.is_empty() { continue; }
-            let entries = self.word_intent.entry(word.to_string()).or_default();
-            if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
-                e.1 = (e.1 + PHRASE_RATE * (1.0 - e.1)).min(1.0);
-            } else {
-                entries.push((intent.to_string(), PHRASE_RATE));
+            self.learn_pattern(word, intent);
+        }
+    }
+
+    /// Learn n-gram patterns from a phrase using the full tokenizer (stop words preserved).
+    /// Generates contiguous n-grams (2..=max_n) and skip-bigrams (max_gap).
+    /// Also handles CJK character n-grams automatically.
+    pub fn learn_ngrams_from_phrase(&mut self, phrase: &str, intent: &str, max_n: usize, max_gap: usize) {
+        let has_cjk = phrase.chars().any(crate::tokenizer::is_cjk);
+
+        if has_cjk {
+            // CJK: character-level n-grams
+            let chars: Vec<char> = phrase.chars()
+                .filter(|c| crate::tokenizer::is_cjk(*c))
+                .collect();
+            for n in 2..=max_n.min(chars.len()) {
+                for w in chars.windows(n) {
+                    self.learn_pattern(&w.iter().collect::<String>(), intent);
+                }
+            }
+            // CJK skip-bigrams
+            let char_strs: Vec<String> = chars.iter().map(|c| c.to_string()).collect();
+            for sg in crate::tokenizer::generate_skip_bigrams(&char_strs, max_gap) {
+                self.learn_pattern(&sg, intent);
+            }
+        } else {
+            // Latin: word-level n-grams with stop words preserved
+            let tokens = crate::tokenizer::tokenize_full(phrase);
+            for n in 2..=max_n.min(tokens.len()) {
+                for w in tokens.windows(n) {
+                    self.learn_pattern(&w.join("_"), intent);
+                }
+            }
+            for sg in crate::tokenizer::generate_skip_bigrams(&tokens, max_gap) {
+                self.learn_pattern(&sg, intent);
             }
         }
     }
@@ -652,7 +729,7 @@ impl IntentGraph {
     /// New edges are only created for positive delta.
     pub fn reinforce(&mut self, words: &[&str], intent: &str, delta: f32) {
         for word in words {
-            let entries = self.word_intent.entry(word.to_string()).or_default();
+            let entries = self.pattern_intent.entry(word.to_string()).or_default();
             if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
                 if delta >= 0.0 {
                     // Asymptotic approach to 1.0
@@ -706,16 +783,16 @@ impl IntentGraph {
     /// "the user mentioned this but said no/don't". Example:
     ///   "I don't want to cancel" → cancel_subscription (negated: true)
     ///   "cancel but don't ship"  → cancel_subscription (negated: false), ship_order (negated: true)
-    pub fn score_normalized(&self, normalized: &str) -> (Vec<(String, f32)>, bool) {
-        // CJK negation pre-pass: detect leading negation characters (不/没/别/未).
-        // These immediately precede the negated word in unsegmented CJK text.
-        // Strategy: strip them before tokenizing so the base bigrams still score,
-        // and record their presence as the has_negation signal.
-        // Latin negation is handled by the tokenizer's NegEx (produces not_X tokens).
+    /// Score all intents for a query, using both 1-gram and n-gram patterns.
+    ///
+    /// `exclude`: intents to skip (for re-pass: already confirmed in prior rounds).
+    ///
+    /// Returns `(scored_intents, has_negation)`.
+    pub fn score_normalized_ex(&self, normalized: &str, exclude: &std::collections::HashSet<String>) -> (Vec<(String, f32)>, bool) {
+        // CJK negation pre-pass
         const CJK_NEG: &[char] = &['不', '没', '别', '未'];
         let cjk_negated = normalized.chars().any(|c| CJK_NEG.contains(&c));
         let query_for_tokenize: std::borrow::Cow<str> = if cjk_negated {
-            // Replace negation markers with a space so the remaining bigrams tokenize cleanly.
             std::borrow::Cow::Owned(normalized.chars()
                 .map(|c| if CJK_NEG.contains(&c) { ' ' } else { c })
                 .collect())
@@ -723,46 +800,108 @@ impl IntentGraph {
             std::borrow::Cow::Borrowed(normalized)
         };
 
-        let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
+        // Pre-compute total distinct intents for IDF
+        let total_intents: f32 = {
+            let mut all: std::collections::HashSet<&str> = std::collections::HashSet::new();
+            for entries in self.pattern_intent.values() {
+                for (id, _) in entries { all.insert(id.as_str()); }
+            }
+            all.len().max(1) as f32
+        };
 
         let mut scores: HashMap<String, f32> = HashMap::new();
         let mut has_negation = cjk_negated;
 
-        // Pre-compute base tokens (not_X → X) for conjunction matching
+        // ── Pass 1: 1-gram scoring (ASV tokenizer, stop words removed) ────
+        let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
+
         let all_bases: std::collections::HashSet<&str> = tokens.iter()
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
 
-        {
-            // ── Term-weight model: IDF-weighted spreading activation ──────────
-            // IDF boosts words unique to one intent; discounts words shared across many.
-            // Formula: score += weight * ln(N / df) where df = intents containing this word.
-            // Equivalent to InvertedIndex.search() — immediate response to new phrases.
-            let total_intents: f32 = {
-                let mut all: std::collections::HashSet<&str> = std::collections::HashSet::new();
-                for entries in self.word_intent.values() {
-                    for (id, _) in entries { all.insert(id.as_str()); }
+        for token in &tokens {
+            let is_negated = token.starts_with("not_");
+            let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
+            if is_negated { has_negation = true; }
+            if let Some(activations) = self.pattern_intent.get(base) {
+                let idf = (total_intents / activations.len() as f32).ln().max(0.0);
+                for (intent, weight) in activations {
+                    if exclude.contains(intent) { continue; }
+                    let delta = weight * idf;
+                    *scores.entry(intent.clone()).or_insert(0.0) +=
+                        if is_negated { -delta } else { delta };
                 }
-                all.len().max(1) as f32
-            };
-            for token in &tokens {
-                let is_negated = token.starts_with("not_");
-                let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
-                if is_negated { has_negation = true; }
-                if let Some(activations) = self.word_intent.get(base) {
+            }
+        }
+
+        // ── Pass 2: n-gram + skip-gram scoring (full tokenizer, stop words preserved) ──
+        let has_cjk = normalized.chars().any(crate::tokenizer::is_cjk);
+        let full_tokens = crate::tokenizer::tokenize_full(normalized);
+
+        // Contiguous n-grams (2..=4 for Latin, 2..=5 for CJK chars)
+        if has_cjk {
+            let chars: Vec<char> = normalized.chars()
+                .filter(|c| crate::tokenizer::is_cjk(*c))
+                .collect();
+            for n in 2..=5.min(chars.len()) {
+                let len_bonus = 1.0 + 0.5 * (n as f32 - 1.0);
+                for w in chars.windows(n) {
+                    let key: String = w.iter().collect();
+                    if let Some(activations) = self.pattern_intent.get(&key) {
+                        let idf = (total_intents / activations.len() as f32).ln().max(0.0);
+                        for (intent, weight) in activations {
+                            if exclude.contains(intent) { continue; }
+                            *scores.entry(intent.clone()).or_insert(0.0) +=
+                                weight * idf * len_bonus;
+                        }
+                    }
+                }
+            }
+            // CJK skip-bigrams
+            let char_strs: Vec<String> = chars.iter().map(|c| c.to_string()).collect();
+            for sg in crate::tokenizer::generate_skip_bigrams(&char_strs, 2) {
+                if let Some(activations) = self.pattern_intent.get(&sg) {
                     let idf = (total_intents / activations.len() as f32).ln().max(0.0);
                     for (intent, weight) in activations {
-                        let delta = weight * idf;
-                        *scores.entry(intent.clone()).or_insert(0.0) +=
-                            if is_negated { -delta } else { delta };
+                        if exclude.contains(intent) { continue; }
+                        *scores.entry(intent.clone()).or_insert(0.0) += weight * idf * 1.1;
                     }
                 }
             }
         }
 
-        // Conjunction bonuses apply to both models
+        // Latin word n-grams (contiguous)
+        for n in 2..=4.min(full_tokens.len()) {
+            let len_bonus = 1.0 + 0.5 * (n as f32 - 1.0);
+            for w in full_tokens.windows(n) {
+                let key = w.join("_");
+                if let Some(activations) = self.pattern_intent.get(&key) {
+                    let idf = (total_intents / activations.len() as f32).ln().max(0.0);
+                    for (intent, weight) in activations {
+                        if exclude.contains(intent) { continue; }
+                        *scores.entry(intent.clone()).or_insert(0.0) +=
+                            weight * idf * len_bonus;
+                    }
+                }
+            }
+        }
+
+        // Latin skip-bigrams (gap-tolerant)
+        for sg in crate::tokenizer::generate_skip_bigrams(&full_tokens, 2) {
+            if let Some(activations) = self.pattern_intent.get(&sg) {
+                let idf = (total_intents / activations.len() as f32).ln().max(0.0);
+                for (intent, weight) in activations {
+                    if exclude.contains(intent) { continue; }
+                    *scores.entry(intent.clone()).or_insert(0.0) += weight * idf * 1.2;
+                }
+            }
+        }
+
+        // ── Conjunction bonuses ───────────────────────────────────────────────
         for rule in &self.conjunctions {
-            if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
+            if !exclude.contains(&rule.intent)
+                && rule.words.iter().all(|w| all_bases.contains(w.as_str()))
+            {
                 *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
             }
         }
@@ -775,13 +914,18 @@ impl IntentGraph {
         (result, has_negation)
     }
 
+    /// Backward-compatible: score without exclusions.
+    pub fn score_normalized(&self, normalized: &str) -> (Vec<(String, f32)>, bool) {
+        self.score_normalized_ex(normalized, &std::collections::HashSet::new())
+    }
+
     /// Convenience: score with L1 preprocessing included.
     pub fn score(&self, layer1: &LexicalGraph, query: &str) -> (Vec<(String, f32)>, bool) {
         let preprocessed = layer1.preprocess(query);
         self.score_normalized(&preprocessed.expanded)
     }
 
-    /// Multi-intent score: returns all intents above threshold within gap of the top.
+    /// Multi-intent score with L1 preprocessing.
     pub fn score_multi(
         &self,
         layer1: &LexicalGraph,
@@ -789,30 +933,59 @@ impl IntentGraph {
         threshold: f32,
         gap: f32,
     ) -> (Vec<(String, f32)>, bool) {
-        let (all, neg) = self.score(layer1, query);
-        (self.apply_multi_filter(all, threshold, gap), neg)
+        let preprocessed = layer1.preprocess(query);
+        self.score_multi_normalized(&preprocessed.expanded, threshold, gap)
     }
 
-    /// Multi-intent score on an already L1-normalized query string.
+    /// Multi-intent scoring with re-pass architecture.
+    ///
+    /// Round 1: Score all intents, apply gap filter → confirm top group.
+    /// Round 2+: Exclude confirmed intents, re-score, apply gap filter.
+    ///           Gate: round N+1 top must be ≥ gate_ratio × round 1 top.
+    ///           Stops when gate fails or max_rounds reached.
+    ///
+    /// This replaces OMP: same pipeline re-run with exclusions, no token manipulation.
     pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, gap: f32) -> (Vec<(String, f32)>, bool) {
-        let (all, neg) = self.score_normalized(normalized);
-        let filtered = self.apply_multi_filter(all, threshold, gap);
-        // L3: apply lateral inhibition to remove learned false-positive pairs
-        let inhibited = self.apply_inhibition(filtered);
-        (inhibited, neg)
-    }
+        const GATE_RATIO: f32 = 0.35;
+        const MAX_ROUNDS: usize = 4;
 
-    fn apply_multi_filter(&self, all: Vec<(String, f32)>, threshold: f32, gap: f32) -> Vec<(String, f32)> {
-        if all.is_empty() { return all; }
-        let top = all[0].1;
-        if top < threshold { return vec![]; }
-        // Include intent if it meets threshold AND within absolute gap of top.
-        // A secondary intent must score within `gap` of the top to be considered genuine.
-        // The 30% ratio rule was removed: it caused massive over-detection in long/chatty
-        // queries where many intents accumulate score from incidental vocabulary.
-        all.into_iter()
-            .filter(|(_, s)| *s >= threshold && top - *s <= gap)
-            .collect()
+        let mut confirmed: Vec<(String, f32)> = Vec::new();
+        let mut excluded: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut original_top: f32 = 0.0;
+        let mut has_negation = false;
+
+        for round in 0..MAX_ROUNDS {
+            let (all, neg) = self.score_normalized_ex(normalized, &excluded);
+            if round == 0 { has_negation = neg; }
+            if all.is_empty() { break; }
+
+            let round_top = all[0].1;
+
+            // Gate: is this round's signal strong enough?
+            if round == 0 {
+                original_top = round_top;
+            } else if round_top < original_top * GATE_RATIO {
+                break;
+            }
+
+            if round_top < threshold { break; }
+
+            // Gap filter from this round's top
+            let passed: Vec<(String, f32)> = all.into_iter()
+                .filter(|(_, s)| *s >= threshold && round_top - *s <= gap)
+                .collect();
+
+            if passed.is_empty() { break; }
+
+            for (id, score) in &passed {
+                confirmed.push((id.clone(), *score));
+                excluded.insert(id.clone());
+            }
+        }
+
+        // L3: apply lateral inhibition to the combined result
+        let inhibited = self.apply_inhibition(confirmed);
+        (inhibited, has_negation)
     }
 
     pub fn save(&self, path: &str) -> std::io::Result<()> {
@@ -823,14 +996,16 @@ impl IntentGraph {
 
     pub fn load(path: &str) -> std::io::Result<Self> {
         let json = std::fs::read_to_string(path)?;
-        serde_json::from_str(&json)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        let mut ig: Self = serde_json::from_str(&json)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        ig.migrate_legacy();
+        Ok(ig)
     }
 
-    /// Stats: (unique_words, activation_edges, conjunctions).
+    /// Stats: (unique_patterns, activation_edges, conjunctions).
     pub fn stats(&self) -> (usize, usize, usize) {
-        let activation_edges: usize = self.word_intent.values().map(|v| v.len()).sum();
-        (self.word_intent.len(), activation_edges, self.conjunctions.len())
+        let activation_edges: usize = self.pattern_intent.values().map(|v| v.len()).sum();
+        (self.pattern_intent.len(), activation_edges, self.conjunctions.len())
     }
 
     // ── L3 Inhibition layer ────────────────────────────────────────────────────
