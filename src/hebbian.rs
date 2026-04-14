@@ -714,10 +714,12 @@ impl IntentGraph {
         }
     }
 
-    /// IDF-weighted 1-gram scoring with exclusion support for re-pass.
+    /// IDF-weighted 1-gram scoring.
     ///
-    /// `exclude`: intents to skip (already confirmed in prior re-pass rounds).
-    pub fn score_normalized_ex(&self, normalized: &str, exclude: &std::collections::HashSet<String>) -> (Vec<(String, f32)>, bool) {
+    /// For each query token, accumulates weight × IDF across all matching intents.
+    /// CJK: character bigrams from the tokenizer are treated as words.
+    /// Negation: "not_X" tokens subtract from intent scores and set has_negation flag.
+    pub fn score_normalized(&self, normalized: &str) -> (Vec<(String, f32)>, bool) {
         // CJK negation pre-pass
         const CJK_NEG: &[char] = &['不', '没', '别', '未'];
         let cjk_negated = normalized.chars().any(|c| CJK_NEG.contains(&c));
@@ -746,7 +748,6 @@ impl IntentGraph {
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
 
-        // 1-gram IDF scoring
         for token in &tokens {
             let is_negated = token.starts_with("not_");
             let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
@@ -754,7 +755,6 @@ impl IntentGraph {
             if let Some(activations) = self.word_intent.get(base) {
                 let idf = (total_intents / activations.len() as f32).ln().max(0.0);
                 for (intent, weight) in activations {
-                    if exclude.contains(intent) { continue; }
                     let delta = weight * idf;
                     *scores.entry(intent.clone()).or_insert(0.0) +=
                         if is_negated { -delta } else { delta };
@@ -764,9 +764,7 @@ impl IntentGraph {
 
         // Conjunction bonuses
         for rule in &self.conjunctions {
-            if !exclude.contains(&rule.intent)
-                && rule.words.iter().all(|w| all_bases.contains(w.as_str()))
-            {
+            if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
                 *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
             }
         }
@@ -777,11 +775,6 @@ impl IntentGraph {
             .collect();
         result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         (result, has_negation)
-    }
-
-    /// Score without exclusions.
-    pub fn score_normalized(&self, normalized: &str) -> (Vec<(String, f32)>, bool) {
-        self.score_normalized_ex(normalized, &std::collections::HashSet::new())
     }
 
     /// Convenience: score with L1 preprocessing included.
@@ -802,70 +795,26 @@ impl IntentGraph {
         self.score_multi_normalized(&preprocessed.expanded, threshold, gap)
     }
 
-    /// Multi-intent scoring with score-distribution-gated re-pass.
+    /// Multi-intent scoring: ratio threshold + L3 inhibition.
     ///
-    /// Round 1 always runs: Score all intents, apply gap filter → confirm top group.
-    /// Round 2+ runs ONLY if round 1 detected a strong runner-up just below the gap
-    /// (the "near miss" signal). This is language-agnostic — no coordinator word lists.
-    ///
-    /// Near-miss signal: if the highest EXCLUDED intent scores ≥ gap_trigger_ratio
-    /// of the top score, there's likely a second intent worth extracting.
-    ///
-    /// Gate: round N+1 top must be ≥ gate_ratio × round 1 top.
-    pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, gap: f32) -> (Vec<(String, f32)>, bool) {
-        const GATE_RATIO: f32 = 0.50;
-        const MAX_ROUNDS: usize = 3;
-        // If the best non-confirmed intent scores ≥ 40% of the top, try re-pass.
-        const GAP_TRIGGER_RATIO: f32 = 0.40;
+    /// Returns all intents scoring ≥ threshold AND ≥ MULTI_RATIO of the top score.
+    /// With IDF, each intent's score is independent — no re-pass needed.
+    pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, _gap: f32) -> (Vec<(String, f32)>, bool) {
+        /// Minimum ratio of top score to be included as a secondary intent.
+        const MULTI_RATIO: f32 = 0.50;
 
-        let mut confirmed: Vec<(String, f32)> = Vec::new();
-        let mut excluded: std::collections::HashSet<String> = std::collections::HashSet::new();
-        let mut original_top: f32 = 0.0;
-        let mut has_negation = false;
+        let (all, has_negation) = self.score_normalized(normalized);
+        if all.is_empty() { return (all, has_negation); }
 
-        for round in 0..MAX_ROUNDS {
-            let (all, neg) = self.score_normalized_ex(normalized, &excluded);
-            if round == 0 { has_negation = neg; }
-            if all.is_empty() { break; }
+        let top = all[0].1;
+        if top < threshold { return (vec![], has_negation); }
 
-            let round_top = all[0].1;
+        let filtered: Vec<(String, f32)> = all.into_iter()
+            .filter(|(_, s)| *s >= threshold && *s >= top * MULTI_RATIO)
+            .collect();
 
-            // Gate: is this round's signal strong enough?
-            if round == 0 {
-                original_top = round_top;
-            } else if round_top < original_top * GATE_RATIO {
-                break;
-            }
-
-            if round_top < threshold { break; }
-
-            // Gap filter from this round's top
-            let passed: Vec<(String, f32)> = all.iter()
-                .filter(|(_, s)| *s >= threshold && round_top - *s <= gap)
-                .cloned()
-                .collect();
-
-            if passed.is_empty() { break; }
-
-            for (id, score) in &passed {
-                confirmed.push((id.clone(), *score));
-                excluded.insert(id.clone());
-            }
-
-            // Near-miss check: is the best non-confirmed intent strong enough
-            // to justify another round? If not, stop — single intent query.
-            let best_remaining = all.iter()
-                .find(|(id, _)| !excluded.contains(id))
-                .map(|(_, s)| *s)
-                .unwrap_or(0.0);
-
-            if best_remaining < original_top * GAP_TRIGGER_RATIO {
-                break;  // No strong runner-up → single intent, stop re-passing
-            }
-        }
-
-        // L3: apply lateral inhibition to the combined result
-        let inhibited = self.apply_inhibition(confirmed);
+        // L3: apply lateral inhibition to remove learned false-positive pairs
+        let inhibited = self.apply_inhibition(filtered);
         (inhibited, has_negation)
     }
 
