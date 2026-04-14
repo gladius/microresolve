@@ -157,6 +157,9 @@ async fn call_llm_with_model(
 
     let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
 
+    // Gemini thinking models need higher output budget (thinking tokens count against limit)
+    let effective_max = if provider == "gemini" { max_tokens.max(1024) } else { max_tokens };
+
     let resp = match provider.as_str() {
         "gemini" => {
             // Google Gemini API: key in query param, different body format
@@ -167,7 +170,7 @@ async fn call_llm_with_model(
             let body = serde_json::json!({
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {
-                    "maxOutputTokens": max_tokens,
+                    "maxOutputTokens": effective_max,
                     "temperature": 0.3,
                 }
             });
