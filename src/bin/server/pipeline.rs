@@ -137,7 +137,11 @@ pub async fn call_llm(
     prompt: &str,
     max_tokens: u32,
 ) -> Result<String, (StatusCode, String)> {
-    let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
+    let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
+    let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| match provider.as_str() {
+        "gemini" => "gemini-2.5-flash".to_string(),
+        _ => "claude-haiku-4-5-20251001".to_string(),
+    });
     call_llm_with_model(state, prompt, max_tokens, &model).await
 }
 
@@ -152,45 +156,62 @@ async fn call_llm_with_model(
     })?;
 
     let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
-    let url = std::env::var("LLM_API_URL").unwrap_or_else(|_| {
-        if provider == "anthropic" {
-            "https://api.anthropic.com/v1/messages".to_string()
-        } else {
-            "https://api.openai.com/v1/chat/completions".to_string()
+
+    let resp = match provider.as_str() {
+        "gemini" => {
+            // Google Gemini API: key in query param, different body format
+            let url = format!(
+                "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
+                model, key
+            );
+            let body = serde_json::json!({
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "maxOutputTokens": max_tokens,
+                    "temperature": 0.3,
+                }
+            });
+            state.http
+                .post(&url)
+                .header("content-type", "application/json")
+                .json(&body)
+                .send()
+                .await
         }
-    });
-
-    let messages = serde_json::json!([{"role": "user", "content": prompt}]);
-
-    let resp = if provider == "anthropic" {
-        // Anthropic Messages API
-        let body = serde_json::json!({
-            "model": model,
-            "max_tokens": max_tokens,
-            "messages": messages,
-        });
-        state.http
-            .post(&url)
-            .header("x-api-key", key)
-            .header("anthropic-version", "2023-06-01")
-            .header("content-type", "application/json")
-            .json(&body)
-            .send()
-            .await
-    } else {
-        // OpenAI Chat Completions format (works with OpenAI, Ollama, Groq, etc.)
-        let body = serde_json::json!({
-            "model": model,
-            "max_tokens": max_tokens,
-            "messages": messages,
-        });
-        state.http
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", key))
-            .header("content-type", "application/json")
-            .json(&body)
-            .send()
-            .await
+        "anthropic" => {
+            let url = std::env::var("LLM_API_URL")
+                .unwrap_or_else(|_| "https://api.anthropic.com/v1/messages".to_string());
+            let body = serde_json::json!({
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": [{"role": "user", "content": prompt}],
+            });
+            state.http
+                .post(&url)
+                .header("x-api-key", key)
+                .header("anthropic-version", "2023-06-01")
+                .header("content-type", "application/json")
+                .json(&body)
+                .send()
+                .await
+        }
+        _ => {
+            // OpenAI-compatible (OpenAI, Ollama, Groq, DeepSeek, etc.)
+            let url = std::env::var("LLM_API_URL")
+                .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
+            let body = serde_json::json!({
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": [{"role": "user", "content": prompt}],
+            });
+            state.http
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", key))
+                .header("content-type", "application/json")
+                .json(&body)
+                .send()
+                .await
+        }
     }.map_err(|e| (StatusCode::BAD_GATEWAY, format!("LLM request failed: {}", e)))?;
 
     if !resp.status().is_success() {
@@ -202,17 +223,30 @@ async fn call_llm_with_model(
     let data: serde_json::Value = resp.json().await
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Bad response: {}", e)))?;
 
-    // Extract text: Anthropic uses content[0].text, OpenAI uses choices[0].message.content
-    if provider == "anthropic" {
-        data["content"][0]["text"]
-            .as_str()
-            .map(|s| s.trim().to_string())
-            .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
-    } else {
-        data["choices"][0]["message"]["content"]
-            .as_str()
-            .map(|s| s.trim().to_string())
-            .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
+    // Extract text based on provider response format
+    match provider.as_str() {
+        "gemini" => {
+            // Gemini: candidates[0].content.parts[0].text
+            data["candidates"][0]["content"]["parts"][0]["text"]
+                .as_str()
+                .map(|s| s.trim().to_string())
+                .ok_or_else(|| {
+                    let raw = serde_json::to_string(&data).unwrap_or_default();
+                    (StatusCode::BAD_GATEWAY, format!("Invalid JSON from LLM: {}", &raw[..raw.len().min(200)]))
+                })
+        }
+        "anthropic" => {
+            data["content"][0]["text"]
+                .as_str()
+                .map(|s| s.trim().to_string())
+                .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
+        }
+        _ => {
+            data["choices"][0]["message"]["content"]
+                .as_str()
+                .map(|s| s.trim().to_string())
+                .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
+        }
     }
 }
 

@@ -217,11 +217,15 @@ async fn health() -> &'static str {
 async fn llm_status(State(state): State<AppState>) -> Json<serde_json::Value> {
     let configured = state.llm_key.is_some();
     let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
-    let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
-    let url = std::env::var("LLM_API_URL").unwrap_or_else(|_| {
-        if provider == "anthropic" { "https://api.anthropic.com/v1/messages".to_string() }
-        else { "https://api.openai.com/v1/chat/completions".to_string() }
+    let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| match provider.as_str() {
+        "gemini" => "gemini-2.5-flash".to_string(),
+        _ => "claude-haiku-4-5-20251001".to_string(),
     });
+    let url = match provider.as_str() {
+        "gemini" => format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model),
+        "anthropic" => std::env::var("LLM_API_URL").unwrap_or_else(|_| "https://api.anthropic.com/v1/messages".to_string()),
+        _ => std::env::var("LLM_API_URL").unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string()),
+    };
     Json(serde_json::json!({
         "configured": configured,
         "provider": provider,
