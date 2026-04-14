@@ -1,150 +1,134 @@
-# ASV Research Findings — N-gram Architecture (2026-04-14)
+# ASV Research Findings — N-gram Pattern Engine (2026-04-14)
 
 ## Core Discovery
 
-**LLM semantic understanding can be distilled into structural n-gram patterns.**
+LLM semantic understanding can be distilled into structural n-gram patterns.
+In a constrained domain, phrase-level patterns ("been_waiting", "this_is_ridiculous")
+capture intent meaning that individual words cannot. These patterns are finite,
+learnable, and the system converges with LLM-supervised corrections.
 
-In a constrained domain (24 IT helpdesk intents), phrase-level patterns like "been_waiting",
-"this_is_ridiculous", "so_frustrated" capture intent meaning that individual words cannot.
-These patterns are finite (~5000 per domain), learnable, and the system converges with
-enough LLM-supervised corrections.
-
-## Experiment Results Summary
-
-| Version | Architecture | Total Accuracy | Key Finding |
-|---------|-------------|:-:|---|
-| v1 | N-grams (stop words removed) | 41% | Stop word removal destroys patterns |
-| v2 | N-grams (stop words preserved) | **70%** | 3x improvement, zero precision loss |
-| v3 | N-grams + OMP | 53% | OMP finds multi-intent but over-detects |
-| v4 | Skip-grams + OMP | 40% | Skip-grams help variation, OMP still breaks precision |
-| **v5** | **N-grams + skip-grams + re-pass** | **80%** | **Best: +7 cases, 100% precision** |
-
-### v5 Results by Category
-
-| Category | Baseline | Re-pass | Δ |
-|----------|:---:|:---:|:---:|
-| Multi-intent | 0% | **60%** | +3 |
-| Single + variation | 40% | **100%** | +3 |
-| Precision | 100% | **100%** | 0 |
-| CJK single | 100% | **100%** | 0 |
-| CJK multi | 0% | **33%** | +1 |
-
-## Architecture Decision: Replace Inverted Index + IDF
-
-### Why drop the unigram inverted index
-
-The original L2 (`word_intent`) is a unigram inverted index with IDF weighting:
-```
-score(I, Q) = Σ_{token∈Q} weight(token→I) × IDF(token)
-```
-
-**This is flawed because:**
-1. IDF penalizes words shared across intents → secondary intents score low → false negatives
-2. Single tokens lack discriminative power → incidental overlap → false positives
-3. Emotional/contextual patterns ("been waiting") are invisible to unigram scoring
-
-**N-gram patterns solve all three:**
-1. Phrase-level patterns ("internet_is_down") are highly discriminative (high IDF naturally)
-2. Longer patterns have fewer false matches
-3. Emotional patterns ("so_frustrated", "this_is_ridiculous") are captured as learned n-grams
-
-### Unified pattern_intent structure
-
-A single token ("vpn") is just a 1-gram. No need for separate structures.
+## Architecture
 
 ```
-Old:   word_intent: HashMap<token, Vec<(intent, weight)>>     ← unigrams only
-       phrase_intent: HashMap<ngram, Vec<(intent, weight)>>    ← n-grams only
-
-New:   pattern_intent: HashMap<pattern, Vec<(intent, weight)>> ← ALL patterns
-       "vpn"                    → 1-gram (direct vocabulary match)
-       "been_waiting"           → 2-gram (contiguous phrase)
-       "this_is_ridiculous"     → 3-gram (contiguous phrase)
-       "this~ridiculous"        → skip-gram (gap-tolerant)
-       "不能登录"               → CJK 4-char pattern
+L0:  NgramIndex — character trigram typo correction (unchanged)
+L1:  LexicalGraph — morphology + synonym expansion (unchanged)
+L2:  IntentGraph — unified pattern_intent scoring (REPLACED inverted index)
+     ├─ 1-grams: scored via ASV tokenizer (stop words removed, IDF-weighted)
+     ├─ N-grams: scored via full tokenizer (stop words preserved, IDF × length bonus)
+     ├─ Skip-grams: gap-tolerant patterns (tilde separator)
+     ├─ CJK: character-level n-grams (2-5 chars)
+     └─ Re-pass: exclude confirmed intents, re-score, gate at 50% of original top
+L3:  Anti-Hebbian inhibition (unchanged)
 ```
 
-All patterns scored the same way with IDF. Longer patterns naturally get higher IDF.
+Auto-learn: LLM-generated phrases → 1-grams + n-grams + skip-grams into pattern_intent.
+Raw query tokens are NOT learned (caused cross-domain contamination).
 
-## Final Architecture
+## Experiment History (v1–v5)
 
-```
-Router struct: phrase/intent registry (unchanged, stores raw training data)
-     │ seeds into ↓
+| Version | Key Change | Accuracy | Finding |
+|---------|-----------|:--------:|---------|
+| v1 | N-grams with ASV tokenizer | 41% | Stop word removal destroys patterns |
+| v2 | Stop words preserved | **70%** | 3x improvement, zero precision loss |
+| v3 | + OMP | 53% | OMP over-detects, precision drops |
+| v4 | + Skip-grams + OMP | 40% | Skip-grams good, OMP still breaks precision |
+| v5 | + Re-pass (user's idea) | **80%** | Best: multi-intent works, precision holds |
 
-L0:  NgramIndex: character trigram typo correction (unchanged)
+## Server Benchmark Results
 
-L1:  LexicalGraph: morphology normalization + synonym expansion (unchanged)
-     - "canceling" → "cancel" (morphological)
-     - "sub" → "subscription" (abbreviation)
-     - "terminate" → + "cancel" (synonym injection)
+### English (50 queries, 24 intents, 5 domains, IT helpdesk)
 
-L2:  IntentGraph (REDESIGNED)
-     - pattern_intent: unified 1-gram through 5-gram + skip-gram scoring
-     - Scoring: score(I,Q) = Σ pattern_weight × IDF × length_bonus
-     - Re-pass: exclude confirmed intents, re-score, gate at 35% of original top
-     - Replaces both old word_intent AND the gap-filter-only multi-intent approach
+| Metric | Old (inverted index) | New (pattern engine) |
+|--------|:---:|:---:|
+| Baseline (seed only) | 12.2% | **52%** |
+| Post auto-learn | 12.2% (zero effect) | **56%** |
+| Transfer (cross-batch) | 0% | **47.5%** |
 
-L3:  Anti-Hebbian inhibition (unchanged, part of IntentGraph)
-```
+Key fix: removing raw query 1-gram learning eliminated cross-domain contamination.
+Only LLM-generated phrases feed the pattern graph.
 
-## Tokenization Change
+### CJK (19 queries, 5 intents, Chinese + Japanese + Korean)
 
-**Two tokenization paths (both used during scoring):**
+| Language | Exact Pass |
+|----------|:---:|
+| Chinese | 6/7 (86%) |
+| Japanese | 5/5 (100%) |
+| Korean | 5/5 (100%) |
+| Mixed (CJK+English) | 2/2 (100%) |
+| **Total** | **18/19 (95%)** |
 
-1. **ASV tokenizer** (existing): stop words removed, negation handling, CJK bigrams
-   → Used for: L0 typo correction, L1 normalization, L3 inhibition matching
-   
-2. **Full tokenizer** (NEW): stop words PRESERVED, same contraction expansion
-   → Used for: n-gram pattern generation and matching in L2
-   → Essential: "been", "this", "is" must be present for patterns to fire
+## Test Validity Assessment
 
-## Auto-Learn Integration
+### VALID tests (genuine signal)
 
-~10 lines added to `apply_review()` in `pipeline.rs`:
+| Test | Why valid |
+|------|-----------|
+| English transfer (47.5%) | Batches are different personas with different vocabulary; learning from batch 1 tested against unseen batch 2-5 queries |
+| Zero contamination | Simple seed-phrase queries stay clean after heavy learning — tests a different property than accuracy |
+| Re-pass multi-intent | The 2 exact-pass multi-intent queries use vocabulary not in seed phrases |
 
-```rust
-// After existing unigram learning:
-// ig.learn_phrase(&word_refs, intent_id);
+### BIASED tests (results are inflated)
 
-// NEW: learn n-gram patterns from the original query
-let full_tokens = tokenize_full(&normalized);
-for n in 2..=4.min(full_tokens.len()) {
-    for window in full_tokens.windows(n) {
-        ig.learn_pattern(&window.join("_"), intent_id);
-    }
-}
-// Also learn skip-bigrams (gap-tolerant)
-for skip in generate_skip_bigrams(&full_tokens, 2) {
-    ig.learn_pattern(&skip, intent_id);
-}
-```
+| Test | Bias | Real-world impact |
+|------|------|-------------------|
+| CJK 95% | Many test queries ARE seed phrases ("重置密码" is literally a seed). Tests memorization, not generalization | Real CJK accuracy is unknown — need queries from actual users, not the developer |
+| CJK Japanese/Korean 100% | Only 5 queries each, all very close to seed vocabulary. Not statistically significant | Could drop to 60% with natural variation |
+| English baseline 52% | The frozen benchmark was generated by the SAME type of LLM that generates learning phrases — shared vocabulary distribution | Real user queries would use different vocabulary patterns |
+| Post-learn 56% | Evaluator tests within-batch (learn from batch, retest same batch). Partially memorization | Transfer score (47.5%) is the honest number |
+| Multi-intent 2/2 | Only 2 test cases. Statistically meaningless | Need 20+ multi-intent queries to validate |
+| Mixed language 2/2 | Same — 2 cases is anecdotal | Need 20+ mixed queries |
 
-No LLM prompt changes needed for v1.
+### Tests NOT done (blind spots)
 
-**Future optimization**: Change LLM prompt from "generate a new phrase" to "which spans of
-the original query express this intent?" — extracts more precise n-gram patterns.
+| Missing test | Risk |
+|-------------|------|
+| Scale (100+ intents) | N-gram collisions increase with more intents — unknown accuracy at scale |
+| Real user queries | LLM-generated queries are cleaner than real support tickets |
+| Adversarial (gibberish, injection) | Unknown behavior on malformed input |
+| Off-domain queries | What happens when query doesn't match ANY intent? |
+| Long conversations (10+ turns) | Context drift, vocabulary accumulation effects unknown |
+| Concurrent learning | Multiple users learning simultaneously — race conditions? |
+| Cold start (zero learning) | 52% baseline is with 5 seed phrases per intent. What about 1-2 phrases? |
+| Cross-namespace transfer | Train in IT helpdesk, test in e-commerce — true domain transfer |
 
-## Saturation Model
+### What would constitute proper unbiased tests
 
-| Queries processed | Estimated coverage | Accuracy |
-|:-:|:-:|:-:|
-| 0 (seed only) | Seed phrases as 1-grams | ~30% |
-| 50 | +~100 patterns | ~50% |
-| 200 | +~400 patterns | ~70% |
-| 500 | +~800 patterns | ~85% |
-| 1000 | +~1200 patterns (diminishing) | ~93% |
-| 2000+ | Saturated | ~95%+ |
+1. **Held-out test set**: Test queries written by humans who haven't seen seed phrases
+2. **Real support tickets**: Actual customer messages, not LLM-generated
+3. **Scale**: 100+ intents in a single namespace
+4. **N ≥ 200**: At least 200 queries per test condition for statistical significance
+5. **Adversarial suite**: Gibberish, off-domain, extremely long, empty, injection attempts
+6. **A/B comparison**: Same queries against both old system and new system
+7. **Multiple domains**: IT helpdesk + e-commerce + banking to verify generalization
 
-Domain-constrained: finite expression space → guaranteed convergence.
+## What Stops 100%
 
-## What Was Proved
+1. **Implied intents** — "I'm literally going to cry" implies escalation, but no phrase teaches this pattern. Needs more diverse learning or span extraction.
+2. **LLM phrase quality** — Haiku generates generic phrases. Sonnet would cover more vocabulary.
+3. **Span extraction** — Asking LLM "which words express this intent?" would learn precise patterns from real queries. Haiku can't handle the complex prompt format.
+4. **Gate tuning** — 50% gate blocks some legitimate multi-intent (CJK multi missed VPN).
+5. **Learning depth** — 1 phrase per miss per cycle. 3 phrases with varied styles would saturate faster.
+6. **History context** — Ignoring conversation history means vague follow-ups ("it's still not working") can't be resolved.
 
-- ✅ LLM semantics CAN be distilled into structural patterns (n-grams)
-- ✅ Single-intent accuracy: 40% → 100% with n-grams + skip-grams
-- ✅ Multi-intent: 0% → 60% with re-pass architecture
-- ✅ Precision: 100% maintained (zero false positive regression)
-- ✅ CJK: character n-grams work for single-intent, 33% for multi-intent
-- ✅ Auto-learn integration: ~10 lines, no pipeline changes
-- ✅ Morphological variation handled by L1 (existing) + sub-n-gram overlap
-- ✅ Inverted index + IDF can be replaced by unified pattern_intent
+## Architecture Decisions (Final)
+
+| Decision | Rationale |
+|----------|-----------|
+| Replace inverted index with pattern_intent | N-grams capture phrase-level meaning; 1-grams are just short patterns in the same structure |
+| Preserve stop words for n-gram tokenization | "been", "this", "is" are essential structural components of learned patterns |
+| Re-pass instead of OMP | Reuses same scoring pipeline, no token manipulation, gate controls precision |
+| Learn from LLM phrases only (not raw queries) | Raw query tokens pollute scoring — common words like "need", "help" fire everywhere |
+| Discriminative filter (max 3 intents per pattern) | Prevents generic patterns from accumulating. IDF handles this partially but filter is explicit |
+| Skip-grams with max_gap=2 | Handles "this is absolutely ridiculous" → "this~ridiculous" fires across inserted words |
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `src/hebbian.rs` | `pattern_intent` replaces `word_intent`; `score_normalized_ex` with n-gram + skip-gram scoring; `score_multi_normalized` with re-pass; `learn_ngrams_from_phrase` with discriminative filter |
+| `src/tokenizer.rs` | `tokenize_full()` (stop words preserved); `generate_skip_bigrams()` |
+| `src/ngram.rs` | Updated to read from `pattern_intent` |
+| `src/phrase.rs` | Simplified review prompt |
+| `src/bin/server/pipeline.rs` | N-gram learning from LLM phrases; removed raw query 1-gram learning; span extraction plumbing (unused until Sonnet) |
+| `src/bin/server/routes_import.rs` | `learn_ngrams_from_phrase` called during seed import |
+| `src/bin/server/routes_review.rs` | `spans_to_learn` field added to FullReviewResult |
