@@ -158,7 +158,8 @@ async fn call_llm_with_model(
     let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
 
     // Gemini thinking models need higher output budget (thinking tokens count against limit)
-    let effective_max = if provider == "gemini" { max_tokens.max(1024) } else { max_tokens };
+    // Gemini models: use reasonable output budget (not too high — causes slow thinking)
+    let effective_max = if provider == "gemini" { max_tokens.max(512) } else { max_tokens };
 
     let resp = match provider.as_str() {
         "gemini" => {
@@ -172,6 +173,7 @@ async fn call_llm_with_model(
                 "generationConfig": {
                     "maxOutputTokens": effective_max,
                     "temperature": 0.3,
+                    "thinkingConfig": { "thinkingBudget": 0 }
                 }
             });
             state.http
@@ -821,26 +823,18 @@ pub async fn apply_review(
 ) -> usize {
     let mut added = 0;
 
-    // Apply phrases_to_add through pipeline — use detected language, not hardcoded "en"
-    // accepted_phrases: only phrases that passed the collision guard — L2 learns from these only.
-    let accepted_phrases: HashMap<String, Vec<String>>;
+    // Add phrases to Router storage (phrase registry) — collision guard applies.
+    // But L2 learning is NOT gated by the Router. The pattern_intent graph learns
+    // from ALL LLM-generated phrases, regardless of Router storage limits.
     if !result.phrases_to_add.is_empty() {
         let lang = result.languages.first().map(|s| s.as_str()).unwrap_or("en");
         let pipeline_result = phrase_pipeline(state, app_id, &result.phrases_to_add, true, lang).await;
         added = pipeline_result.added.len();
-        // Rebuild a map of only the accepted (phrase, intent) pairs for L2 learning
-        let mut acc: HashMap<String, Vec<String>> = HashMap::new();
-        for (intent, phrase) in pipeline_result.added {
-            acc.entry(intent).or_default().push(phrase);
-        }
-        accepted_phrases = acc;
-    } else {
-        accepted_phrases = HashMap::new();
     }
 
     // ── L2 update ────────────────────────────────────────────────────────────
-    // learn_phrase() — Hebbian asymptotic update, immediate discriminative signal.
-    // Only learns from phrases accepted by the collision guard — keeps Router and L2 in sync.
+    // Learn ALL LLM-generated phrases into pattern_intent (not gated by Router).
+    // The Router's 20-phrase limit is for storage; L2 learning has no limit.
     const DELTA_REINFORCE: f32 =  0.05;
     const DELTA_SUPPRESS:  f32 = -0.05;
 
@@ -869,8 +863,8 @@ pub async fn apply_review(
             let ig = ig_map.entry(app_id.to_string())
                 .or_insert_with(asv_router::hebbian::IntentGraph::new);
 
-            // Missed intents: learn collision-guard-accepted phrases into L2.
-            for (intent_id, phrases) in &accepted_phrases {
+            // Missed intents: learn ALL LLM-generated phrases into L2 (not gated by Router).
+            for (intent_id, phrases) in &result.phrases_to_add {
                 for phrase in phrases {
                     let phrase_words: Vec<String> = asv_router::tokenizer::tokenize(phrase);
                     let phrase_refs: Vec<&str> = phrase_words.iter().map(|s| s.as_str()).collect();
