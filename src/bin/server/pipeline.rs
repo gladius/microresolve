@@ -676,19 +676,19 @@ async fn full_review_from_sets(
         }
     };
 
-    // Schema: one string per intent — structurally impossible to return more than one.
-    // "intent_id": "phrase" forces exactly one phrase, no numeric constraint needed.
     let turn2_prompt = format!(
         "{guidelines}\n\n\
+         Customer query: \"{query}\"\n\n\
          Intents that need more training coverage:\n{missed_labels}\n\n\
          Phrases already in the system for these intents (do not duplicate):\n{existing_phrases}\n\
          {lang_instruction}\
          {quality}\n\n\
-         Generate exactly ONE new standalone training phrase per intent.\n\
+         For each intent, respond with a phrase AND the key words from the customer query.\n\
          Respond with ONLY JSON:\n\
-         {{\"phrases_by_intent\": {{\"intent_id\": \"one phrase here\"}}}}\n",
+         {{\"phrases_by_intent\": {{\"intent_id\": \"new phrase\"}}, \"key_words\": {{\"intent_id\": [\"word1\", \"word2\"]}}}}\n",
         guidelines = asv_router::phrase::REVIEW_FIX_GUIDELINES,
         quality = asv_router::phrase::PHRASE_QUALITY_RULES,
+        query = query,
     );
 
     let t2_response = call_llm(state, &turn2_prompt, 150).await
@@ -783,7 +783,25 @@ async fn full_review_from_sets(
         }
     }
 
-    // Extract spans from LLM response (best-effort — may not be present)
+    // Extract key_words from LLM response — intent-bearing words from the query.
+    // Format: {"key_words": {"intent_id": ["word1", "word2"]}}
+    if let Some(kw_obj) = t2_parsed.get("key_words").and_then(|v| v.as_object()) {
+        for (intent_id, words_val) in kw_obj {
+            if let Some(words_arr) = words_val.as_array() {
+                let words: Vec<String> = words_arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| s.trim().to_lowercase())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                if !words.is_empty() {
+                    // Join words into a single string for span-style learning
+                    spans_to_learn.push((intent_id.clone(), words.join(" ")));
+                }
+            }
+        }
+        eprintln!("[full_review] Turn 2: extracted {} key_word sets", spans_to_learn.len());
+    }
+    // Also check legacy "spans" key for backward compatibility
     if let Some(spans_obj) = t2_parsed.get("spans").and_then(|v| v.as_object()) {
         for (intent_id, span_val) in spans_obj {
             if let Some(span) = span_val.as_str() {
@@ -793,7 +811,6 @@ async fn full_review_from_sets(
                 }
             }
         }
-        eprintln!("[full_review] Turn 2: extracted {} spans", spans_to_learn.len());
     }
 
     eprintln!("[full_review] Turn 2: phrases_to_add={:?}, blocked={}", phrases_to_add, phrases_blocked.len());
@@ -824,8 +841,7 @@ pub async fn apply_review(
     let mut added = 0;
 
     // Add phrases to Router storage (phrase registry) — collision guard applies.
-    // But L2 learning is NOT gated by the Router. The pattern_intent graph learns
-    // from ALL LLM-generated phrases, regardless of Router storage limits.
+    // L2 learning is NOT gated by the Router — word_intent learns from ALL phrases.
     if !result.phrases_to_add.is_empty() {
         let lang = result.languages.first().map(|s| s.as_str()).unwrap_or("en");
         let pipeline_result = phrase_pipeline(state, app_id, &result.phrases_to_add, true, lang).await;
@@ -833,8 +849,7 @@ pub async fn apply_review(
     }
 
     // ── L2 update ────────────────────────────────────────────────────────────
-    // Learn ALL LLM-generated phrases into pattern_intent (not gated by Router).
-    // The Router's 20-phrase limit is for storage; L2 learning has no limit.
+    // L2 learns all phrases + LLM-confirmed query words into word_intent.
     const DELTA_REINFORCE: f32 =  0.05;
     const DELTA_SUPPRESS:  f32 = -0.05;
 
@@ -863,28 +878,24 @@ pub async fn apply_review(
             let ig = ig_map.entry(app_id.to_string())
                 .or_insert_with(asv_router::hebbian::IntentGraph::new);
 
-            // Missed intents: learn ALL LLM-generated phrases into L2 (not gated by Router).
+            // Missed intents: learn LLM-generated phrase WORDS into L2.
+            // Each phrase is tokenized and its words are learned as 1-grams.
             for (intent_id, phrases) in &result.phrases_to_add {
                 for phrase in phrases {
                     let phrase_words: Vec<String> = asv_router::tokenizer::tokenize(phrase);
                     let phrase_refs: Vec<&str> = phrase_words.iter().map(|s| s.as_str()).collect();
                     ig.learn_phrase(&phrase_refs, intent_id);
-                    // Learn n-grams from LLM-generated phrases (clean, intent-focused).
-                    // These are short, specific phrases — their n-grams are discriminative.
-                    ig.learn_ngrams_from_phrase(phrase, intent_id, 4, 2);
-                    eprintln!("[auto-learn/L2+ngram] missed → learn phrase+ngrams {:?} → '{}'", phrase_refs, intent_id);
+                    eprintln!("[auto-learn/L2] missed → learn phrase words {:?} → '{}'", phrase_refs, intent_id);
                 }
-                // Raw query 1-grams intentionally NOT learned here.
-                // Learning "need", "help", "trying" etc. from chatty queries
-                // pollutes scoring — these common words fire for everything.
-                // Only LLM-generated phrases (above) feed 1-gram + n-gram learning.
             }
-            // Learn n-grams from LLM-extracted spans (exact customer words that express intent).
-            // These are the most valuable patterns — the LLM identified precisely which
-            // part of the query carries each intent.
+            // Learn intent-bearing words from LLM-extracted query spans.
+            // These are the ACTUAL user words the LLM confirmed as intent-relevant.
+            // Critical for vocabulary growth: teaches the exact words users use.
             for (span_intent, span_text) in &result.spans_to_learn {
-                ig.learn_ngrams_from_phrase(span_text, span_intent, 4, 2);
-                eprintln!("[auto-learn/span] learn span ngrams \"{}\" → '{}'", span_text, span_intent);
+                let span_words: Vec<String> = asv_router::tokenizer::tokenize(span_text);
+                let span_refs: Vec<&str> = span_words.iter().map(|s| s.as_str()).collect();
+                ig.learn_query_words(&span_refs, span_intent);
+                eprintln!("[auto-learn/query] span words {:?} → '{}'", span_refs, span_intent);
             }
 
             // Wrong detections: L3 inhibition — correct intent suppresses false positive.
@@ -993,7 +1004,7 @@ async fn learn_l1_synonyms(
     let graph_vocab: Vec<String> = {
         let ig_map = state.intent_graph.read().unwrap();
         match ig_map.get(app_id) {
-            Some(ig) => ig.pattern_intent.iter()
+            Some(ig) => ig.word_intent.iter()
                 .filter(|(_, acts)| acts.iter().any(|(id, _)| missed_intents.contains(id)))
                 .map(|(w, _)| w.clone())
                 .collect(),
@@ -1008,7 +1019,7 @@ async fn learn_l1_synonyms(
         let ig_map = state.intent_graph.read().unwrap();
         match ig_map.get(app_id) {
             Some(ig) => query_words.iter()
-                .filter(|&&w| !ig.pattern_intent.contains_key(w))
+                .filter(|&&w| !ig.word_intent.contains_key(w))
                 .copied()
                 .collect(),
             None => query_words.to_vec(),

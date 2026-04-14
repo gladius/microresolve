@@ -41,19 +41,23 @@ pub const PHRASE_QUALITY_RULES: &str = r#"DO NOT:
 - Include order numbers, names, dates, or specific products
 - Generate translations of the same phrases across languages — each language should have culturally natural expressions"#;
 
-/// Review fix prompt — intent-anchored phrase generation.
-pub const REVIEW_FIX_GUIDELINES: &str = r#"You are expanding training coverage for an intent router.
+/// Review fix prompt — phrase generation + intent-bearing word extraction.
+pub const REVIEW_FIX_GUIDELINES: &str = r#"You are expanding training coverage for a keyword-based intent router.
 
-A customer query failed to route correctly. Turn 1 has already identified which intents need more coverage.
-Your job: generate new standalone training phrases for those intents.
+A customer query failed to route correctly. For each missed intent, provide:
+1. A new standalone training phrase (2-10 words, different vocabulary from existing)
+2. The key words FROM THE CUSTOMER'S QUERY that indicate this intent
 
-Rules:
-- Generate phrases based on the intent's description and what a user would say
-- Phrases must be self-contained: meaningful without any prior conversation context
-- Avoid pronouns and vague references ("them", "it", "that one")
-- Introduce vocabulary diversity — different verbs, styles, and phrasings
-- Keep phrases short to medium (2-10 words)
-- Do NOT duplicate existing phrases already in the system"#;
+Rules for phrases:
+- Based on intent description, what a user would say in isolation
+- Vocabulary diversity — different verbs, styles
+- Short to medium (2-10 words)
+
+Rules for key words:
+- Pick ONLY the words from the customer message that carry intent meaning
+- Exclude filler: "um", "like", "please", "really", "just", "so"
+- Exclude pronouns: "I", "my", "me", "they"
+- 1-5 words maximum per intent"#;
 
 const BASE_GUIDELINES: &str = r#"Generate realistic seed phrases for an intent routing system. These phrases train a keyword-matching router (not an LLM), so vocabulary diversity is critical.
 

@@ -596,18 +596,18 @@ pub struct ConjunctionRule {
 /// One new phrase = immediate weight update — no accumulation needed.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct IntentGraph {
-    /// Unified pattern → intent mapping. Patterns include:
-    /// - 1-grams: "vpn", "password" (replaces old word_intent)
-    /// - 2-grams: "been_waiting", "internet_is" (contiguous)
-    /// - 3-grams: "this_is_ridiculous" (contiguous)
-    /// - 4/5-grams: "been_waiting_all_morning" (contiguous)
-    /// - skip-grams: "this~ridiculous" (gap-tolerant, tilde separator)
-    /// - CJK char n-grams: "不能登录" (character-level)
+    /// word → [(intent_id, weight 0.0–1.0)]
     ///
-    /// Hebbian weights updated asymptotically: w' = w + 0.4*(1-w) per phrase.
-    /// IDF at query time: score += weight * ln(N/df) * length_bonus.
+    /// Pure 1-gram IDF scoring. Each word maps to intents with Hebbian weights.
+    /// IDF at query time: score += weight * ln(N/df).
+    /// CJK: character bigrams from the tokenizer are treated as "words."
+    ///
+    /// Learning: asymptotic w' = w + rate*(1-w). Never exceeds 1.0.
+    /// IDF stays healthy when learning QUERY WORDS directly (each word
+    /// maps to 1-2 intents). Degrades when learning LLM paraphrases
+    /// (generic words spread across many intents).
     #[serde(default)]
-    pub pattern_intent: HashMap<String, Vec<(String, f32)>>,
+    pub word_intent: HashMap<String, Vec<(String, f32)>>,
 
     /// Conjunction bonuses — word pairs that together strongly indicate an intent.
     #[serde(default)]
@@ -624,85 +624,33 @@ impl IntentGraph {
     }
 
     const PHRASE_RATE: f32 = 0.4;
+    const LEARN_RATE: f32 = 0.3;
 
-    /// Learn a single pattern → intent association.
-    /// Pattern can be any key: "vpn" (1-gram), "been_waiting" (2-gram),
-    /// "this~ridiculous" (skip-gram), "不能登录" (CJK).
-    pub fn learn_pattern(&mut self, pattern: &str, intent: &str) {
-        if pattern.is_empty() { return; }
-        let entries = self.pattern_intent.entry(pattern.to_string()).or_default();
+    /// Learn a single word → intent association with asymptotic Hebbian update.
+    pub fn learn_word(&mut self, word: &str, intent: &str, rate: f32) {
+        if word.is_empty() { return; }
+        let entries = self.word_intent.entry(word.to_string()).or_default();
         if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
-            e.1 = (e.1 + Self::PHRASE_RATE * (1.0 - e.1)).min(1.0);
+            e.1 = (e.1 + rate * (1.0 - e.1)).min(1.0);
         } else {
-            entries.push((intent.to_string(), Self::PHRASE_RATE));
+            entries.push((intent.to_string(), rate));
         }
     }
 
-    /// Learn a phrase as 1-grams (backward compatible with old learn_phrase).
-    /// `words` must already be L1-normalized canonical terms (stop words removed).
+    /// Learn a phrase: tokenize into words, learn each word for the intent.
+    /// Uses PHRASE_RATE (0.4) for seed phrases.
     pub fn learn_phrase(&mut self, words: &[&str], intent: &str) {
         for word in words {
-            self.learn_pattern(word, intent);
+            self.learn_word(word, intent, Self::PHRASE_RATE);
         }
     }
 
-    /// Learn n-gram patterns from a phrase using the full tokenizer (stop words preserved).
-    /// Generates contiguous n-grams (2..=max_n) and skip-bigrams (max_gap).
-    /// Also handles CJK character n-grams automatically.
-    ///
-    /// Discriminative filter: skips patterns already associated with 3+ intents —
-    /// those patterns are too generic to be useful (e.g., "need_to", "want_to").
-    pub fn learn_ngrams_from_phrase(&mut self, phrase: &str, intent: &str, max_n: usize, max_gap: usize) {
-        let has_cjk = phrase.chars().any(crate::tokenizer::is_cjk);
-        const MAX_INTENTS_PER_PATTERN: usize = 3;
-
-        if has_cjk {
-            let chars: Vec<char> = phrase.chars()
-                .filter(|c| crate::tokenizer::is_cjk(*c))
-                .collect();
-            for n in 2..=max_n.min(chars.len()) {
-                for w in chars.windows(n) {
-                    let key: String = w.iter().collect();
-                    if self.pattern_is_discriminative(&key, intent, MAX_INTENTS_PER_PATTERN) {
-                        self.learn_pattern(&key, intent);
-                    }
-                }
-            }
-            let char_strs: Vec<String> = chars.iter().map(|c| c.to_string()).collect();
-            for sg in crate::tokenizer::generate_skip_bigrams(&char_strs, max_gap) {
-                if self.pattern_is_discriminative(&sg, intent, MAX_INTENTS_PER_PATTERN) {
-                    self.learn_pattern(&sg, intent);
-                }
-            }
-        } else {
-            let tokens = crate::tokenizer::tokenize_full(phrase);
-            for n in 2..=max_n.min(tokens.len()) {
-                for w in tokens.windows(n) {
-                    let key = w.join("_");
-                    if self.pattern_is_discriminative(&key, intent, MAX_INTENTS_PER_PATTERN) {
-                        self.learn_pattern(&key, intent);
-                    }
-                }
-            }
-            for sg in crate::tokenizer::generate_skip_bigrams(&tokens, max_gap) {
-                if self.pattern_is_discriminative(&sg, intent, MAX_INTENTS_PER_PATTERN) {
-                    self.learn_pattern(&sg, intent);
-                }
-            }
-        }
-    }
-
-    /// Check if a pattern is still discriminative enough to learn.
-    /// Returns true if the pattern is associated with fewer than `max_intents` other intents.
-    fn pattern_is_discriminative(&self, pattern: &str, intent: &str, max_intents: usize) -> bool {
-        match self.pattern_intent.get(pattern) {
-            None => true,  // new pattern, always learn
-            Some(entries) => {
-                let other_intents = entries.iter()
-                    .filter(|(id, _)| id != intent)
-                    .count();
-                other_intents < max_intents
-            }
+    /// Learn specific intent-bearing words from a user query.
+    /// Uses LEARN_RATE (0.3) — slightly lower than seed to preserve seed discrimination.
+    /// `words` should be LLM-confirmed intent-bearing words only, NOT all query words.
+    pub fn learn_query_words(&mut self, words: &[&str], intent: &str) {
+        for word in words {
+            self.learn_word(word, intent, Self::LEARN_RATE);
         }
     }
 
@@ -726,7 +674,7 @@ impl IntentGraph {
     /// New edges are only created for positive delta.
     pub fn reinforce(&mut self, words: &[&str], intent: &str, delta: f32) {
         for word in words {
-            let entries = self.pattern_intent.entry(word.to_string()).or_default();
+            let entries = self.word_intent.entry(word.to_string()).or_default();
             if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
                 if delta >= 0.0 {
                     // Asymptotic approach to 1.0
@@ -766,25 +714,9 @@ impl IntentGraph {
         }
     }
 
-    /// Spreading activation score for all intents given a query.
+    /// IDF-weighted 1-gram scoring with exclusion support for re-pass.
     ///
-    /// Score on an already Layer-1-normalized query string.
-    ///
-    /// Returns `(scores, has_negation)` where `has_negation` is true if the query
-    /// contained any negation tokens (not_X). Callers use this to set the `negated`
-    /// flag on intent results rather than trying to suppress specific intents —
-    /// scope detection (which intent is negated) is a parsing problem outside ASV's scope.
-    ///
-    /// Negation tokens (not_X) are scored the same as their base form X.
-    /// The intent IS what the query is about; the `negated` flag tells the app
-    /// "the user mentioned this but said no/don't". Example:
-    ///   "I don't want to cancel" → cancel_subscription (negated: true)
-    ///   "cancel but don't ship"  → cancel_subscription (negated: false), ship_order (negated: true)
-    /// Score all intents for a query, using both 1-gram and n-gram patterns.
-    ///
-    /// `exclude`: intents to skip (for re-pass: already confirmed in prior rounds).
-    ///
-    /// Returns `(scored_intents, has_negation)`.
+    /// `exclude`: intents to skip (already confirmed in prior re-pass rounds).
     pub fn score_normalized_ex(&self, normalized: &str, exclude: &std::collections::HashSet<String>) -> (Vec<(String, f32)>, bool) {
         // CJK negation pre-pass
         const CJK_NEG: &[char] = &['不', '没', '别', '未'];
@@ -797,30 +729,29 @@ impl IntentGraph {
             std::borrow::Cow::Borrowed(normalized)
         };
 
-        // Pre-compute total distinct intents for IDF
+        // Total distinct intents for IDF
         let total_intents: f32 = {
             let mut all: std::collections::HashSet<&str> = std::collections::HashSet::new();
-            for entries in self.pattern_intent.values() {
+            for entries in self.word_intent.values() {
                 for (id, _) in entries { all.insert(id.as_str()); }
             }
             all.len().max(1) as f32
         };
 
+        let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
         let mut scores: HashMap<String, f32> = HashMap::new();
         let mut has_negation = cjk_negated;
-
-        // ── Pass 1: 1-gram scoring (ASV tokenizer, stop words removed) ────
-        let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
 
         let all_bases: std::collections::HashSet<&str> = tokens.iter()
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
 
+        // 1-gram IDF scoring
         for token in &tokens {
             let is_negated = token.starts_with("not_");
             let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
             if is_negated { has_negation = true; }
-            if let Some(activations) = self.pattern_intent.get(base) {
+            if let Some(activations) = self.word_intent.get(base) {
                 let idf = (total_intents / activations.len() as f32).ln().max(0.0);
                 for (intent, weight) in activations {
                     if exclude.contains(intent) { continue; }
@@ -831,70 +762,7 @@ impl IntentGraph {
             }
         }
 
-        // ── Pass 2: n-gram + skip-gram scoring (full tokenizer, stop words preserved) ──
-        let has_cjk = normalized.chars().any(crate::tokenizer::is_cjk);
-        let full_tokens = crate::tokenizer::tokenize_full(normalized);
-
-        // Contiguous n-grams (2..=4 for Latin, 2..=5 for CJK chars)
-        if has_cjk {
-            let chars: Vec<char> = normalized.chars()
-                .filter(|c| crate::tokenizer::is_cjk(*c))
-                .collect();
-            for n in 2..=5.min(chars.len()) {
-                let len_bonus = 1.0 + 0.5 * (n as f32 - 1.0);
-                for w in chars.windows(n) {
-                    let key: String = w.iter().collect();
-                    if let Some(activations) = self.pattern_intent.get(&key) {
-                        let idf = (total_intents / activations.len() as f32).ln().max(0.0);
-                        for (intent, weight) in activations {
-                            if exclude.contains(intent) { continue; }
-                            *scores.entry(intent.clone()).or_insert(0.0) +=
-                                weight * idf * len_bonus;
-                        }
-                    }
-                }
-            }
-            // CJK skip-bigrams
-            let char_strs: Vec<String> = chars.iter().map(|c| c.to_string()).collect();
-            for sg in crate::tokenizer::generate_skip_bigrams(&char_strs, 2) {
-                if let Some(activations) = self.pattern_intent.get(&sg) {
-                    let idf = (total_intents / activations.len() as f32).ln().max(0.0);
-                    for (intent, weight) in activations {
-                        if exclude.contains(intent) { continue; }
-                        *scores.entry(intent.clone()).or_insert(0.0) += weight * idf * 1.1;
-                    }
-                }
-            }
-        }
-
-        // Latin word n-grams (contiguous)
-        for n in 2..=4.min(full_tokens.len()) {
-            let len_bonus = 1.0 + 0.5 * (n as f32 - 1.0);
-            for w in full_tokens.windows(n) {
-                let key = w.join("_");
-                if let Some(activations) = self.pattern_intent.get(&key) {
-                    let idf = (total_intents / activations.len() as f32).ln().max(0.0);
-                    for (intent, weight) in activations {
-                        if exclude.contains(intent) { continue; }
-                        *scores.entry(intent.clone()).or_insert(0.0) +=
-                            weight * idf * len_bonus;
-                    }
-                }
-            }
-        }
-
-        // Latin skip-bigrams (gap-tolerant)
-        for sg in crate::tokenizer::generate_skip_bigrams(&full_tokens, 2) {
-            if let Some(activations) = self.pattern_intent.get(&sg) {
-                let idf = (total_intents / activations.len() as f32).ln().max(0.0);
-                for (intent, weight) in activations {
-                    if exclude.contains(intent) { continue; }
-                    *scores.entry(intent.clone()).or_insert(0.0) += weight * idf * 1.2;
-                }
-            }
-        }
-
-        // ── Conjunction bonuses ───────────────────────────────────────────────
+        // Conjunction bonuses
         for rule in &self.conjunctions {
             if !exclude.contains(&rule.intent)
                 && rule.words.iter().all(|w| all_bases.contains(w.as_str()))
@@ -911,7 +779,7 @@ impl IntentGraph {
         (result, has_negation)
     }
 
-    /// Backward-compatible: score without exclusions.
+    /// Score without exclusions.
     pub fn score_normalized(&self, normalized: &str) -> (Vec<(String, f32)>, bool) {
         self.score_normalized_ex(normalized, &std::collections::HashSet::new())
     }
@@ -1015,8 +883,8 @@ impl IntentGraph {
 
     /// Stats: (unique_patterns, activation_edges, conjunctions).
     pub fn stats(&self) -> (usize, usize, usize) {
-        let activation_edges: usize = self.pattern_intent.values().map(|v| v.len()).sum();
-        (self.pattern_intent.len(), activation_edges, self.conjunctions.len())
+        let activation_edges: usize = self.word_intent.values().map(|v| v.len()).sum();
+        (self.word_intent.len(), activation_edges, self.conjunctions.len())
     }
 
     // ── L3 Inhibition layer ────────────────────────────────────────────────────

@@ -66,7 +66,7 @@ impl NgramIntentGraph {
         // --- Unigram scoring (existing L2 logic) ---
         let total_intents: usize = {
             let mut all: HashSet<&str> = HashSet::new();
-            for entries in self.ig.pattern_intent.values() {
+            for entries in self.ig.word_intent.values() {
                 for (id, _) in entries { all.insert(id.as_str()); }
             }
             // Also count intents from phrase_intent
@@ -80,7 +80,7 @@ impl NgramIntentGraph {
 
         // Unigram contribution
         for token in &tokens {
-            if let Some(entries) = self.ig.pattern_intent.get(token.as_str()) {
+            if let Some(entries) = self.ig.word_intent.get(token.as_str()) {
                 let idf = (total_intents as f32 / entries.len() as f32).ln().max(0.0);
                 for (intent, weight) in entries {
                     *scores.entry(intent.clone()).or_default() += weight * idf;
