@@ -943,8 +943,8 @@ impl IntentGraph {
     ///
     /// This replaces OMP: same pipeline re-run with exclusions, no token manipulation.
     pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, gap: f32) -> (Vec<(String, f32)>, bool) {
-        const GATE_RATIO: f32 = 0.35;
-        const MAX_ROUNDS: usize = 4;
+        const GATE_RATIO: f32 = 0.50;
+        const MAX_ROUNDS: usize = 3;
 
         let mut confirmed: Vec<(String, f32)> = Vec::new();
         let mut excluded: std::collections::HashSet<String> = std::collections::HashSet::new();

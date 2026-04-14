@@ -843,13 +843,10 @@ pub async fn apply_review(
                     ig.learn_ngrams_from_phrase(phrase, intent_id, 4, 2);
                     eprintln!("[auto-learn/L2+ngram] missed → learn phrase+ngrams {:?} → '{}'", phrase_refs, intent_id);
                 }
-                // Also learn the original query's 1-grams for this missed intent.
-                // (But NOT n-grams from raw query — chatty queries produce noisy bigrams
-                //  like "need_to", "really_sorry" that fire on everything.)
-                if !word_refs.is_empty() {
-                    ig.learn_phrase(&word_refs, intent_id);
-                    eprintln!("[auto-learn/L2] missed → learn query tokens {:?} → '{}'", word_refs, intent_id);
-                }
+                // Raw query 1-grams intentionally NOT learned here.
+                // Learning "need", "help", "trying" etc. from chatty queries
+                // pollutes scoring — these common words fire for everything.
+                // Only LLM-generated phrases (above) feed 1-gram + n-gram learning.
             }
             // Learn n-grams from LLM-extracted spans (exact customer words that express intent).
             // These are the most valuable patterns — the LLM identified precisely which
