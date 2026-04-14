@@ -170,6 +170,7 @@ pub async fn review_fix(
         phrases_to_add,
         phrases_blocked: Vec::new(),
         summary: String::new(),
+        spans_to_learn: vec![],
     };
 
     let phrases_added = apply_review(&state, &app_id, &review_result, &original_query).await;

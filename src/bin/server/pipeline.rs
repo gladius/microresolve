@@ -398,6 +398,10 @@ pub struct FullReviewResult {
     pub phrases_blocked: Vec<BlockedPhrase>,
     /// Human-readable summary (empty when detection_perfect=true)
     pub summary: String,
+    /// LLM-extracted spans from the query that express each intent.
+    /// Used to learn precise n-gram patterns from the customer's own words.
+    #[serde(default)]
+    pub spans_to_learn: Vec<(String, String)>,  // (intent_id, span text)
 }
 
 
@@ -438,6 +442,7 @@ pub async fn full_review(
                 phrases_to_add: HashMap::new(),
                 phrases_blocked: Vec::new(),
                 summary: "Detection correct, no changes needed.".to_string(),
+                spans_to_learn: vec![],
             });
         }
 
@@ -546,6 +551,7 @@ pub async fn full_review(
             phrases_to_add: HashMap::new(),
             phrases_blocked: Vec::new(),
             summary: "Query out of scope for this namespace — no learning applied.".to_string(),
+            spans_to_learn: vec![],
         });
     }
 
@@ -561,6 +567,7 @@ pub async fn full_review(
             phrases_to_add: HashMap::new(),
             phrases_blocked: Vec::new(),
             summary: "Detection correct, no changes needed.".to_string(),
+            spans_to_learn: vec![],
         });
     }
 
@@ -656,6 +663,7 @@ async fn full_review_from_sets(
     // Pre-validate phrases through guard (read-only check + retry)
     let mut phrases_to_add: HashMap<String, Vec<String>> = HashMap::new();
     let mut phrases_blocked = Vec::new();
+    let mut spans_to_learn: Vec<(String, String)> = Vec::new(); // (intent_id, span from query)
 
     if let Some(sbi) = t2_parsed.get("phrases_by_intent").and_then(|v| v.as_object()) {
         let mut blocked_for_retry: Vec<(String, String, String)> = Vec::new();
@@ -664,7 +672,7 @@ async fn full_review_from_sets(
             let routers = state.routers.read().unwrap();
             if let Some(router) = routers.get(app_id) {
                 for (intent_id, phrase_val) in sbi {
-                    // Accept either a string or a single-element array — handle both gracefully
+                    // Accept string or single-element array
                     let phrase_str = if let Some(s) = phrase_val.as_str() {
                         Some(s.to_string())
                     } else if let Some(arr) = phrase_val.as_array() {
@@ -736,10 +744,21 @@ async fn full_review_from_sets(
         }
     }
 
+    // Extract spans from LLM response (best-effort — may not be present)
+    if let Some(spans_obj) = t2_parsed.get("spans").and_then(|v| v.as_object()) {
+        for (intent_id, span_val) in spans_obj {
+            if let Some(span) = span_val.as_str() {
+                let span = span.trim();
+                if !span.is_empty() {
+                    spans_to_learn.push((intent_id.clone(), span.to_string()));
+                }
+            }
+        }
+        eprintln!("[full_review] Turn 2: extracted {} spans", spans_to_learn.len());
+    }
+
     eprintln!("[full_review] Turn 2: phrases_to_add={:?}, blocked={}", phrases_to_add, phrases_blocked.len());
 
-    // Turn 3 removed: L3 inhibition (learn_inhibition) handles false positives directly —
-    // correct intent suppresses wrong intent via anti-Hebbian edge. No LLM-suggested word lists needed.
     let summary = String::new();
 
     Ok(FullReviewResult {
@@ -751,6 +770,7 @@ async fn full_review_from_sets(
         phrases_to_add,
         phrases_blocked,
         summary,
+        spans_to_learn,
     })
 }
 
@@ -818,20 +838,27 @@ pub async fn apply_review(
                     let phrase_words: Vec<String> = asv_router::tokenizer::tokenize(phrase);
                     let phrase_refs: Vec<&str> = phrase_words.iter().map(|s| s.as_str()).collect();
                     ig.learn_phrase(&phrase_refs, intent_id);
-                    eprintln!("[auto-learn/L2] missed → learn_phrase {:?} → '{}'", phrase_refs, intent_id);
+                    // Learn n-grams from LLM-generated phrases (clean, intent-focused).
+                    // These are short, specific phrases — their n-grams are discriminative.
+                    ig.learn_ngrams_from_phrase(phrase, intent_id, 4, 2);
+                    eprintln!("[auto-learn/L2+ngram] missed → learn phrase+ngrams {:?} → '{}'", phrase_refs, intent_id);
                 }
-                // Also learn the original query words for this missed intent.
-                // The LLM phrase covers future similar queries; the query words cover this exact query.
-                // "fire together wire together" — the words that fired for this intent should stick.
+                // Also learn the original query's 1-grams for this missed intent.
+                // (But NOT n-grams from raw query — chatty queries produce noisy bigrams
+                //  like "need_to", "really_sorry" that fire on everything.)
                 if !word_refs.is_empty() {
                     ig.learn_phrase(&word_refs, intent_id);
                     eprintln!("[auto-learn/L2] missed → learn query tokens {:?} → '{}'", word_refs, intent_id);
                 }
-                // Learn n-gram patterns from the original query (stop words preserved).
-                // Captures phrase-level patterns like "been_waiting", "this_is_ridiculous".
-                ig.learn_ngrams_from_phrase(&normalized, intent_id, 4, 2);
-                eprintln!("[auto-learn/ngram] missed → learn n-grams from query → '{}'", intent_id);
             }
+            // Learn n-grams from LLM-extracted spans (exact customer words that express intent).
+            // These are the most valuable patterns — the LLM identified precisely which
+            // part of the query carries each intent.
+            for (span_intent, span_text) in &result.spans_to_learn {
+                ig.learn_ngrams_from_phrase(span_text, span_intent, 4, 2);
+                eprintln!("[auto-learn/span] learn span ngrams \"{}\" → '{}'", span_text, span_intent);
+            }
+
             // Wrong detections: L3 inhibition — correct intent suppresses false positive.
             for wrong in &result.wrong_detections {
                 for correct in &result.correct_intents {

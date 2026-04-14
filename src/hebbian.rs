@@ -649,34 +649,59 @@ impl IntentGraph {
     /// Learn n-gram patterns from a phrase using the full tokenizer (stop words preserved).
     /// Generates contiguous n-grams (2..=max_n) and skip-bigrams (max_gap).
     /// Also handles CJK character n-grams automatically.
+    ///
+    /// Discriminative filter: skips patterns already associated with 3+ intents —
+    /// those patterns are too generic to be useful (e.g., "need_to", "want_to").
     pub fn learn_ngrams_from_phrase(&mut self, phrase: &str, intent: &str, max_n: usize, max_gap: usize) {
         let has_cjk = phrase.chars().any(crate::tokenizer::is_cjk);
+        const MAX_INTENTS_PER_PATTERN: usize = 3;
 
         if has_cjk {
-            // CJK: character-level n-grams
             let chars: Vec<char> = phrase.chars()
                 .filter(|c| crate::tokenizer::is_cjk(*c))
                 .collect();
             for n in 2..=max_n.min(chars.len()) {
                 for w in chars.windows(n) {
-                    self.learn_pattern(&w.iter().collect::<String>(), intent);
+                    let key: String = w.iter().collect();
+                    if self.pattern_is_discriminative(&key, intent, MAX_INTENTS_PER_PATTERN) {
+                        self.learn_pattern(&key, intent);
+                    }
                 }
             }
-            // CJK skip-bigrams
             let char_strs: Vec<String> = chars.iter().map(|c| c.to_string()).collect();
             for sg in crate::tokenizer::generate_skip_bigrams(&char_strs, max_gap) {
-                self.learn_pattern(&sg, intent);
+                if self.pattern_is_discriminative(&sg, intent, MAX_INTENTS_PER_PATTERN) {
+                    self.learn_pattern(&sg, intent);
+                }
             }
         } else {
-            // Latin: word-level n-grams with stop words preserved
             let tokens = crate::tokenizer::tokenize_full(phrase);
             for n in 2..=max_n.min(tokens.len()) {
                 for w in tokens.windows(n) {
-                    self.learn_pattern(&w.join("_"), intent);
+                    let key = w.join("_");
+                    if self.pattern_is_discriminative(&key, intent, MAX_INTENTS_PER_PATTERN) {
+                        self.learn_pattern(&key, intent);
+                    }
                 }
             }
             for sg in crate::tokenizer::generate_skip_bigrams(&tokens, max_gap) {
-                self.learn_pattern(&sg, intent);
+                if self.pattern_is_discriminative(&sg, intent, MAX_INTENTS_PER_PATTERN) {
+                    self.learn_pattern(&sg, intent);
+                }
+            }
+        }
+    }
+
+    /// Check if a pattern is still discriminative enough to learn.
+    /// Returns true if the pattern is associated with fewer than `max_intents` other intents.
+    fn pattern_is_discriminative(&self, pattern: &str, intent: &str, max_intents: usize) -> bool {
+        match self.pattern_intent.get(pattern) {
+            None => true,  // new pattern, always learn
+            Some(entries) => {
+                let other_intents = entries.iter()
+                    .filter(|(id, _)| id != intent)
+                    .count();
+                other_intents < max_intents
             }
         }
     }

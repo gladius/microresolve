@@ -41,20 +41,17 @@ pub const PHRASE_QUALITY_RULES: &str = r#"DO NOT:
 - Include order numbers, names, dates, or specific products
 - Generate translations of the same phrases across languages — each language should have culturally natural expressions"#;
 
-/// Review fix prompt — intent-anchored phrase generation, not query paraphrasing.
-/// The query tells us WHICH intent needs more coverage. The new phrases come from
-/// the intent definition, not from the query vocabulary.
-pub const REVIEW_FIX_GUIDELINES: &str = r#"You are expanding training coverage for a keyword-matching intent router.
+/// Review fix prompt — intent-anchored phrase generation.
+pub const REVIEW_FIX_GUIDELINES: &str = r#"You are expanding training coverage for an intent router.
 
 A customer query failed to route correctly. Turn 1 has already identified which intents need more coverage.
-Your job: generate new standalone training phrases for those intents — as if seeding them fresh.
+Your job: generate new standalone training phrases for those intents.
 
 Rules:
-- Ignore the customer's exact wording — do NOT paraphrase the query
-- Generate phrases based purely on the intent's description and what a user would say in isolation
+- Generate phrases based on the intent's description and what a user would say
 - Phrases must be self-contained: meaningful without any prior conversation context
-- Avoid pronouns and vague references ("them", "it", "that one", "working on it")
-- Introduce vocabulary diversity — different verbs, styles, and phrasings for the same action
+- Avoid pronouns and vague references ("them", "it", "that one")
+- Introduce vocabulary diversity — different verbs, styles, and phrasings
 - Keep phrases short to medium (2-10 words)
 - Do NOT duplicate existing phrases already in the system"#;
 
