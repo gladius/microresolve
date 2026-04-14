@@ -934,17 +934,21 @@ impl IntentGraph {
         self.score_multi_normalized(&preprocessed.expanded, threshold, gap)
     }
 
-    /// Multi-intent scoring with re-pass architecture.
+    /// Multi-intent scoring with score-distribution-gated re-pass.
     ///
-    /// Round 1: Score all intents, apply gap filter → confirm top group.
-    /// Round 2+: Exclude confirmed intents, re-score, apply gap filter.
-    ///           Gate: round N+1 top must be ≥ gate_ratio × round 1 top.
-    ///           Stops when gate fails or max_rounds reached.
+    /// Round 1 always runs: Score all intents, apply gap filter → confirm top group.
+    /// Round 2+ runs ONLY if round 1 detected a strong runner-up just below the gap
+    /// (the "near miss" signal). This is language-agnostic — no coordinator word lists.
     ///
-    /// This replaces OMP: same pipeline re-run with exclusions, no token manipulation.
+    /// Near-miss signal: if the highest EXCLUDED intent scores ≥ gap_trigger_ratio
+    /// of the top score, there's likely a second intent worth extracting.
+    ///
+    /// Gate: round N+1 top must be ≥ gate_ratio × round 1 top.
     pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, gap: f32) -> (Vec<(String, f32)>, bool) {
         const GATE_RATIO: f32 = 0.50;
         const MAX_ROUNDS: usize = 3;
+        // If the best non-confirmed intent scores ≥ 40% of the top, try re-pass.
+        const GAP_TRIGGER_RATIO: f32 = 0.40;
 
         let mut confirmed: Vec<(String, f32)> = Vec::new();
         let mut excluded: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -968,8 +972,9 @@ impl IntentGraph {
             if round_top < threshold { break; }
 
             // Gap filter from this round's top
-            let passed: Vec<(String, f32)> = all.into_iter()
+            let passed: Vec<(String, f32)> = all.iter()
                 .filter(|(_, s)| *s >= threshold && round_top - *s <= gap)
+                .cloned()
                 .collect();
 
             if passed.is_empty() { break; }
@@ -977,6 +982,17 @@ impl IntentGraph {
             for (id, score) in &passed {
                 confirmed.push((id.clone(), *score));
                 excluded.insert(id.clone());
+            }
+
+            // Near-miss check: is the best non-confirmed intent strong enough
+            // to justify another round? If not, stop — single intent query.
+            let best_remaining = all.iter()
+                .find(|(id, _)| !excluded.contains(id))
+                .map(|(_, s)| *s)
+                .unwrap_or(0.0);
+
+            if best_remaining < original_top * GAP_TRIGGER_RATIO {
+                break;  // No strong runner-up → single intent, stop re-passing
             }
         }
 
