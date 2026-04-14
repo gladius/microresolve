@@ -609,12 +609,6 @@ pub struct IntentGraph {
     #[serde(default)]
     pub pattern_intent: HashMap<String, Vec<(String, f32)>>,
 
-    /// Legacy alias: old serialized data has "word_intent" key.
-    /// On load, merged into pattern_intent. On save, not written.
-    #[serde(default, alias = "word_intent")]
-    #[serde(skip_serializing)]
-    word_intent_legacy: HashMap<String, Vec<(String, f32)>>,
-
     /// Conjunction bonuses — word pairs that together strongly indicate an intent.
     #[serde(default)]
     pub conjunctions: Vec<ConjunctionRule>,
@@ -627,28 +621,6 @@ pub struct IntentGraph {
 impl IntentGraph {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Migrate legacy word_intent data into pattern_intent after deserialization.
-    pub fn migrate_legacy(&mut self) {
-        if !self.word_intent_legacy.is_empty() {
-            for (word, entries) in std::mem::take(&mut self.word_intent_legacy) {
-                let target = self.pattern_intent.entry(word).or_default();
-                for (intent, weight) in entries {
-                    if let Some(e) = target.iter_mut().find(|(id, _)| id == &intent) {
-                        e.1 = e.1.max(weight);
-                    } else {
-                        target.push((intent, weight));
-                    }
-                }
-            }
-        }
-    }
-
-    /// Backward-compatible accessor for code that reads word_intent.
-    /// Returns the unified pattern_intent (which includes 1-grams = old word_intent).
-    pub fn word_intent(&self) -> &HashMap<String, Vec<(String, f32)>> {
-        &self.pattern_intent
     }
 
     const PHRASE_RATE: f32 = 0.4;
@@ -996,10 +968,8 @@ impl IntentGraph {
 
     pub fn load(path: &str) -> std::io::Result<Self> {
         let json = std::fs::read_to_string(path)?;
-        let mut ig: Self = serde_json::from_str(&json)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        ig.migrate_legacy();
-        Ok(ig)
+        serde_json::from_str(&json)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 
     /// Stats: (unique_patterns, activation_edges, conjunctions).
