@@ -41,20 +41,22 @@ pub const PHRASE_QUALITY_RULES: &str = r#"DO NOT:
 - Include order numbers, names, dates, or specific products
 - Generate translations of the same phrases across languages — each language should have culturally natural expressions"#;
 
-/// Review fix prompt — gap-filling, not broad generation.
-/// Callers must fill in: query, intent, existing_seeds.
-pub const REVIEW_FIX_GUIDELINES: &str = r#"You are fixing a failed intent match in a keyword-matching router.
+/// Review fix prompt — intent-anchored phrase generation, not query paraphrasing.
+/// The query tells us WHICH intent needs more coverage. The new phrases come from
+/// the intent definition, not from the query vocabulary.
+pub const REVIEW_FIX_GUIDELINES: &str = r#"You are expanding training coverage for a keyword-matching intent router.
 
-The router failed because the customer used words/phrases that don't overlap with the existing seeds.
-Your job: identify what vocabulary is MISSING and suggest 1-2 short seed phrases to fill the gap.
+A customer query failed to route correctly. Turn 1 has already identified which intents need more coverage.
+Your job: generate new standalone training phrases for those intents — as if seeding them fresh.
 
 Rules:
-- Look at the existing seeds and the customer query
-- Find words/phrases in the query that have NO overlap with existing seeds
-- Generate 1-2 seed phrases that cover ONLY this gap
-- Each seed should introduce NEW vocabulary, not repeat what's already covered
-- Keep seeds short (3-8 words)
-- Do NOT generate generic paraphrases of existing seeds"#;
+- Ignore the customer's exact wording — do NOT paraphrase the query
+- Generate phrases based purely on the intent's description and what a user would say in isolation
+- Phrases must be self-contained: meaningful without any prior conversation context
+- Avoid pronouns and vague references ("them", "it", "that one", "working on it")
+- Introduce vocabulary diversity — different verbs, styles, and phrasings for the same action
+- Keep phrases short to medium (2-10 words)
+- Do NOT duplicate existing phrases already in the system"#;
 
 const BASE_GUIDELINES: &str = r#"Generate realistic seed phrases for an intent routing system. These phrases train a keyword-matching router (not an LLM), so vocabulary diversity is critical.
 

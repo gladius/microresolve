@@ -525,7 +525,7 @@ function SimulatePanel({ onAccuracy }: {
           setPhaseLabel(`Learning ${idx + 1}/${failures.length}...`);
           const detected = [...(r.confirmed ?? []), ...(r.candidates ?? [])];
           try {
-            const res = await api.learnNow(r.message, detected);
+            const res = await api.learnNow(r.message, detected, r.ground_truth);
             setLearnLog(prev => [...prev, {
               query: r.message,
               phrases_added: res.phrases_added,

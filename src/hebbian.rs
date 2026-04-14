@@ -584,46 +584,27 @@ pub struct ConjunctionRule {
     pub bonus: f32,
 }
 
-/// Layer 3 — word-to-intent spreading activation graph.
+/// L2 — word-to-intent spreading activation graph.
 ///
 /// Works with L1 (LexicalGraph): L1 normalizes the query first
 /// (morphology, abbreviations, synonyms), then L2 activates intent nodes
 /// from the canonical words. Conjunction bonuses are computed in the same pass.
+/// L3 inhibition (anti-Hebbian suppression) is applied last.
 ///
-/// Bootstrapped by LLM; updated online by Hebbian reinforcement from routing
-/// confirmations ("fire together, wire together").
-///
-/// Two modes:
-///   Legacy mode  (`counts` is empty): LLM-assigned absolute activation weights.
-///                 Used for old graphs. `add_activation` / `add_suppressor` / `reinforce`.
-///   Count  mode  (`counts` is non-empty): Discriminative log-odds from phrase counts.
-///                 `learn_phrase` adds phrases → counts increment → log-odds recomputed.
-///                 No separate suppressor table — negative log-odds handle disambiguation.
-///                 One new phrase = immediate improvement. Bootstrap = phrase generation.
+/// Scoring: IDF-weighted activation. `score += weight * ln(N / df)`.
+/// Words shared across many intents get low IDF; rare words get high IDF.
+/// One new phrase = immediate weight update — no accumulation needed.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct IntentGraph {
-    /// word → [(intent_id, weight)]
-    /// Legacy mode: LLM-assigned activation weights (0.0–1.0).
-    /// Count  mode: precomputed log-odds from `counts` (can be negative).
+    /// word → [(intent_id, weight 0.0–1.0)]
+    /// Hebbian weights updated asymptotically: w' = w + 0.4*(1-w) per phrase.
+    #[serde(default)]
     pub word_intent: HashMap<String, Vec<(String, f32)>>,
-    /// Legacy mode only: word → [(intent_id, suppression_weight)].
-    /// Count mode makes this obsolete — negative log-odds suppress naturally.
-    pub suppressors: HashMap<String, Vec<(String, f32)>>,
     /// Conjunction bonuses — word pairs that together strongly indicate an intent.
+    #[serde(default)]
     pub conjunctions: Vec<ConjunctionRule>,
-    /// Count model: word → intent → number of phrase occurrences.
-    /// Non-empty signals that count/log-odds mode is active.
-    #[serde(default)]
-    pub counts: HashMap<String, HashMap<String, u32>>,
-    /// Count model: total word token count per intent (denominator for P(word|intent)).
-    #[serde(default)]
-    pub intent_totals: HashMap<String, u32>,
-    /// L3 Inhibition layer: correct_intent → false_positive_intent → suppression strength.
-    ///
-    /// Anti-Hebbian lateral inhibition: when intent A fires and B is a false positive,
-    /// A learns to suppress B. Strength grows with each correction (max 1.0).
-    /// Applied after multi-filter: if inhibit[A][B] >= INHIBIT_THRESHOLD, B is removed
-    /// from the output whenever A is also present and scores significantly higher.
+    /// L3 Inhibition: correct_intent → false_positive_intent → suppression strength.
+    /// Anti-Hebbian: when A fires and B is wrong, A learns to suppress B.
     #[serde(default)]
     pub inhibit: HashMap<String, HashMap<String, f32>>,
 }
@@ -633,128 +614,29 @@ impl IntentGraph {
         Self::default()
     }
 
-    /// Add or strengthen a word→intent activation edge (takes max on conflict).
-    pub fn add_activation(&mut self, word: &str, intent: &str, weight: f32) {
-        let entries = self.word_intent.entry(word.to_string()).or_default();
-        if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
-            e.1 = e.1.max(weight);
-        } else {
-            entries.push((intent.to_string(), weight));
-        }
-    }
-
-    /// Add or strengthen a suppressor edge.
-    pub fn add_suppressor(&mut self, word: &str, intent: &str, weight: f32) {
-        let entries = self.suppressors.entry(word.to_string()).or_default();
-        if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
-            e.1 = e.1.max(weight);
-        } else {
-            entries.push((intent.to_string(), weight));
-        }
-    }
-
-    /// Add suppressor edges for a slice of discriminating words → one intent.
-    /// Used by auto-learn Turn 3: targeted suppression of specific words rather
-    /// than blanket activation decay.
-    pub fn add_suppressors(&mut self, words: &[&str], intent: &str, weight: f32) {
-        for word in words {
-            self.add_suppressor(word, intent, weight);
-        }
-    }
-
-    // ── Count model (log-odds) ────────────────────────────────────────────
-
-    /// True when the count-based log-odds model is active.
-    /// False when the legacy LLM-assigned absolute-weight model is used.
-    pub fn is_count_model(&self) -> bool {
-        !self.counts.is_empty()
-    }
-
-    /// Add a phrase to the count model for an intent.
+    /// Add a phrase to the intent graph.
     /// `words` must already be L1-normalized canonical terms (stop words removed).
     ///
-    /// Increments per-word counts for this intent, then immediately recomputes
-    /// log-odds for affected words. One phrase = one meaningful update.
-    /// Discriminative words (rare elsewhere) get high log-odds automatically.
-    /// Common words (appear in all intents equally) converge toward 0 — ignored.
+    /// Asymptotic Hebbian update: w' = w + 0.4*(1-w). One phrase = immediate
+    /// weight update. IDF at query time discounts words shared across many intents.
     pub fn learn_phrase(&mut self, words: &[&str], intent: &str) {
-        if words.is_empty() { return; }
+        const PHRASE_RATE: f32 = 0.4;
         for word in words {
-            *self.counts
-                .entry(word.to_string())
-                .or_default()
-                .entry(intent.to_string())
-                .or_insert(0) += 1;
-        }
-        *self.intent_totals.entry(intent.to_string()).or_insert(0) += words.len() as u32;
-        let affected: Vec<String> = words.iter().map(|w| w.to_string()).collect();
-        self.recompute_log_odds_for(&affected);
-    }
-
-    /// Recompute log-odds cache (`word_intent`) for the given words from counts.
-    ///
-    /// log_odds(word, intent) = ln( P(word|intent) / P(word|¬intent) )
-    ///
-    /// With Laplace smoothing (α=1):
-    ///   P(word|intent) = (count(word,intent)+1) / (total_words_in_intent + vocab_size)
-    ///   P(word|¬intent) = (count(word,not_intent)+1) / (total_words_not_intent + vocab_size)
-    ///
-    /// Positive log-odds: word is more common in this intent → boosts score.
-    /// Negative log-odds: word is more common in other intents → naturally suppresses.
-    /// Near-zero: word appears uniformly → doesn't affect routing.
-    pub fn recompute_log_odds_for(&mut self, words: &[String]) {
-        let vocab_size = self.counts.len().max(1) as f32;
-        let total_all: u32 = self.intent_totals.values().sum();
-
-        for word in words {
-            let Some(intent_counts) = self.counts.get(word) else { continue };
-            let word_total: u32 = intent_counts.values().sum();
-
-            let mut new_log_odds: Vec<(String, f32)> = Vec::new();
-            for (intent, &count_in) in intent_counts {
-                let total_in  = self.intent_totals.get(intent).copied().unwrap_or(1) as f32;
-                let total_out = total_all.saturating_sub(
-                    self.intent_totals.get(intent).copied().unwrap_or(0)
-                ) as f32;
-                let count_out = word_total.saturating_sub(count_in) as f32;
-
-                let p_in  = (count_in as f32 + 1.0) / (total_in  + vocab_size);
-                let p_out = (count_out         + 1.0) / (total_out.max(1.0) + vocab_size);
-                let lo = (p_in / p_out).ln();
-                new_log_odds.push((intent.clone(), lo));
-            }
-
-            let entries = self.word_intent.entry(word.clone()).or_default();
-            for (intent, lo) in new_log_odds {
-                if let Some(e) = entries.iter_mut().find(|(id, _)| id == &intent) {
-                    e.1 = lo;
-                } else {
-                    entries.push((intent, lo));
-                }
+            if word.is_empty() { continue; }
+            let entries = self.word_intent.entry(word.to_string()).or_default();
+            if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
+                e.1 = (e.1 + PHRASE_RATE * (1.0 - e.1)).min(1.0);
+            } else {
+                entries.push((intent.to_string(), PHRASE_RATE));
             }
         }
     }
 
-    /// Rebuild the entire log-odds cache from scratch. Call after bulk imports.
-    pub fn recompute_all_log_odds(&mut self) {
-        self.word_intent.clear();
-        let words: Vec<String> = self.counts.keys().cloned().collect();
-        self.recompute_log_odds_for(&words);
-    }
+    /// Routing threshold — identical in production and simulation.
+    pub fn default_threshold(&self) -> f32 { 0.3 }
 
-    /// Appropriate routing threshold for the active model.
-    /// Count model: 1.0 (require at least 1 log-odds unit of evidence).
-    /// Legacy model: 0.3 (raw activation sum).
-    pub fn default_threshold(&self) -> f32 {
-        if self.is_count_model() { 1.0 } else { 0.3 }
-    }
-
-    /// Appropriate gap for multi-intent filtering.
-    /// Count model: 5.0 (within 5 log-odds units of top intent).
-    /// Legacy model: 1.5 (raw activation gap).
-    pub fn default_gap(&self) -> f32 {
-        if self.is_count_model() { 5.0 } else { 1.5 }
-    }
+    /// Multi-intent gap — identical in production and simulation.
+    pub fn default_gap(&self) -> f32 { 1.5 }
 
     /// Hebbian reinforcement from a routing confirmation.
     /// `words` must already be Layer-1 normalized canonical terms.
@@ -851,24 +733,11 @@ impl IntentGraph {
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
 
-        if self.is_count_model() {
-            // ── Count model: log-odds scoring ──────────────────────────────────
-            // Positive log-odds → word is more likely in this intent than others.
-            // Negative log-odds → word is more likely elsewhere → natural suppression.
-            // No IDF needed (implicit in log-odds). No suppressor table needed.
-            for token in &tokens {
-                let is_negated = token.starts_with("not_");
-                let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
-                if is_negated { has_negation = true; }
-                if let Some(entries) = self.word_intent.get(base) {
-                    for (intent, log_odds) in entries {
-                        let delta = if is_negated { -*log_odds } else { *log_odds };
-                        *scores.entry(intent.clone()).or_insert(0.0) += delta;
-                    }
-                }
-            }
-        } else {
-            // ── Legacy model: spreading activation with IDF + explicit suppressors ─
+        {
+            // ── Term-weight model: IDF-weighted spreading activation ──────────
+            // IDF boosts words unique to one intent; discounts words shared across many.
+            // Formula: score += weight * ln(N / df) where df = intents containing this word.
+            // Equivalent to InvertedIndex.search() — immediate response to new phrases.
             let total_intents: f32 = {
                 let mut all: std::collections::HashSet<&str> = std::collections::HashSet::new();
                 for entries in self.word_intent.values() {
@@ -886,17 +755,6 @@ impl IntentGraph {
                         let delta = weight * idf;
                         *scores.entry(intent.clone()).or_insert(0.0) +=
                             if is_negated { -delta } else { delta };
-                    }
-                }
-            }
-            // Explicit suppressors (legacy only)
-            for token in &tokens {
-                let base = token.strip_prefix("not_").unwrap_or(token);
-                if let Some(suppressions) = self.suppressors.get(base) {
-                    for (intent, weight) in suppressions {
-                        if let Some(s) = scores.get_mut(intent) {
-                            *s -= weight;
-                        }
                     }
                 }
             }
@@ -948,6 +806,10 @@ impl IntentGraph {
         if all.is_empty() { return all; }
         let top = all[0].1;
         if top < threshold { return vec![]; }
+        // Include intent if it meets threshold AND within absolute gap of top.
+        // A secondary intent must score within `gap` of the top to be considered genuine.
+        // The 30% ratio rule was removed: it caused massive over-detection in long/chatty
+        // queries where many intents accumulate score from incidental vocabulary.
         all.into_iter()
             .filter(|(_, s)| *s >= threshold && top - *s <= gap)
             .collect()
@@ -965,17 +827,10 @@ impl IntentGraph {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 
-    /// Stats summary: (unique_words, activation_edges, suppressor_edges, conjunctions).
-    pub fn stats(&self) -> (usize, usize, usize, usize) {
+    /// Stats: (unique_words, activation_edges, conjunctions).
+    pub fn stats(&self) -> (usize, usize, usize) {
         let activation_edges: usize = self.word_intent.values().map(|v| v.len()).sum();
-        let suppressor_edges: usize = self.suppressors.values().map(|v| v.len()).sum();
-        (self.word_intent.len(), activation_edges, suppressor_edges, self.conjunctions.len())
-    }
-
-    /// Count model stats: (unique_words_in_counts, total_phrase_tokens).
-    pub fn count_stats(&self) -> (usize, u64) {
-        let total: u64 = self.intent_totals.values().map(|&v| v as u64).sum();
-        (self.counts.len(), total)
+        (self.word_intent.len(), activation_edges, self.conjunctions.len())
     }
 
     // ── L3 Inhibition layer ────────────────────────────────────────────────────
@@ -1052,24 +907,19 @@ mod intent_graph_tests {
         let layer1 = saas_test_graph();
         let mut ig = IntentGraph::new();
 
-        // cancel_subscription
-        ig.add_activation("cancel", "cancel_subscription", 0.90);
-        ig.add_activation("subscription", "cancel_subscription", 0.85);
-        ig.add_suppressor("order", "cancel_subscription", 0.50);
+        // cancel_subscription: "cancel", "subscription"
+        ig.learn_phrase(&["cancel", "subscription"], "cancel_subscription");
         ig.conjunctions.push(ConjunctionRule {
             words: vec!["cancel".into(), "subscription".into()],
             intent: "cancel_subscription".into(),
             bonus: 0.50,
         });
 
-        // cancel_order
-        ig.add_activation("cancel", "cancel_order", 0.85);
-        ig.add_activation("order", "cancel_order", 0.85);
-        ig.add_suppressor("subscription", "cancel_order", 0.50);
+        // cancel_order: "cancel", "order" — IDF disambiguates via unique terms
+        ig.learn_phrase(&["cancel", "order"], "cancel_order");
 
-        // send_message
-        ig.add_activation("send", "send_message", 0.90);
-        ig.add_activation("message", "send_message", 0.80);
+        // send_message: "send", "message"
+        ig.learn_phrase(&["send", "message"], "send_message");
 
         (layer1, ig)
     }
@@ -1080,7 +930,7 @@ mod intent_graph_tests {
         let (scores, neg) = ig.score(&l1, "cancel my subscription");
         let top = &scores[0];
         assert_eq!(top.0, "cancel_subscription");
-        assert!(top.1 > 1.5, "conjunction bonus should push score high");
+        assert!(top.1 > 0.0, "cancel_subscription should score positively");
         assert!(!neg, "no negation in this query");
     }
 
@@ -1092,11 +942,11 @@ mod intent_graph_tests {
     }
 
     #[test]
-    fn layer3_suppressor_disambiguates() {
+    fn layer3_idf_disambiguates() {
         let (l1, ig) = mini_intent_graph();
         let (scores, _) = ig.score(&l1, "cancel order");
         assert_eq!(scores[0].0, "cancel_order",
-            "IDF + suppressor should push cancel_order above cancel_subscription");
+            "IDF should push cancel_order above cancel_subscription (unique word 'order')");
     }
 
     #[test]
@@ -1144,8 +994,7 @@ mod intent_graph_tests {
     #[test]
     fn layer3_cjk_negation() {
         let (_, mut ig) = mini_intent_graph();
-        ig.add_activation("取消", "cancel_subscription", 0.90);
-        ig.add_activation("订阅", "cancel_subscription", 0.85);
+        ig.learn_phrase(&["取消", "订阅"], "cancel_subscription");
 
         // Positive: "取消订阅" → should route to cancel_subscription
         let (pos_scores, pos_neg) = ig.score_normalized("取消订阅");

@@ -5,15 +5,13 @@
 //! Default: http://localhost:3001
 
 mod state;
-mod llm;
+mod pipeline;
 mod routes_core;
 mod routes_intents;
 mod routes_learn;
 mod routes_logs;
 mod routes_phrases;
 mod routes_settings;
-mod routes_review_prompt;
-mod routes_review_llm;
 mod routes_training;
 mod routes_projects;
 mod routes_discovery;
@@ -91,6 +89,7 @@ async fn main() {
     let mut routers = HashMap::new();
     let mut hebbian_map = HashMap::new();
     let mut intent_graph_map = HashMap::new();
+    let mut ngram_map = HashMap::new();
 
     if let Some(ref dir) = data_dir {
         if let Ok(entries) = std::fs::read_dir(dir) {
@@ -113,6 +112,13 @@ async fn main() {
                     }
                     if let Some(ig) = routes_hebbian::load_intent_graph(dir, name) {
                         println!("Loaded intent graph: {}", name);
+                        // Build L0 n-gram index from L1 + L2 vocabulary
+                        let ng = asv_router::ngram::build_for_namespace(
+                            hebbian_map.get(name),
+                            Some(&ig),
+                        );
+                        println!("Built ngram index: {} ({} terms)", name, ng.len());
+                        ngram_map.insert(name.to_string(), ng);
                         intent_graph_map.insert(name.to_string(), ig);
                     }
                 }
@@ -141,6 +147,7 @@ async fn main() {
         worker_notify: worker_notify.clone(),
         hebbian: RwLock::new(hebbian_map),
         intent_graph: RwLock::new(intent_graph_map),
+        ngram: RwLock::new(ngram_map),
     });
 
     // Spawn the background auto-learn worker
@@ -156,8 +163,6 @@ async fn main() {
         .merge(routes_logs::routes())
         .merge(routes_phrases::routes())
         .merge(routes_settings::routes())
-        .merge(routes_review_prompt::routes())
-        .merge(routes_review_llm::routes())
         .merge(routes_training::routes())
         .merge(routes_projects::routes())
         .merge(routes_discovery::routes())
@@ -167,7 +172,6 @@ async fn main() {
         .merge(routes_ui_settings::routes())
         .merge(routes_events::routes())
         .merge(routes_assembly::routes())
-        .merge(routes_hebbian::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 

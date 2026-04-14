@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::sync::Notify;
 use crate::state::{AppState, StudioEvent, get_ns_mode};
 use crate::log_store::ReviewStatus;
-use crate::llm::{full_review, apply_review};
+use crate::pipeline::{full_review, apply_review};
 
 pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
     loop {
@@ -61,9 +61,9 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
             let model = std::env::var("LLM_MODEL")
                 .unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
 
-            match full_review(&state, &app_id, &record.query, &record.detected_intents).await {
+            match full_review(&state, &app_id, &record.query, &record.detected_intents, None).await {
                 Ok(review_result) => {
-                    let (phrases_added, suppressors_added) =
+                    let phrases_added =
                         apply_review(&state, &app_id, &review_result, &record.query).await;
 
                     let version_after = state.routers.read().unwrap()
@@ -77,7 +77,7 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
                         llm_reviewed: true,
                         llm_model: Some(model),
                         llm_result: serde_json::to_value(&review_result).ok(),
-                        applied: phrases_added > 0 || suppressors_added > 0,
+                        applied: phrases_added > 0,
                         phrases_added,
                         version_before,
                         version_after: if version_after != version_before { Some(version_after) } else { None },
@@ -92,11 +92,11 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
                         summary: review_result.summary,
                     });
 
-                    if phrases_added > 0 || suppressors_added > 0 {
+                    if phrases_added > 0 {
                         let _ = state.event_tx.send(StudioEvent::FixApplied {
                             id,
                             phrases_added,
-                            phrases_replaced: suppressors_added,
+                            phrases_replaced: 0,
                             version_before,
                             version_after,
                         });

@@ -9,7 +9,7 @@ use axum::{
 use std::collections::HashMap;
 use asv_router::{Router, IntentType};
 use crate::state::*;
-use crate::llm::*;
+use crate::pipeline::*;
 
 /// Seed L1 (LexicalGraph) using the accepted phrases as canonical vocabulary context.
 ///
@@ -177,7 +177,7 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
 /// Called once after all batch phrase-generation is complete.
 /// Creates the IntentGraph if it doesn't exist yet for this app.
 /// Uses L1 preprocessing if available — same tokenisation path as routing.
-fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
+pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
     if accepted.is_empty() { return; }
 
     let l1 = state.hebbian.read().unwrap().get(app_id).cloned().unwrap_or_default();
@@ -201,6 +201,16 @@ fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
         ig.save(&path).ok();
         eprintln!("[import/L2] seeded {} phrases into count model for '{}'", accepted.len(), app_id);
     }
+
+    // Rebuild ngram index so L0 typo correction reflects new vocabulary
+    drop(ig_map);
+    let heb_map = state.hebbian.read().unwrap();
+    let lexical = heb_map.get(app_id);
+    let ig_map2 = state.intent_graph.read().unwrap();
+    let ng = asv_router::ngram::build_for_namespace(lexical, ig_map2.get(app_id));
+    drop(ig_map2);
+    drop(heb_map);
+    state.ngram.write().unwrap().insert(app_id.to_string(), ng);
 }
 
 pub fn routes() -> axum::Router<AppState> {
@@ -626,7 +636,7 @@ pub async fn import_apply(
     }).collect();
 
     let l2_words = state.intent_graph.read().unwrap()
-        .get(&app_id).map(|ig| ig.counts.len()).unwrap_or(0);
+        .get(&app_id).map(|ig| ig.word_intent.len()).unwrap_or(0);
     let l1_edges = state.hebbian.read().unwrap()
         .get(&app_id).map(|h| h.edges.len()).unwrap_or(0);
 
@@ -932,7 +942,7 @@ pub async fn mcp_apply(
     }).collect();
 
     let l2_words = state.intent_graph.read().unwrap()
-        .get(&app_id).map(|ig| ig.counts.len()).unwrap_or(0);
+        .get(&app_id).map(|ig| ig.word_intent.len()).unwrap_or(0);
     let l1_edges = state.hebbian.read().unwrap()
         .get(&app_id).map(|h| h.edges.len()).unwrap_or(0);
 

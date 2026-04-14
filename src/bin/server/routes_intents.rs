@@ -178,23 +178,35 @@ pub async fn add_intent_multilingual(
 ) -> StatusCode {
     let app_id = app_id_from_headers(&headers);
     ensure_app(&state, &app_id);
-    let mut routers = state.routers.write().unwrap();
-    let router = routers.get_mut(&app_id).unwrap();
-    router.add_intent_multilingual(&req.id, req.phrases_by_lang);
-    if let Some(t) = req.intent_type {
-        router.set_intent_type(&req.id, t);
-    }
-    if let Some(desc) = req.description {
-        if !desc.is_empty() {
-            router.set_description(&req.id, &desc);
+
+    // Collect (intent_id, phrase) pairs for L2 seeding before the borrow
+    let l2_seeds: Vec<(String, String)> = req.phrases_by_lang.values()
+        .flat_map(|phrases| phrases.iter().map(|p| (req.id.clone(), p.clone())))
+        .collect();
+
+    {
+        let mut routers = state.routers.write().unwrap();
+        let router = routers.get_mut(&app_id).unwrap();
+        router.add_intent_multilingual(&req.id, req.phrases_by_lang);
+        if let Some(t) = req.intent_type {
+            router.set_intent_type(&req.id, t);
         }
-    }
-    if let Some(meta) = req.metadata {
-        for (key, values) in meta {
-            router.set_metadata(&req.id, &key, values);
+        if let Some(desc) = req.description {
+            if !desc.is_empty() {
+                router.set_description(&req.id, &desc);
+            }
         }
+        if let Some(meta) = req.metadata {
+            for (key, values) in meta {
+                router.set_metadata(&req.id, &key, values);
+            }
+        }
+        maybe_persist(&state, &app_id, router);
     }
-    maybe_persist(&state, &app_id, router);
+
+    // Seed L2 (IntentGraph) so routing works immediately without bootstrap
+    crate::routes_import::seed_into_l2(&state, &app_id, &l2_seeds);
+
     StatusCode::CREATED
 }
 

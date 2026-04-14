@@ -223,14 +223,6 @@ export const api = {
       accuracy: number;
     }>('/training/run', { turns }),
 
-  trainingReview: (message: string, detected: { id: string; score: number }[], ground_truth: string[]) =>
-    post<{
-      analysis: string;
-      corrections: { action: string; query?: string; intent?: string; from?: string; phrase?: string }[];
-    }>('/training/review', { message, detected, ground_truth }),
-
-  trainingApply: (corrections: { action: string; query?: string; intent?: string; from?: string; phrase?: string }[]) =>
-    post<{ applied: number; errors: string[] }>('/training/apply', { corrections }),
 
   // Simulation
   simulateTurn: (config: {
@@ -317,8 +309,15 @@ export const api = {
     get<{ total: number; items: ReviewItem[] }>(`/review/queue?limit=${limit}&offset=${offset}${status ? `&status=${status}` : ''}`),
   reviewApprove: (id: number) => post<{ status: string; intent: string }>('/review/approve', { id }),
   reviewReject: (id: number) => post<{ status: string }>('/review/reject', { id }),
-  reviewFix: (id: number, phrases_by_intent: Record<string, { phrase: string; lang: string }[]>) =>
-    post<ReviewFixResult>('/review/fix', { id, phrases_by_intent }),
+  reviewFix: (
+    id: number,
+    phrases_by_intent: Record<string, { phrase: string; lang: string }[]>,
+    correct_intents: string[] = [],
+    wrong_detections: string[] = [],
+  ) =>
+    post<{ status: string; added: number; auto_resolved: number }>(
+      '/review/fix', { id, phrases_by_intent, correct_intents, wrong_detections }
+    ),
   // Review analysis (full 3-turn review in one call)
   reviewAnalyze: (id: number) =>
     post<ReviewAnalyzeResult>('/review/analyze', { id }),
@@ -326,13 +325,14 @@ export const api = {
     post<Record<string, string[]>>('/review/intent_phrases', { intent_ids }),
   getReviewStats: () => get<ReviewStats>('/review/stats'),
 
-  // Synchronous learn — bypasses worker queue, returns immediately with SSE events fired
-  learnNow: (query: string, detected_intents: string[] = []) =>
+  // Synchronous learn — bypasses worker queue, returns immediately with SSE events fired.
+  // Pass ground_truth when available (simulate tab) to skip Turn 1 LLM.
+  learnNow: (query: string, detected_intents: string[] = [], ground_truth?: string[]) =>
     post<{
       correct_intents: string[]; wrong_detections: string[]; missed_intents: string[];
-      phrases_added: number; suppressors_added: number; summary: string;
+      phrases_added: number; summary: string;
       languages: string[]; version_before: number; version_after: number; model: string;
-    }>('/learn/now', { query, detected_intents }),
+    }>('/learn/now', { query, detected_intents, ground_truth }),
 
   // Spec Import
   importSpec: (spec: string) =>
@@ -352,16 +352,20 @@ export const api = {
     post<{ created: string[]; count: number }>('/discover/apply', { clusters }),
 };
 
-export interface ReviewAnalyzeResult {
+/// Single data contract between review and apply — used by all learning flows.
+export interface FullReviewResult {
   correct_intents: string[];
   wrong_detections: string[];
+  missed_intents: string[];
   languages: string[];
+  detection_perfect: boolean;
   phrases_to_add: Record<string, string[]>;
   phrases_blocked: { intent: string; phrase: string; reason: string }[];
-  phrases_to_replace: { intent: string; old_phrase: string; new_phrase: string; reason: string }[];
-  safe_to_apply: boolean;
   summary: string;
 }
+
+// Alias for backwards compat with components that import ReviewAnalyzeResult
+export type ReviewAnalyzeResult = FullReviewResult;
 
 // Review types
 export interface ReviewItem {

@@ -1,15 +1,20 @@
-//! Training and simulation endpoints.
+//! Simulate and training arena endpoints.
+//!
+//! - `/api/simulate/turn` — generate one simulated customer message (LLM, with conversation history)
+//! - `/api/simulate/respond` — generate agent response for a routed message
+//! - `/api/training/generate` — batch-generate a full conversation (LLM)
+//! - `/api/training/run` — route a batch of turns, measure accuracy (L0→L1→L2+L3 pipeline)
+//! - `/api/training/review` — review a failure: delegates to `full_review` (Turn 1 skipped via GT set math)
+//! - `/api/training/apply` — apply a `FullReviewResult`: delegates to `apply_review` (full L0–L3 pipeline)
 
 use axum::{
-    extract::{State, Query},
+    extract::{State},
     http::{StatusCode, HeaderMap},
-    routing::{get, post, delete},
+    routing::{get, post},
     Json,
 };
-use std::collections::HashMap;
-use asv_router::{Router, IntentType};
 use crate::state::*;
-use crate::llm::*;
+use crate::pipeline::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
@@ -342,17 +347,25 @@ pub async fn training_run(
     let mut results = Vec::new();
 
     for turn in &req.turns {
-        // Route via Hebbian L2 — fall back to empty L1 if LexicalGraph not yet built
+        // Route via L0 (ngram) → L1 (Hebbian expand) → L2+L3 (intent scoring + inhibition)
+        // Same pipeline and thresholds as production /api/route_multi.
         let scored = {
-            let ig_map  = state.intent_graph.read().unwrap();
-            let heb_map = state.hebbian.read().unwrap();
+            let ig_map   = state.intent_graph.read().unwrap();
+            let heb_map  = state.hebbian.read().unwrap();
+            let ngram_map = state.ngram.read().unwrap();
             if let Some(ig) = ig_map.get(&app_id) {
                 let default_heb = asv_router::hebbian::LexicalGraph::default();
                 let heb = heb_map.get(&app_id).unwrap_or(&default_heb);
-                let pre = heb.preprocess(&turn.message);
-                let threshold = ig.default_threshold();
-                let gap       = ig.default_gap();
-                let (scores, _) = ig.score_multi_normalized(&pre.expanded, threshold, gap);
+                // L0: n-gram typo correction
+                let corrected = if let Some(ng) = ngram_map.get(&app_id) {
+                    ng.correct_query(&turn.message)
+                } else {
+                    turn.message.clone()
+                };
+                // L1: normalize + expand
+                let pre = heb.preprocess(&corrected);
+                // L2+L3: same thresholds as production
+                let (scores, _) = ig.score_multi_normalized(&pre.expanded, 0.3, 1.5);
                 scores
             } else {
                 vec![]
@@ -427,10 +440,15 @@ pub async fn training_run(
     })))
 }
 
+/// Training review: delegates entirely to the unified auto-learn pipeline.
+///
+/// With ground truth available (known correct intents), Turn 1 LLM is skipped —
+/// correct/missed/wrong sets are computed by set math. Turn 2 LLM then generates
+/// phrases for any missed intents. Returns a `FullReviewResult` ready for `training_apply`.
 #[derive(serde::Deserialize)]
 pub struct TrainingReviewRequest {
     message: String,
-    /// Intent IDs the router returned (confirmed + false positives). Strings only.
+    /// Intent IDs the router returned (confirmed + false positives).
     #[serde(default)]
     detected: Vec<String>,
     ground_truth: Vec<String>,
@@ -442,147 +460,21 @@ pub async fn training_review(
     Json(req): Json<TrainingReviewRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-
-    // ── Compute miss/false-positive sets (pure logic, no LLM needed) ──────────
-    let gt_set: std::collections::HashSet<&str> = req.ground_truth.iter().map(|s| s.as_str()).collect();
-    let det_set: std::collections::HashSet<&str> = req.detected.iter().map(|s| s.as_str()).collect();
-
-    let missed: Vec<&str>          = req.ground_truth.iter().map(|s| s.as_str()).filter(|s| !det_set.contains(s)).collect();
-    let false_positives: Vec<&str> = req.detected.iter().map(|s| s.as_str()).filter(|s| !gt_set.contains(s)).collect();
-    let correct: Vec<&str>         = req.detected.iter().map(|s| s.as_str()).filter(|s| gt_set.contains(s)).collect();
-
-    // ── Build inhibition pairs: each FP paired with each confirmed correct intent ─
-    // No LLM required — ground truth tells us exactly which pairs to inhibit.
-    let inhibitions: Vec<serde_json::Value> = false_positives.iter().flat_map(|fp| {
-        correct.iter().map(move |c| serde_json::json!({
-            "correct": c,
-            "false_positive": fp,
-        }))
-    }).collect();
-
-    // ── LLM prompt only for missed intents (seed generation) ─────────────────
-    if missed.is_empty() {
-        // Nothing for LLM to do — only false positives (handled by inhibition)
-        return Ok(Json(serde_json::json!({
-            "analysis": format!("No missed intents. {} false positive(s) will be suppressed via inhibition layer.",
-                false_positives.len()),
-            "corrections": [],
-            "inhibitions": inhibitions,
-            "missed": missed,
-            "false_positives": false_positives,
-        })));
-    }
-
-    let intent_seeds = {
-        let routers = state.routers.read().unwrap();
-        let router = routers.get(&app_id)
-            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-        let mut relevant_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
-        for gt in &req.ground_truth { relevant_ids.insert(gt.clone()); }
-        for d in &req.detected     { relevant_ids.insert(d.clone()); }
-        let mut defs = Vec::new();
-        for id in &relevant_ids {
-            let seeds = router.get_training(id).unwrap_or_default();
-            defs.push(format!(
-                "- {}: {}",
-                id,
-                seeds.iter().take(5).cloned().collect::<Vec<_>>().join(" | ")
-            ));
-        }
-        defs.join("\n")
-    };
-
-    let fp_note = if false_positives.is_empty() {
-        String::new()
-    } else {
-        format!("\n## False positives (detected but WRONG — will be suppressed automatically):\n{}\nDo NOT generate seeds for these.\n",
-            false_positives.join(", "))
-    };
-
-    let prompt = format!(
-r#"You are reviewing a failed intent routing result from ASV Router, a keyword-based intent classifier.
-
-## Customer message:
-"{message}"
-
-## Ground truth intents (what the customer actually wants):
-{ground_truth}
-
-## What the router detected:
-{detected}
-{fp_note}
-## Relevant intent seeds (existing phrases the router knows):
-{seeds}
-
-## Your task:
-For each MISSED intent (in ground truth but not detected), generate a NEW seed phrase.
-
-CRITICAL: The router is vocabulary-based — it scores by matching words. A seed only helps THIS
-query if it shares key words with the customer's message. So:
-- USE the customer's actual vocabulary — the specific words they used
-- GENERALIZE the structure, not the words (e.g. "cancel my $49 plan" → "cancel monthly plan")
-- A seed that shares zero words with the message does nothing for this routing failure
-
-Seed quality guidelines:
-{quality}
-
-RULES:
-- ONLY use action "add_seed". No other action types.
-- Seed must contain at least one key word from the customer's message
-- Only suggest seeds for MISSED intents: {missed}
-- Use exact intent IDs from the lists above.
-
-Return ONLY a JSON object:
-{{
-  "analysis": "brief explanation of what was missed and why",
-  "corrections": [
-    {{
-      "action": "add_seed",
-      "phrase": "short phrase using the customer's vocabulary for this intent",
-      "intent": "missed_intent_id"
-    }}
-  ]
-}}"#,
-        message = req.message,
-        ground_truth = req.ground_truth.join(", "),
-        detected = if req.detected.is_empty() { "nothing detected".to_string() } else { req.detected.join(", ") },
-        fp_note = fp_note,
-        seeds = intent_seeds,
-        quality = asv_router::phrase::PHRASE_QUALITY_RULES,
-        missed = missed.join(", "),
-    );
-
-    let text = call_llm(&state, &prompt, 1024).await?;
-
-    let json_str = text.find('{')
-        .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))
-        .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No JSON in review response".to_string()))?;
-
-    let mut review_result: serde_json::Value = serde_json::from_str(json_str)
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Invalid JSON from review: {}", e)))?;
-
-    // Merge server-side inhibitions into LLM result
-    review_result["inhibitions"]    = serde_json::json!(inhibitions);
-    review_result["missed"]         = serde_json::json!(missed);
-    review_result["false_positives"] = serde_json::json!(false_positives);
-
-    Ok(Json(review_result))
+    let result = full_review(&state, &app_id, &req.message, &req.detected, Some(&req.ground_truth))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    Ok(Json(serde_json::to_value(&result).unwrap()))
 }
 
-#[derive(serde::Deserialize, Default)]
-pub struct InhibitionPair {
-    correct: String,
-    false_positive: String,
-}
-
+/// Training apply: delegates entirely to the unified auto-learn pipeline.
+///
+/// Accepts the `FullReviewResult` from `training_review` plus the original query
+/// (needed for L2 Hebbian context and L1 synonym reinforcement).
+/// Runs phrase_pipeline → L2 update → L3 inhibition → L1 synonym/morphology.
 #[derive(serde::Deserialize)]
 pub struct TrainingApplyRequest {
-    #[serde(default)]
-    corrections: Vec<serde_json::Value>,
-    /// L3 inhibition pairs generated by training_review.
-    /// Each pair teaches the model: when `correct` fires, suppress `false_positive`.
-    #[serde(default)]
-    inhibitions: Vec<InhibitionPair>,
+    query: String,
+    result: FullReviewResult,
 }
 
 pub async fn training_apply(
@@ -591,86 +483,12 @@ pub async fn training_apply(
     Json(req): Json<TrainingApplyRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-
-    // Collect (phrase, intent) pairs for valid add_seed corrections
-    let mut to_apply: Vec<(String, String)> = Vec::new();
-    let mut errors = Vec::new();
-
-    for correction in &req.corrections {
-        let action = correction["action"].as_str().unwrap_or("");
-        match action {
-            "add_seed" => {
-                let phrase = correction["phrase"].as_str().unwrap_or("").to_string();
-                let intent = correction["intent"].as_str().unwrap_or("").to_string();
-                if !phrase.is_empty() && !intent.is_empty() {
-                    to_apply.push((phrase, intent));
-                } else {
-                    errors.push("add_seed: missing phrase or intent".to_string());
-                }
-            }
-            _ => {
-                errors.push(format!("ignored action: {} (only add_seed allowed)", action));
-            }
-        }
+    if !state.routers.read().unwrap().contains_key(&app_id) {
+        return Err((StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)));
     }
-
-    // Apply to Router training store
-    {
-        let mut routers = state.routers.write().unwrap();
-        let router = routers.get_mut(&app_id)
-            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-        router.begin_batch();
-        for (phrase, intent) in &to_apply {
-            router.learn(phrase, intent);
-        }
-        router.end_batch();
-        maybe_persist(&state, &app_id, router);
-    }
-
-    // Also update the count model (if active) — this is the key:
-    // a newly learned phrase should immediately improve routing for similar queries.
-    {
-        let l1_preprocessed: Vec<(Vec<String>, String)> = {
-            let heb = state.hebbian.read().unwrap();
-            let g = heb.get(&app_id);
-            to_apply.iter().map(|(phrase, intent)| {
-                let normalized = g.map(|g| g.preprocess(phrase).expanded)
-                    .unwrap_or_else(|| phrase.clone());
-                let words = asv_router::tokenizer::tokenize(&normalized);
-                (words, intent.clone())
-            }).collect()
-        };
-
-        let mut ig_map = state.intent_graph.write().unwrap();
-        if let Some(ig) = ig_map.get_mut(&app_id) {
-            if ig.is_count_model() {
-                for (words, intent) in &l1_preprocessed {
-                    let refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
-                    ig.learn_phrase(&refs, intent);
-                    eprintln!("[training_apply] learn_phrase {:?} → '{}'", refs, intent);
-                }
-            }
-            // L3: apply inhibition learning regardless of count model status
-            for pair in &req.inhibitions {
-                if !pair.correct.is_empty() && !pair.false_positive.is_empty() {
-                    ig.learn_inhibition(&pair.correct, &pair.false_positive);
-                }
-            }
-            // Persist after all updates
-            if let Some(ref dir) = state.data_dir {
-                let path = format!("{}/{}/_intent_graph.json", dir, app_id);
-                ig.save(&path).ok();
-            }
-        }
-    }
-
-    Ok(Json(serde_json::json!({
-        "applied": to_apply.len(),
-        "inhibitions_learned": req.inhibitions.len(),
-        "errors": errors,
-    })))
+    let applied = apply_review(&state, &app_id, &req.result, &req.query).await;
+    Ok(Json(serde_json::json!({ "applied": applied })))
 }
-
 
 // ─── Simulation history ───────────────────────────────────────────────────────
 // Persists as {data_dir}/{app_id}/simulations.json — at most 20 records.

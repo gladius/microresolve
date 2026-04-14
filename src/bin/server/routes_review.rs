@@ -1,7 +1,16 @@
-//! Review system: queue from log store, fix, analyze.
+//! Review queue management and direct-learn endpoints.
 //!
-//! The review queue is no longer a separate in-memory structure.
-//! It is a filtered view of the log store: unresolved entries with flags.
+//! # Review queue
+//! A filtered view of the log store: unresolved entries with flags (miss/low_confidence/false_positive).
+//! No separate in-memory state — the log store IS the queue.
+//!
+//! # Endpoints
+//! - `/api/review/queue` — list pending entries
+//! - `/api/review/reject` — dismiss without learning
+//! - `/api/review/fix` — apply user-supplied phrases via full pipeline (L0→L1→L2→L3)
+//! - `/api/review/analyze` — run `full_review` (Turn 1 LLM judge + Turn 2 phrase gen)
+//! - `/api/learn/now` — synchronous learn: `full_review` + `apply_review` without queueing
+//! - `/api/report` — add a query to the review queue with an explicit flag
 
 use axum::{
     extract::{State, Query},
@@ -12,7 +21,7 @@ use axum::{
 use std::collections::HashMap;
 use crate::state::*;
 use crate::log_store::{LogQuery, LogRecord};
-use crate::llm::*;
+use crate::pipeline::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
@@ -97,6 +106,12 @@ pub async fn review_reject(
 pub struct ReviewFixRequest {
     id: u64,
     phrases_by_intent: HashMap<String, Vec<PhraseWithLang>>,
+    /// Intents correctly detected — used to fire L3 inhibition against wrong_detections.
+    #[serde(default)]
+    correct_intents: Vec<String>,
+    /// Intents incorrectly detected (false positives) — L3 will suppress these.
+    #[serde(default)]
+    wrong_detections: Vec<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -106,7 +121,10 @@ pub struct PhraseWithLang {
     lang: String,
 }
 
-/// Apply seed fixes, then resolve this entry and re-check similar unresolved entries.
+/// Apply fixes from the review queue, then resolve this entry.
+///
+/// Delegates to the unified auto-learn pipeline (`apply_review`):
+/// phrase_pipeline (L0) → L2 Hebbian phrase learn → L3 inhibition → L1 synonym/morphology.
 pub async fn review_fix(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -114,8 +132,8 @@ pub async fn review_fix(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    // Extract original query and verify entry exists
-    let original_query = {
+    // Read the log entry: get original query and detected intents
+    let (original_query, detected) = {
         let mut store = state.log_store.lock().unwrap();
         let result = store.query(&LogQuery {
             app_id: Some(app_id.clone()),
@@ -124,23 +142,44 @@ pub async fn review_fix(
         });
         result.records.iter()
             .find(|r| r.id == req.id)
-            .map(|r| r.query.clone())
+            .map(|r| (r.query.clone(), r.detected_intents.clone()))
             .ok_or_else(|| (StatusCode::NOT_FOUND, "log entry not found".to_string()))?
     };
 
-    // Run phrase pipeline
-    let seeds_map: HashMap<String, Vec<String>> = req.phrases_by_intent.iter()
-        .map(|(id, phrases)| (id.clone(), phrases.iter().map(|s| s.phrase.clone()).collect()))
+    // Build FullReviewResult from user's input — apply_review handles all layers
+    let det_set: std::collections::HashSet<&str> = detected.iter().map(|s| s.as_str()).collect();
+    let phrases_to_add: HashMap<String, Vec<String>> = req.phrases_by_intent.iter()
+        .map(|(id, phrases)| (id.clone(), phrases.iter().map(|p| p.phrase.clone()).collect()))
         .collect();
+    let missed_intents: Vec<String> = req.phrases_by_intent.keys()
+        .filter(|id| !det_set.contains(id.as_str()))
+        .cloned().collect();
+    let lang = req.phrases_by_intent.values()
+        .flat_map(|ps| ps.iter())
+        .map(|p| p.lang.as_str())
+        .find(|l| !l.is_empty())
+        .unwrap_or("en")
+        .to_string();
 
-    let pipeline = phrase_pipeline(&state, &app_id, &seeds_map, true, "en").await;
+    let review_result = crate::pipeline::FullReviewResult {
+        correct_intents: req.correct_intents,
+        wrong_detections: req.wrong_detections,
+        missed_intents,
+        languages: vec![lang],
+        detection_perfect: false,
+        phrases_to_add,
+        phrases_blocked: Vec::new(),
+        summary: String::new(),
+    };
+
+    let phrases_added = apply_review(&state, &app_id, &review_result, &original_query).await;
 
     // Resolve this entry
     state.log_store.lock().unwrap().resolve(&app_id, req.id);
 
-    // Re-check other unresolved flagged entries against updated router
+    // Re-check other unresolved entries: if something was learned, auto-resolve now-passing entries
     let mut auto_resolved = 0usize;
-    if !pipeline.added.is_empty() {
+    if phrases_added > 0 {
         let unresolved = state.log_store.lock().unwrap().query(&LogQuery {
             app_id: Some(app_id.clone()),
             resolved: Some(false),
@@ -148,7 +187,6 @@ pub async fn review_fix(
             ..Default::default()
         });
         for record in &unresolved.records {
-            // Re-check via Hebbian L2
             let passes = {
                 let ig_map = state.intent_graph.read().unwrap();
                 let heb_map = state.hebbian.read().unwrap();
@@ -167,16 +205,9 @@ pub async fn review_fix(
         }
     }
 
-    let blocked: Vec<serde_json::Value> = pipeline.blocked.iter()
-        .map(|(intent, phrase, reason)| serde_json::json!({"phrase": phrase, "intent": intent, "reason": reason}))
-        .collect();
-
     Ok(Json(serde_json::json!({
         "status": "ok",
-        "added": pipeline.added.len(),
-        "blocked": blocked,
-        "initially_blocked": pipeline.initially_blocked,
-        "recovered_by_retry": pipeline.recovered_by_retry,
+        "added": phrases_added,
         "auto_resolved": auto_resolved,
     })))
 }
@@ -203,18 +234,10 @@ pub async fn review_analyze(
         (record.query, record.detected_intents)
     };
 
-    let review = full_review(&state, &app_id, &query, &detected).await
+    let review = full_review(&state, &app_id, &query, &detected, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
-    Ok(Json(serde_json::json!({
-        "correct_intents": review.correct_intents,
-        "wrong_detections": review.wrong_detections,
-        "languages": review.languages,
-        "phrases_to_add": review.phrases_to_add,
-        "phrases_blocked": review.phrases_blocked.iter().map(|(i,s,r)| serde_json::json!({"intent":i,"phrase":s,"reason":r})).collect::<Vec<_>>(),
-        "suppressor_words": review.suppressor_words,
-        "summary": review.summary,
-    })))
+    Ok(Json(serde_json::to_value(&review).unwrap()))
 }
 
 // ─── Supporting ──────────────────────────────────────────────────────────────
@@ -264,6 +287,11 @@ pub struct LearnNowRequest {
     query: String,
     #[serde(default)]
     detected_intents: Vec<String>,
+    /// When provided (simulate/training flows), Turn 1 LLM is skipped entirely —
+    /// correct/missed/wrong are computed by set math (free + exact).
+    /// When absent (auto, manual without GT), Turn 1 LLM judges the routing.
+    #[serde(default)]
+    ground_truth: Option<Vec<String>>,
 }
 
 pub async fn learn_now(
@@ -287,10 +315,11 @@ pub async fn learn_now(
         query: req.query.clone(),
     });
 
-    let review = full_review(&state, &app_id, &req.query, &req.detected_intents).await
+    let gt_ref: Option<&[String]> = req.ground_truth.as_deref();
+    let review = full_review(&state, &app_id, &req.query, &req.detected_intents, gt_ref).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
-    let (phrases_added, suppressors_added) =
+    let phrases_added =
         apply_review(&state, &app_id, &review, &req.query).await;
 
     let version_after = state.routers.read().unwrap()
@@ -307,11 +336,11 @@ pub async fn learn_now(
         summary: review.summary.clone(),
     });
 
-    if phrases_added > 0 || suppressors_added > 0 {
+    if phrases_added > 0 {
         let _ = state.event_tx.send(StudioEvent::FixApplied {
             id: 0,
             phrases_added,
-            phrases_replaced: suppressors_added,
+            phrases_replaced: 0,
             version_before,
             version_after,
         });
@@ -322,7 +351,6 @@ pub async fn learn_now(
         "wrong_detections": review.wrong_detections,
         "missed_intents":   review.missed_intents,
         "phrases_added":    phrases_added,
-        "suppressors_added": suppressors_added,
         "summary":          review.summary,
         "languages":        review.languages,
         "version_before":   version_before,

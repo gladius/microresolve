@@ -66,6 +66,8 @@ pub struct ServerState {
     /// Per-namespace Layer 2 intent graph (spreading activation router).
     /// Replaces term-index as the primary router when bootstrapped.
     pub intent_graph: RwLock<HashMap<String, asv_router::hebbian::IntentGraph>>,
+    /// Per-namespace Layer 0 n-gram index for typo correction before L1.
+    pub ngram: RwLock<HashMap<String, asv_router::ngram::NgramIndex>>,
 }
 
 pub type AppState = Arc<ServerState>;

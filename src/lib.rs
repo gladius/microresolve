@@ -28,6 +28,7 @@ pub mod hebbian;
 pub mod discovery;
 pub mod import;
 pub mod connect;
+pub mod ngram;
 pub mod phrase;
 pub mod tokenizer;
 pub mod types;

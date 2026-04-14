@@ -40,18 +40,28 @@ pub async fn route_multi(
     let app_id = app_id_from_headers(&headers);
     let t0 = std::time::Instant::now();
 
+    // ── Layer 0: N-gram typo correction ──────────────────────────────────────
+    let l0_query = {
+        let ngram_map = state.ngram.read().unwrap();
+        if let Some(ng) = ngram_map.get(&app_id) {
+            ng.correct_query(&req.query)
+        } else {
+            req.query.clone()
+        }
+    };
+
     // ── Layer 1: Hebbian normalize + expand ──────────────────────────────────
     let (processed_query, hebbian_injected) = {
         let hebbian = state.hebbian.read().unwrap();
         if let Some(graph) = hebbian.get(&app_id) {
-            let r = graph.preprocess(&req.query);
+            let r = graph.preprocess(&l0_query);
             if r.was_modified {
                 eprintln!("[hebbian/L1] {} | {:?} → {:?} (injected: {:?})",
                     app_id, r.original, r.normalized, r.injected);
             }
             (r.expanded, r.injected)
         } else {
-            (req.query.clone(), vec![])
+            (l0_query, vec![])
         }
     };
 

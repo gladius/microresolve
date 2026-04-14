@@ -94,6 +94,10 @@ pub async fn delete_namespace(
         return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)));
     }
     drop(routers);
+    // Clean up all in-memory state for this namespace
+    state.intent_graph.write().unwrap().remove(&req.namespace_id);
+    state.hebbian.write().unwrap().remove(&req.namespace_id);
+    state.ngram.write().unwrap().remove(&req.namespace_id);
     if let Some(ref dir) = state.data_dir {
         let _ = std::fs::remove_dir_all(format!("{}/{}", dir, req.namespace_id));
         // Also remove old flat file if it exists (migration cleanup)
