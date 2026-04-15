@@ -22,6 +22,7 @@ mod routes_connect;
 mod routes_ui_settings;
 mod routes_events;
 mod routes_assembly;
+mod routes_build;
 mod routes_hebbian;
 mod worker;
 
@@ -172,6 +173,7 @@ async fn main() {
         .merge(routes_ui_settings::routes())
         .merge(routes_events::routes())
         .merge(routes_assembly::routes())
+        .merge(routes_build::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 

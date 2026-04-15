@@ -7,6 +7,7 @@ const links = [
   { to: '/namespaces',   label: 'Namespaces' },
   { to: '/intents',      label: 'Intents' },
   { to: '/studio',       label: 'Studio' },
+  { to: '/build',        label: 'Build' },
   { to: '/import',       label: 'Import' },
   { to: '/settings',     label: 'Settings' },
 ];

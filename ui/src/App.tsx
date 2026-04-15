@@ -7,6 +7,7 @@ import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NamespacesPage from '@/pages/NamespacesPage';
 import DomainsPage from '@/pages/DomainsPage';
+import BuildPage from '@/pages/BuildPage';
 import ImportLanding from '@/pages/import/ImportLanding';
 import OpenApiImport from '@/pages/import/OpenApiImport';
 import McpImport from '@/pages/import/McpImport';
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="/import/mcp" element={<McpImport />} />
             <Route path="/namespaces" element={<NamespacesPage />} />
             <Route path="/namespaces/:nsId" element={<DomainsPage />} />
+            <Route path="/build" element={<BuildPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>
