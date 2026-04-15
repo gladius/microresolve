@@ -13,6 +13,7 @@ use crate::routes_events::emit_queued;
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/route_multi", post(route_multi))
+        .route("/api/execute", post(execute))
 }
 
 #[derive(serde::Deserialize)]
@@ -283,5 +284,158 @@ fn disambiguate_cross_provider(
     if !to_remove.is_empty() {
         let mut i = 0;
         scored.retain(|_| { let keep = !to_remove.contains(&i); i += 1; keep });
+    }
+}
+
+// ── Intent Programming: execute endpoint ──────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct ExecuteRequest {
+    query: String,
+    #[serde(default)]
+    history: Vec<serde_json::Value>,
+}
+
+/// Route a query, assemble instructions from intent metadata, call LLM, return response.
+///
+/// This is the intent programming proof of concept:
+/// 1. ASV detects intent (30µs)
+/// 2. Reads instructions/guardrails/persona from intent metadata
+/// 3. Assembles focused system prompt
+/// 4. LLM executes against that focused context
+/// 5. Returns LLM response + routing info
+pub async fn execute(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ExecuteRequest>,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+    let t0 = std::time::Instant::now();
+
+    // Step 1: Route — detect intent(s)
+    let route_result = {
+        let ig_map = state.intent_graph.read().unwrap();
+        let heb_map = state.hebbian.read().unwrap();
+        match ig_map.get(&app_id) {
+            Some(ig) => {
+                let l1 = heb_map.get(&app_id);
+                ig.route(l1, &req.query, ig.default_threshold(), 5)
+            }
+            None => return Err((axum::http::StatusCode::NOT_FOUND,
+                format!("namespace '{}' not found", app_id))),
+        }
+    };
+
+    let routing_us = t0.elapsed().as_micros() as u64;
+
+    if route_result.confirmed.is_empty() {
+        return Ok(Json(serde_json::json!({
+            "response": null,
+            "routing": { "confirmed": [], "disposition": "no_match", "routing_us": routing_us },
+            "assembled_prompt": null,
+        })));
+    }
+
+    // Step 2: Read metadata for confirmed intents
+    let mut instructions_parts: Vec<String> = Vec::new();
+    let mut guardrails_parts: Vec<String> = Vec::new();
+    let mut persona_parts: Vec<String> = Vec::new();
+    let mut tool_parts: Vec<String> = Vec::new();
+
+    {
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(&app_id) {
+            for (intent_id, _score) in &route_result.confirmed {
+                if let Some(meta) = router.get_metadata(intent_id) {
+                    if let Some(instructions) = meta.get("instructions") {
+                        instructions_parts.extend(instructions.iter().cloned());
+                    }
+                    if let Some(guardrails) = meta.get("guardrails") {
+                        guardrails_parts.extend(guardrails.iter().cloned());
+                    }
+                    if let Some(persona) = meta.get("persona") {
+                        persona_parts.extend(persona.iter().cloned());
+                    }
+                    if let Some(tools) = meta.get("tools") {
+                        tool_parts.extend(tools.iter().cloned());
+                    }
+                }
+                // Also check description as fallback instructions
+                if instructions_parts.is_empty() {
+                    let desc = router.get_description(intent_id);
+                    if !desc.is_empty() {
+                        instructions_parts.push(desc.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Step 3: Assemble system prompt from blocks
+    let mut system_prompt = String::new();
+
+    if !instructions_parts.is_empty() {
+        system_prompt.push_str(&instructions_parts.join("\n"));
+    }
+    if !guardrails_parts.is_empty() {
+        system_prompt.push_str("\n\nConstraints:\n");
+        for g in &guardrails_parts {
+            system_prompt.push_str(&format!("- {}\n", g));
+        }
+    }
+    if !persona_parts.is_empty() {
+        system_prompt.push_str(&format!("\nTone: {}\n", persona_parts.join(", ")));
+    }
+    if !tool_parts.is_empty() {
+        system_prompt.push_str("\nAvailable tools:\n");
+        for t in &tool_parts {
+            system_prompt.push_str(&format!("- {}\n", t));
+        }
+    }
+
+    if system_prompt.is_empty() {
+        system_prompt = "You are a helpful assistant.".to_string();
+    }
+
+    // Step 4: Build messages and call LLM
+    let intent_ids: Vec<&str> = route_result.confirmed.iter()
+        .map(|(id, _)| id.as_str()).collect();
+
+    // Build conversation: system prompt + history + current query
+    let mut messages = vec![
+        serde_json::json!({"role": "system", "content": system_prompt}),
+    ];
+    for msg in &req.history {
+        messages.push(msg.clone());
+    }
+    messages.push(serde_json::json!({"role": "user", "content": req.query}));
+
+    // Call LLM with assembled context
+    let llm_response = crate::pipeline::call_llm_with_messages(&state, &messages, 1024).await;
+
+    let total_us = t0.elapsed().as_micros() as u64;
+
+    match llm_response {
+        Ok(text) => Ok(Json(serde_json::json!({
+            "response": text,
+            "routing": {
+                "confirmed": intent_ids,
+                "disposition": route_result.disposition,
+                "routing_us": routing_us,
+                "total_us": total_us,
+                "has_negation": route_result.has_negation,
+            },
+            "assembled_prompt": system_prompt,
+        }))),
+        Err((status, msg)) => Ok(Json(serde_json::json!({
+            "response": null,
+            "error": msg,
+            "routing": {
+                "confirmed": intent_ids,
+                "disposition": route_result.disposition,
+                "routing_us": routing_us,
+            },
+            "assembled_prompt": system_prompt,
+        }))),
     }
 }
