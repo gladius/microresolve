@@ -594,6 +594,19 @@ pub struct ConjunctionRule {
 /// Scoring: IDF-weighted activation. `score += weight * ln(N / df)`.
 /// Words shared across many intents get low IDF; rare words get high IDF.
 /// One new phrase = immediate weight update — no accumulation needed.
+/// Full routing result with disposition and ranked candidates.
+#[derive(Debug, Clone)]
+pub struct RouteResult {
+    /// Confirmed intents from token consumption (best guess).
+    pub confirmed: Vec<(String, f32)>,
+    /// Raw IDF ranked list (top_n, before token consumption).
+    pub ranked: Vec<(String, f32)>,
+    /// "confident" | "low_confidence" | "escalate" | "no_match"
+    pub disposition: String,
+    /// True if query contained negation tokens.
+    pub has_negation: bool,
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct IntentGraph {
     /// word → [(intent_id, weight 0.0–1.0)]
@@ -931,7 +944,121 @@ impl IntentGraph {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 
-    /// Stats: (unique_patterns, activation_edges, conjunctions).
+    // ── Library-level route API ─────────────────────────────────────────────
+
+    /// Route a query through the full pipeline: L1 preprocessing → IDF scoring →
+    /// token consumption → cross-provider disambiguation → disposition.
+    ///
+    /// `top_n`: how many ranked candidates to return (default 5).
+    pub fn route(
+        &self,
+        layer1: Option<&LexicalGraph>,
+        query: &str,
+        threshold: f32,
+        top_n: usize,
+    ) -> RouteResult {
+        // L1 preprocessing
+        let processed = match layer1 {
+            Some(l1) => l1.preprocess(query).expanded,
+            None => query.to_string(),
+        };
+
+        // Raw IDF scores (for ranked list)
+        let (raw, has_negation) = self.score_normalized(&processed);
+        let ranked: Vec<(String, f32)> = raw.into_iter().take(top_n).collect();
+
+        // Token consumption (for confirmed list)
+        let (mut confirmed, _) = self.score_multi_normalized(&processed, threshold, 0.0);
+
+        if confirmed.is_empty() {
+            return RouteResult {
+                confirmed: vec![],
+                ranked,
+                disposition: "no_match".to_string(),
+                has_negation,
+            };
+        }
+
+        // Cross-provider disambiguation: when same action appears from multiple
+        // providers, use query word exclusivity to pick the right one.
+        if confirmed.len() > 1 {
+            self.disambiguate_providers(&mut confirmed, &processed);
+        }
+
+        // Disposition
+        let top = confirmed[0].1;
+        let disposition = if confirmed.len() >= 3 && confirmed[2].1 / top >= 0.75 {
+            "escalate"
+        } else if top < threshold * 2.0 {
+            "low_confidence"
+        } else {
+            "confident"
+        };
+
+        RouteResult {
+            confirmed,
+            ranked,
+            disposition: disposition.to_string(),
+            has_negation,
+        }
+    }
+
+    /// Cross-provider disambiguation: when the same action suffix appears from
+    /// multiple providers, pick the one with the most unique query word matches.
+    fn disambiguate_providers(&self, confirmed: &mut Vec<(String, f32)>, query: &str) {
+        use std::collections::HashSet;
+
+        if confirmed.len() < 2 { return; }
+
+        // Group by action name (part after ':')
+        let mut action_groups: HashMap<String, Vec<usize>> = HashMap::new();
+        for (i, (id, _)) in confirmed.iter().enumerate() {
+            let action = id.split(':').nth(1).unwrap_or(id.as_str());
+            action_groups.entry(action.to_string()).or_default().push(i);
+        }
+
+        let duplicate_groups: Vec<Vec<usize>> = action_groups.values()
+            .filter(|g| g.len() > 1).cloned().collect();
+
+        if duplicate_groups.is_empty() { return; }
+
+        let tokens = crate::tokenizer::tokenize(query);
+        let confirmed_ids: HashSet<&str> = confirmed.iter().map(|(id, _)| id.as_str()).collect();
+
+        // Count unique words per intent
+        let mut unique_count: HashMap<&str, usize> = HashMap::new();
+        for token in &tokens {
+            let base = token.strip_prefix("not_").unwrap_or(token.as_str());
+            if let Some(activations) = self.word_intent.get(base) {
+                let matching: Vec<&str> = activations.iter()
+                    .filter(|(id, _)| confirmed_ids.contains(id.as_str()))
+                    .map(|(id, _)| id.as_str()).collect();
+                if matching.len() == 1 {
+                    *unique_count.entry(matching[0]).or_insert(0) += 1;
+                }
+            }
+        }
+
+        let mut to_remove: HashSet<usize> = HashSet::new();
+        for group in &duplicate_groups {
+            let best = group.iter()
+                .max_by_key(|&&i| unique_count.get(confirmed[i].0.as_str()).copied().unwrap_or(0));
+            if let Some(&best_idx) = best {
+                if unique_count.get(confirmed[best_idx].0.as_str()).copied().unwrap_or(0) > 0 {
+                    for &i in group {
+                        if i != best_idx { to_remove.insert(i); }
+                    }
+                }
+            }
+        }
+
+        if !to_remove.is_empty() {
+            let mut i = 0;
+            confirmed.retain(|_| { let keep = !to_remove.contains(&i); i += 1; keep });
+        }
+    }
+
+    /// Stats: (unique_words, activation_edges, conjunctions).
     pub fn stats(&self) -> (usize, usize, usize) {
         let activation_edges: usize = self.word_intent.values().map(|v| v.len()).sum();
         (self.word_intent.len(), activation_edges, self.conjunctions.len())

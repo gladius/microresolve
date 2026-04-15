@@ -1,8 +1,8 @@
 //! # ASV Router
 //!
-//! Intent registry and Hebbian-layer routing.
-//! Training phrases and intent metadata are stored here; routing is handled
-//! by the Hebbian L1+L2 system in `src/hebbian.rs`.
+//! Intent registry and IDF-based scoring.
+//! Training phrases and intent metadata are stored here; scoring layers
+//! (L1 LexicalGraph + L2 IntentGraph) are in `src/scoring.rs`.
 //!
 //! ## Quick Start (server mode)
 //!
@@ -24,7 +24,9 @@
 //! ]);
 //! ```
 
-pub mod hebbian;
+pub mod scoring;
+/// Backward compat alias
+pub mod hebbian { pub use crate::scoring::*; }
 pub mod discovery;
 pub mod import;
 pub mod connect;
