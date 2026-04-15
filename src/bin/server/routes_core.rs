@@ -83,7 +83,16 @@ pub async fn route_multi(
 
     let latency_us = t0.elapsed().as_micros() as u64;
 
-    if let Some(scored) = intent_graph_results.filter(|s| !s.is_empty()) {
+    if let Some(mut scored) = intent_graph_results.filter(|s| !s.is_empty()) {
+        // ── Cross-provider disambiguation ─────────────────────────────────
+        // When the same action appears from multiple providers (e.g.,
+        // shopify:list_customers + stripe:list_customers), pick the provider
+        // whose unique query words match best. Only affects duplicates —
+        // different actions are never touched.
+        if scored.len() > 1 {
+            disambiguate_cross_provider(&mut scored, &processed_query, &state, &app_id);
+        }
+
         let top_score = scored[0].1;
         let max_score = top_score;
 
@@ -197,4 +206,82 @@ pub async fn route_multi(
         "hebbian": if hebbian_injected.is_empty() { serde_json::json!(null) }
                    else { serde_json::json!({"injected": hebbian_injected, "processed_query": processed_query}) },
     }))
+}
+
+/// Cross-provider disambiguation: when the same action name appears from multiple
+/// providers (e.g., shopify:list_customers + stripe:list_customers), use query
+/// word exclusivity to pick the best provider. Only affects duplicates.
+fn disambiguate_cross_provider(
+    scored: &mut Vec<(String, f32)>,
+    query: &str,
+    state: &ServerState,
+    app_id: &str,
+) {
+    use std::collections::{HashMap, HashSet};
+
+    if scored.len() < 2 { return; }
+
+    // Group by action name (part after ':')
+    let mut action_groups: HashMap<&str, Vec<usize>> = HashMap::new();
+    for (i, (id, _)) in scored.iter().enumerate() {
+        let action = id.split(':').nth(1).unwrap_or(id.as_str());
+        action_groups.entry(action).or_default().push(i);
+    }
+
+    // Find groups with duplicates (same action, different provider)
+    let duplicate_groups: Vec<Vec<usize>> = action_groups.values()
+        .filter(|indices| indices.len() > 1)
+        .cloned()
+        .collect();
+
+    if duplicate_groups.is_empty() { return; }
+
+    // Get query tokens
+    let tokens = asv_router::tokenizer::tokenize(query);
+
+    // For each token, find which intents it maps to
+    let ig_map = state.intent_graph.read().unwrap();
+    let ig = match ig_map.get(app_id) {
+        Some(ig) => ig,
+        None => return,
+    };
+
+    let scored_ids: HashSet<&str> = scored.iter().map(|(id, _)| id.as_str()).collect();
+
+    // Count unique words per intent: words that map to THIS intent but not others in the result set
+    let mut unique_count: HashMap<&str, usize> = HashMap::new();
+    for token in &tokens {
+        let base = token.strip_prefix("not_").unwrap_or(token.as_str());
+        if let Some(activations) = ig.word_intent.get(base) {
+            let matching: Vec<&str> = activations.iter()
+                .filter(|(id, _)| scored_ids.contains(id.as_str()))
+                .map(|(id, _)| id.as_str())
+                .collect();
+            if matching.len() == 1 {
+                *unique_count.entry(matching[0]).or_insert(0) += 1;
+            }
+        }
+    }
+
+    // For each duplicate group, keep only the intent with most unique words
+    let mut to_remove: HashSet<usize> = HashSet::new();
+    for group in &duplicate_groups {
+        let best = group.iter()
+            .max_by_key(|&&i| unique_count.get(scored[i].0.as_str()).copied().unwrap_or(0));
+        if let Some(&best_idx) = best {
+            let best_unique = unique_count.get(scored[best_idx].0.as_str()).copied().unwrap_or(0);
+            if best_unique > 0 {
+                // Remove all others in this group
+                for &i in group {
+                    if i != best_idx { to_remove.insert(i); }
+                }
+            }
+            // If no unique words for any candidate, keep all (genuinely ambiguous)
+        }
+    }
+
+    if !to_remove.is_empty() {
+        let mut i = 0;
+        scored.retain(|_| { let keep = !to_remove.contains(&i); i += 1; keep });
+    }
 }
