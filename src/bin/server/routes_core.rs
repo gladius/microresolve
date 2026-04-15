@@ -296,14 +296,11 @@ struct ExecuteRequest {
     history: Vec<serde_json::Value>,
 }
 
-/// Intent Programming execution endpoint.
+/// Execute a conversation turn using Intent Programming.
 ///
-/// 1. ASV detects intent (or continues from last intent in history)
-/// 2. Loads instructions/guardrails/persona from intent metadata (fresh, not from history)
-/// 3. Assembles system prompt
-/// 4. Strips intent/remark fields from history, sends clean messages to LLM
-/// 5. Parses [REMARK: ...] from LLM response
-/// 6. Returns response + remark + routing info
+/// Routes the query, resolves the active intent (new or continued),
+/// assembles a focused system prompt, calls the LLM, and returns
+/// the response with routing info and audit remark.
 pub async fn execute(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -312,78 +309,49 @@ pub async fn execute(
     let app_id = app_id_from_headers(&headers);
     let t0 = std::time::Instant::now();
 
-    // Step 1: Route — detect intent
-    let route_result = {
+    // Resolve turn using library
+    let turn = {
         let ig_map = state.intent_graph.read().unwrap();
         let heb_map = state.hebbian.read().unwrap();
-        match ig_map.get(&app_id) {
-            Some(ig) => {
+        let routers = state.routers.read().unwrap();
+        match (ig_map.get(&app_id), routers.get(&app_id)) {
+            (Some(ig), Some(router)) => {
                 let l1 = heb_map.get(&app_id);
-                ig.route(l1, &req.query, ig.default_threshold(), 5)
+                asv_router::execute::resolve_turn(
+                    ig, l1, router, &req.query, &req.history, ig.default_threshold(),
+                )
             }
-            None => return Err((axum::http::StatusCode::NOT_FOUND,
+            _ => return Err((axum::http::StatusCode::NOT_FOUND,
                 format!("namespace '{}' not found", app_id))),
         }
     };
 
     let routing_us = t0.elapsed().as_micros() as u64;
 
-    // Determine current intent: new detection OR last intent from history
-    let (current_intent, is_transition) = if !route_result.confirmed.is_empty() {
-        // ASV detected intent — entry point or transition
-        (Some(route_result.confirmed[0].0.clone()), true)
-    } else {
-        // No detection — find last intent tag in history (follow-up)
-        let last = req.history.iter().rev()
-            .find_map(|msg| msg.get("intent").and_then(|v| v.as_str()).map(String::from));
-        (last, false)
-    };
-
-    let current_intent = match current_intent {
-        Some(id) => id,
+    let intent = match &turn.intent {
+        Some(id) => id.clone(),
         None => return Ok(Json(serde_json::json!({
             "response": null,
             "routing": { "intent": null, "disposition": "no_match", "routing_us": routing_us },
         }))),
     };
 
-    // Step 2: Load instructions fresh from current intent's metadata
-    let system_prompt = {
-        let routers = state.routers.read().unwrap();
-        assemble_prompt(&routers, &app_id, &current_intent)
-    };
-
-    // Step 3: Build clean messages for LLM (strip intent/remark from history)
-    let mut messages = vec![
-        serde_json::json!({"role": "system", "content": format!(
-            "{}\n\nAfter your response, add on a new line: [REMARK: one sentence explaining your reasoning]",
-            system_prompt
-        )}),
-    ];
-    for msg in &req.history {
-        let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
-        let content = msg.get("content").and_then(|v| v.as_str()).unwrap_or("");
-        // Send only role + content to LLM (no intent/remark metadata)
-        messages.push(serde_json::json!({"role": role, "content": content}));
-    }
-    messages.push(serde_json::json!({"role": "user", "content": req.query}));
-
-    // Step 4: Call LLM
-    let llm_response = crate::pipeline::call_llm_with_messages(&state, &messages, 1024).await;
+    // Call LLM with assembled messages
+    let llm_response = crate::pipeline::call_llm_with_messages(&state, &turn.messages, 1024).await;
     let total_us = t0.elapsed().as_micros() as u64;
 
     match llm_response {
         Ok(text) => {
-            // Step 5: Extract [REMARK: ...] from response
-            let (clean_response, remark) = extract_remark(&text);
-
+            let (clean_response, remark) = asv_router::execute::extract_remark(&text);
             Ok(Json(serde_json::json!({
                 "response": clean_response,
                 "remark": remark,
                 "routing": {
-                    "intent": current_intent,
-                    "is_transition": is_transition,
-                    "disposition": if is_transition { &route_result.disposition } else { "continued" },
+                    "intent": intent,
+                    "is_transition": turn.is_transition,
+                    "disposition": if turn.is_transition {
+                        &turn.route_result.disposition
+                    } else { "continued" },
                     "routing_us": routing_us,
                     "total_us": total_us,
                 },
@@ -392,55 +360,7 @@ pub async fn execute(
         Err((_status, msg)) => Ok(Json(serde_json::json!({
             "response": null,
             "error": msg,
-            "routing": { "intent": current_intent, "is_transition": is_transition },
+            "routing": { "intent": intent, "is_transition": turn.is_transition },
         }))),
-    }
-}
-
-/// Assemble system prompt from an intent's metadata blocks.
-fn assemble_prompt(
-    routers: &std::sync::RwLockReadGuard<std::collections::HashMap<String, asv_router::Router>>,
-    app_id: &str,
-    intent_id: &str,
-) -> String {
-    let mut parts = Vec::new();
-
-    if let Some(router) = routers.get(app_id) {
-        if let Some(meta) = router.get_metadata(intent_id) {
-            if let Some(v) = meta.get("instructions") { parts.push(v.join("\n")); }
-            if let Some(v) = meta.get("guardrails") {
-                parts.push(format!("\nConstraints:\n{}", v.iter().map(|g| format!("- {}", g)).collect::<Vec<_>>().join("\n")));
-            }
-            if let Some(v) = meta.get("persona") {
-                parts.push(format!("\nTone: {}", v.join(", ")));
-            }
-            if let Some(v) = meta.get("tools") {
-                parts.push(format!("\nAvailable tools:\n{}", v.iter().map(|t| format!("- {}", t)).collect::<Vec<_>>().join("\n")));
-            }
-        }
-        // Fallback to description
-        if parts.is_empty() {
-            let desc = router.get_description(intent_id);
-            if !desc.is_empty() { parts.push(desc.to_string()); }
-        }
-    }
-
-    if parts.is_empty() { "You are a helpful assistant.".to_string() }
-    else { parts.join("\n") }
-}
-
-/// Extract [REMARK: ...] from LLM response. Returns (clean_response, remark).
-fn extract_remark(text: &str) -> (String, Option<String>) {
-    if let Some(idx) = text.rfind("[REMARK:") {
-        let before = text[..idx].trim().to_string();
-        let remark_raw = &text[idx..];
-        let remark = remark_raw
-            .trim_start_matches("[REMARK:")
-            .trim_end_matches(']')
-            .trim()
-            .to_string();
-        (before, if remark.is_empty() { None } else { Some(remark) })
-    } else {
-        (text.to_string(), None)
     }
 }
