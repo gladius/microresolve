@@ -176,7 +176,39 @@ Response:
 - [x] Snippet assembly (instructions + guardrails + persona → system prompt)
 - [x] /api/execute endpoint (single-turn working)
 - [x] LLM call with messages array (system + history + user)
-- [ ] Follow-up handling (find last intent in history, load fresh)
-- [ ] Remark extraction (append instruction, parse [REMARK:], strip)
-- [ ] Intent transition detection (is_transition flag)
+- [x] Follow-up handling (find last intent in history, load fresh)
+- [x] Remark extraction (append instruction, parse [REMARK:], strip)
+- [x] Intent transition detection (is_transition flag)
 - [ ] Conversational builder UI
+
+## POC Test Results (2026-04-15)
+
+Tested with pet grooming shop (3 intents: book/cancel/pricing).
+
+### Cancel → Reschedule flow (5 turns)
+1. "I need to cancel" → TRANSITION cancel_appointment ✓
+2. "Tomorrow at 2pm" → CONTINUE (applies 24hr fee rule) ✓
+3. "Can you waive the fee?" → CONTINUE (guardrail: refuses without manager) ✓
+4. "Let's reschedule" → CONTINUE (offers to reschedule) ✓
+5. "Saturday morning?" → TRANSITION pricing (wrong — should stay in flow) ✗
+
+### Pricing → Booking flow (3 turns)
+1. "How much for small dog?" → TRANSITION pricing ($40 bath, $65 groom) ✓
+2. "Can I book?" → TRANSITION book_appointment (correct switch) ✓
+3. "Small poodle, 12 pounds" → CONTINUE (continues booking) ✓
+
+### What works
+- Intent detection at entry points ✓
+- Follow-ups continue in same intent without re-routing ✓
+- Instructions loaded fresh per turn (not in history) ✓
+- Guardrails enforced mid-conversation ✓
+- Intent transitions detected when user switches topic ✓
+- LLM-generated remarks as audit trail ✓
+- Token-efficient (only current instructions + conversation) ✓
+
+### Known issue
+- False transition: "Saturday morning?" triggered pricing intent instead of
+  staying in cancel flow. Word "Saturday" matched pricing seeds. This is a
+  routing accuracy issue — more learning or better seeds would fix it.
+  Could also add: if the current intent's instructions mention rescheduling,
+  suppress transitions to unrelated intents during the flow.
