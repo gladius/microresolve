@@ -32,6 +32,7 @@ pub fn routes() -> axum::Router<AppState> {
         .route("/api/review/intent_phrases", post(review_intent_phrases))
         .route("/api/review/stats",          get(review_stats))
         .route("/api/learn/now",             post(learn_now))
+        .route("/api/learn/words",           post(learn_words))
         .route("/api/report",                post(report_query))
 }
 
@@ -399,4 +400,50 @@ pub async fn report_query(
     });
     state.worker_notify.notify_one();
     Json(serde_json::json!({ "id": log_id }))
+}
+
+// ── Learn words directly (no LLM) ────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct LearnWordsRequest {
+    intent_id: String,
+    words: Vec<String>,
+}
+
+/// Learn specific words for an intent. No LLM call — direct word→intent learning.
+/// Used for testing and for systems that extract key_words externally.
+pub async fn learn_words(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<LearnWordsRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+
+    if !state.routers.read().unwrap().contains_key(&app_id) {
+        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", app_id)));
+    }
+
+    let word_refs: Vec<&str> = req.words.iter().map(|s| s.as_str()).collect();
+    let count = word_refs.len();
+
+    {
+        let mut ig_map = state.intent_graph.write().unwrap();
+        let ig = ig_map.entry(app_id.to_string())
+            .or_insert_with(asv_router::hebbian::IntentGraph::new);
+        ig.learn_query_words(&word_refs, &req.intent_id);
+    }
+
+    // Persist
+    if let Some(ref dir) = state.data_dir {
+        let ig_map = state.intent_graph.read().unwrap();
+        if let Some(ig) = ig_map.get(&app_id) {
+            let path = format!("{}/{}/_intent_graph.json", dir, app_id);
+            ig.save(&path).ok();
+        }
+    }
+
+    Ok(Json(serde_json::json!({
+        "learned": count,
+        "intent": req.intent_id,
+    })))
 }

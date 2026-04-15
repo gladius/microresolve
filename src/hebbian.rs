@@ -795,27 +795,128 @@ impl IntentGraph {
         self.score_multi_normalized(&preprocessed.expanded, threshold, gap)
     }
 
-    /// Multi-intent scoring: ratio threshold + L3 inhibition.
+    /// Multi-intent scoring with token consumption.
     ///
-    /// Returns all intents scoring ≥ threshold AND ≥ MULTI_RATIO of the top score.
-    /// With IDF, each intent's score is independent — no re-pass needed.
+    /// Round 1: Score all tokens → confirm intents above ratio threshold.
+    /// Round 2+: Remove tokens consumed by confirmed intents → re-score remaining.
+    /// Stops when remaining score < gate_ratio of original top.
+    ///
+    /// Token consumption: after confirming an intent, remove tokens that
+    /// are primarily associated with it. Remaining tokens indicate additional intents.
     pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, _gap: f32) -> (Vec<(String, f32)>, bool) {
-        /// Minimum ratio of top score to be included as a secondary intent.
         const MULTI_RATIO: f32 = 0.50;
+        const GATE_RATIO: f32 = 0.55;
+        const MAX_ROUNDS: usize = 3;
 
-        let (all, has_negation) = self.score_normalized(normalized);
-        if all.is_empty() { return (all, has_negation); }
+        // CJK negation pre-pass
+        const CJK_NEG: &[char] = &['不', '没', '别', '未'];
+        let cjk_negated = normalized.chars().any(|c| CJK_NEG.contains(&c));
+        let query_for_tokenize: std::borrow::Cow<str> = if cjk_negated {
+            std::borrow::Cow::Owned(normalized.chars()
+                .map(|c| if CJK_NEG.contains(&c) { ' ' } else { c })
+                .collect())
+        } else {
+            std::borrow::Cow::Borrowed(normalized)
+        };
 
-        let top = all[0].1;
-        if top < threshold { return (vec![], has_negation); }
+        let all_tokens: Vec<String> = crate::tokenizer::tokenize(&query_for_tokenize);
+        let has_negation = cjk_negated || all_tokens.iter().any(|t| t.starts_with("not_"));
 
-        let filtered: Vec<(String, f32)> = all.into_iter()
-            .filter(|(_, s)| *s >= threshold && *s >= top * MULTI_RATIO)
-            .collect();
+        let total_intents: f32 = {
+            let mut all: std::collections::HashSet<&str> = std::collections::HashSet::new();
+            for entries in self.word_intent.values() {
+                for (id, _) in entries { all.insert(id.as_str()); }
+            }
+            all.len().max(1) as f32
+        };
 
-        // L3: apply lateral inhibition to remove learned false-positive pairs
-        let inhibited = self.apply_inhibition(filtered);
+        let mut remaining: Vec<String> = all_tokens;
+        let mut confirmed: Vec<(String, f32)> = Vec::new();
+        let mut confirmed_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut original_top: f32 = 0.0;
+
+        for round in 0..MAX_ROUNDS {
+            // Score using remaining tokens only
+            let scored = self.score_tokens(&remaining, total_intents, &confirmed_ids);
+            if scored.is_empty() { break; }
+
+            let round_top = scored[0].1;
+            if round == 0 { original_top = round_top; }
+            if round_top < threshold { break; }
+            if round > 0 && round_top < original_top * GATE_RATIO { break; }
+
+            // Confirm only intents very close to this round's top (within 10%).
+            // Looser multi-intent detection comes from multiple rounds after token consumption.
+            let mut round_confirmed: Vec<(String, f32)> = Vec::new();
+            for (intent, score) in &scored {
+                if *score >= round_top * 0.90 && *score >= threshold {
+                    round_confirmed.push((intent.clone(), *score));
+                    confirmed_ids.insert(intent.clone());
+                }
+            }
+
+            if round_confirmed.is_empty() { break; }
+            confirmed.extend(round_confirmed.iter().cloned());
+
+            // Consume tokens: remove tokens primarily associated with confirmed intents
+            remaining.retain(|token| {
+                let base = token.strip_prefix("not_").unwrap_or(token.as_str());
+                if let Some(activations) = self.word_intent.get(base) {
+                    // Token's strongest intent
+                    let best_intent = activations.iter()
+                        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+                    match best_intent {
+                        Some((id, _)) => !confirmed_ids.contains(id.as_str()),
+                        None => true,
+                    }
+                } else {
+                    true // unknown token, keep
+                }
+            });
+
+            if remaining.is_empty() { break; }
+        }
+
+        let inhibited = self.apply_inhibition(confirmed);
         (inhibited, has_negation)
+    }
+
+    /// Score a specific set of tokens (not a full query string).
+    fn score_tokens(&self, tokens: &[String], total_intents: f32,
+                    exclude_intents: &std::collections::HashSet<String>) -> Vec<(String, f32)> {
+        let mut scores: HashMap<String, f32> = HashMap::new();
+
+        for token in tokens {
+            let is_negated = token.starts_with("not_");
+            let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
+            if let Some(activations) = self.word_intent.get(base) {
+                let idf = (total_intents / activations.len() as f32).ln().max(0.0);
+                for (intent, weight) in activations {
+                    if exclude_intents.contains(intent) { continue; }
+                    let delta = weight * idf;
+                    *scores.entry(intent.clone()).or_insert(0.0) +=
+                        if is_negated { -delta } else { delta };
+                }
+            }
+        }
+
+        // Conjunction bonuses
+        let all_bases: std::collections::HashSet<&str> = tokens.iter()
+            .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
+            .collect();
+        for rule in &self.conjunctions {
+            if !exclude_intents.contains(&rule.intent)
+                && rule.words.iter().all(|w| all_bases.contains(w.as_str()))
+            {
+                *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
+            }
+        }
+
+        let mut result: Vec<(String, f32)> = scores.into_iter()
+            .filter(|(_, s)| *s > 0.0)
+            .collect();
+        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        result
     }
 
     pub fn save(&self, path: &str) -> std::io::Result<()> {
