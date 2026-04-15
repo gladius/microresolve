@@ -296,14 +296,14 @@ struct ExecuteRequest {
     history: Vec<serde_json::Value>,
 }
 
-/// Route a query, assemble instructions from intent metadata, call LLM, return response.
+/// Intent Programming execution endpoint.
 ///
-/// This is the intent programming proof of concept:
-/// 1. ASV detects intent (30µs)
-/// 2. Reads instructions/guardrails/persona from intent metadata
-/// 3. Assembles focused system prompt
-/// 4. LLM executes against that focused context
-/// 5. Returns LLM response + routing info
+/// 1. ASV detects intent (or continues from last intent in history)
+/// 2. Loads instructions/guardrails/persona from intent metadata (fresh, not from history)
+/// 3. Assembles system prompt
+/// 4. Strips intent/remark fields from history, sends clean messages to LLM
+/// 5. Parses [REMARK: ...] from LLM response
+/// 6. Returns response + remark + routing info
 pub async fn execute(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -312,7 +312,7 @@ pub async fn execute(
     let app_id = app_id_from_headers(&headers);
     let t0 = std::time::Instant::now();
 
-    // Step 1: Route — detect intent(s)
+    // Step 1: Route — detect intent
     let route_result = {
         let ig_map = state.intent_graph.read().unwrap();
         let heb_map = state.hebbian.read().unwrap();
@@ -328,114 +328,119 @@ pub async fn execute(
 
     let routing_us = t0.elapsed().as_micros() as u64;
 
-    if route_result.confirmed.is_empty() {
-        return Ok(Json(serde_json::json!({
+    // Determine current intent: new detection OR last intent from history
+    let (current_intent, is_transition) = if !route_result.confirmed.is_empty() {
+        // ASV detected intent — entry point or transition
+        (Some(route_result.confirmed[0].0.clone()), true)
+    } else {
+        // No detection — find last intent tag in history (follow-up)
+        let last = req.history.iter().rev()
+            .find_map(|msg| msg.get("intent").and_then(|v| v.as_str()).map(String::from));
+        (last, false)
+    };
+
+    let current_intent = match current_intent {
+        Some(id) => id,
+        None => return Ok(Json(serde_json::json!({
             "response": null,
-            "routing": { "confirmed": [], "disposition": "no_match", "routing_us": routing_us },
-            "assembled_prompt": null,
-        })));
-    }
+            "routing": { "intent": null, "disposition": "no_match", "routing_us": routing_us },
+        }))),
+    };
 
-    // Step 2: Read metadata for confirmed intents
-    let mut instructions_parts: Vec<String> = Vec::new();
-    let mut guardrails_parts: Vec<String> = Vec::new();
-    let mut persona_parts: Vec<String> = Vec::new();
-    let mut tool_parts: Vec<String> = Vec::new();
-
-    {
+    // Step 2: Load instructions fresh from current intent's metadata
+    let system_prompt = {
         let routers = state.routers.read().unwrap();
-        if let Some(router) = routers.get(&app_id) {
-            for (intent_id, _score) in &route_result.confirmed {
-                if let Some(meta) = router.get_metadata(intent_id) {
-                    if let Some(instructions) = meta.get("instructions") {
-                        instructions_parts.extend(instructions.iter().cloned());
-                    }
-                    if let Some(guardrails) = meta.get("guardrails") {
-                        guardrails_parts.extend(guardrails.iter().cloned());
-                    }
-                    if let Some(persona) = meta.get("persona") {
-                        persona_parts.extend(persona.iter().cloned());
-                    }
-                    if let Some(tools) = meta.get("tools") {
-                        tool_parts.extend(tools.iter().cloned());
-                    }
-                }
-                // Also check description as fallback instructions
-                if instructions_parts.is_empty() {
-                    let desc = router.get_description(intent_id);
-                    if !desc.is_empty() {
-                        instructions_parts.push(desc.to_string());
-                    }
-                }
-            }
-        }
-    }
+        assemble_prompt(&routers, &app_id, &current_intent)
+    };
 
-    // Step 3: Assemble system prompt from blocks
-    let mut system_prompt = String::new();
-
-    if !instructions_parts.is_empty() {
-        system_prompt.push_str(&instructions_parts.join("\n"));
-    }
-    if !guardrails_parts.is_empty() {
-        system_prompt.push_str("\n\nConstraints:\n");
-        for g in &guardrails_parts {
-            system_prompt.push_str(&format!("- {}\n", g));
-        }
-    }
-    if !persona_parts.is_empty() {
-        system_prompt.push_str(&format!("\nTone: {}\n", persona_parts.join(", ")));
-    }
-    if !tool_parts.is_empty() {
-        system_prompt.push_str("\nAvailable tools:\n");
-        for t in &tool_parts {
-            system_prompt.push_str(&format!("- {}\n", t));
-        }
-    }
-
-    if system_prompt.is_empty() {
-        system_prompt = "You are a helpful assistant.".to_string();
-    }
-
-    // Step 4: Build messages and call LLM
-    let intent_ids: Vec<&str> = route_result.confirmed.iter()
-        .map(|(id, _)| id.as_str()).collect();
-
-    // Build conversation: system prompt + history + current query
+    // Step 3: Build clean messages for LLM (strip intent/remark from history)
     let mut messages = vec![
-        serde_json::json!({"role": "system", "content": system_prompt}),
+        serde_json::json!({"role": "system", "content": format!(
+            "{}\n\nAfter your response, add on a new line: [REMARK: one sentence explaining your reasoning]",
+            system_prompt
+        )}),
     ];
     for msg in &req.history {
-        messages.push(msg.clone());
+        let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
+        let content = msg.get("content").and_then(|v| v.as_str()).unwrap_or("");
+        // Send only role + content to LLM (no intent/remark metadata)
+        messages.push(serde_json::json!({"role": role, "content": content}));
     }
     messages.push(serde_json::json!({"role": "user", "content": req.query}));
 
-    // Call LLM with assembled context
+    // Step 4: Call LLM
     let llm_response = crate::pipeline::call_llm_with_messages(&state, &messages, 1024).await;
-
     let total_us = t0.elapsed().as_micros() as u64;
 
     match llm_response {
-        Ok(text) => Ok(Json(serde_json::json!({
-            "response": text,
-            "routing": {
-                "confirmed": intent_ids,
-                "disposition": route_result.disposition,
-                "routing_us": routing_us,
-                "total_us": total_us,
-                "has_negation": route_result.has_negation,
-            },
-            "assembled_prompt": system_prompt,
-        }))),
-        Err((status, msg)) => Ok(Json(serde_json::json!({
+        Ok(text) => {
+            // Step 5: Extract [REMARK: ...] from response
+            let (clean_response, remark) = extract_remark(&text);
+
+            Ok(Json(serde_json::json!({
+                "response": clean_response,
+                "remark": remark,
+                "routing": {
+                    "intent": current_intent,
+                    "is_transition": is_transition,
+                    "disposition": if is_transition { &route_result.disposition } else { "continued" },
+                    "routing_us": routing_us,
+                    "total_us": total_us,
+                },
+            })))
+        }
+        Err((_status, msg)) => Ok(Json(serde_json::json!({
             "response": null,
             "error": msg,
-            "routing": {
-                "confirmed": intent_ids,
-                "disposition": route_result.disposition,
-                "routing_us": routing_us,
-            },
-            "assembled_prompt": system_prompt,
+            "routing": { "intent": current_intent, "is_transition": is_transition },
         }))),
+    }
+}
+
+/// Assemble system prompt from an intent's metadata blocks.
+fn assemble_prompt(
+    routers: &std::sync::RwLockReadGuard<std::collections::HashMap<String, asv_router::Router>>,
+    app_id: &str,
+    intent_id: &str,
+) -> String {
+    let mut parts = Vec::new();
+
+    if let Some(router) = routers.get(app_id) {
+        if let Some(meta) = router.get_metadata(intent_id) {
+            if let Some(v) = meta.get("instructions") { parts.push(v.join("\n")); }
+            if let Some(v) = meta.get("guardrails") {
+                parts.push(format!("\nConstraints:\n{}", v.iter().map(|g| format!("- {}", g)).collect::<Vec<_>>().join("\n")));
+            }
+            if let Some(v) = meta.get("persona") {
+                parts.push(format!("\nTone: {}", v.join(", ")));
+            }
+            if let Some(v) = meta.get("tools") {
+                parts.push(format!("\nAvailable tools:\n{}", v.iter().map(|t| format!("- {}", t)).collect::<Vec<_>>().join("\n")));
+            }
+        }
+        // Fallback to description
+        if parts.is_empty() {
+            let desc = router.get_description(intent_id);
+            if !desc.is_empty() { parts.push(desc.to_string()); }
+        }
+    }
+
+    if parts.is_empty() { "You are a helpful assistant.".to_string() }
+    else { parts.join("\n") }
+}
+
+/// Extract [REMARK: ...] from LLM response. Returns (clean_response, remark).
+fn extract_remark(text: &str) -> (String, Option<String>) {
+    if let Some(idx) = text.rfind("[REMARK:") {
+        let before = text[..idx].trim().to_string();
+        let remark_raw = &text[idx..];
+        let remark = remark_raw
+            .trim_start_matches("[REMARK:")
+            .trim_end_matches(']')
+            .trim()
+            .to_string();
+        (before, if remark.is_empty() { None } else { Some(remark) })
+    } else {
+        (text.to_string(), None)
     }
 }
