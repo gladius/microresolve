@@ -151,6 +151,32 @@ async fn call_llm_with_model(
     max_tokens: u32,
     model: &str,
 ) -> Result<String, (StatusCode, String)> {
+    match call_llm_once(state, prompt, max_tokens, model).await {
+        Ok(text) => Ok(text),
+        Err((status, msg)) => {
+            // One retry after short wait for rate limits (free tier APIs)
+            let is_rate_limit = status == StatusCode::TOO_MANY_REQUESTS
+                || msg.contains("429") || msg.contains("rate") || msg.contains("quota")
+                || status == StatusCode::SERVICE_UNAVAILABLE
+                || msg.contains("503") || msg.contains("overloaded");
+
+            if is_rate_limit {
+                eprintln!("[llm] rate limited, waiting 3s then retrying once");
+                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                call_llm_once(state, prompt, max_tokens, model).await
+            } else {
+                Err((status, msg))
+            }
+        }
+    }
+}
+
+async fn call_llm_once(
+    state: &ServerState,
+    prompt: &str,
+    max_tokens: u32,
+    model: &str,
+) -> Result<String, (StatusCode, String)> {
     let key = state.llm_key.as_ref().ok_or_else(|| {
         (StatusCode::SERVICE_UNAVAILABLE, "LLM_API_KEY not set. Add it to .env file.".to_string())
     })?;
