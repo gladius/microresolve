@@ -65,15 +65,19 @@ pub async fn route_multi(
         }
     };
 
-    // ── Layer 2: Intent graph (spreading activation + conjunction) ───────────
-    let (intent_graph_results, query_has_negation): (Option<Vec<(String, f32)>>, bool) = {
+    // ── Layer 2: Intent graph (IDF scoring + token consumption) ─────────────
+    // Two passes: raw scores (for top-N ranking) and token-consumed (for confirmed).
+    let (intent_graph_results, raw_ranked, query_has_negation): (Option<Vec<(String, f32)>>, Vec<(String, f32)>, bool) = {
         let ig_map = state.intent_graph.read().unwrap();
         match ig_map.get(&app_id) {
             Some(ig) => {
-                let (scores, neg) = ig.score_multi_normalized(&processed_query, req.threshold, req.gap);
-                (Some(scores), neg)
+                // Raw single-pass scores (no token consumption) — for top-N ranking
+                let (raw, neg) = ig.score_normalized(&processed_query);
+                // Token-consumed scores — for confirmed intents
+                let (consumed, _) = ig.score_multi_normalized(&processed_query, req.threshold, req.gap);
+                (Some(consumed), raw, neg)
             }
-            None => (None, false),
+            None => (None, vec![], false),
         }
     };
 
@@ -143,9 +147,15 @@ pub async fn route_multi(
             emit_queued(&state, log_id, &req.query, &app_id, flag);
         }
 
+        // Top-N ranked list from raw IDF (before token consumption)
+        let ranked: Vec<serde_json::Value> = raw_ranked.iter().take(5).map(|(id, score)| {
+            serde_json::json!({"id": id, "score": (*score * 100.0).round() / 100.0})
+        }).collect();
+
         return Json(serde_json::json!({
             "confirmed": confirmed,
             "candidates": candidates,
+            "ranked": ranked,
             "disposition": disposition,
             "relations": [],
             "metadata": {},
