@@ -62,10 +62,10 @@ pub struct ServerState {
     pub worker_notify: Arc<Notify>,
     /// Per-namespace LexicalGraph (morphology + synonyms + abbreviations).
     /// Pre-processes queries before term-index: normalize variants, expand synonyms.
-    pub hebbian: RwLock<HashMap<String, asv_router::hebbian::LexicalGraph>>,
+    pub hebbian: RwLock<HashMap<String, asv_router::scoring::LexicalGraph>>,
     /// Per-namespace Layer 2 intent graph (spreading activation router).
     /// Replaces term-index as the primary router when bootstrapped.
-    pub intent_graph: RwLock<HashMap<String, asv_router::hebbian::IntentGraph>>,
+    pub intent_graph: RwLock<HashMap<String, asv_router::scoring::IntentGraph>>,
     /// Per-namespace Layer 0 n-gram index for typo correction before L1.
     pub ngram: RwLock<HashMap<String, asv_router::ngram::NgramIndex>>,
 }

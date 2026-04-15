@@ -876,7 +876,7 @@ pub async fn apply_review(
             let mut ig_map = state.intent_graph.write().unwrap();
             // Create IntentGraph for this namespace if it doesn't exist yet (fresh namespace).
             let ig = ig_map.entry(app_id.to_string())
-                .or_insert_with(asv_router::hebbian::IntentGraph::new);
+                .or_insert_with(asv_router::scoring::IntentGraph::new);
 
             // Missed intents: learn LLM-generated phrase WORDS into L2.
             // Each phrase is tokenized and its words are learned as 1-grams.
@@ -932,11 +932,11 @@ pub async fn apply_review(
             let mut heb_map = state.hebbian.write().unwrap();
             if let Some(heb) = heb_map.get_mut(app_id) {
                 let pre = heb.preprocess(original_query);
-                let orig_words = asv_router::hebbian::LexicalGraph::l1_tokens_pub(original_query);
+                let orig_words = asv_router::scoring::LexicalGraph::l1_tokens_pub(original_query);
                 for word in &orig_words {
                     if let Some(edges) = heb.edges.get(word.as_str()).cloned() {
                         for edge in edges {
-                            if matches!(edge.kind, asv_router::hebbian::EdgeKind::Synonym)
+                            if matches!(edge.kind, asv_router::scoring::EdgeKind::Synonym)
                                 && pre.injected.contains(&edge.target)
                             {
                                 heb.reinforce(word, &edge.target, DELTA_REINFORCE);
@@ -1067,7 +1067,7 @@ async fn learn_l1_synonyms(
                                         && graph_vocab.contains(&target)
                                     {
                                         graph.add(&from, &target, 0.88,
-                                            asv_router::hebbian::EdgeKind::Synonym);
+                                            asv_router::scoring::EdgeKind::Synonym);
                                         eprintln!("[auto-learn/L1] synonym {} → {} (semantic/cross-lingual)", from, target);
                                         learned += 1;
                                     }
@@ -1132,7 +1132,7 @@ async fn learn_l1_morphology(
                                             let variant = variant.trim().to_lowercase();
                                             if !variant.is_empty() && variant != canonical.as_str() {
                                                 graph.add(&variant, canonical, 0.97,
-                                                    asv_router::hebbian::EdgeKind::Morphological);
+                                                    asv_router::scoring::EdgeKind::Morphological);
                                                 eprintln!("[auto-learn/L1] {} → {} (morphological)", variant, canonical);
                                                 learned += 1;
                                             }

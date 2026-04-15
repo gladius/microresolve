@@ -114,8 +114,8 @@ fn char_ngrams(s: &str, n: usize) -> Vec<String> {
 
 /// Build a combined vocabulary from L1 (LexicalGraph) + L2 (IntentGraph) for a namespace.
 pub fn build_for_namespace(
-    lexical: Option<&crate::hebbian::LexicalGraph>,
-    intent_graph: Option<&crate::hebbian::IntentGraph>,
+    lexical: Option<&crate::scoring::LexicalGraph>,
+    intent_graph: Option<&crate::scoring::IntentGraph>,
 ) -> NgramIndex {
     let mut terms: HashSet<String> = HashSet::new();
     if let Some(g) = lexical {

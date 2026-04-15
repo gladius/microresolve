@@ -9,7 +9,7 @@
 ///
 /// Run: cargo run --bin experiment_ngram_intent
 use asv_router::{
-    hebbian::IntentGraph,
+    scoring::IntentGraph,
     tokenizer::tokenize,
     Router,
 };

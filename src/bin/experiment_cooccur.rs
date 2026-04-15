@@ -10,7 +10,7 @@
 /// Run: cargo run --bin experiment_cooccur --features server
 use asv_router::{
     Router,
-    hebbian::IntentGraph,
+    scoring::IntentGraph,
     tokenizer::tokenize,
 };
 use std::collections::HashMap;

@@ -25,8 +25,6 @@
 //! ```
 
 pub mod scoring;
-/// Backward compat alias
-pub mod hebbian { pub use crate::scoring::*; }
 pub mod discovery;
 pub mod import;
 pub mod connect;

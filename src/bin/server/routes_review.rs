@@ -429,7 +429,7 @@ pub async fn learn_words(
     {
         let mut ig_map = state.intent_graph.write().unwrap();
         let ig = ig_map.entry(app_id.to_string())
-            .or_insert_with(asv_router::hebbian::IntentGraph::new);
+            .or_insert_with(asv_router::scoring::IntentGraph::new);
         ig.learn_query_words(&word_refs, &req.intent_id);
     }
 

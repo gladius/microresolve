@@ -1,7 +1,7 @@
 //! Standalone Hebbian graph demo — run with:
 //!   cargo run --bin test_hebbian
 
-use asv_router::hebbian::saas_test_graph;
+use asv_router::scoring::saas_test_graph;
 
 fn main() {
     let g = saas_test_graph();
@@ -66,7 +66,7 @@ fn main() {
     println!("║                        Graph Stats                          ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
 
-    use asv_router::hebbian::EdgeKind;
+    use asv_router::scoring::EdgeKind;
     let mut morph = 0usize;
     let mut abbrev = 0usize;
     let mut synonym = 0usize;

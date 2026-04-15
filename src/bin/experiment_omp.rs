@@ -11,7 +11,7 @@
 /// Run: cargo run --bin experiment_omp
 use asv_router::{
     Router,
-    hebbian::IntentGraph,
+    scoring::IntentGraph,
     tokenizer::tokenize,
 };
 use std::collections::{HashMap, HashSet};
@@ -331,7 +331,7 @@ fn main() {
     println!("  OMP:      {}/{} ({:.0}%)", omp_pass,  total, 100.0 * omp_pass  as f32 / total as f32);
     let delta = omp_pass as i32 - base_pass as i32;
     println!("  Delta:    {:+} cases", delta);
-    if delta > 0      { println!("\n  ✓ OMP IMPROVES — worth integrating into hebbian.rs"); }
+    if delta > 0      { println!("\n  ✓ OMP IMPROVES — worth integrating into scoring.rs"); }
     else if delta < 0 { println!("\n  ✗ OMP REGRESSES — revisit alpha ({}) or threshold ({})", OMP_ALPHA, THRESHOLD); }
     else              { println!("\n  ~ No change — try alpha=0.9 or max_rounds=5"); }
 }

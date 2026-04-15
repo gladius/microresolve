@@ -140,7 +140,7 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
 
     let mut heb_map = state.hebbian.write().unwrap();
     let heb = heb_map.entry(app_id.to_string())
-        .or_insert_with(asv_router::hebbian::LexicalGraph::new);
+        .or_insert_with(asv_router::scoring::LexicalGraph::new);
 
     let mut n_abbrev = 0usize;
     let mut n_morph  = 0usize;
@@ -155,9 +155,9 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
         if heb.edges.contains_key(from) { continue; }
 
         let kind = match kind_s {
-            "abbreviation"  => { n_abbrev += 1; asv_router::hebbian::EdgeKind::Abbreviation }
-            "morphological" => { n_morph  += 1; asv_router::hebbian::EdgeKind::Morphological }
-            _               => { n_syn    += 1; asv_router::hebbian::EdgeKind::Synonym }
+            "abbreviation"  => { n_abbrev += 1; asv_router::scoring::EdgeKind::Abbreviation }
+            "morphological" => { n_morph  += 1; asv_router::scoring::EdgeKind::Morphological }
+            _               => { n_syn    += 1; asv_router::scoring::EdgeKind::Synonym }
         };
         eprintln!("[import/L1] {:>14}: {} → {} (w={:.2})", kind_s, from, to, weight);
         heb.add(from, to, weight, kind);
@@ -183,7 +183,7 @@ pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)
     let l1 = state.hebbian.read().unwrap().get(app_id).cloned().unwrap_or_default();
 
     let mut ig_map = state.intent_graph.write().unwrap();
-    let ig = ig_map.entry(app_id.to_string()).or_insert_with(asv_router::hebbian::IntentGraph::new);
+    let ig = ig_map.entry(app_id.to_string()).or_insert_with(asv_router::scoring::IntentGraph::new);
 
     for (intent_id, phrase) in accepted {
         let preprocessed = l1.preprocess(phrase);

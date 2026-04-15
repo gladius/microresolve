@@ -5,7 +5,7 @@
 //!
 //! No API routes — these are internal implementation layers.
 
-use asv_router::hebbian::{LexicalGraph, IntentGraph};
+use asv_router::scoring::{LexicalGraph, IntentGraph};
 
 /// Load a hebbian graph from disk for a namespace. Called at startup.
 pub fn load_hebbian(data_dir: &str, namespace: &str) -> Option<LexicalGraph> {
