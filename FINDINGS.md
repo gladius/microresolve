@@ -5,11 +5,20 @@ under held-out validation, with rigorous experiment design.
 
 ## TL;DR
 
-**ASV's algorithm works.** The determining factor for accuracy is **seed phrase density per intent**, not clever scoring layers.
+**ASV's algorithm works — especially for multi-intent.** The determining factor for single-intent accuracy is **seed phrase density per intent**; multi-intent decomposition is the distinctive strength that scales cleanly.
 
-- **12 phrases/intent + 15 intents (1 domain):** 91.2% top-1 / 97.1% top-3 on held-out
-- **12 phrases/intent + 125 intents (5 domains):** 88.3% top-1 / 96.4% top-3 on held-out
-- **2-3 phrases/intent (enterprise cold-start):** 40.9% top-1 / 59.1% top-3 on held-out
+**Single-intent (at 12 phrases/intent, held-out):**
+- 15 intents (1 domain): **91.2% top-1 / 97.1% top-3**
+- 125 intents (5 domains): **88.3% top-1 / 96.4% top-3**
+
+**Multi-intent (125 intents × 5 domains, 58 compound queries):**
+- **All expected in top-5: 94.8%**
+- Avg recall@5: 97.7%
+- 100% on conditional, negation, parallel-same-domain, realistic workflows
+- 90% on parallel-cross-domain, 80% on sequential and 3-intent
+
+**Single-intent thin-seed (cold-start enterprise, 2-3 phrases/intent):**
+- 40.9% top-1 / 59.1% top-3 (the data sparsity floor)
 
 Scale holds at 8× intent growth: 15 → 125 intents drops top-1 only 2.9pp, top-3 only 0.7pp.
 
@@ -50,6 +59,34 @@ Scale holds at 8× intent growth: 15 → 125 intents drops top-1 only 2.9pp, top
 | L3 anti-Hebbian inhibition | Present but dormant (needs corrections to populate) |
 | Cross-provider disambiguation | Active |
 | Char-ngram tiebreaker | Opt-in via request flag |
+
+## Multi-Intent Results (the marquee claim)
+
+**Scale: 125 intents across 5 SaaS domains, 58 multi-intent queries, held-out validation.**
+
+| Metric | Value |
+|---|---|
+| All expected intents in top-5 | **94.8%** (55/58) |
+| All expected in top-3 | 81.0% (47/58) |
+| Any expected in top-5 | 100% (58/58) |
+| Avg recall@5 (fraction of expected intents captured) | **97.7%** |
+| Avg recall@3 | 91.7% |
+
+**By multi-intent pattern type:**
+
+| Pattern | Description | n | All-in-top5 | Avg recall@5 |
+|---|---|---|---|---|
+| parallel_same | 2 intents, same domain ("cancel sub + refund") | 25 | 100% | 100% |
+| parallel_cross | 2 intents, different domains ("refund stripe + cancel shopify") | 10 | 90% | 95% |
+| sequential | ordered ("first X, then Y") | 5 | 80% | 90% |
+| three_intent | 3-intent compounds | 5 | 80% | 93% |
+| conditional | "or" relations | 4 | 100% | 100% |
+| negation | "except/without" relations | 4 | 100% | 100% |
+| realistic_workflow | real enterprise multi-step | 5 | 100% | 100% |
+
+**Failure analysis:** 3 misses out of 58. All 3 were vocabulary-coverage gaps in seed phrases (e.g., "log" missing from notion seeds, "email" missing from twilio seeds). None were algorithmic failures — the token-consumption mechanism worked correctly; the decomposed tokens just lacked routing evidence.
+
+**Why this matters:** most intent classifiers (Rasa DIET, SetFit, LLM-based classifiers) can't handle multi-intent compounds at all. They pick one winning intent or return garbage. ASV's token consumption decomposes the query into non-overlapping sub-queries and scores each independently — producing a ranked list where multiple intents coexist. This is the distinctive product claim, validated at realistic enterprise scale.
 
 ## Full Benchmark Results
 

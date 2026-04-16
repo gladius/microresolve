@@ -1,0 +1,85 @@
+{
+  "_meta": {
+    "purpose": "Multi-intent validation targeting bench_scale125 (125 intents across 5 domains). Tests ASV's token-consumption multi-intent decomposition at realistic enterprise scale.",
+    "namespace": "bench_scale125",
+    "categories_explanation": {
+      "parallel_same": "2 intents same domain, parallel (and/also)",
+      "parallel_cross": "2 intents across different domains, parallel",
+      "sequential": "2 intents with sequential relation (then/after)",
+      "three_intent": "3 or more intents in single query",
+      "conditional": "conditional (or/otherwise) relations",
+      "negation": "negation (except/without) relations",
+      "realistic_workflow": "real enterprise workflows spanning multiple systems"
+    }
+  },
+  "queries": [
+    { "category": "parallel_same", "query": "cancel the subscription and refund this month", "expected_multi": ["stripe:cancel_subscription", "stripe:create_refund"] },
+    { "category": "parallel_same", "query": "create a new customer and send them an invoice", "expected_multi": ["stripe:create_customer", "stripe:create_invoice"] },
+    { "category": "parallel_same", "query": "charge the card and issue an invoice", "expected_multi": ["stripe:create_payment", "stripe:create_invoice"] },
+    { "category": "parallel_same", "query": "list open disputes and all charges", "expected_multi": ["stripe:list_disputes", "stripe:list_charges"] },
+    { "category": "parallel_same", "query": "void this payment and delete the customer", "expected_multi": ["stripe:cancel_payment", "stripe:delete_customer"] },
+
+    { "category": "parallel_same", "query": "file a bug and assign it to alice", "expected_multi": ["linear:create_issue", "linear:assign_issue"] },
+    { "category": "parallel_same", "query": "close this issue and archive the related project", "expected_multi": ["linear:close_issue", "linear:update_project"] },
+    { "category": "parallel_same", "query": "list the issues and comments on this project", "expected_multi": ["linear:list_issues", "linear:list_comments"] },
+    { "category": "parallel_same", "query": "create a new cycle and add these issues to it", "expected_multi": ["linear:create_cycle", "linear:add_to_cycle"] },
+    { "category": "parallel_same", "query": "create the new project and add a label for it", "expected_multi": ["linear:create_project", "linear:create_label"] },
+
+    { "category": "parallel_same", "query": "cancel the order and adjust the inventory", "expected_multi": ["shopify:cancel_order", "shopify:adjust_inventory"] },
+    { "category": "parallel_same", "query": "create a product and add it to a collection", "expected_multi": ["shopify:create_product", "shopify:create_collection"] },
+    { "category": "parallel_same", "query": "list today's orders and check inventory levels", "expected_multi": ["shopify:list_orders", "shopify:list_inventory"] },
+    { "category": "parallel_same", "query": "register new customer and create their first order", "expected_multi": ["shopify:create_customer", "shopify:create_order"] },
+    { "category": "parallel_same", "query": "fulfill the order and close it", "expected_multi": ["shopify:create_fulfillment", "shopify:close_order"] },
+
+    { "category": "parallel_same", "query": "send sms to this number and make a call too", "expected_multi": ["twilio:send_sms", "twilio:make_call"] },
+    { "category": "parallel_same", "query": "list recent calls and messages", "expected_multi": ["twilio:list_calls", "twilio:list_messages"] },
+    { "category": "parallel_same", "query": "buy a phone number and create a studio flow", "expected_multi": ["twilio:buy_phone_number", "twilio:create_flow"] },
+    { "category": "parallel_same", "query": "start verification and send an sms code", "expected_multi": ["twilio:create_verify", "twilio:send_sms"] },
+    { "category": "parallel_same", "query": "check the balance and show usage records", "expected_multi": ["twilio:get_account_balance", "twilio:list_usage_records"] },
+
+    { "category": "parallel_same", "query": "create a new page and add a comment to it", "expected_multi": ["notion:create_page", "notion:create_comment"] },
+    { "category": "parallel_same", "query": "search content and list matching pages", "expected_multi": ["notion:search_content", "notion:list_pages"] },
+    { "category": "parallel_same", "query": "archive this page and create a new one", "expected_multi": ["notion:archive_page", "notion:create_page"] },
+    { "category": "parallel_same", "query": "create a database and query it", "expected_multi": ["notion:create_database", "notion:query_database"] },
+    { "category": "parallel_same", "query": "add a user and share the page with them", "expected_multi": ["notion:create_user", "notion:share_page"] },
+
+    { "category": "parallel_cross", "query": "refund the stripe charge and cancel the shopify order", "expected_multi": ["stripe:create_refund", "shopify:cancel_order"] },
+    { "category": "parallel_cross", "query": "ship the order and text the customer", "expected_multi": ["shopify:create_fulfillment", "twilio:send_sms"] },
+    { "category": "parallel_cross", "query": "file a linear bug and notify the team via sms", "expected_multi": ["linear:create_issue", "twilio:send_sms"] },
+    { "category": "parallel_cross", "query": "create a stripe customer and a notion page about them", "expected_multi": ["stripe:create_customer", "notion:create_page"] },
+    { "category": "parallel_cross", "query": "process the refund and create an issue in linear", "expected_multi": ["stripe:create_refund", "linear:create_issue"] },
+    { "category": "parallel_cross", "query": "list the shopify orders and send summary as text", "expected_multi": ["shopify:list_orders", "twilio:send_sms"] },
+    { "category": "parallel_cross", "query": "close the stripe account and delete shopify customer", "expected_multi": ["stripe:delete_customer", "shopify:update_customer"] },
+    { "category": "parallel_cross", "query": "make a notion page and create matching database", "expected_multi": ["notion:create_page", "notion:create_database"] },
+    { "category": "parallel_cross", "query": "bill the customer and log the invoice in notion", "expected_multi": ["stripe:create_invoice", "notion:create_page"] },
+    { "category": "parallel_cross", "query": "assign the issue and call the engineer", "expected_multi": ["linear:assign_issue", "twilio:make_call"] },
+
+    { "category": "sequential", "query": "first create the customer, then bill them monthly", "expected_multi": ["stripe:create_customer", "stripe:create_subscription"] },
+    { "category": "sequential", "query": "after cancelling, refund the customer", "expected_multi": ["shopify:cancel_order", "stripe:create_refund"] },
+    { "category": "sequential", "query": "open the ticket, then assign it to bob", "expected_multi": ["linear:create_issue", "linear:assign_issue"] },
+    { "category": "sequential", "query": "once the product is created, list it in the main collection", "expected_multi": ["shopify:create_product", "shopify:list_collections"] },
+    { "category": "sequential", "query": "verify the phone, then send the confirmation sms", "expected_multi": ["twilio:verify_code", "twilio:send_sms"] },
+
+    { "category": "three_intent", "query": "create customer, send invoice, and set up monthly billing", "expected_multi": ["stripe:create_customer", "stripe:create_invoice", "stripe:create_subscription"] },
+    { "category": "three_intent", "query": "cancel order, refund charge, and file a support ticket", "expected_multi": ["shopify:cancel_order", "stripe:create_refund", "linear:create_issue"] },
+    { "category": "three_intent", "query": "ship the order, email confirmation, and update inventory", "expected_multi": ["shopify:create_fulfillment", "shopify:adjust_inventory", "twilio:send_sms"] },
+    { "category": "three_intent", "query": "create a linear issue, add a comment, and assign to sarah", "expected_multi": ["linear:create_issue", "linear:create_comment", "linear:assign_issue"] },
+    { "category": "three_intent", "query": "add notion page, create database, and share with team", "expected_multi": ["notion:create_page", "notion:create_database", "notion:share_page"] },
+
+    { "category": "conditional", "query": "refund the payment or cancel the subscription", "expected_multi": ["stripe:create_refund", "stripe:cancel_subscription"] },
+    { "category": "conditional", "query": "create a new product or update the existing one", "expected_multi": ["shopify:create_product", "shopify:update_product"] },
+    { "category": "conditional", "query": "send sms or make a call", "expected_multi": ["twilio:send_sms", "twilio:make_call"] },
+    { "category": "conditional", "query": "close this issue or archive it", "expected_multi": ["linear:close_issue", "linear:archive_issue"] },
+
+    { "category": "negation", "query": "cancel the subscription but not the customer account", "expected_multi": ["stripe:cancel_subscription"] },
+    { "category": "negation", "query": "refund the charge without cancelling the subscription", "expected_multi": ["stripe:create_refund"] },
+    { "category": "negation", "query": "list all orders except the cancelled ones", "expected_multi": ["shopify:list_orders"] },
+    { "category": "negation", "query": "send sms to everyone except this number", "expected_multi": ["twilio:send_sms"] },
+
+    { "category": "realistic_workflow", "query": "new enterprise client just signed, add them to stripe and create a notion page for their account", "expected_multi": ["stripe:create_customer", "notion:create_page"] },
+    { "category": "realistic_workflow", "query": "the billing bug is fixed, close the linear ticket and send a message to the customer", "expected_multi": ["linear:update_issue", "twilio:send_sms"] },
+    { "category": "realistic_workflow", "query": "customer complained about double charge, refund them and file a bug ticket", "expected_multi": ["stripe:create_refund", "linear:create_issue"] },
+    { "category": "realistic_workflow", "query": "holiday sale: create discount code and notify all subscribers via sms", "expected_multi": ["shopify:create_discount", "twilio:send_sms"] },
+    { "category": "realistic_workflow", "query": "onboarding: create stripe customer, set up subscription, and send welcome sms", "expected_multi": ["stripe:create_customer", "stripe:create_subscription", "twilio:send_sms"] }
+  ]
+}
