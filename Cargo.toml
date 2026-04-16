@@ -36,10 +36,6 @@ server = ["axum", "tokio", "tokio-stream", "tower-http"]
 getrandom = { version = "0.2", features = ["js"] }
 
 [[bin]]
-name = "benchmark"
-path = "src/bin/benchmark.rs"
-
-[[bin]]
 name = "situation_exp"
 path = "src/bin/situation_exp.rs"
 
@@ -48,16 +44,8 @@ name = "situation_cjk_exp"
 path = "src/bin/situation_cjk_exp.rs"
 
 [[bin]]
-name = "situation_integrated_test"
-path = "src/bin/situation_integrated_test.rs"
-
-[[bin]]
 name = "server"
 path = "src/bin/server/main.rs"
 required-features = ["server"]
 
 [dev-dependencies]
-
-[[bin]]
-name = "profile_route"
-path = "src/bin/profile_route.rs"
