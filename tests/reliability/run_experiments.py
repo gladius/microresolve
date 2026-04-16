@@ -57,6 +57,8 @@ def configure_namespace(mode: str, namespace: str, corrections: list = None):
         e2_b           — seed-phrase augmentation (variants as extra phrases)
         warm           — baseline + corrections applied
         e2_b_warm      — e2_b + corrections applied
+        e4             — L3 cross-provider inhibition seeding (via synthetic corrections)
+        e4_e2b         — e4 + seed augmentation
     """
     # Always start with a fresh clone
     ns_ops.clone_from_snapshot(namespace)
@@ -64,6 +66,12 @@ def configure_namespace(mode: str, namespace: str, corrections: list = None):
     if "e2_b" in mode:
         print(f"  Adding variant phrases to '{namespace}'...")
         ns_ops.add_variant_phrases(namespace, EQUIVALENCE, SNAPSHOT)
+
+    if mode in ("e4", "e4_e2b"):
+        l3_seeds = json.loads((ROOT / "l3_seed_corrections.json").read_text())["corrections"]
+        print(f"  Applying {len(l3_seeds)} L3-seeding corrections to '{namespace}'...")
+        stats = ns_ops.apply_corrections(namespace, l3_seeds)
+        print(f"    applied={stats['applied']} skipped={stats['skipped']}")
 
     if mode.endswith("warm") or mode == "warm":
         corr = corrections or CORRECTIONS
@@ -111,6 +119,8 @@ def main():
         "e2_b":          ("bench_e2b",        "e2_b",      False),  # seed augmentation only
         "e2_c":          ("bench_e2c",        "e2_b",      True),   # both seed + query-time
         "e2_b_warm":     ("bench_e2b_warm",   "e2_b_warm", False),  # seed augmentation + corrections
+        "e4":            ("bench_e4",         "e4",        False),  # L3 cross-provider seeding only
+        "e4_e2b":        ("bench_e4_e2b",     "e4_e2b",    False),  # L3 seeding + seed augmentation
     }
 
     results_summary = {}

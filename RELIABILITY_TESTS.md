@@ -230,16 +230,57 @@ Saved: `tests/reliability/results/baseline.json`
 - `tests/reliability/results/step2_equivalence.json` — full measurement run
 
 ### Step 3: LP → L3 auto-feedback
-(pending)
+Deferred — requires multi-turn LP traffic to be measurable; single-run measurement doesn't exercise the feedback loop.
 
-### Step 4: Build-time L3 seeding
-(pending)
+### Step 4: Build-time L3 seeding — 2026-04-16 (result: **marginal dev lift, validation regression**)
+
+**Approach:** Identified 20 synthetic corrections encoding cross-provider same-action pairs (e.g., "list customers on stripe" → stripe:list_customers to teach inhibit(stripe:list_customers, shopify:list_customers)). Fed via /api/correct to populate L3 inhibition matrix.
+
+**Results:**
+| Set | Config | Top-1 | Top-3 |
+|---|---|---|---|
+| dev | baseline | 66.7% | 80.0% |
+| dev | e4 | **68.3%** | 78.3% |
+| dev | e4_e2b | **70.0%** | 80.0% |
+| val | baseline | **40.9%** | **59.1%** |
+| val | e4 | 40.9% | 54.5% |
+| val | e4_e2b | 38.6% | 54.5% |
+
+**Finding:** +1.6 to +3.3pp top-1 on dev, but **-4.6pp top-3 on validation** across configurations. L3 seeding introduces asymmetric inhibition that helps dev patterns but hurts held-out queries. Not launch-ready as a default.
+
+### Final rigorous findings (cross-experiment synthesis)
+
+**Full matrix on held-out validation (59 queries):**
+| Config | Top-1 | Top-3 | Multi-h3 | Multi-p3 | OOS-rej |
+|---|---|---|---|---|---|
+| baseline | 40.9% | 59.1% | 40.0% | 50.0% | 20.0% |
+| warm (30 corrections) | 38.6% | 52.3% | 40.0% | 60.0% | 20.0% |
+| e2_a (query expansion) | 31.8% | 59.1% | 40.0% | 60.0% | 20.0% |
+| e2_b (seed augmentation) | 40.9% | 56.8% | 40.0% | 50.0% | 20.0% |
+| e2_c (both) | 34.1% | 61.4% | 40.0% | 60.0% | 20.0% |
+| e2_b_warm | **43.2%** | 59.1% | 40.0% | 50.0% | 20.0% |
+| e4 (L3 seed) | 40.9% | 54.5% | 40.0% | 60.0% | 20.0% |
+| e4_e2b | 38.6% | 54.5% | 40.0% | 50.0% | 20.0% |
+
+**No single intervention reliably beats baseline on validation across all metrics.** Gains in weak categories cancel with losses in strong categories.
+
+**Per-category: interventions help thin-seed categories, hurt strong ones:**
+- Shopify (thinnest seeds): 12% → **38%** top-3 with e2_a/c (+26pp)
+- Informal/OOV: 80% → **100%** top-3 with expansion variants (+20pp)
+- Stripe (strong seeds): 75% → 50-62% top-3 with most interventions (-13 to -25pp)
+- cross_provider: 100% → 86% with query expansion (-14pp)
+
+**Decision for launch:**
+- **Do NOT enable interventions by default.** Ship baseline ASV.
+- **Document e2_a (query expansion via LLM equivalence) as an opt-in option for thin-seed cold-start scenarios.** +26pp on weak categories is real value when you have it.
+- Document honest cold-start numbers: top-1 ~40%, top-3 ~55-60% with 2-3 seeds/intent. Prior work shows top-1 ~95% with 120 seeds/intent on CLINC150.
+- **Top-3 is the pitch.** Prefilter-for-LLM is the launch story. Top-3 is 10-20pp better than top-1 and is what downstream LLM use cases actually consume.
 
 ### Step 5: Bigram-IDF
-(pending)
+Deferred — validation results suggest added scoring layers don't transfer. Decision: focus on documentation + launch rather than another intervention.
 
 ### Step 6: Porter stemming
-(pending — skip if Step 2 covered morphology)
+Deferred — e2_a (LLM equivalence) already covers morphology via variants. Stemming is the rule-based subset of what e2_a does with LLM-learned mappings.
 
 ---
 

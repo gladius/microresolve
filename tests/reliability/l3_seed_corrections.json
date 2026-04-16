@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "purpose": "Synthetic corrections that seed L3 inhibition for cross-provider same-action pairs. Each trains ASV that when provider X is named, its intent should win over the same-named intent in provider Y.",
+    "note": "For E4 experiment. Queries are minimal and provider-explicit."
+  },
+  "corrections": [
+    { "query": "list customers on stripe", "correct": "stripe:list_customers" },
+    { "query": "list customers in shopify", "correct": "shopify:list_customers" },
+    { "query": "create a customer on stripe", "correct": "stripe:create_customer" },
+    { "query": "create a customer in shopify", "correct": "shopify:create_customer" },
+    { "query": "update a customer on stripe", "correct": "stripe:update_customer" },
+    { "query": "update a customer in shopify", "correct": "shopify:update_customer" },
+    { "query": "create a product on stripe", "correct": "stripe:create_product" },
+    { "query": "create a product in shopify", "correct": "shopify:create_product" },
+
+    { "query": "new project in linear", "correct": "linear:create_project" },
+    { "query": "new project on vercel", "correct": "vercel:create_project" },
+    { "query": "list linear projects", "correct": "linear:list_projects" },
+    { "query": "list vercel projects", "correct": "vercel:list_projects" },
+    { "query": "update linear project", "correct": "linear:update_project" },
+    { "query": "update vercel project", "correct": "vercel:update_project" },
+    { "query": "list linear teams", "correct": "linear:list_teams" },
+    { "query": "list vercel teams", "correct": "vercel:list_teams" },
+
+    { "query": "cancel the subscription on stripe", "correct": "stripe:cancel_subscription" },
+    { "query": "cancel the order in shopify", "correct": "shopify:cancel_order" },
+    { "query": "cancel this deployment on vercel", "correct": "vercel:cancel_deployment" },
+    { "query": "cancel the payment on stripe", "correct": "stripe:cancel_payment" }
+  ]
+}
