@@ -36,14 +36,6 @@ server = ["axum", "tokio", "tokio-stream", "tower-http"]
 getrandom = { version = "0.2", features = ["js"] }
 
 [[bin]]
-name = "situation_exp"
-path = "src/bin/situation_exp.rs"
-
-[[bin]]
-name = "situation_cjk_exp"
-path = "src/bin/situation_cjk_exp.rs"
-
-[[bin]]
 name = "server"
 path = "src/bin/server/main.rs"
 required-features = ["server"]
