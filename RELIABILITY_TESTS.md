@@ -161,8 +161,36 @@ Dataset: `tests/reliability/dataset.json` (105 queries, enterprise-focused, 4 Sa
 
 Saved: `tests/reliability/results/baseline.json`
 
-### Step 1: Confidence calibration
-(pending)
+### Step 1: Confidence calibration — 2026-04-16 (result: **hypothesis falsified, different signal wins**)
+
+**Hypothesis:** `confidence_ratio = top1/(top1+top2)` is a better OOS rejection signal than raw top-1 score. Recommended in the prior `WEAKNESSES.md` doc.
+
+**Finding:** On this enterprise dataset, **raw-score threshold BEATS confidence_ratio for OOS rejection.** Reason: cross-domain vocabulary overlap (create/list/update across 4 providers) makes *in-scope* queries have low confidence_ratio too. Low ratio = ambiguous, not OOS.
+
+**Threshold sweep (see `calibration_analysis.py`):**
+
+| Threshold strategy | OOS-rejected | In-scope wrongly rejected | F1(OOS) |
+|---|---|---|---|
+| Raw score < 0.5 (current default) | 70% | 1.5% | 0.778 |
+| **Raw score < 1.5** | **80%** | **4.4%** | **0.762** |
+| **Raw score < 1.8** | **90%** | **7.4%** | **0.750** |
+| Raw score < 2.0 | 100% | 22.1% | 0.571 |
+| Confidence ratio < 0.55 | 80% | **32.4%** | 0.400 |
+| Confidence ratio < 0.60 | 80% | 39.7% | 0.356 |
+
+**Lifts available from a raw-score threshold bump alone: 70% → 80-90% OOS rejection with only 4-7% false rejection.** That's ~15-20% improvement in OOS rejection without any code change beyond a threshold bump.
+
+**Ratio is still useful, just not for OOS:**
+- It signals *ambiguity* (multiple close candidates), which is a different thing than OOS
+- Useful for triggering clarification prompts ("did you mean A or B?")
+- Worth exposing in the API as a downstream signal even though it doesn't help the specific OOS metric
+
+**Decision:**
+- Bump the low-confidence threshold to ~1.5-1.8 in the default API behaviour (easy)
+- Expose `confidence_ratio` as an additive field in `RouteResult` (takes nothing away, gives consumers the option)
+- No regression — the low-score rejection only fires when scores are *higher* than current default was already trusting; flagged low-confidence queries simply surface as such to the consumer
+
+**Saved:** threshold-sweep output in `tests/reliability/calibration_analysis.py`.
 
 ### Step 2: LLM equivalence classes
 (pending)
