@@ -192,8 +192,42 @@ Saved: `tests/reliability/results/baseline.json`
 
 **Saved:** threshold-sweep output in `tests/reliability/calibration_analysis.py`.
 
-### Step 2: LLM equivalence classes
-(pending)
+### Step 2: LLM equivalence classes — 2026-04-16 (result: **+6.7pp top-3, -1.7pp top-1**)
+
+**Approach:** One LLM call per intent (98 total) asking for morphological variants + direct synonyms of each intent's seed words. Result: 789-entry variant→canonical map. Applied at query time via token expansion (query "cancelling my order" → "cancelling cancel my order" before sending to ASV).
+
+**This is distinct from the failed LLM-paraphrase training.** Paraphrases generated new phrases (novel vocabulary). Equivalence classes map variants of words ALREADY in the seeds (e.g., "cancelling" → "cancel"). LLM is a dictionary, not a generator.
+
+**Overall:**
+| Metric | Baseline | Step 2 | Δ |
+|---|---|---|---|
+| Top-1 | 66.7% | 65.0% | -1.7pp |
+| **Top-3** | **78.3%** | **85.0%** | **+6.7pp** |
+| Multi-hit3 | 42.9% | 48.6% | +5.7pp |
+| Multi-partial3 | 77.1% | 77.1% | 0 |
+| OOS rejection | 70.0% | 70.0% | 0 |
+
+**Per category (top-3):**
+- `single_shopify` 50% → **80%** (+30pp) — biggest single-category win
+- `informal_oov` 90% → **100%** (+10pp)
+- `cross_provider` 90% → **100%** (+10pp)
+- `single_vercel` 80% → 90%
+- `multi_same_domain` 40% → 50%
+- `multi_cross_domain` 66.7% → 73.3%
+- `single_linear` 90% → 80% (regression)
+- `single_stripe` 70% → 60% (regression)
+
+**Interpretation:**
+- Step 2 adds signal where vocabulary was sparse (Shopify) or mismatched (informal/OOV).
+- Adds some noise where vocabulary was already clean (Linear/Stripe), diluting top-1 in favour of top-3.
+- **Net win is top-3 / prefilter accuracy** (+6.7pp) — aligned with the MCP-prefilter launch pitch.
+
+**Decision:** include at launch as **optional namespace feature** (user opts in per namespace). Default off for zero-regression promise; opt-in with documented top-1/top-3 tradeoff.
+
+**Artifacts:**
+- `tests/reliability/equivalence_cache.json` — per-intent LLM response cache
+- `tests/reliability/equivalence_classes.json` — flat variant→canonical map (789 entries)
+- `tests/reliability/results/step2_equivalence.json` — full measurement run
 
 ### Step 3: LP → L3 auto-feedback
 (pending)

@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import json
+import re
 import sys
 import time
 import urllib.request
@@ -26,8 +27,35 @@ from pathlib import Path
 BASE_URL = "http://localhost:3001"
 ROOT = Path(__file__).parent
 
+# ── Equivalence-class expansion (Step 2) ──────────────────────────────────
+EQUIVALENCE_MAP = None
+
+
+def load_equivalence(path: Path):
+    global EQUIVALENCE_MAP
+    if path.exists():
+        EQUIVALENCE_MAP = json.loads(path.read_text())
+        print(f"Loaded {len(EQUIVALENCE_MAP)} equivalence-class variants from {path}")
+
+
+def expand_query(q: str) -> str:
+    """Expand each token by appending its canonical form(s) from the equivalence map."""
+    if not EQUIVALENCE_MAP:
+        return q
+    tokens = re.findall(r"[a-zA-Z]+|[^\sa-zA-Z]+", q)
+    out = []
+    for t in tokens:
+        out.append(t)
+        tl = t.lower()
+        if tl in EQUIVALENCE_MAP:
+            for canonical in EQUIVALENCE_MAP[tl]:
+                if canonical != tl:
+                    out.append(canonical)
+    return " ".join(out)
+
 
 def route(namespace: str, query: str) -> dict:
+    query = expand_query(query)
     body = json.dumps({"query": query, "threshold": 0.3, "gap": 1.5, "log": False}).encode()
     req = urllib.request.Request(
         f"{BASE_URL}/api/route_multi",
@@ -255,7 +283,11 @@ def main():
     parser.add_argument("--save", action="store_true", help="save full results to results/{label}.json")
     parser.add_argument("--show-all", action="store_true")
     parser.add_argument("--only", default=None, help="only run queries in this category")
+    parser.add_argument("--expand", action="store_true", help="apply equivalence-class expansion at query time")
     args = parser.parse_args()
+
+    if args.expand:
+        load_equivalence(ROOT / "equivalence_classes.json")
 
     dataset_path = ROOT / "dataset.json"
     dataset = json.loads(dataset_path.read_text())

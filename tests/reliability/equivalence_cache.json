@@ -1,0 +1,3074 @@
+{
+  "linear:add_to_cycle": {
+    "add": [
+      "adds",
+      "adding",
+      "added"
+    ],
+    "current": [
+      "currently",
+      "currents"
+    ],
+    "cycle": [
+      "cycles",
+      "cycling",
+      "cycled"
+    ],
+    "include": [
+      "includes",
+      "including",
+      "included"
+    ],
+    "issue": [
+      "issues",
+      "issuing",
+      "issued"
+    ],
+    "sprint": [
+      "sprints",
+      "sprinting",
+      "sprinted"
+    ]
+  },
+  "linear:archive_issue": {
+    "archive": [
+      "archives",
+      "archiving",
+      "archived"
+    ],
+    "issue": [
+      "issues",
+      "issuing",
+      "issued",
+      "release",
+      "publish"
+    ],
+    "shelve": [
+      "shelves",
+      "shelving",
+      "shelved",
+      "defer",
+      "postpone"
+    ],
+    "task": [
+      "tasks",
+      "tasking",
+      "tasked",
+      "assignment",
+      "job"
+    ]
+  },
+  "linear:assign_issue": {
+    "assign": [
+      "assigns",
+      "assigned",
+      "assigning",
+      "assignment",
+      "allocate",
+      "designate"
+    ],
+    "delegate": [
+      "delegates",
+      "delegated",
+      "delegating",
+      "delegation",
+      "authorize",
+      "commission"
+    ],
+    "issue": [
+      "issues",
+      "issued",
+      "issuing",
+      "problem",
+      "concern",
+      "matter"
+    ],
+    "someone": [
+      "somebody",
+      "person",
+      "individual",
+      "one"
+    ],
+    "task": [
+      "tasks",
+      "assignment",
+      "job",
+      "duty",
+      "project"
+    ]
+  },
+  "linear:create_comment": {
+    "add": [
+      "adds",
+      "added",
+      "adding",
+      "addition"
+    ],
+    "comment": [
+      "comments",
+      "commented",
+      "commenting",
+      "remark",
+      "feedback"
+    ],
+    "issue": [
+      "issues",
+      "issued",
+      "issuing",
+      "release",
+      "problem"
+    ],
+    "note": [
+      "notes",
+      "noted",
+      "noting",
+      "annotation",
+      "remark"
+    ],
+    "post": [
+      "posts",
+      "posted",
+      "posting",
+      "publish",
+      "article"
+    ]
+  },
+  "linear:create_cycle": {
+    "create": [
+      "creates",
+      "creating",
+      "creation"
+    ],
+    "cycle": [
+      "cycles",
+      "cyclic",
+      "cycling"
+    ],
+    "iteration": [
+      "iterations",
+      "iterative",
+      "iterating"
+    ],
+    "new": [
+      "novel",
+      "newly",
+      "newness"
+    ],
+    "sprint": [
+      "sprints",
+      "sprinting",
+      "sprinted"
+    ],
+    "start": [
+      "starts",
+      "starting",
+      "started",
+      "begin",
+      "initiate"
+    ]
+  },
+  "linear:create_issue": {
+    "bug": [
+      "bugs",
+      "buggy",
+      "bugfix",
+      "errors",
+      "glitch"
+    ],
+    "create": [
+      "creates",
+      "creating",
+      "creation",
+      "make",
+      "made"
+    ],
+    "file": [
+      "files",
+      "filing",
+      "filed"
+    ],
+    "issue": [
+      "issues",
+      "issuing",
+      "problem",
+      "problems"
+    ],
+    "new": [
+      "newly",
+      "newer",
+      "novel"
+    ],
+    "open": [
+      "opens",
+      "opening",
+      "opened"
+    ],
+    "report": [
+      "reports",
+      "reporting",
+      "reported"
+    ],
+    "task": [
+      "tasks",
+      "tasking",
+      "tasked"
+    ]
+  },
+  "linear:create_label": {
+    "add": [
+      "adding",
+      "adds",
+      "added"
+    ],
+    "create": [
+      "creating",
+      "creates",
+      "created",
+      "creation"
+    ],
+    "label": [
+      "labels",
+      "labeling",
+      "labelled"
+    ],
+    "tag": [
+      "tags",
+      "tagging",
+      "tagged"
+    ]
+  },
+  "linear:create_milestone": {
+    "create": [
+      "creates",
+      "creating",
+      "created",
+      "make",
+      "build"
+    ],
+    "goal": [
+      "objectives",
+      "targets",
+      "aims",
+      "goals"
+    ],
+    "milestone": [
+      "milestones",
+      "benchmarks",
+      "landmarks"
+    ],
+    "project": [
+      "projects",
+      "programs",
+      "initiatives"
+    ],
+    "set": [
+      "sets",
+      "setting",
+      "configured",
+      "define",
+      "establish"
+    ]
+  },
+  "linear:create_project": {
+    "create": [
+      "creates",
+      "creating",
+      "created"
+    ],
+    "linear": [
+      "lineal",
+      "linears"
+    ],
+    "new": [
+      "newly",
+      "newer",
+      "news"
+    ],
+    "project": [
+      "projects",
+      "projecting",
+      "projected"
+    ],
+    "start": [
+      "starts",
+      "starting",
+      "started",
+      "begin",
+      "initiate"
+    ]
+  },
+  "linear:create_team": {
+    "create": [
+      "creates",
+      "creating",
+      "created"
+    ],
+    "new": [
+      "newly",
+      "newer",
+      "newest"
+    ],
+    "set": [
+      "sets",
+      "setting",
+      "settings",
+      "setted"
+    ],
+    "team": [
+      "teams",
+      "teaming",
+      "teamed"
+    ]
+  },
+  "linear:create_view": {
+    "create": [
+      "creates",
+      "creating",
+      "creation"
+    ],
+    "custom": [
+      "customize",
+      "customized",
+      "customization"
+    ],
+    "filter": [
+      "filters",
+      "filtering",
+      "filtered"
+    ],
+    "save": [
+      "saves",
+      "saving",
+      "saved"
+    ],
+    "view": [
+      "views",
+      "viewing",
+      "viewed"
+    ]
+  },
+  "linear:delete_issue": {
+    "delete": [
+      "deletes",
+      "deleting",
+      "deleted",
+      "erase",
+      "remove"
+    ],
+    "issue": [
+      "issues",
+      "issuing",
+      "issued",
+      "release",
+      "publish"
+    ],
+    "remove": [
+      "removes",
+      "removing",
+      "removed",
+      "delete",
+      "take away"
+    ],
+    "task": [
+      "tasks",
+      "tasking",
+      "assigned",
+      "assignment",
+      "job"
+    ]
+  },
+  "linear:get_issue": {
+    "details": [
+      "detail",
+      "particulars",
+      "info"
+    ],
+    "get": [
+      "obtain",
+      "retrieve",
+      "fetch",
+      "getting"
+    ],
+    "issue": [
+      "problem",
+      "bug",
+      "issues",
+      "emit"
+    ],
+    "look": [
+      "view",
+      "looks",
+      "looking",
+      "examine"
+    ],
+    "specific": [
+      "specifics",
+      "particular",
+      "detailed"
+    ],
+    "task": [
+      "tasks",
+      "assignment",
+      "job",
+      "tasks"
+    ]
+  },
+  "linear:list_comments": {
+    "comments": [
+      "comment",
+      "commenting",
+      "commenter"
+    ],
+    "discussion": [
+      "discuss",
+      "discusses",
+      "discussed",
+      "talking",
+      "conversation"
+    ],
+    "issue": [
+      "issues",
+      "issuing",
+      "release"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown",
+      "display"
+    ],
+    "thread": [
+      "threads",
+      "threading",
+      "conversations",
+      "conversation"
+    ]
+  },
+  "linear:list_cycles": {
+    "cycles": [
+      "cycle",
+      "cycling",
+      "cycles"
+    ],
+    "iterations": [
+      "iteration",
+      "iterative",
+      "iterating"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown",
+      "display"
+    ],
+    "sprint": [
+      "sprints",
+      "sprinting",
+      "sprinted",
+      "rush"
+    ]
+  },
+  "linear:list_issues": {
+    "all": [
+      "all",
+      "every",
+      "entire"
+    ],
+    "backlog": [
+      "backlogs",
+      "queue",
+      "pending"
+    ],
+    "get": [
+      "getting",
+      "gets",
+      "got",
+      "retrieve",
+      "fetch"
+    ],
+    "issues": [
+      "issue",
+      "problems",
+      "bug",
+      "bugs"
+    ],
+    "items": [
+      "item",
+      "products",
+      "products"
+    ],
+    "list": [
+      "lists",
+      "catalog",
+      "catalogs",
+      "inventory"
+    ],
+    "show": [
+      "showing",
+      "shows",
+      "display",
+      "displays"
+    ],
+    "tasks": [
+      "task",
+      "jobs",
+      "work",
+      "assignments"
+    ]
+  },
+  "linear:list_labels": {
+    "all": [
+      "all",
+      "every",
+      "each"
+    ],
+    "available": [
+      "available",
+      "accessible",
+      "obtainable"
+    ],
+    "labels": [
+      "labels",
+      "tags",
+      "markers",
+      "titles"
+    ],
+    "list": [
+      "list",
+      "catalog",
+      "directory",
+      "inventory"
+    ],
+    "show": [
+      "show",
+      "display",
+      "exhibit",
+      "present"
+    ],
+    "tags": [
+      "tags",
+      "labels",
+      "markers",
+      "keywords"
+    ]
+  },
+  "linear:list_members": {
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "members": [
+      "member",
+      "membership",
+      "memberships"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown",
+      "display"
+    ],
+    "team": [
+      "teams",
+      "teammate",
+      "teammates"
+    ],
+    "who": [
+      "whom",
+      "whose",
+      "who's"
+    ]
+  },
+  "linear:list_projects": {
+    "all": [
+      "all",
+      "every",
+      "each",
+      "entire"
+    ],
+    "directory": [
+      "directories",
+      "folder",
+      "folders"
+    ],
+    "list": [
+      "lists",
+      "catalog",
+      "catalogs"
+    ],
+    "project": [
+      "projects",
+      "initiative",
+      "initiatives"
+    ],
+    "projects": [
+      "project",
+      "initiatives",
+      "programs"
+    ],
+    "show": [
+      "shows",
+      "display",
+      "displays",
+      "present"
+    ]
+  },
+  "linear:list_teams": {
+    "all": [
+      "all",
+      "entire",
+      "every",
+      "whole"
+    ],
+    "directory": [
+      "directories",
+      "folder",
+      "folders"
+    ],
+    "list": [
+      "lists",
+      "catalog",
+      "catalogs",
+      "inventory"
+    ],
+    "show": [
+      "shows",
+      "display",
+      "displays",
+      "present"
+    ],
+    "team": [
+      "teams",
+      "crew",
+      "group",
+      "staff"
+    ],
+    "teams": [
+      "team",
+      "crews",
+      "groups",
+      "squads"
+    ]
+  },
+  "linear:list_workflows": {
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "options": [
+      "option",
+      "optional",
+      "opt"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown"
+    ],
+    "states": [
+      "state",
+      "stati"
+    ],
+    "status": [
+      "stati",
+      "statuses",
+      "statistical"
+    ],
+    "workflow": [
+      "workflows",
+      "workflowing"
+    ]
+  },
+  "linear:update_issue": {
+    "change": [
+      "changes",
+      "changing",
+      "changed"
+    ],
+    "details": [
+      "detail",
+      "detailed"
+    ],
+    "issue": [
+      "issues",
+      "issuing",
+      "issued"
+    ],
+    "modify": [
+      "modifies",
+      "modified",
+      "modifying"
+    ],
+    "status": [
+      "statuses",
+      "stati"
+    ],
+    "task": [
+      "tasks",
+      "tasking",
+      "tasked"
+    ],
+    "update": [
+      "updates",
+      "updating",
+      "updated",
+      "upgrade",
+      "revision"
+    ]
+  },
+  "linear:update_project": {
+    "details": [
+      "detail",
+      "particulars",
+      "info"
+    ],
+    "modify": [
+      "modifies",
+      "modification",
+      "change",
+      "alter"
+    ],
+    "project": [
+      "projects",
+      "projecting",
+      "projections"
+    ],
+    "settings": [
+      "setting",
+      "settings"
+    ],
+    "update": [
+      "updates",
+      "updating",
+      "update"
+    ]
+  },
+  "linear:update_workflow": {
+    "change": [
+      "changes",
+      "changing",
+      "modify",
+      "alter",
+      "modify"
+    ],
+    "flow": [
+      "flows",
+      "flowing",
+      "stream",
+      "sequence"
+    ],
+    "state": [
+      "states",
+      "condition",
+      "status"
+    ],
+    "status": [
+      "statuses",
+      "state",
+      "condition"
+    ],
+    "update": [
+      "updates",
+      "updating",
+      "refresh",
+      "modify"
+    ],
+    "workflow": [
+      "workflows",
+      "process",
+      "sequence",
+      "procedure"
+    ]
+  },
+  "shopify:adjust_inventory": {
+    "adjust": [
+      "adjusting",
+      "adjusted",
+      "adjusts",
+      "modification",
+      "modify"
+    ],
+    "count": [
+      "counting",
+      "counts",
+      "enumerate",
+      "total",
+      "counted"
+    ],
+    "inventory": [
+      "inventories",
+      "stocktaking",
+      "stock",
+      "list",
+      "catalog"
+    ],
+    "level": [
+      "levels",
+      "levelling",
+      "leveled",
+      "even",
+      "balance"
+    ],
+    "stock": [
+      "stocks",
+      "stocking",
+      "inventory",
+      "supply",
+      "reserve"
+    ],
+    "update": [
+      "updating",
+      "updated",
+      "updates",
+      "refresh",
+      "revision"
+    ]
+  },
+  "shopify:cancel_order": {
+    "cancel": [
+      "cancels",
+      "cancellation",
+      "cancelled",
+      "cancelling",
+      "abort",
+      "terminate"
+    ],
+    "order": [
+      "orders",
+      "ordering",
+      "ordered",
+      "orders",
+      "request",
+      "instruction"
+    ],
+    "void": [
+      "voids",
+      "voided",
+      "voiding",
+      "nullify",
+      "invalidate",
+      "annul"
+    ]
+  },
+  "shopify:close_order": {
+    "archive": [
+      "archives",
+      "archiving",
+      "archived"
+    ],
+    "close": [
+      "closes",
+      "closing",
+      "closed",
+      "shut",
+      "shutdown"
+    ],
+    "completed": [
+      "complete",
+      "completing",
+      "completion",
+      "finished"
+    ],
+    "order": [
+      "orders",
+      "ordering",
+      "ordered",
+      "command"
+    ]
+  },
+  "shopify:create_collection": {
+    "add": [
+      "adding",
+      "adds",
+      "added"
+    ],
+    "category": [
+      "categories",
+      "category's"
+    ],
+    "collection": [
+      "collections",
+      "collection's"
+    ],
+    "create": [
+      "creating",
+      "creates",
+      "created"
+    ],
+    "product": [
+      "products",
+      "product's"
+    ]
+  },
+  "shopify:create_customer": {
+    "add": [
+      "adding",
+      "adds",
+      "added"
+    ],
+    "create": [
+      "creating",
+      "creates",
+      "created"
+    ],
+    "customer": [
+      "customers"
+    ],
+    "shopper": [
+      "shoppers"
+    ]
+  },
+  "shopify:create_discount": {
+    "create": [
+      "creates",
+      "creating",
+      "created"
+    ],
+    "discount": [
+      "discounts",
+      "discounted",
+      "discounting",
+      "off",
+      "rebate"
+    ],
+    "promotion": [
+      "promotions",
+      "promoting",
+      "promoted",
+      "advertising",
+      "marketing"
+    ],
+    "set": [
+      "sets",
+      "setting",
+      "settings",
+      "configured"
+    ],
+    "store": [
+      "stores",
+      "storing",
+      "stored",
+      "inventory",
+      "warehouse"
+    ]
+  },
+  "shopify:create_draft_order": {
+    "create": [
+      "creates",
+      "creating",
+      "creation"
+    ],
+    "draft": [
+      "drafts",
+      "drafting",
+      "drafted"
+    ],
+    "order": [
+      "orders",
+      "ordering",
+      "ordered"
+    ],
+    "quote": [
+      "quotes",
+      "quoting",
+      "quoted",
+      "quotation"
+    ],
+    "start": [
+      "starts",
+      "starting",
+      "started",
+      "begin"
+    ]
+  },
+  "shopify:create_fulfillment": {
+    "create": [
+      "creates",
+      "creating",
+      "creation"
+    ],
+    "fulfillment": [
+      "fulfill",
+      "fulfilled",
+      "fulfilling"
+    ],
+    "mark": [
+      "marks",
+      "marked",
+      "marking"
+    ],
+    "order": [
+      "orders",
+      "ordering"
+    ],
+    "ship": [
+      "ships",
+      "shipping",
+      "shipment"
+    ],
+    "shipped": [
+      "shipping",
+      "ships"
+    ]
+  },
+  "shopify:create_order": {
+    "create": [
+      "creates",
+      "creating",
+      "creation"
+    ],
+    "new": [
+      "newly",
+      "newness"
+    ],
+    "order": [
+      "orders",
+      "ordering",
+      "orderly"
+    ],
+    "place": [
+      "places",
+      "placing"
+    ]
+  },
+  "shopify:create_product": {
+    "add": [
+      "adding",
+      "adds",
+      "added"
+    ],
+    "create": [
+      "creating",
+      "creates",
+      "created",
+      "make",
+      "build"
+    ],
+    "merchandise": [
+      "products",
+      "goods",
+      "items"
+    ],
+    "new": [
+      "latest",
+      "recent"
+    ],
+    "product": [
+      "products",
+      "item",
+      "goods"
+    ]
+  },
+  "shopify:delete_product": {
+    "catalog": [
+      "catalogs",
+      "cataloging",
+      "cataloged",
+      "inventory",
+      "directory"
+    ],
+    "delete": [
+      "deleting",
+      "deleted",
+      "deletes",
+      "removal",
+      "erase"
+    ],
+    "product": [
+      "products",
+      "productivity",
+      "product line",
+      "goods",
+      "item"
+    ],
+    "remove": [
+      "removing",
+      "removed",
+      "removes",
+      "take away",
+      "extract"
+    ]
+  },
+  "shopify:get_order": {
+    "details": [
+      "detail",
+      "particulars",
+      "specs"
+    ],
+    "get": [
+      "obtain",
+      "receive",
+      "fetch",
+      "retrieve"
+    ],
+    "look": [
+      "view",
+      "examine",
+      "inspect"
+    ],
+    "order": [
+      "orders",
+      "sequence",
+      "arrange",
+      "request"
+    ],
+    "specific": [
+      "specifics",
+      "particular",
+      "detailed",
+      "exact"
+    ]
+  },
+  "shopify:get_product": {
+    "details": [
+      "detail",
+      "details",
+      "detailing",
+      "detailed"
+    ],
+    "get": [
+      "getting",
+      "gets",
+      "got",
+      "gotten"
+    ],
+    "info": [
+      "information",
+      "inform",
+      "informing"
+    ],
+    "look": [
+      "looking",
+      "looks",
+      "looked",
+      "view"
+    ],
+    "product": [
+      "products",
+      "product's",
+      "productivity",
+      "product line"
+    ]
+  },
+  "shopify:get_shop": {
+    "details": [
+      "detail"
+    ],
+    "get": [
+      "getting",
+      "gets",
+      "got",
+      "gotten"
+    ],
+    "info": [
+      "information"
+    ],
+    "shop": [
+      "shops",
+      "shopping"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown"
+    ],
+    "store": [
+      "stores",
+      "storing",
+      "stored"
+    ]
+  },
+  "shopify:list_collections": {
+    "categories": [
+      "category",
+      "categorize",
+      "categorization"
+    ],
+    "collections": [
+      "collection",
+      "collect",
+      "collected"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listings"
+    ],
+    "product": [
+      "products",
+      "productivity",
+      "productize"
+    ],
+    "show": [
+      "showing",
+      "shown",
+      "shows",
+      "display"
+    ]
+  },
+  "shopify:list_customers": {
+    "buyer": [
+      "buyers",
+      "buying",
+      "purchaser",
+      "customer"
+    ],
+    "customers": [
+      "customer",
+      "clients",
+      "users",
+      "patrons"
+    ],
+    "directory": [
+      "directories",
+      "folder",
+      "catalog",
+      "index"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "itemize",
+      "enumerate"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "display",
+      "present"
+    ]
+  },
+  "shopify:list_draft_orders": {
+    "draft": [
+      "drafts",
+      "drafting",
+      "drafted"
+    ],
+    "drafts": [
+      "draft",
+      "drafting",
+      "draftsman"
+    ],
+    "list": [
+      "lists",
+      "listed",
+      "listing"
+    ],
+    "orders": [
+      "order",
+      "ordering",
+      "orderly"
+    ],
+    "pending": [
+      "pend",
+      "pendingly",
+      "pended"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown",
+      "display"
+    ]
+  },
+  "shopify:list_inventory": {
+    "check": [
+      "checks",
+      "checking",
+      "checked",
+      "verify",
+      "validate"
+    ],
+    "counts": [
+      "count",
+      "counting",
+      "enumerate",
+      " tally"
+    ],
+    "inventory": [
+      "inventories",
+      "stocktaking",
+      "stockpile",
+      "catalog"
+    ],
+    "levels": [
+      "level",
+      "quantities",
+      "amounts"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "display",
+      "present"
+    ],
+    "stock": [
+      "stocks",
+      "inventory",
+      "supply",
+      "store"
+    ]
+  },
+  "shopify:list_orders": {
+    "list": [
+      "lists",
+      "listing",
+      "listings"
+    ],
+    "orders": [
+      "order",
+      "ordering",
+      "orderly"
+    ],
+    "recent": [
+      "recently",
+      "recency"
+    ],
+    "show": [
+      "showing",
+      "shown",
+      "shows",
+      "display"
+    ]
+  },
+  "shopify:list_products": {
+    "catalog": [
+      "catalogs",
+      "cataloging",
+      "cataloged"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "product": [
+      "products",
+      "product's",
+      "productivity"
+    ],
+    "products": [
+      "product",
+      "product's"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown",
+      "display"
+    ]
+  },
+  "shopify:list_themes": {
+    "available": [
+      "availability",
+      "avail",
+      "is available",
+      "can be obtained"
+    ],
+    "designs": [
+      "design",
+      "layouts",
+      "blueprints",
+      "designing"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "itemize",
+      "catalog"
+    ],
+    "show": [
+      "shows",
+      "display",
+      "showing",
+      "present"
+    ],
+    "store": [
+      "stores",
+      "storage",
+      "storing",
+      "shop"
+    ],
+    "themes": [
+      "theme",
+      "thematic",
+      "topics"
+    ]
+  },
+  "shopify:list_webhooks": {
+    "hooks": [
+      "hook",
+      "hooks",
+      "hooking",
+      "hooked"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "notification": [
+      "notifications",
+      "notify",
+      "notified",
+      "notifying"
+    ],
+    "show": [
+      "shows",
+      "shown",
+      "showing"
+    ],
+    "webhooks": [
+      "webhook",
+      "webhooks"
+    ]
+  },
+  "shopify:update_customer": {
+    "buyer": [
+      "buyers",
+      "purchaser",
+      "purchasers"
+    ],
+    "customer": [
+      "customers",
+      "client",
+      "clients",
+      "consumer",
+      "consumers"
+    ],
+    "details": [
+      "detail",
+      "information",
+      "particulars"
+    ],
+    "modify": [
+      "modifying",
+      "modifies",
+      "modified",
+      "change",
+      "changes"
+    ],
+    "update": [
+      "updates",
+      "updating",
+      "updated",
+      "revision",
+      "modify"
+    ]
+  },
+  "shopify:update_order": {
+    "details": [
+      "detail",
+      "particulars",
+      "specifications",
+      "information"
+    ],
+    "modify": [
+      "modifies",
+      "modifying",
+      "modified",
+      "change",
+      "alter"
+    ],
+    "order": [
+      "orders",
+      "ordering",
+      "sequence",
+      "arrange",
+      "request"
+    ],
+    "update": [
+      "updates",
+      "updating",
+      "updated",
+      "refresh",
+      "upgrade"
+    ]
+  },
+  "shopify:update_product": {
+    "details": [
+      "detail",
+      "particulars",
+      "information"
+    ],
+    "listing": [
+      "list",
+      "itemize",
+      "catalog"
+    ],
+    "modify": [
+      "change",
+      "alter",
+      "edit"
+    ],
+    "product": [
+      "products",
+      "goods",
+      "merchandise"
+    ],
+    "update": [
+      "updates",
+      "updating",
+      "refresh",
+      "revise"
+    ]
+  },
+  "stripe:cancel_payment": {
+    "cancel": [
+      "cancels",
+      "cancellation",
+      "cancelled",
+      "cancelling",
+      "abort",
+      "terminate"
+    ],
+    "charge": [
+      "charges",
+      "charging",
+      "charged",
+      "recharge",
+      "fee",
+      "billing"
+    ],
+    "intent": [
+      "intention",
+      "intents",
+      "purposeful"
+    ],
+    "payment": [
+      "payments",
+      "pay",
+      "paid",
+      "payer",
+      "invoice"
+    ],
+    "pending": [
+      "pend",
+      "pending",
+      "awaiting",
+      "waiting"
+    ],
+    "void": [
+      "voids",
+      "voided",
+      "voiding",
+      "null",
+      "annul"
+    ]
+  },
+  "stripe:cancel_subscription": {
+    "billing": [
+      "bill",
+      "bills",
+      "invoicing",
+      "payment"
+    ],
+    "cancel": [
+      "cancels",
+      "cancellation",
+      "terminate",
+      "stop",
+      "abort"
+    ],
+    "end": [
+      "ends",
+      "ending",
+      "terminate",
+      "conclude",
+      "close"
+    ],
+    "plan": [
+      "plans",
+      "scheme",
+      "strategy",
+      "pricing"
+    ],
+    "recurring": [
+      "recurrence",
+      "repeated",
+      "periodic",
+      "regular"
+    ],
+    "stop": [
+      "stops",
+      "stopping",
+      "halt",
+      "terminate",
+      "cease"
+    ],
+    "subscription": [
+      "subscriptions",
+      "subscribe",
+      "subscribes",
+      "membership"
+    ]
+  },
+  "stripe:capture_payment": {
+    "authorized": [
+      "authorize",
+      "authorizes",
+      "authorizing",
+      "auth",
+      "authentication"
+    ],
+    "capture": [
+      "captures",
+      "capturing",
+      "captured",
+      "seize",
+      "recapture"
+    ],
+    "charge": [
+      "charges",
+      "charging",
+      "charged",
+      "fee",
+      "pricing"
+    ],
+    "payment": [
+      "payments",
+      "pay",
+      "payout",
+      "remit",
+      "settlement"
+    ],
+    "settle": [
+      "settles",
+      "settling",
+      "settled",
+      "resolve",
+      "finalize"
+    ]
+  },
+  "stripe:confirm_payment": {
+    "charge": [
+      "charging",
+      "charges",
+      "charged",
+      "fee",
+      "pricing"
+    ],
+    "complete": [
+      "completing",
+      "completed",
+      "completion",
+      "finalize",
+      "fulfill"
+    ],
+    "confirm": [
+      "confirming",
+      "confirmed",
+      "confirmation",
+      "verify",
+      "validate"
+    ],
+    "finalize": [
+      "finalizing",
+      "finalized",
+      "completion",
+      "conclude",
+      "close"
+    ],
+    "payment": [
+      "payments",
+      "pay",
+      "invoice",
+      "billing",
+      "transaction"
+    ],
+    "transaction": [
+      "transactions",
+      "deal",
+      "exchange",
+      "trade",
+      "transfer"
+    ]
+  },
+  "stripe:create_coupon": {
+    "code": [
+      "codes",
+      "coding",
+      "coder",
+      "encode",
+      "decode"
+    ],
+    "coupon": [
+      "coupons",
+      "voucher",
+      "voucher",
+      "promocode"
+    ],
+    "create": [
+      "creates",
+      "creating",
+      "creation",
+      "made",
+      "build",
+      "generate"
+    ],
+    "discount": [
+      "discounts",
+      "discounted",
+      "discounting",
+      "rebate",
+      "off",
+      "promotion"
+    ],
+    "set": [
+      "sets",
+      "setting",
+      "configured",
+      "setup",
+      "define"
+    ]
+  },
+  "stripe:create_customer": {
+    "add": [
+      "adding",
+      "adds",
+      "added"
+    ],
+    "client": [
+      "clients"
+    ],
+    "create": [
+      "creating",
+      "creates",
+      "created",
+      "creation"
+    ],
+    "customer": [
+      "customers",
+      "customer's"
+    ],
+    "record": [
+      "records",
+      "recording",
+      "recorded"
+    ],
+    "register": [
+      "registers",
+      "registered",
+      "registering",
+      "registration"
+    ]
+  },
+  "stripe:create_invoice": {
+    "bill": [
+      "bills",
+      "billing",
+      "billable"
+    ],
+    "create": [
+      "creates",
+      "creating",
+      "creation",
+      "created"
+    ],
+    "generate": [
+      "generates",
+      "generating",
+      "generation",
+      "generated"
+    ],
+    "invoice": [
+      "invoices",
+      "invoicing",
+      "invoiced"
+    ]
+  },
+  "stripe:create_payment": {
+    "charge": [
+      "charges",
+      "charging",
+      "charged",
+      "fee",
+      "cost"
+    ],
+    "create": [
+      "creates",
+      "creating",
+      "created",
+      "make",
+      "generate"
+    ],
+    "customer": [
+      "customers",
+      "client",
+      "user",
+      "buyer",
+      "shopper"
+    ],
+    "payment": [
+      "payments",
+      "pay",
+      "transaction",
+      "invoice",
+      "settlement"
+    ],
+    "process": [
+      "processes",
+      "processing",
+      "processed",
+      "handle",
+      "manage"
+    ]
+  },
+  "stripe:create_payout": {
+    "bank": [
+      "banks",
+      "banking"
+    ],
+    "create": [
+      "creates",
+      "creating",
+      "creation",
+      "made",
+      "make",
+      "makes"
+    ],
+    "funds": [
+      "fund",
+      "funding"
+    ],
+    "payout": [
+      "payouts",
+      "payout",
+      "pay out",
+      "paying out",
+      "pays out"
+    ],
+    "transfer": [
+      "transfers",
+      "transferring",
+      "transferred"
+    ],
+    "withdraw": [
+      "withdraws",
+      "withdrawing",
+      "withdrawal",
+      "draw",
+      "drawing",
+      "drew"
+    ]
+  },
+  "stripe:create_price": {
+    "create": [
+      "creates",
+      "creating",
+      "creation"
+    ],
+    "price": [
+      "prices",
+      "pricing",
+      "priced"
+    ],
+    "pricing": [
+      "price",
+      "prices",
+      "rate"
+    ],
+    "product": [
+      "products",
+      "product's"
+    ],
+    "set": [
+      "sets",
+      "setting",
+      "settings"
+    ]
+  },
+  "stripe:create_product": {
+    "add": [
+      "adds",
+      "adding",
+      "added"
+    ],
+    "catalog": [
+      "catalogs",
+      "cataloging",
+      "cataloged",
+      "inventory",
+      "directory"
+    ],
+    "create": [
+      "creates",
+      "creating",
+      "created",
+      "make",
+      "generate"
+    ],
+    "product": [
+      "products",
+      "product's",
+      "productivity"
+    ],
+    "stripe": [
+      "stripes",
+      "striping",
+      "payment gateway",
+      "payment processor"
+    ]
+  },
+  "stripe:create_refund": {
+    "issue": [
+      "issues",
+      "issuing",
+      "issued"
+    ],
+    "money": [
+      "monies",
+      "funds",
+      "cash"
+    ],
+    "payment": [
+      "payments",
+      "paying",
+      "paid"
+    ],
+    "refund": [
+      "refunds",
+      "refunding",
+      "reimburse"
+    ],
+    "return": [
+      "returns",
+      "returning",
+      "revert",
+      "refund"
+    ]
+  },
+  "stripe:create_subscription": {
+    "billing": [
+      "bill",
+      "bills",
+      "invoicing",
+      "invoice"
+    ],
+    "create": [
+      "creating",
+      "created",
+      "creates"
+    ],
+    "enroll": [
+      "enrolls",
+      "enrolled",
+      "enrolling",
+      "registration"
+    ],
+    "plan": [
+      "plans",
+      "planning",
+      "strategy",
+      "scheme"
+    ],
+    "recurring": [
+      "recurs",
+      "recurrent",
+      "repeated",
+      "periodic"
+    ],
+    "start": [
+      "starting",
+      "starts",
+      "started",
+      "initiate",
+      "begin"
+    ],
+    "subscription": [
+      "subscriptions",
+      "subscribe",
+      "subscribes",
+      "subscribers"
+    ]
+  },
+  "stripe:delete_customer": {
+    "customer": [
+      "customers",
+      "client",
+      "clients",
+      "user",
+      "users"
+    ],
+    "delete": [
+      "deleting",
+      "deletes",
+      "deleted",
+      "remove",
+      "removal"
+    ],
+    "record": [
+      "records",
+      "register",
+      "entry",
+      "entries",
+      "logging"
+    ],
+    "remove": [
+      "removing",
+      "removes",
+      "removed",
+      "delete",
+      "deletion"
+    ]
+  },
+  "stripe:get_balance": {
+    "account": [
+      "accounts",
+      "accounting",
+      "accountancy"
+    ],
+    "balance": [
+      "balances",
+      "balancing"
+    ],
+    "check": [
+      "checks",
+      "checked",
+      "checking"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown"
+    ],
+    "stripe": [
+      "stripes"
+    ]
+  },
+  "stripe:list_charges": {
+    "all": [
+      "all",
+      "every",
+      "each"
+    ],
+    "charge": [
+      "charge",
+      "charging",
+      "charges",
+      "charged"
+    ],
+    "charges": [
+      "charges",
+      "charge",
+      "fees",
+      "costs"
+    ],
+    "history": [
+      "history",
+      "histories",
+      "record",
+      "records"
+    ],
+    "list": [
+      "list",
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "show": [
+      "show",
+      "shows",
+      "showing",
+      "display"
+    ]
+  },
+  "stripe:list_customers": {
+    "all": [
+      "all",
+      "every",
+      "entire"
+    ],
+    "customer": [
+      "customers",
+      "client",
+      "clients",
+      "consumer",
+      "consumers"
+    ],
+    "customers": [
+      "customer",
+      "clients",
+      "users",
+      "users"
+    ],
+    "directory": [
+      "directories",
+      "folder",
+      "folders",
+      "catalog"
+    ],
+    "list": [
+      "lists",
+      "catalog",
+      "catalogs",
+      "inventory"
+    ],
+    "show": [
+      "displays",
+      "display",
+      "present",
+      "presents",
+      "displaying"
+    ]
+  },
+  "stripe:list_disputes": {
+    "chargebacks": [
+      "chargeback",
+      "refund",
+      "reversal",
+      "dispute"
+    ],
+    "disputes": [
+      "dispute",
+      "contested",
+      "argue",
+      "challenge",
+      "complain"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "itemize",
+      "enumerate"
+    ],
+    "show": [
+      "shows",
+      "display",
+      "exhibit",
+      "present",
+      "view"
+    ]
+  },
+  "stripe:list_invoices": {
+    "all": [
+      "all",
+      "every",
+      "each"
+    ],
+    "billing": [
+      "billing",
+      "bill",
+      "invoicing",
+      "payment"
+    ],
+    "history": [
+      "history",
+      "record",
+      "log"
+    ],
+    "invoices": [
+      "invoices",
+      "invoice",
+      "bills",
+      "receipts"
+    ],
+    "list": [
+      "list",
+      "display",
+      "show",
+      "view"
+    ],
+    "show": [
+      "show",
+      "display",
+      "view",
+      "present"
+    ]
+  },
+  "stripe:list_payouts": {
+    "history": [
+      "histories",
+      "historic",
+      "historical"
+    ],
+    "list": [
+      "lists",
+      "listed",
+      "listing"
+    ],
+    "payouts": [
+      "payout",
+      "pay out"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown"
+    ],
+    "withdrawal": [
+      "withdrawals",
+      "withdraw"
+    ]
+  },
+  "stripe:list_refunds": {
+    "all": [
+      "all",
+      "every",
+      "entire",
+      "whole"
+    ],
+    "history": [
+      "histories",
+      "history's",
+      "historic"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "refund": [
+      "refunds",
+      "refunding",
+      "refundable",
+      "reimburse",
+      "return"
+    ],
+    "refunds": [
+      "refund",
+      "refunding",
+      "reimbursements"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown",
+      "display",
+      "exhibit"
+    ]
+  },
+  "stripe:list_subscriptions": {
+    "active": [
+      "activating",
+      "activate",
+      "activity",
+      "active"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "plans": [
+      "plan",
+      "planning",
+      "planned"
+    ],
+    "show": [
+      "showing",
+      "shown",
+      "shows"
+    ],
+    "subscriptions": [
+      "subscription",
+      "subscribing",
+      "subscribed"
+    ]
+  },
+  "stripe:pay_invoice": {
+    "bill": [
+      "bills",
+      "billing",
+      "billable"
+    ],
+    "invoice": [
+      "invoices",
+      "invoicing",
+      "invoiced"
+    ],
+    "pay": [
+      "pays",
+      "paid",
+      "paying",
+      "payment"
+    ],
+    "settle": [
+      "settles",
+      "settled",
+      "settling",
+      "settlement"
+    ]
+  },
+  "stripe:update_customer": {
+    "customer": [
+      "customers",
+      "client",
+      "consumer",
+      "user"
+    ],
+    "details": [
+      "detail",
+      "information",
+      "particulars"
+    ],
+    "info": [
+      "information",
+      "data",
+      "insights"
+    ],
+    "modify": [
+      "modifies",
+      "modifying",
+      "modified",
+      "change",
+      "alter"
+    ],
+    "update": [
+      "updates",
+      "updating",
+      "updated",
+      "refresh",
+      "renew"
+    ]
+  },
+  "stripe:update_subscription": {
+    "change": [
+      "changing",
+      "changes",
+      "modify",
+      "alter"
+    ],
+    "plan": [
+      "planning",
+      "plans",
+      "schedule",
+      "strategy"
+    ],
+    "subscription": [
+      "subscriptions",
+      "subscribe",
+      "subscriber"
+    ],
+    "update": [
+      "updating",
+      "updates",
+      "upgrade",
+      "modify"
+    ]
+  },
+  "vercel:add_domain": {
+    "add": [
+      "adds",
+      "adding",
+      "added",
+      "addition",
+      "append",
+      "include"
+    ],
+    "configure": [
+      "configures",
+      "configuring",
+      "configured",
+      "setup",
+      "set up",
+      "adjust"
+    ],
+    "custom": [
+      "customize",
+      "customized",
+      "customization",
+      "personalized",
+      "bespoke",
+      "tailored"
+    ],
+    "domain": [
+      "domains",
+      "website",
+      "url",
+      "site",
+      "web address"
+    ]
+  },
+  "vercel:add_env_var": {
+    "add": [
+      "adds",
+      "added",
+      "adding",
+      "addition",
+      "append",
+      "insert"
+    ],
+    "environment": [
+      "environments",
+      "env",
+      "setting",
+      "conditions",
+      "context"
+    ],
+    "secret": [
+      "secrets",
+      "confidential",
+      "private",
+      "hidden",
+      "credentials"
+    ],
+    "set": [
+      "sets",
+      "setting",
+      "configured",
+      "define",
+      "configured",
+      "adjust"
+    ],
+    "variable": [
+      "variables",
+      "var",
+      "parameter",
+      "setting",
+      "attribute"
+    ]
+  },
+  "vercel:cancel_deployment": {
+    "abort": [
+      "aborting",
+      "aborts",
+      "aborted"
+    ],
+    "cancel": [
+      "cancels",
+      "canceled",
+      "cancelling"
+    ],
+    "deploy": [
+      "deploying",
+      "deployed",
+      "deploys",
+      "deployment"
+    ],
+    "deployment": [
+      "deployments",
+      "deploying"
+    ]
+  },
+  "vercel:check_dns": {
+    "check": [
+      "checks",
+      "checking",
+      "checked",
+      "verification",
+      "test"
+    ],
+    "configuration": [
+      "config",
+      "configure",
+      "configuring",
+      "settings",
+      "setup"
+    ],
+    "dns": [
+      "domain name system",
+      "name server"
+    ],
+    "domain": [
+      "domains",
+      "website",
+      "url",
+      "site"
+    ],
+    "verify": [
+      "verification",
+      "verified",
+      "verifying",
+      "check",
+      "validation"
+    ]
+  },
+  "vercel:create_alias": {
+    "add": [
+      "added",
+      "adding",
+      "adds",
+      "addition"
+    ],
+    "alias": [
+      "aliases",
+      "aliased"
+    ],
+    "create": [
+      "created",
+      "creating",
+      "creates",
+      "creation"
+    ],
+    "mapping": [
+      "map",
+      "mapped",
+      "mappings"
+    ],
+    "url": [
+      "urls",
+      "url's"
+    ]
+  },
+  "vercel:create_deployment": {
+    "deploy": [
+      "deploying",
+      "deployed",
+      "deployment"
+    ],
+    "deployment": [
+      "deployments",
+      "deploy"
+    ],
+    "new": [
+      "novel",
+      "fresh"
+    ],
+    "project": [
+      "projects",
+      "projecting",
+      "projection"
+    ],
+    "trigger": [
+      "triggers",
+      "triggered",
+      "triggering"
+    ]
+  },
+  "vercel:create_project": {
+    "create": [
+      "creates",
+      "creating",
+      "created"
+    ],
+    "new": [
+      "newly",
+      "newer",
+      "novel"
+    ],
+    "project": [
+      "projects",
+      "projecting",
+      "projection"
+    ],
+    "set": [
+      "sets",
+      "setting",
+      "settings"
+    ],
+    "site": [
+      "sites",
+      "sited"
+    ]
+  },
+  "vercel:delete_project": {
+    "delete": [
+      "deletes",
+      "deleting",
+      "deleted"
+    ],
+    "project": [
+      "projects",
+      "projecting",
+      "projects"
+    ],
+    "remove": [
+      "removes",
+      "removing",
+      "removed"
+    ]
+  },
+  "vercel:get_deployment": {
+    "check": [
+      "checked",
+      "checking",
+      "checks",
+      "verify",
+      "validate"
+    ],
+    "deploy": [
+      "deployed",
+      "deploying",
+      "deploys",
+      "release",
+      "rollout"
+    ],
+    "deployment": [
+      "deployments",
+      "rollout",
+      "release",
+      "installation"
+    ],
+    "details": [
+      "detail",
+      "detailed",
+      "detailing"
+    ],
+    "get": [
+      "gets",
+      "getting",
+      "retrieved",
+      "fetch",
+      "obtain"
+    ],
+    "status": [
+      "stati",
+      "statuses",
+      "state",
+      "condition"
+    ]
+  },
+  "vercel:get_logs": {
+    "deployment": [
+      "deployments",
+      "deploy",
+      "deploying"
+    ],
+    "get": [
+      "getting",
+      "gets",
+      "got",
+      "retrieve"
+    ],
+    "logs": [
+      "log",
+      "logging",
+      "logins"
+    ],
+    "runtime": [
+      "runtimes",
+      "run-time",
+      "execution"
+    ],
+    "show": [
+      "showing",
+      "shows",
+      "display",
+      "displays"
+    ]
+  },
+  "vercel:get_usage": {
+    "bandwidth": [
+      "bandwidths",
+      "throughput",
+      "capacity"
+    ],
+    "consumption": [
+      "consumptions",
+      "utilization",
+      "usage"
+    ],
+    "get": [
+      "getting",
+      "obtain",
+      "receive",
+      "acquire"
+    ],
+    "show": [
+      "showing",
+      "display",
+      "present"
+    ],
+    "stats": [
+      "statistics",
+      "metrics",
+      "data"
+    ],
+    "usage": [
+      "usages",
+      "consumption",
+      "utilization"
+    ]
+  },
+  "vercel:list_aliases": {
+    "aliases": [
+      "alias",
+      "alternative names",
+      "synonyms"
+    ],
+    "deployment": [
+      "deploy",
+      "deploying",
+      "deployment process",
+      "rollout"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "itemize",
+      "enumerate"
+    ],
+    "mappings": [
+      "map",
+      "mapping",
+      "correspondence",
+      "associations"
+    ],
+    "show": [
+      "display",
+      "displaying",
+      "showcase",
+      "present"
+    ],
+    "url": [
+      "urls",
+      "link",
+      "links",
+      "hyperlink"
+    ]
+  },
+  "vercel:list_certs": {
+    "cert": [
+      "certificate",
+      "certification"
+    ],
+    "certificates": [
+      "certs",
+      "certificate"
+    ],
+    "list": [
+      "lists",
+      "listing"
+    ],
+    "show": [
+      "display",
+      "view",
+      "shows"
+    ],
+    "ssl": [
+      "tls",
+      "https"
+    ],
+    "status": [
+      "state",
+      "stati",
+      "condition"
+    ]
+  },
+  "vercel:list_deployments": {
+    "deploy": [
+      "deploys",
+      "deployment",
+      "deploying",
+      "deployed"
+    ],
+    "deployments": [
+      "deployment",
+      "deployments",
+      "deploying"
+    ],
+    "history": [
+      "histories",
+      "historic"
+    ],
+    "list": [
+      "lists",
+      "listed",
+      "listing"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown",
+      "display"
+    ]
+  },
+  "vercel:list_domains": {
+    "configured": [
+      "configure",
+      "configures",
+      "configuring",
+      "setup",
+      "set up"
+    ],
+    "domains": [
+      "domain",
+      "website",
+      "site",
+      "url",
+      "addresses"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "catalog",
+      "inventory",
+      "index"
+    ],
+    "show": [
+      "displays",
+      "display",
+      "displaying",
+      "view",
+      "exhibit"
+    ]
+  },
+  "vercel:list_edge_config": {
+    "configs": [
+      "config",
+      "configuration",
+      "settings",
+      "options"
+    ],
+    "configuration": [
+      "config",
+      "configs",
+      "setup",
+      "settings"
+    ],
+    "edge": [
+      "edges",
+      "boundary",
+      "limit"
+    ],
+    "list": [
+      "lists",
+      "catalog",
+      "inventory",
+      "enumerate"
+    ],
+    "show": [
+      "display",
+      "displaying",
+      "shown",
+      "displays"
+    ]
+  },
+  "vercel:list_env_vars": {
+    "config": [
+      "configuration",
+      "configs",
+      "configure"
+    ],
+    "env": [
+      "environment",
+      "environments"
+    ],
+    "environment": [
+      "env",
+      "environments",
+      "envs"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "show": [
+      "shows",
+      "showing",
+      "shown"
+    ],
+    "variables": [
+      "variable",
+      "vars"
+    ]
+  },
+  "vercel:list_projects": {
+    "all": [
+      "all",
+      "every",
+      "each",
+      "entire"
+    ],
+    "hosted": [
+      "host",
+      "hosts",
+      "hosting",
+      "hosts"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "projects": [
+      "project",
+      "projects"
+    ],
+    "show": [
+      "shows",
+      "shown",
+      "showing"
+    ]
+  },
+  "vercel:list_teams": {
+    "accounts": [
+      "account",
+      "accounts",
+      "accounting",
+      "accounted"
+    ],
+    "list": [
+      "lists",
+      "listing",
+      "listed"
+    ],
+    "show": [
+      "shows",
+      "shown",
+      "showing",
+      "display"
+    ],
+    "team": [
+      "teams",
+      "teaming",
+      "teamed"
+    ],
+    "teams": [
+      "team",
+      "teaming",
+      "teamed"
+    ]
+  },
+  "vercel:promote": {
+    "live": [
+      "lives",
+      "living",
+      "alive"
+    ],
+    "make": [
+      "makes",
+      "making",
+      "created",
+      "create"
+    ],
+    "production": [
+      "productions",
+      "produce",
+      "produced"
+    ],
+    "promote": [
+      "promotes",
+      "promoting",
+      "advertise",
+      "boost"
+    ],
+    "version": [
+      "versions",
+      "variant"
+    ]
+  },
+  "vercel:remove_domain": {
+    "delete": [
+      "deletes",
+      "deleting",
+      "deleted",
+      "destroy",
+      "erase"
+    ],
+    "domain": [
+      "domains",
+      "website",
+      "url",
+      "hostname"
+    ],
+    "mapping": [
+      "mappings",
+      "map",
+      "configure",
+      "setup"
+    ],
+    "remove": [
+      "removes",
+      "removing",
+      "removed",
+      "delete",
+      "dismiss"
+    ]
+  },
+  "vercel:remove_env_var": {
+    "delete": [
+      "deletes",
+      "deleting",
+      "deleted",
+      "destroy",
+      "erase"
+    ],
+    "environment": [
+      "environments",
+      "env",
+      "setting",
+      "conditions",
+      "context"
+    ],
+    "remove": [
+      "removes",
+      "removing",
+      "removed",
+      "take away",
+      "extract"
+    ],
+    "secret": [
+      "secrets",
+      "confidential",
+      "hidden",
+      "private",
+      "sensitive"
+    ],
+    "variable": [
+      "variables",
+      "var",
+      "setting",
+      "parameter",
+      "attribute"
+    ]
+  },
+  "vercel:rollback": {
+    "deployment": [
+      "deployments",
+      "deploy",
+      "deploying"
+    ],
+    "previous": [
+      "prior",
+      "earlier"
+    ],
+    "revert": [
+      "reverts",
+      "reverting",
+      "reversion"
+    ],
+    "rollback": [
+      "rollbacks",
+      "roll back"
+    ],
+    "version": [
+      "versions",
+      "versioning",
+      "versioned"
+    ]
+  },
+  "vercel:update_project": {
+    "config": [
+      "configuration",
+      "configs",
+      "configuring"
+    ],
+    "modify": [
+      "modification",
+      "modifies",
+      "modified",
+      "modifying"
+    ],
+    "project": [
+      "projects",
+      "projecting",
+      "projected"
+    ],
+    "settings": [
+      "setting",
+      "settings"
+    ],
+    "update": [
+      "updates",
+      "updating",
+      "updated",
+      "upgrade",
+      "upgrades"
+    ]
+  }
+}

@@ -1,0 +1,2511 @@
+{
+  "adds": [
+    "add"
+  ],
+  "adding": [
+    "add"
+  ],
+  "added": [
+    "add"
+  ],
+  "currently": [
+    "current"
+  ],
+  "currents": [
+    "current"
+  ],
+  "cycles": [
+    "cycle"
+  ],
+  "cycling": [
+    "cycle",
+    "cycles"
+  ],
+  "cycled": [
+    "cycle"
+  ],
+  "includes": [
+    "include"
+  ],
+  "including": [
+    "include"
+  ],
+  "included": [
+    "include"
+  ],
+  "issues": [
+    "issue"
+  ],
+  "issuing": [
+    "issue"
+  ],
+  "issued": [
+    "issue"
+  ],
+  "sprints": [
+    "sprint"
+  ],
+  "sprinting": [
+    "sprint"
+  ],
+  "sprinted": [
+    "sprint"
+  ],
+  "archives": [
+    "archive"
+  ],
+  "archiving": [
+    "archive"
+  ],
+  "archived": [
+    "archive"
+  ],
+  "release": [
+    "deploy",
+    "deployment",
+    "issue"
+  ],
+  "publish": [
+    "issue",
+    "post"
+  ],
+  "shelves": [
+    "shelve"
+  ],
+  "shelving": [
+    "shelve"
+  ],
+  "shelved": [
+    "shelve"
+  ],
+  "defer": [
+    "shelve"
+  ],
+  "postpone": [
+    "shelve"
+  ],
+  "tasks": [
+    "task"
+  ],
+  "tasking": [
+    "task"
+  ],
+  "tasked": [
+    "task"
+  ],
+  "assignment": [
+    "assign",
+    "task"
+  ],
+  "job": [
+    "task"
+  ],
+  "assigns": [
+    "assign"
+  ],
+  "assigned": [
+    "assign",
+    "task"
+  ],
+  "assigning": [
+    "assign"
+  ],
+  "allocate": [
+    "assign"
+  ],
+  "designate": [
+    "assign"
+  ],
+  "delegates": [
+    "delegate"
+  ],
+  "delegated": [
+    "delegate"
+  ],
+  "delegating": [
+    "delegate"
+  ],
+  "delegation": [
+    "delegate"
+  ],
+  "authorize": [
+    "authorized",
+    "delegate"
+  ],
+  "commission": [
+    "delegate"
+  ],
+  "problem": [
+    "issue"
+  ],
+  "concern": [
+    "issue"
+  ],
+  "matter": [
+    "issue"
+  ],
+  "somebody": [
+    "someone"
+  ],
+  "person": [
+    "someone"
+  ],
+  "individual": [
+    "someone"
+  ],
+  "one": [
+    "someone"
+  ],
+  "duty": [
+    "task"
+  ],
+  "project": [
+    "projects",
+    "task"
+  ],
+  "addition": [
+    "add"
+  ],
+  "comments": [
+    "comment"
+  ],
+  "commented": [
+    "comment"
+  ],
+  "commenting": [
+    "comment",
+    "comments"
+  ],
+  "remark": [
+    "comment",
+    "note"
+  ],
+  "feedback": [
+    "comment"
+  ],
+  "notes": [
+    "note"
+  ],
+  "noted": [
+    "note"
+  ],
+  "noting": [
+    "note"
+  ],
+  "annotation": [
+    "note"
+  ],
+  "posts": [
+    "post"
+  ],
+  "posted": [
+    "post"
+  ],
+  "posting": [
+    "post"
+  ],
+  "article": [
+    "post"
+  ],
+  "creates": [
+    "create"
+  ],
+  "creating": [
+    "create"
+  ],
+  "creation": [
+    "create"
+  ],
+  "cyclic": [
+    "cycle"
+  ],
+  "iterations": [
+    "iteration"
+  ],
+  "iterative": [
+    "iteration",
+    "iterations"
+  ],
+  "iterating": [
+    "iteration",
+    "iterations"
+  ],
+  "novel": [
+    "new"
+  ],
+  "newly": [
+    "new"
+  ],
+  "newness": [
+    "new"
+  ],
+  "starts": [
+    "start"
+  ],
+  "starting": [
+    "start"
+  ],
+  "started": [
+    "start"
+  ],
+  "begin": [
+    "start"
+  ],
+  "initiate": [
+    "start"
+  ],
+  "bugs": [
+    "bug",
+    "issues"
+  ],
+  "buggy": [
+    "bug"
+  ],
+  "bugfix": [
+    "bug"
+  ],
+  "errors": [
+    "bug"
+  ],
+  "glitch": [
+    "bug"
+  ],
+  "make": [
+    "create"
+  ],
+  "made": [
+    "create"
+  ],
+  "files": [
+    "file"
+  ],
+  "filing": [
+    "file"
+  ],
+  "filed": [
+    "file"
+  ],
+  "problems": [
+    "issue",
+    "issues"
+  ],
+  "newer": [
+    "new"
+  ],
+  "opens": [
+    "open"
+  ],
+  "opening": [
+    "open"
+  ],
+  "opened": [
+    "open"
+  ],
+  "reports": [
+    "report"
+  ],
+  "reporting": [
+    "report"
+  ],
+  "reported": [
+    "report"
+  ],
+  "created": [
+    "create",
+    "make"
+  ],
+  "labels": [
+    "label",
+    "tags"
+  ],
+  "labeling": [
+    "label"
+  ],
+  "labelled": [
+    "label"
+  ],
+  "tags": [
+    "labels",
+    "tag"
+  ],
+  "tagging": [
+    "tag"
+  ],
+  "tagged": [
+    "tag"
+  ],
+  "build": [
+    "create"
+  ],
+  "objectives": [
+    "goal"
+  ],
+  "targets": [
+    "goal"
+  ],
+  "aims": [
+    "goal"
+  ],
+  "goals": [
+    "goal"
+  ],
+  "milestones": [
+    "milestone"
+  ],
+  "benchmarks": [
+    "milestone"
+  ],
+  "landmarks": [
+    "milestone"
+  ],
+  "projects": [
+    "project"
+  ],
+  "programs": [
+    "project",
+    "projects"
+  ],
+  "initiatives": [
+    "project",
+    "projects"
+  ],
+  "sets": [
+    "set"
+  ],
+  "setting": [
+    "environment",
+    "set",
+    "settings",
+    "variable"
+  ],
+  "configured": [
+    "configure",
+    "set"
+  ],
+  "define": [
+    "set"
+  ],
+  "establish": [
+    "set"
+  ],
+  "lineal": [
+    "linear"
+  ],
+  "linears": [
+    "linear"
+  ],
+  "news": [
+    "new"
+  ],
+  "projecting": [
+    "project"
+  ],
+  "projected": [
+    "project"
+  ],
+  "newest": [
+    "new"
+  ],
+  "settings": [
+    "configs",
+    "configuration",
+    "set"
+  ],
+  "setted": [
+    "set"
+  ],
+  "teams": [
+    "team"
+  ],
+  "teaming": [
+    "team",
+    "teams"
+  ],
+  "teamed": [
+    "team",
+    "teams"
+  ],
+  "customize": [
+    "custom"
+  ],
+  "customized": [
+    "custom"
+  ],
+  "customization": [
+    "custom"
+  ],
+  "filters": [
+    "filter"
+  ],
+  "filtering": [
+    "filter"
+  ],
+  "filtered": [
+    "filter"
+  ],
+  "saves": [
+    "save"
+  ],
+  "saving": [
+    "save"
+  ],
+  "saved": [
+    "save"
+  ],
+  "views": [
+    "view"
+  ],
+  "viewing": [
+    "view"
+  ],
+  "viewed": [
+    "view"
+  ],
+  "deletes": [
+    "delete"
+  ],
+  "deleting": [
+    "delete"
+  ],
+  "deleted": [
+    "delete"
+  ],
+  "erase": [
+    "delete"
+  ],
+  "remove": [
+    "delete"
+  ],
+  "removes": [
+    "remove"
+  ],
+  "removing": [
+    "remove"
+  ],
+  "removed": [
+    "remove"
+  ],
+  "delete": [
+    "remove"
+  ],
+  "take away": [
+    "remove"
+  ],
+  "detail": [
+    "details"
+  ],
+  "particulars": [
+    "details"
+  ],
+  "info": [
+    "details"
+  ],
+  "obtain": [
+    "get"
+  ],
+  "retrieve": [
+    "get"
+  ],
+  "fetch": [
+    "get"
+  ],
+  "getting": [
+    "get"
+  ],
+  "bug": [
+    "issue",
+    "issues"
+  ],
+  "emit": [
+    "issue"
+  ],
+  "view": [
+    "list",
+    "look",
+    "show"
+  ],
+  "looks": [
+    "look"
+  ],
+  "looking": [
+    "look"
+  ],
+  "examine": [
+    "look"
+  ],
+  "specifics": [
+    "specific"
+  ],
+  "particular": [
+    "specific"
+  ],
+  "detailed": [
+    "details",
+    "specific"
+  ],
+  "comment": [
+    "comments"
+  ],
+  "commenter": [
+    "comments"
+  ],
+  "discuss": [
+    "discussion"
+  ],
+  "discusses": [
+    "discussion"
+  ],
+  "discussed": [
+    "discussion"
+  ],
+  "talking": [
+    "discussion"
+  ],
+  "conversation": [
+    "discussion",
+    "thread"
+  ],
+  "lists": [
+    "list"
+  ],
+  "listing": [
+    "list"
+  ],
+  "listed": [
+    "list"
+  ],
+  "shows": [
+    "show"
+  ],
+  "showing": [
+    "show"
+  ],
+  "shown": [
+    "show"
+  ],
+  "display": [
+    "list",
+    "show"
+  ],
+  "threads": [
+    "thread"
+  ],
+  "threading": [
+    "thread"
+  ],
+  "conversations": [
+    "thread"
+  ],
+  "cycle": [
+    "cycles"
+  ],
+  "iteration": [
+    "iterations"
+  ],
+  "rush": [
+    "sprint"
+  ],
+  "every": [
+    "all"
+  ],
+  "entire": [
+    "all"
+  ],
+  "backlogs": [
+    "backlog"
+  ],
+  "queue": [
+    "backlog"
+  ],
+  "pending": [
+    "backlog"
+  ],
+  "gets": [
+    "get"
+  ],
+  "got": [
+    "get"
+  ],
+  "issue": [
+    "issues"
+  ],
+  "item": [
+    "items",
+    "product"
+  ],
+  "products": [
+    "items",
+    "merchandise",
+    "product"
+  ],
+  "catalog": [
+    "directory",
+    "inventory",
+    "list",
+    "listing"
+  ],
+  "catalogs": [
+    "catalog",
+    "list"
+  ],
+  "inventory": [
+    "catalog",
+    "list",
+    "stock",
+    "store"
+  ],
+  "displays": [
+    "show"
+  ],
+  "task": [
+    "tasks"
+  ],
+  "jobs": [
+    "tasks"
+  ],
+  "work": [
+    "tasks"
+  ],
+  "assignments": [
+    "tasks"
+  ],
+  "each": [
+    "all"
+  ],
+  "accessible": [
+    "available"
+  ],
+  "obtainable": [
+    "available"
+  ],
+  "markers": [
+    "labels",
+    "tags"
+  ],
+  "titles": [
+    "labels"
+  ],
+  "directory": [
+    "catalog",
+    "list"
+  ],
+  "exhibit": [
+    "show"
+  ],
+  "present": [
+    "show"
+  ],
+  "keywords": [
+    "tags"
+  ],
+  "member": [
+    "members"
+  ],
+  "membership": [
+    "members",
+    "subscription"
+  ],
+  "memberships": [
+    "members"
+  ],
+  "teammate": [
+    "team"
+  ],
+  "teammates": [
+    "team"
+  ],
+  "whom": [
+    "who"
+  ],
+  "whose": [
+    "who"
+  ],
+  "who's": [
+    "who"
+  ],
+  "directories": [
+    "directory"
+  ],
+  "folder": [
+    "directory"
+  ],
+  "folders": [
+    "directory"
+  ],
+  "initiative": [
+    "project"
+  ],
+  "whole": [
+    "all"
+  ],
+  "crew": [
+    "team"
+  ],
+  "group": [
+    "team"
+  ],
+  "staff": [
+    "team"
+  ],
+  "team": [
+    "teams"
+  ],
+  "crews": [
+    "teams"
+  ],
+  "groups": [
+    "teams"
+  ],
+  "squads": [
+    "teams"
+  ],
+  "option": [
+    "options"
+  ],
+  "optional": [
+    "options"
+  ],
+  "opt": [
+    "options"
+  ],
+  "state": [
+    "states",
+    "status"
+  ],
+  "stati": [
+    "states",
+    "status"
+  ],
+  "statuses": [
+    "status"
+  ],
+  "statistical": [
+    "status"
+  ],
+  "workflows": [
+    "workflow"
+  ],
+  "workflowing": [
+    "workflow"
+  ],
+  "changes": [
+    "change",
+    "modify"
+  ],
+  "changing": [
+    "change"
+  ],
+  "changed": [
+    "change"
+  ],
+  "modifies": [
+    "modify"
+  ],
+  "modified": [
+    "modify"
+  ],
+  "modifying": [
+    "modify"
+  ],
+  "updates": [
+    "update"
+  ],
+  "updating": [
+    "update"
+  ],
+  "updated": [
+    "update"
+  ],
+  "upgrade": [
+    "update"
+  ],
+  "revision": [
+    "update"
+  ],
+  "modification": [
+    "adjust",
+    "modify"
+  ],
+  "change": [
+    "modify"
+  ],
+  "alter": [
+    "change",
+    "modify"
+  ],
+  "projections": [
+    "project"
+  ],
+  "modify": [
+    "adjust",
+    "change",
+    "update"
+  ],
+  "flows": [
+    "flow"
+  ],
+  "flowing": [
+    "flow"
+  ],
+  "stream": [
+    "flow"
+  ],
+  "sequence": [
+    "flow",
+    "order",
+    "workflow"
+  ],
+  "states": [
+    "state"
+  ],
+  "condition": [
+    "state",
+    "status"
+  ],
+  "status": [
+    "state"
+  ],
+  "refresh": [
+    "update"
+  ],
+  "process": [
+    "workflow"
+  ],
+  "procedure": [
+    "workflow"
+  ],
+  "adjusting": [
+    "adjust"
+  ],
+  "adjusted": [
+    "adjust"
+  ],
+  "adjusts": [
+    "adjust"
+  ],
+  "counting": [
+    "count",
+    "counts"
+  ],
+  "counts": [
+    "count"
+  ],
+  "enumerate": [
+    "count",
+    "counts",
+    "list"
+  ],
+  "total": [
+    "count"
+  ],
+  "counted": [
+    "count"
+  ],
+  "inventories": [
+    "inventory"
+  ],
+  "stocktaking": [
+    "inventory"
+  ],
+  "stock": [
+    "inventory"
+  ],
+  "list": [
+    "inventory",
+    "listing"
+  ],
+  "levels": [
+    "level"
+  ],
+  "levelling": [
+    "level"
+  ],
+  "leveled": [
+    "level"
+  ],
+  "even": [
+    "level"
+  ],
+  "balance": [
+    "level"
+  ],
+  "stocks": [
+    "stock"
+  ],
+  "stocking": [
+    "stock"
+  ],
+  "supply": [
+    "stock"
+  ],
+  "reserve": [
+    "stock"
+  ],
+  "cancels": [
+    "cancel"
+  ],
+  "cancellation": [
+    "cancel"
+  ],
+  "cancelled": [
+    "cancel"
+  ],
+  "cancelling": [
+    "cancel"
+  ],
+  "abort": [
+    "cancel"
+  ],
+  "terminate": [
+    "cancel",
+    "end",
+    "stop"
+  ],
+  "orders": [
+    "order"
+  ],
+  "ordering": [
+    "order",
+    "orders"
+  ],
+  "ordered": [
+    "order"
+  ],
+  "request": [
+    "order"
+  ],
+  "instruction": [
+    "order"
+  ],
+  "voids": [
+    "void"
+  ],
+  "voided": [
+    "void"
+  ],
+  "voiding": [
+    "void"
+  ],
+  "nullify": [
+    "void"
+  ],
+  "invalidate": [
+    "void"
+  ],
+  "annul": [
+    "void"
+  ],
+  "closes": [
+    "close"
+  ],
+  "closing": [
+    "close"
+  ],
+  "closed": [
+    "close"
+  ],
+  "shut": [
+    "close"
+  ],
+  "shutdown": [
+    "close"
+  ],
+  "complete": [
+    "completed"
+  ],
+  "completing": [
+    "complete",
+    "completed"
+  ],
+  "completion": [
+    "complete",
+    "completed",
+    "finalize"
+  ],
+  "finished": [
+    "completed"
+  ],
+  "command": [
+    "order"
+  ],
+  "categories": [
+    "category"
+  ],
+  "category's": [
+    "category"
+  ],
+  "collections": [
+    "collection"
+  ],
+  "collection's": [
+    "collection"
+  ],
+  "product's": [
+    "product",
+    "products"
+  ],
+  "customers": [
+    "customer"
+  ],
+  "shoppers": [
+    "shopper"
+  ],
+  "discounts": [
+    "discount"
+  ],
+  "discounted": [
+    "discount"
+  ],
+  "discounting": [
+    "discount"
+  ],
+  "off": [
+    "discount"
+  ],
+  "rebate": [
+    "discount"
+  ],
+  "promotions": [
+    "promotion"
+  ],
+  "promoting": [
+    "promote",
+    "promotion"
+  ],
+  "promoted": [
+    "promotion"
+  ],
+  "advertising": [
+    "promotion"
+  ],
+  "marketing": [
+    "promotion"
+  ],
+  "stores": [
+    "store"
+  ],
+  "storing": [
+    "store"
+  ],
+  "stored": [
+    "store"
+  ],
+  "warehouse": [
+    "store"
+  ],
+  "drafts": [
+    "draft"
+  ],
+  "drafting": [
+    "draft",
+    "drafts"
+  ],
+  "drafted": [
+    "draft"
+  ],
+  "quotes": [
+    "quote"
+  ],
+  "quoting": [
+    "quote"
+  ],
+  "quoted": [
+    "quote"
+  ],
+  "quotation": [
+    "quote"
+  ],
+  "fulfill": [
+    "complete",
+    "fulfillment"
+  ],
+  "fulfilled": [
+    "fulfillment"
+  ],
+  "fulfilling": [
+    "fulfillment"
+  ],
+  "marks": [
+    "mark"
+  ],
+  "marked": [
+    "mark"
+  ],
+  "marking": [
+    "mark"
+  ],
+  "ships": [
+    "ship",
+    "shipped"
+  ],
+  "shipping": [
+    "ship",
+    "shipped"
+  ],
+  "shipment": [
+    "ship"
+  ],
+  "orderly": [
+    "order",
+    "orders"
+  ],
+  "places": [
+    "place"
+  ],
+  "placing": [
+    "place"
+  ],
+  "goods": [
+    "merchandise",
+    "product"
+  ],
+  "items": [
+    "merchandise"
+  ],
+  "latest": [
+    "new"
+  ],
+  "recent": [
+    "new"
+  ],
+  "cataloging": [
+    "catalog"
+  ],
+  "cataloged": [
+    "catalog"
+  ],
+  "removal": [
+    "delete"
+  ],
+  "productivity": [
+    "product"
+  ],
+  "product line": [
+    "product"
+  ],
+  "extract": [
+    "remove"
+  ],
+  "specs": [
+    "details"
+  ],
+  "receive": [
+    "get"
+  ],
+  "inspect": [
+    "look"
+  ],
+  "arrange": [
+    "order"
+  ],
+  "exact": [
+    "specific"
+  ],
+  "detailing": [
+    "details"
+  ],
+  "gotten": [
+    "get"
+  ],
+  "information": [
+    "details",
+    "info"
+  ],
+  "inform": [
+    "info"
+  ],
+  "informing": [
+    "info"
+  ],
+  "looked": [
+    "look"
+  ],
+  "shops": [
+    "shop"
+  ],
+  "shopping": [
+    "shop"
+  ],
+  "category": [
+    "categories"
+  ],
+  "categorize": [
+    "categories"
+  ],
+  "categorization": [
+    "categories"
+  ],
+  "collection": [
+    "collections"
+  ],
+  "collect": [
+    "collections"
+  ],
+  "collected": [
+    "collections"
+  ],
+  "listings": [
+    "list"
+  ],
+  "productize": [
+    "product"
+  ],
+  "buyers": [
+    "buyer"
+  ],
+  "buying": [
+    "buyer"
+  ],
+  "purchaser": [
+    "buyer"
+  ],
+  "customer": [
+    "buyer",
+    "customers"
+  ],
+  "clients": [
+    "client",
+    "customer",
+    "customers"
+  ],
+  "users": [
+    "customer",
+    "customers"
+  ],
+  "patrons": [
+    "customers"
+  ],
+  "index": [
+    "directory",
+    "list"
+  ],
+  "itemize": [
+    "list",
+    "listing"
+  ],
+  "draft": [
+    "drafts"
+  ],
+  "draftsman": [
+    "drafts"
+  ],
+  "order": [
+    "orders"
+  ],
+  "pend": [
+    "pending"
+  ],
+  "pendingly": [
+    "pending"
+  ],
+  "pended": [
+    "pending"
+  ],
+  "checks": [
+    "check"
+  ],
+  "checking": [
+    "check"
+  ],
+  "checked": [
+    "check"
+  ],
+  "verify": [
+    "check",
+    "confirm"
+  ],
+  "validate": [
+    "check",
+    "confirm"
+  ],
+  "count": [
+    "counts"
+  ],
+  " tally": [
+    "counts"
+  ],
+  "stockpile": [
+    "inventory"
+  ],
+  "level": [
+    "levels"
+  ],
+  "quantities": [
+    "levels"
+  ],
+  "amounts": [
+    "levels"
+  ],
+  "store": [
+    "stock"
+  ],
+  "recently": [
+    "recent"
+  ],
+  "recency": [
+    "recent"
+  ],
+  "product": [
+    "products"
+  ],
+  "availability": [
+    "available"
+  ],
+  "avail": [
+    "available"
+  ],
+  "is available": [
+    "available"
+  ],
+  "can be obtained": [
+    "available"
+  ],
+  "design": [
+    "designs"
+  ],
+  "layouts": [
+    "designs"
+  ],
+  "blueprints": [
+    "designs"
+  ],
+  "designing": [
+    "designs"
+  ],
+  "storage": [
+    "store"
+  ],
+  "shop": [
+    "store"
+  ],
+  "theme": [
+    "themes"
+  ],
+  "thematic": [
+    "themes"
+  ],
+  "topics": [
+    "themes"
+  ],
+  "hook": [
+    "hooks"
+  ],
+  "hooking": [
+    "hooks"
+  ],
+  "hooked": [
+    "hooks"
+  ],
+  "notifications": [
+    "notification"
+  ],
+  "notify": [
+    "notification"
+  ],
+  "notified": [
+    "notification"
+  ],
+  "notifying": [
+    "notification"
+  ],
+  "webhook": [
+    "webhooks"
+  ],
+  "purchasers": [
+    "buyer"
+  ],
+  "client": [
+    "customer"
+  ],
+  "consumer": [
+    "customer"
+  ],
+  "consumers": [
+    "customer"
+  ],
+  "specifications": [
+    "details"
+  ],
+  "edit": [
+    "modify"
+  ],
+  "merchandise": [
+    "product"
+  ],
+  "revise": [
+    "update"
+  ],
+  "charges": [
+    "charge"
+  ],
+  "charging": [
+    "charge"
+  ],
+  "charged": [
+    "charge"
+  ],
+  "recharge": [
+    "charge"
+  ],
+  "fee": [
+    "charge"
+  ],
+  "billing": [
+    "bill",
+    "charge",
+    "payment"
+  ],
+  "intention": [
+    "intent"
+  ],
+  "intents": [
+    "intent"
+  ],
+  "purposeful": [
+    "intent"
+  ],
+  "payments": [
+    "payment"
+  ],
+  "pay": [
+    "payment"
+  ],
+  "paid": [
+    "pay",
+    "payment"
+  ],
+  "payer": [
+    "payment"
+  ],
+  "invoice": [
+    "billing",
+    "invoices",
+    "payment"
+  ],
+  "awaiting": [
+    "pending"
+  ],
+  "waiting": [
+    "pending"
+  ],
+  "null": [
+    "void"
+  ],
+  "bill": [
+    "billing"
+  ],
+  "bills": [
+    "bill",
+    "billing",
+    "invoices"
+  ],
+  "invoicing": [
+    "billing",
+    "invoice"
+  ],
+  "payment": [
+    "billing",
+    "pay"
+  ],
+  "stop": [
+    "cancel"
+  ],
+  "ends": [
+    "end"
+  ],
+  "ending": [
+    "end"
+  ],
+  "conclude": [
+    "end",
+    "finalize"
+  ],
+  "close": [
+    "end",
+    "finalize"
+  ],
+  "plans": [
+    "plan"
+  ],
+  "scheme": [
+    "plan"
+  ],
+  "strategy": [
+    "plan"
+  ],
+  "pricing": [
+    "charge",
+    "plan",
+    "price"
+  ],
+  "recurrence": [
+    "recurring"
+  ],
+  "repeated": [
+    "recurring"
+  ],
+  "periodic": [
+    "recurring"
+  ],
+  "regular": [
+    "recurring"
+  ],
+  "stops": [
+    "stop"
+  ],
+  "stopping": [
+    "stop"
+  ],
+  "halt": [
+    "stop"
+  ],
+  "cease": [
+    "stop"
+  ],
+  "subscriptions": [
+    "subscription"
+  ],
+  "subscribe": [
+    "subscription"
+  ],
+  "subscribes": [
+    "subscription"
+  ],
+  "authorizes": [
+    "authorized"
+  ],
+  "authorizing": [
+    "authorized"
+  ],
+  "auth": [
+    "authorized"
+  ],
+  "authentication": [
+    "authorized"
+  ],
+  "captures": [
+    "capture"
+  ],
+  "capturing": [
+    "capture"
+  ],
+  "captured": [
+    "capture"
+  ],
+  "seize": [
+    "capture"
+  ],
+  "recapture": [
+    "capture"
+  ],
+  "payout": [
+    "payment",
+    "payouts"
+  ],
+  "remit": [
+    "payment"
+  ],
+  "settlement": [
+    "payment",
+    "settle"
+  ],
+  "settles": [
+    "settle"
+  ],
+  "settling": [
+    "settle"
+  ],
+  "settled": [
+    "settle"
+  ],
+  "resolve": [
+    "settle"
+  ],
+  "finalize": [
+    "complete",
+    "settle"
+  ],
+  "completed": [
+    "complete"
+  ],
+  "confirming": [
+    "confirm"
+  ],
+  "confirmed": [
+    "confirm"
+  ],
+  "confirmation": [
+    "confirm"
+  ],
+  "finalizing": [
+    "finalize"
+  ],
+  "finalized": [
+    "finalize"
+  ],
+  "transaction": [
+    "payment"
+  ],
+  "transactions": [
+    "transaction"
+  ],
+  "deal": [
+    "transaction"
+  ],
+  "exchange": [
+    "transaction"
+  ],
+  "trade": [
+    "transaction"
+  ],
+  "transfer": [
+    "transaction"
+  ],
+  "codes": [
+    "code"
+  ],
+  "coding": [
+    "code"
+  ],
+  "coder": [
+    "code"
+  ],
+  "encode": [
+    "code"
+  ],
+  "decode": [
+    "code"
+  ],
+  "coupons": [
+    "coupon"
+  ],
+  "voucher": [
+    "coupon"
+  ],
+  "promocode": [
+    "coupon"
+  ],
+  "generate": [
+    "create"
+  ],
+  "promotion": [
+    "discount"
+  ],
+  "setup": [
+    "configuration",
+    "configure",
+    "configured",
+    "mapping",
+    "set"
+  ],
+  "customer's": [
+    "customer"
+  ],
+  "records": [
+    "history",
+    "record"
+  ],
+  "recording": [
+    "record"
+  ],
+  "recorded": [
+    "record"
+  ],
+  "registers": [
+    "register"
+  ],
+  "registered": [
+    "register"
+  ],
+  "registering": [
+    "register"
+  ],
+  "registration": [
+    "enroll",
+    "register"
+  ],
+  "billable": [
+    "bill"
+  ],
+  "generates": [
+    "generate"
+  ],
+  "generating": [
+    "generate"
+  ],
+  "generation": [
+    "generate"
+  ],
+  "generated": [
+    "generate"
+  ],
+  "invoices": [
+    "invoice"
+  ],
+  "invoiced": [
+    "invoice"
+  ],
+  "cost": [
+    "charge"
+  ],
+  "user": [
+    "customer"
+  ],
+  "buyer": [
+    "customer"
+  ],
+  "shopper": [
+    "customer"
+  ],
+  "processes": [
+    "process"
+  ],
+  "processing": [
+    "process"
+  ],
+  "processed": [
+    "process"
+  ],
+  "handle": [
+    "process"
+  ],
+  "manage": [
+    "process"
+  ],
+  "banks": [
+    "bank"
+  ],
+  "banking": [
+    "bank"
+  ],
+  "makes": [
+    "create",
+    "make"
+  ],
+  "fund": [
+    "funds"
+  ],
+  "funding": [
+    "funds"
+  ],
+  "payouts": [
+    "payout"
+  ],
+  "pay out": [
+    "payout",
+    "payouts"
+  ],
+  "paying out": [
+    "payout"
+  ],
+  "pays out": [
+    "payout"
+  ],
+  "transfers": [
+    "transfer"
+  ],
+  "transferring": [
+    "transfer"
+  ],
+  "transferred": [
+    "transfer"
+  ],
+  "withdraws": [
+    "withdraw"
+  ],
+  "withdrawing": [
+    "withdraw"
+  ],
+  "withdrawal": [
+    "withdraw"
+  ],
+  "draw": [
+    "withdraw"
+  ],
+  "drawing": [
+    "withdraw"
+  ],
+  "drew": [
+    "withdraw"
+  ],
+  "prices": [
+    "price",
+    "pricing"
+  ],
+  "priced": [
+    "price"
+  ],
+  "price": [
+    "pricing"
+  ],
+  "rate": [
+    "pricing"
+  ],
+  "stripes": [
+    "stripe"
+  ],
+  "striping": [
+    "stripe"
+  ],
+  "payment gateway": [
+    "stripe"
+  ],
+  "payment processor": [
+    "stripe"
+  ],
+  "monies": [
+    "money"
+  ],
+  "funds": [
+    "money"
+  ],
+  "cash": [
+    "money"
+  ],
+  "paying": [
+    "pay",
+    "payment"
+  ],
+  "refunds": [
+    "refund"
+  ],
+  "refunding": [
+    "refund",
+    "refunds"
+  ],
+  "reimburse": [
+    "refund"
+  ],
+  "returns": [
+    "return"
+  ],
+  "returning": [
+    "return"
+  ],
+  "revert": [
+    "return"
+  ],
+  "refund": [
+    "chargebacks",
+    "refunds",
+    "return"
+  ],
+  "enrolls": [
+    "enroll"
+  ],
+  "enrolled": [
+    "enroll"
+  ],
+  "enrolling": [
+    "enroll"
+  ],
+  "planning": [
+    "plan",
+    "plans"
+  ],
+  "recurs": [
+    "recurring"
+  ],
+  "recurrent": [
+    "recurring"
+  ],
+  "subscribers": [
+    "subscription"
+  ],
+  "register": [
+    "record"
+  ],
+  "entry": [
+    "record"
+  ],
+  "entries": [
+    "record"
+  ],
+  "logging": [
+    "logs",
+    "record"
+  ],
+  "deletion": [
+    "remove"
+  ],
+  "accounts": [
+    "account"
+  ],
+  "accounting": [
+    "account",
+    "accounts"
+  ],
+  "accountancy": [
+    "account"
+  ],
+  "balances": [
+    "balance"
+  ],
+  "balancing": [
+    "balance"
+  ],
+  "charge": [
+    "charges"
+  ],
+  "fees": [
+    "charges"
+  ],
+  "costs": [
+    "charges"
+  ],
+  "histories": [
+    "history"
+  ],
+  "record": [
+    "history"
+  ],
+  "presents": [
+    "show"
+  ],
+  "displaying": [
+    "show"
+  ],
+  "chargeback": [
+    "chargebacks"
+  ],
+  "reversal": [
+    "chargebacks"
+  ],
+  "dispute": [
+    "chargebacks",
+    "disputes"
+  ],
+  "contested": [
+    "disputes"
+  ],
+  "argue": [
+    "disputes"
+  ],
+  "challenge": [
+    "disputes"
+  ],
+  "complain": [
+    "disputes"
+  ],
+  "log": [
+    "history",
+    "logs"
+  ],
+  "receipts": [
+    "invoices"
+  ],
+  "show": [
+    "list"
+  ],
+  "historic": [
+    "history"
+  ],
+  "historical": [
+    "history"
+  ],
+  "withdrawals": [
+    "withdrawal"
+  ],
+  "withdraw": [
+    "withdrawal"
+  ],
+  "history's": [
+    "history"
+  ],
+  "refundable": [
+    "refund"
+  ],
+  "return": [
+    "refund"
+  ],
+  "reimbursements": [
+    "refunds"
+  ],
+  "activating": [
+    "active"
+  ],
+  "activate": [
+    "active"
+  ],
+  "activity": [
+    "active"
+  ],
+  "plan": [
+    "plans"
+  ],
+  "planned": [
+    "plans"
+  ],
+  "subscription": [
+    "subscriptions"
+  ],
+  "subscribing": [
+    "subscriptions"
+  ],
+  "subscribed": [
+    "subscriptions"
+  ],
+  "pays": [
+    "pay"
+  ],
+  "data": [
+    "info",
+    "stats"
+  ],
+  "insights": [
+    "info"
+  ],
+  "renew": [
+    "update"
+  ],
+  "schedule": [
+    "plan"
+  ],
+  "subscriber": [
+    "subscription"
+  ],
+  "append": [
+    "add"
+  ],
+  "include": [
+    "add"
+  ],
+  "configures": [
+    "configure",
+    "configured"
+  ],
+  "configuring": [
+    "config",
+    "configuration",
+    "configure",
+    "configured"
+  ],
+  "set up": [
+    "configure",
+    "configured"
+  ],
+  "adjust": [
+    "configure",
+    "set"
+  ],
+  "personalized": [
+    "custom"
+  ],
+  "bespoke": [
+    "custom"
+  ],
+  "tailored": [
+    "custom"
+  ],
+  "domains": [
+    "domain"
+  ],
+  "website": [
+    "domain",
+    "domains"
+  ],
+  "url": [
+    "domain",
+    "domains"
+  ],
+  "site": [
+    "domain",
+    "domains"
+  ],
+  "web address": [
+    "domain"
+  ],
+  "insert": [
+    "add"
+  ],
+  "environments": [
+    "env",
+    "environment"
+  ],
+  "env": [
+    "environment"
+  ],
+  "conditions": [
+    "environment"
+  ],
+  "context": [
+    "environment"
+  ],
+  "secrets": [
+    "secret"
+  ],
+  "confidential": [
+    "secret"
+  ],
+  "private": [
+    "secret"
+  ],
+  "hidden": [
+    "secret"
+  ],
+  "credentials": [
+    "secret"
+  ],
+  "variables": [
+    "variable"
+  ],
+  "var": [
+    "variable"
+  ],
+  "parameter": [
+    "variable"
+  ],
+  "attribute": [
+    "variable"
+  ],
+  "aborting": [
+    "abort"
+  ],
+  "aborts": [
+    "abort"
+  ],
+  "aborted": [
+    "abort"
+  ],
+  "canceled": [
+    "cancel"
+  ],
+  "deploying": [
+    "deploy",
+    "deployment",
+    "deployments"
+  ],
+  "deployed": [
+    "deploy"
+  ],
+  "deploys": [
+    "deploy"
+  ],
+  "deployment": [
+    "deploy",
+    "deployments"
+  ],
+  "deployments": [
+    "deployment"
+  ],
+  "verification": [
+    "check",
+    "verify"
+  ],
+  "test": [
+    "check"
+  ],
+  "config": [
+    "configs",
+    "configuration"
+  ],
+  "configure": [
+    "config",
+    "configuration",
+    "configured",
+    "mapping"
+  ],
+  "domain name system": [
+    "dns"
+  ],
+  "name server": [
+    "dns"
+  ],
+  "verified": [
+    "verify"
+  ],
+  "verifying": [
+    "verify"
+  ],
+  "check": [
+    "verify"
+  ],
+  "validation": [
+    "verify"
+  ],
+  "aliases": [
+    "alias"
+  ],
+  "aliased": [
+    "alias"
+  ],
+  "map": [
+    "mapping",
+    "mappings"
+  ],
+  "mapped": [
+    "mapping"
+  ],
+  "mappings": [
+    "mapping"
+  ],
+  "urls": [
+    "url"
+  ],
+  "url's": [
+    "url"
+  ],
+  "deploy": [
+    "deployment"
+  ],
+  "fresh": [
+    "new"
+  ],
+  "projection": [
+    "project"
+  ],
+  "triggers": [
+    "trigger"
+  ],
+  "triggered": [
+    "trigger"
+  ],
+  "triggering": [
+    "trigger"
+  ],
+  "sites": [
+    "site"
+  ],
+  "sited": [
+    "site"
+  ],
+  "rollout": [
+    "deploy",
+    "deployment"
+  ],
+  "installation": [
+    "deployment"
+  ],
+  "retrieved": [
+    "get"
+  ],
+  "logins": [
+    "logs"
+  ],
+  "runtimes": [
+    "runtime"
+  ],
+  "run-time": [
+    "runtime"
+  ],
+  "execution": [
+    "runtime"
+  ],
+  "bandwidths": [
+    "bandwidth"
+  ],
+  "throughput": [
+    "bandwidth"
+  ],
+  "capacity": [
+    "bandwidth"
+  ],
+  "consumptions": [
+    "consumption"
+  ],
+  "utilization": [
+    "consumption",
+    "usage"
+  ],
+  "usage": [
+    "consumption"
+  ],
+  "acquire": [
+    "get"
+  ],
+  "statistics": [
+    "stats"
+  ],
+  "metrics": [
+    "stats"
+  ],
+  "usages": [
+    "usage"
+  ],
+  "consumption": [
+    "usage"
+  ],
+  "alias": [
+    "aliases"
+  ],
+  "alternative names": [
+    "aliases"
+  ],
+  "synonyms": [
+    "aliases"
+  ],
+  "deployment process": [
+    "deployment"
+  ],
+  "mapping": [
+    "mappings"
+  ],
+  "correspondence": [
+    "mappings"
+  ],
+  "associations": [
+    "mappings"
+  ],
+  "showcase": [
+    "show"
+  ],
+  "link": [
+    "url"
+  ],
+  "links": [
+    "url"
+  ],
+  "hyperlink": [
+    "url"
+  ],
+  "certificate": [
+    "cert",
+    "certificates"
+  ],
+  "certification": [
+    "cert"
+  ],
+  "certs": [
+    "certificates"
+  ],
+  "tls": [
+    "ssl"
+  ],
+  "https": [
+    "ssl"
+  ],
+  "domain": [
+    "domains"
+  ],
+  "addresses": [
+    "domains"
+  ],
+  "configuration": [
+    "config",
+    "configs"
+  ],
+  "options": [
+    "configs"
+  ],
+  "configs": [
+    "config",
+    "configuration"
+  ],
+  "edges": [
+    "edge"
+  ],
+  "boundary": [
+    "edge"
+  ],
+  "limit": [
+    "edge"
+  ],
+  "environment": [
+    "env"
+  ],
+  "envs": [
+    "environment"
+  ],
+  "variable": [
+    "variables"
+  ],
+  "vars": [
+    "variables"
+  ],
+  "host": [
+    "hosted"
+  ],
+  "hosts": [
+    "hosted"
+  ],
+  "hosting": [
+    "hosted"
+  ],
+  "account": [
+    "accounts"
+  ],
+  "accounted": [
+    "accounts"
+  ],
+  "lives": [
+    "live"
+  ],
+  "living": [
+    "live"
+  ],
+  "alive": [
+    "live"
+  ],
+  "making": [
+    "make"
+  ],
+  "create": [
+    "make"
+  ],
+  "productions": [
+    "production"
+  ],
+  "produce": [
+    "production"
+  ],
+  "produced": [
+    "production"
+  ],
+  "promotes": [
+    "promote"
+  ],
+  "advertise": [
+    "promote"
+  ],
+  "boost": [
+    "promote"
+  ],
+  "versions": [
+    "version"
+  ],
+  "variant": [
+    "version"
+  ],
+  "destroy": [
+    "delete"
+  ],
+  "hostname": [
+    "domain"
+  ],
+  "dismiss": [
+    "remove"
+  ],
+  "sensitive": [
+    "secret"
+  ],
+  "prior": [
+    "previous"
+  ],
+  "earlier": [
+    "previous"
+  ],
+  "reverts": [
+    "revert"
+  ],
+  "reverting": [
+    "revert"
+  ],
+  "reversion": [
+    "revert"
+  ],
+  "rollbacks": [
+    "rollback"
+  ],
+  "roll back": [
+    "rollback"
+  ],
+  "versioning": [
+    "version"
+  ],
+  "versioned": [
+    "version"
+  ],
+  "upgrades": [
+    "update"
+  ]
+}
