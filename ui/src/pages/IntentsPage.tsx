@@ -196,7 +196,7 @@ function IntentListItem({
           <span className="text-emerald-400/40 text-[10px]">+{intent.learned_count}</span>
         )}
       </div>
-      {intent.description && (
+      {intent.description && intent.description !== intent.id && intent.description !== shortName && (
         <div className="text-[10px] text-zinc-500 mt-0.5 pl-6 truncate">{intent.description}</div>
       )}
     </div>
