@@ -11,7 +11,6 @@ export default function IntentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState('');
-  const [nsFilter, setNsFilter] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
@@ -34,20 +33,10 @@ export default function IntentsPage() {
     setSelectedId(data.length > 0 ? data[0].id : null);
   };
 
-  const namespaces = useMemo(() => {
-    const seen = new Set<string>();
-    for (const i of intents) {
-      const colon = i.id.indexOf(':');
-      if (colon > 0) seen.add(i.id.slice(0, colon));
-    }
-    return Array.from(seen).sort();
-  }, [intents]);
-
   const filteredIntents = useMemo(() => intents.filter(i => {
-    if (nsFilter && !i.id.startsWith(nsFilter + ':')) return false;
     if (filter && !i.id.toLowerCase().includes(filter.toLowerCase())) return false;
     return true;
-  }), [intents, filter, nsFilter]);
+  }), [intents, filter]);
 
   const grouped = useMemo(() => {
     const byDomain = new Map<string, IntentInfo[]>();
@@ -101,32 +90,13 @@ export default function IntentsPage() {
           </div>
         </div>
 
-        <div className="px-3 py-2 border-b border-zinc-800 space-y-1.5 flex-shrink-0">
+        <div className="px-3 py-2 border-b border-zinc-800 flex-shrink-0">
           <input
             value={filter}
             onChange={e => setFilter(e.target.value)}
             placeholder="Search intents..."
             className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
           />
-          {namespaces.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              <button
-                onClick={() => setNsFilter('')}
-                className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${nsFilter === '' ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
-              >
-                all
-              </button>
-              {namespaces.map(ns => (
-                <button
-                  key={ns}
-                  onClick={() => setNsFilter(nsFilter === ns ? '' : ns)}
-                  className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${nsFilter === ns ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
-                >
-                  {ns}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">
