@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "purpose": "Natural cross-domain queries — how a real user would actually phrase them, not systematic pair enumeration. Tests ASV's multi-intent decomposition on realistic enterprise requests that happen to span multiple SaaS tools."
+  },
+  "queries": [
+    { "query": "refund them and cancel their order", "expected_multi": ["stripe:create_refund", "shopify:cancel_order"] },
+    { "query": "customer just complained, refund the charge and log a bug", "expected_multi": ["stripe:create_refund", "linear:create_issue"] },
+    { "query": "text the customer their order shipped", "expected_multi": ["shopify:create_fulfillment", "twilio:send_sms"] },
+    { "query": "new client coming in — add to stripe, make them a notion page", "expected_multi": ["stripe:create_customer", "notion:create_page"] },
+    { "query": "bill the client and send them an sms about it", "expected_multi": ["stripe:create_invoice", "twilio:send_sms"] },
+    { "query": "file a linear ticket and call the on-call engineer", "expected_multi": ["linear:create_issue", "twilio:make_call"] },
+    { "query": "cancel their subscription, notify them by text", "expected_multi": ["stripe:cancel_subscription", "twilio:send_sms"] },
+    { "query": "the billing bug is fixed, close the ticket and refund the customer", "expected_multi": ["linear:close_issue", "stripe:create_refund"] },
+    { "query": "onboard new enterprise: stripe account, subscription, welcome sms", "expected_multi": ["stripe:create_customer", "stripe:create_subscription", "twilio:send_sms"] },
+    { "query": "document this in notion and open a linear tracking issue", "expected_multi": ["notion:create_page", "linear:create_issue"] },
+
+    { "query": "charge their card now and send the receipt", "expected_multi": ["stripe:create_payment", "stripe:create_invoice"] },
+    { "query": "sold out of the blue shirt — update inventory and text the waitlist", "expected_multi": ["shopify:adjust_inventory", "twilio:send_sms"] },
+    { "query": "assign sarah to this bug and ping her on sms", "expected_multi": ["linear:assign_issue", "twilio:send_sms"] },
+    { "query": "look up that topic in notion and file a bug for it", "expected_multi": ["notion:search_content", "linear:create_issue"] },
+    { "query": "new sneaker launch: list the product, make a discount code", "expected_multi": ["shopify:create_product", "shopify:create_discount"] },
+    { "query": "customer wants out - cancel the stripe subscription and update their shopify record", "expected_multi": ["stripe:cancel_subscription", "shopify:update_customer"] },
+    { "query": "holiday sale kickoff: create discount, announce by sms, document in notion", "expected_multi": ["shopify:create_discount", "twilio:send_sms", "notion:create_page"] },
+    { "query": "the customer double-paid - refund them and file a billing bug in linear", "expected_multi": ["stripe:create_refund", "linear:create_issue"] },
+    { "query": "new support runbook in notion, linear ticket for the broken flow", "expected_multi": ["notion:create_page", "linear:create_issue"] },
+    { "query": "call the customer about the deployment issue and log in linear", "expected_multi": ["twilio:make_call", "linear:create_issue"] },
+
+    { "query": "ship the order and confirm shipment via sms", "expected_multi": ["shopify:create_fulfillment", "twilio:send_sms"] },
+    { "query": "create a new notion page for this customer and add them to stripe", "expected_multi": ["notion:create_page", "stripe:create_customer"] },
+    { "query": "cancel the order, text the customer, refund their card", "expected_multi": ["shopify:cancel_order", "twilio:send_sms", "stripe:create_refund"] },
+    { "query": "team kickoff - linear project, notion doc, sms the team", "expected_multi": ["linear:create_project", "notion:create_page", "twilio:send_sms"] },
+    { "query": "disputed charge came in - open a dispute case and file a linear ticket", "expected_multi": ["stripe:create_dispute", "linear:create_issue"] },
+    { "query": "new feature launching tuesday - linear project, notion spec, shopify product", "expected_multi": ["linear:create_project", "notion:create_page", "shopify:create_product"] },
+    { "query": "list today's orders and send me a text summary", "expected_multi": ["shopify:list_orders", "twilio:send_sms"] },
+    { "query": "update the stripe customer and log the change in notion", "expected_multi": ["stripe:update_customer", "notion:update_page"] },
+    { "query": "void the payment and close the linear bug", "expected_multi": ["stripe:cancel_payment", "linear:close_issue"] },
+    { "query": "customer requested invoice - send the invoice and log it in notion", "expected_multi": ["stripe:create_invoice", "notion:create_page"] },
+
+    { "query": "product launch day! ship the preorders and text every buyer", "expected_multi": ["shopify:create_fulfillment", "twilio:send_sms"] },
+    { "query": "missed payment - text the customer and log in linear", "expected_multi": ["twilio:send_sms", "linear:create_issue"] },
+    { "query": "adjust stock levels and notify supplier via phone", "expected_multi": ["shopify:adjust_inventory", "twilio:make_call"] },
+    { "query": "archive the old notion page and close the corresponding ticket", "expected_multi": ["notion:archive_page", "linear:close_issue"] },
+    { "query": "cancel their subscription, delete them from shopify, log the churn in notion", "expected_multi": ["stripe:cancel_subscription", "shopify:update_customer", "notion:create_page"] },
+    { "query": "list recent calls and create a summary page in notion", "expected_multi": ["twilio:list_calls", "notion:create_page"] },
+    { "query": "create a linear ticket, assign emma, notify her via sms", "expected_multi": ["linear:create_issue", "linear:assign_issue", "twilio:send_sms"] },
+    { "query": "start the verify flow and send them the otp", "expected_multi": ["twilio:create_verify", "twilio:send_sms"] },
+    { "query": "notion search for the api spec and file an enhancement ticket", "expected_multi": ["notion:search_content", "linear:create_issue"] },
+    { "query": "retry the charge and call them if it fails again", "expected_multi": ["stripe:create_payment", "twilio:make_call"] }
+  ]
+}

@@ -11,11 +11,12 @@ under held-out validation, with rigorous experiment design.
 - 15 intents (1 domain): **91.2% top-1 / 97.1% top-3**
 - 125 intents (5 domains): **88.3% top-1 / 96.4% top-3**
 
-**Multi-intent (125 intents × 5 domains, 58 compound queries):**
-- **All expected in top-5: 94.8%**
-- Avg recall@5: 97.7%
-- 100% on conditional, negation, parallel-same-domain, realistic workflows
-- 90% on parallel-cross-domain, 80% on sequential and 3-intent
+**Multi-intent cross-domain (125 intents × 5 domains, 40 natural queries — less biased):**
+- **All expected in top-5: 70.0%**
+- Avg recall@5: 84.2%
+- 100% any-in-top-5 (downstream LLM always has a correct option)
+- 2-intent compounds: 75.8% all-in-top-5
+- 3-intent compounds: 42.9% — architecture strains at 3+
 
 **Single-intent thin-seed (cold-start enterprise, 2-3 phrases/intent):**
 - 40.9% top-1 / 59.1% top-3 (the data sparsity floor)
@@ -62,31 +63,52 @@ Scale holds at 8× intent growth: 15 → 125 intents drops top-1 only 2.9pp, top
 
 ## Multi-Intent Results (the marquee claim)
 
-**Scale: 125 intents across 5 SaaS domains, 58 multi-intent queries, held-out validation.**
+**Scale: 125 intents across 5 SaaS domains. Two multi-intent benchmarks run; reporting the less-biased one as the headline.**
+
+### Headline (less biased): 40 natural cross-domain queries
+
+Queries written without systematic domain-pair enumeration — how a real user would phrase compound requests, including natural vocabulary ("runbook", "otp", "log", etc.) that may not match seed phrases.
 
 | Metric | Value |
 |---|---|
-| All expected intents in top-5 | **94.8%** (55/58) |
-| All expected in top-3 | 81.0% (47/58) |
-| Any expected in top-5 | 100% (58/58) |
-| Avg recall@5 (fraction of expected intents captured) | **97.7%** |
-| Avg recall@3 | 91.7% |
+| **All expected in top-5** | **70.0%** (28/40) |
+| **Avg recall@5** | **84.2%** |
+| All expected in top-3 | 52.5% |
+| Any expected in top-5 | 100% (at least one correct intent always surfaces) |
+| Avg recall@3 | 76.2% |
 
-**By multi-intent pattern type:**
+**By intent count:**
 
-| Pattern | Description | n | All-in-top5 | Avg recall@5 |
-|---|---|---|---|---|
-| parallel_same | 2 intents, same domain ("cancel sub + refund") | 25 | 100% | 100% |
-| parallel_cross | 2 intents, different domains ("refund stripe + cancel shopify") | 10 | 90% | 95% |
-| sequential | ordered ("first X, then Y") | 5 | 80% | 90% |
-| three_intent | 3-intent compounds | 5 | 80% | 93% |
-| conditional | "or" relations | 4 | 100% | 100% |
-| negation | "except/without" relations | 4 | 100% | 100% |
-| realistic_workflow | real enterprise multi-step | 5 | 100% | 100% |
+| Intents | n | all-in-top-5 | avg recall@5 |
+|---|---|---|---|
+| 2-intent compounds | 33 | 75.8% | 87.9% |
+| 3-intent compounds | 7 | 42.9% | 66.7% |
 
-**Failure analysis:** 3 misses out of 58. All 3 were vocabulary-coverage gaps in seed phrases (e.g., "log" missing from notion seeds, "email" missing from twilio seeds). None were algorithmic failures — the token-consumption mechanism worked correctly; the decomposed tokens just lacked routing evidence.
+### Supplementary (biased toward obvious patterns): 58 pattern-enumerated queries
 
-**Why this matters:** most intent classifiers (Rasa DIET, SetFit, LLM-based classifiers) can't handle multi-intent compounds at all. They pick one winning intent or return garbage. ASV's token consumption decomposes the query into non-overlapping sub-queries and scores each independently — producing a ranked list where multiple intents coexist. This is the distinctive product claim, validated at realistic enterprise scale.
+Earlier test with systematic pair enumeration (parallel_same, parallel_cross, sequential, conditional, negation, three_intent, realistic_workflow) scored 94.8% all-in-top-5 / 97.7% recall@5. **That over-counted by ~25pp vs natural phrasings.** Reported here for transparency; not the headline number.
+
+### Why the gap
+
+Failures cluster on **vocabulary coverage in seed phrases**, not algorithmic limits:
+- "runbook" / "spec" / "log" not in notion seeds
+- "otp" / "notify by text" not in twilio seeds
+- "receipt" not in invoice seeds
+- Terse phrasings ("stripe account, subscription, welcome sms") don't give enough per-intent vocabulary
+
+Token-consumption decomposes the query correctly; it just can't route a sub-query whose vocabulary isn't in any intent's seeds. **Seed-quality matters for multi-intent even more than for single-intent** — each sub-query needs its own vocabulary hit.
+
+### Bottom-line honest claim
+
+ASV multi-intent on enterprise queries at 125-intent, 5-domain scale, with 12 seeds/intent:
+- **100% any-correct-in-top-5** — downstream LLM always has something to work with
+- **84% recall@5** — on average captures 84% of expected intents in a compound query
+- **70% all-correct-in-top-5** — majority of compounds fully decomposed
+- **76% all-correct-on-2-intent compounds, 43% on 3-intent** — 3+ intent queries strain
+
+### Why this matters
+
+Most intent classifiers (Rasa DIET, SetFit, LLM-based) can't do multi-intent at all. They pick one winning intent. ASV's token-consumption algorithm decomposes compound queries into non-overlapping sub-queries and scores each — producing a ranked list where multiple intents coexist. That's the distinctive claim, validated at realistic enterprise scale with honest numbers.
 
 ## Full Benchmark Results
 
