@@ -11,6 +11,7 @@ export default function IntentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
@@ -24,14 +25,6 @@ export default function IntentsPage() {
   }, [selectedId]);
 
   useFetch(refresh, [refresh]);
-
-  const handleReset = async () => {
-    await api.reset();
-    await api.loadDefaults();
-    const data = await api.listIntents();
-    setIntents(data);
-    setSelectedId(data.length > 0 ? data[0].id : null);
-  };
 
   const filteredIntents = useMemo(() => intents.filter(i => {
     if (filter && !i.id.toLowerCase().includes(filter.toLowerCase())) return false;
@@ -73,13 +66,20 @@ export default function IntentsPage() {
           <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">
             Intents ({filteredIntents.length}{filteredIntents.length !== intents.length ? `/${intents.length}` : ''})
           </span>
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 items-center">
             <button
-              onClick={handleReset}
-              className="text-[11px] text-zinc-500 hover:text-white px-1.5 py-0.5 rounded transition-colors"
-              title="Reset to demo defaults"
+              onClick={() => {
+                setShowSearch(v => !v);
+                if (showSearch) setFilter('');
+              }}
+              className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${showSearch || filter ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-500 hover:text-white'}`}
+              title="Search intents"
+              aria-label="Search intents"
             >
-              Reset
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
             </button>
             <button
               onClick={() => setShowAdd(true)}
@@ -90,14 +90,17 @@ export default function IntentsPage() {
           </div>
         </div>
 
-        <div className="px-3 py-2 border-b border-zinc-800 flex-shrink-0">
-          <input
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            placeholder="Search intents..."
-            className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
-          />
-        </div>
+        {showSearch && (
+          <div className="px-3 py-2 border-b border-zinc-800 flex-shrink-0">
+            <input
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              placeholder="Search intents..."
+              autoFocus
+              className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+            />
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           {grouped.map(([domain, items]) => {
@@ -126,7 +129,7 @@ export default function IntentsPage() {
           {filteredIntents.length === 0 && (
             <div className="text-zinc-600 text-xs text-center py-8 px-4">
               {intents.length === 0 ? (
-                <>No intents.{' '}<button onClick={handleReset} className="text-violet-400 hover:text-violet-300">Load defaults</button></>
+                <>No intents yet.{' '}<button onClick={() => setShowAdd(true)} className="text-violet-400 hover:text-violet-300">Create one</button></>
               ) : (
                 <span>No intents match filter</span>
               )}
