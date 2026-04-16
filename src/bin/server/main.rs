@@ -14,7 +14,6 @@ mod routes_phrases;
 mod routes_settings;
 mod routes_training;
 mod routes_projects;
-mod routes_discovery;
 mod log_store;
 mod routes_review;
 mod routes_import;
@@ -164,7 +163,6 @@ async fn main() {
         .merge(routes_settings::routes())
         .merge(routes_training::routes())
         .merge(routes_projects::routes())
-        .merge(routes_discovery::routes())
         .merge(routes_review::routes())
         .merge(routes_import::routes())
         .merge(routes_connect::routes())

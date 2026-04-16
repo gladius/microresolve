@@ -40,7 +40,7 @@ function LLMSection() {
       <div>
         <h2 className="text-lg font-semibold text-white">LLM / AI Configuration</h2>
         <p className="text-xs text-zinc-500 mt-1">
-          Powers: phrase generation, auto-review, auto-learn, discovery naming.
+          Powers: phrase generation, auto-review, auto-learn.
         </p>
       </div>
 
@@ -91,7 +91,6 @@ function LLMSection() {
             { feature: 'Phrase generation', desc: 'Generate diverse training phrases for intents' },
             { feature: 'Auto-review', desc: 'LLM suggests fixes for failed queries' },
             { feature: 'Auto-learn', desc: 'LLM fixes failures automatically' },
-            { feature: 'Discovery naming', desc: 'LLM names discovered intent clusters' },
           ].map(f => (
             <div key={f.feature} className="bg-zinc-800 rounded p-2">
               <div className={`font-medium ${status?.configured ? 'text-white' : 'text-zinc-500'}`}>{f.feature}</div>

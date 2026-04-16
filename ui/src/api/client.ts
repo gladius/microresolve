@@ -344,12 +344,6 @@ export const api = {
       skipped: number;
       intents: { intent_id: string; seeds: number; endpoint: string; method: string; type: string }[];
     }>('/import/spec', { spec }),
-
-  // Discovery
-  discover: (queries: string[], expected_intents = 0) =>
-    post<DiscoverResult>('/discover', { queries, expected_intents }),
-  discoverApply: (clusters: { name: string; representative_queries: string[] }[]) =>
-    post<{ created: string[]; count: number }>('/discover/apply', { clusters }),
 };
 
 /// Single data contract between review and apply — used by all learning flows.
@@ -406,19 +400,3 @@ export interface ReviewFixResult {
   resolved_count: number;
 }
 
-// Discovery types
-export interface DiscoveredCluster {
-  suggested_name: string;
-  description: string;
-  top_terms: string[];
-  representative_queries: string[];
-  size: number;
-  confidence: number;
-}
-
-export interface DiscoverResult {
-  clusters: DiscoveredCluster[];
-  total_clusters: number;
-  total_assigned: number;
-  total_queries: number;
-}

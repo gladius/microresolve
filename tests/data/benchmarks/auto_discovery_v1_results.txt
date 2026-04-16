@@ -1,93 +1,0 @@
-    Finished `release` profile [optimized] target(s) in 0.03s
-     Running `target/release/auto_discover`
-╔══════════════════════════════════════════════════════════╗
-║   ASV Auto-Discovery: Unsupervised Intent Clustering   ║
-╚══════════════════════════════════════════════════════════╝
-
-Dataset: Bitext Customer Support
-Total queries: 26872
-Ground truth intents: 27
-
---- Threshold sweep (sample of 5000 queries) ---
-
-  Threshold 0.5: 9 clusters | Purity 7.8% | Coverage 7/27 (26%) | NMI 0.024 | 12.9s
-  Threshold 1.0: 10 clusters | Purity 7.9% | Coverage 8/27 (30%) | NMI 0.024 | 12.4s
-  Threshold 1.5: 16 clusters | Purity 9.8% | Coverage 11/27 (41%) | NMI 0.031 | 6.2s
-  Threshold 2.0: 35 clusters | Purity 42.2% | Coverage 18/27 (67%) | NMI 0.147 | 5.2s
-  Threshold 3.0: 94 clusters | Purity 52.7% | Coverage 25/27 (93%) | NMI 0.164 | 7.0s
-  Threshold 5.0: 203 clusters | Purity 58.4% | Coverage 26/27 (96%) | NMI 0.180 | 6.0s
-
-  Best threshold: 5.0 (NMI=0.180)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  DETAILED ANALYSIS (threshold = 5.0, full 26872 queries)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Processing: 500/26872  Processing: 1000/26872  Processing: 1500/26872  Processing: 2000/26872  Processing: 2500/26872  Processing: 3000/26872  Processing: 3500/26872  Processing: 4000/26872  Processing: 4500/26872  Processing: 5000/26872  Processing: 5500/26872  Processing: 6000/26872  Processing: 6500/26872  Processing: 7000/26872  Processing: 7500/26872  Processing: 8000/26872  Processing: 8500/26872  Processing: 9000/26872  Processing: 9500/26872  Processing: 10000/26872  Processing: 10500/26872  Processing: 11000/26872  Processing: 11500/26872  Processing: 12000/26872  Processing: 12500/26872  Processing: 13000/26872  Processing: 13500/26872  Processing: 14000/26872  Processing: 14500/26872  Processing: 15000/26872  Processing: 15500/26872  Processing: 16000/26872  Processing: 16500/26872  Processing: 17000/26872  Processing: 17500/26872  Processing: 18000/26872  Processing: 18500/26872  Processing: 19000/26872  Processing: 19500/26872  Processing: 20000/26872  Processing: 20500/26872  Processing: 21000/26872  Processing: 21500/26872  Processing: 22000/26872  Processing: 22500/26872  Processing: 23000/26872  Processing: 23500/26872  Processing: 24000/26872  Processing: 24500/26872  Processing: 25000/26872  Processing: 25500/26872  Processing: 26000/26872  Processing: 26500/26872  Top 30 clusters:
-
-     Cluster   Size  Purity  Dominant Label (count) | Other labels
-  --------------------------------------------------------------------------------
-  Processing: done                
-   cluster_4  13879      7%  switch_account(983) | set_up_shipping_address(965), registration_problems(958), payment_issue(948)
-   cluster_6   5202     19%  track_order(992) | cancel_order(989), change_order(985), review(960)
-  cluster_51    780     99%  complaint(776) | place_order(4)
-   cluster_3    748     99%  contact_customer_service(743) | contact_human_agent(2), delivery_options(2), review(1)
-  cluster_15    701     93%  check_refund_policy(649) | get_refund(50), contact_human_agent(2)
-  cluster_39    637     68%  track_refund(434) | get_refund(203)
-  cluster_12    617     49%  check_invoice(305) | get_invoice(304), check_payment_methods(2), check_cancellation_fee(2)
-  cluster_67    438     48%  delete_account(212) | create_account(105), recover_password(55), delivery_period(21)
-  cluster_13    374    100%  delivery_period(374) | pure
-  cluster_11    362     94%  change_shipping_address(339) | set_up_shipping_address(22), edit_account(1)
-  cluster_10    326     69%  delivery_period(224) | check_refund_policy(101), delivery_options(1)
-  cluster_18    270     85%  check_invoice(230) | get_invoice(32), place_order(2), contact_human_agent(2)
-  cluster_27    260     99%  delivery_options(257) | place_order(3)
-  cluster_30    239     98%  delivery_period(234) | check_cancellation_fee(1), complaint(1), switch_account(1)
-   cluster_2    237    100%  check_payment_methods(236) | delivery_options(1)
-  cluster_48    228     80%  change_shipping_address(182) | newsletter_subscription(23), delivery_period(20), delivery_options(2)
-  cluster_50    160    100%  delivery_options(160) | pure
-  cluster_16     87     34%  edit_account(30) | create_account(29), delete_account(24), switch_account(4)
-  cluster_34     73     97%  check_payment_methods(71) | check_cancellation_fee(1), delivery_options(1)
-  cluster_53     66     33%  create_account(22) | edit_account(20), delete_account(20), switch_account(4)
-  cluster_40     53     34%  contact_human_agent(18) | check_invoice(10), delete_account(4), change_shipping_address(4)
-  cluster_47     51    100%  newsletter_subscription(51) | pure
-  cluster_44     46    100%  change_shipping_address(46) | pure
-  cluster_37     40     88%  contact_human_agent(35) | contact_customer_service(5)
-  cluster_41     40     98%  check_refund_policy(39) | get_refund(1)
-  cluster_73     31    100%  contact_human_agent(31) | pure
-  cluster_57     25     76%  payment_issue(19) | registration_problems(2), contact_human_agent(1), check_payment_methods(1)
-  cluster_32     22     32%  contact_human_agent(7) | delivery_options(3), recover_password(3), edit_account(3)
-  cluster_56     22     45%  create_account(10) | edit_account(7), delete_account(4), switch_account(1)
-  cluster_94     20    100%  recover_password(20) | pure
-
-  Ground truth intent → discovered clusters:
-
-  cancel_order                        → cluster_6 (99% captured in cluster_6, 10 fragments total)
-  change_order                        → cluster_6 (99% captured in cluster_6, 13 fragments total)
-  change_shipping_address             → cluster_11 (35% captured in cluster_11, 24 fragments total)
-  check_cancellation_fee              → cluster_4 (95% captured in cluster_4, 24 fragments total)
-  check_invoice                       → cluster_4 (42% captured in cluster_4, 16 fragments total)
-  check_payment_methods               → cluster_4 (68% captured in cluster_4, 10 fragments total)
-  check_refund_policy                 → cluster_15 (65% captured in cluster_15, 13 fragments total)
-  complaint                           → cluster_51 (78% captured in cluster_51, 22 fragments total)
-  contact_customer_service            → cluster_3 (74% captured in cluster_3, 11 fragments total)
-  contact_human_agent                 → cluster_4 (81% captured in cluster_4, 60 fragments total)
-  create_account                      → cluster_4 (79% captured in cluster_4, 21 fragments total)
-  delete_account                      → cluster_4 (70% captured in cluster_4, 19 fragments total)
-  delivery_options                    → cluster_4 (56% captured in cluster_4, 16 fragments total)
-  delivery_period                     → cluster_13 (37% captured in cluster_13, 10 fragments total)
-  edit_account                        → cluster_4 (85% captured in cluster_4, 20 fragments total)
-  get_invoice                         → cluster_4 (65% captured in cluster_4, 10 fragments total)
-  get_refund                          → cluster_4 (66% captured in cluster_4, 29 fragments total)
-  newsletter_subscription             → cluster_4 (58% captured in cluster_4, 18 fragments total)
-  payment_issue                       → cluster_4 (95% captured in cluster_4, 24 fragments total)
-  place_order                         → cluster_6 (96% captured in cluster_6, 19 fragments total)
-  recover_password                    → cluster_4 (87% captured in cluster_4, 28 fragments total)
-  registration_problems               → cluster_4 (96% captured in cluster_4, 17 fragments total)
-  review                              → cluster_6 (96% captured in cluster_6, 11 fragments total)
-  set_up_shipping_address             → cluster_4 (97% captured in cluster_4, 7 fragments total)
-  switch_account                      → cluster_4 (98% captured in cluster_4, 10 fragments total)
-  track_order                         → cluster_6 (100% captured in cluster_6, 3 fragments total)
-  track_refund                        → cluster_4 (56% captured in cluster_4, 6 fragments total)
-
-  Intents captured in single cluster: 0/27
-  Intents with >50% in one cluster:  24/27
