@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { api, type IntentInfo, type IntentType } from '@/api/client';
 import { useAppStore } from '@/store';
@@ -13,6 +14,20 @@ export default function IntentsPage() {
   const [filter, setFilter] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [importOpen, setImportOpen] = useState(false);
+  const importMenuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!importOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (importMenuRef.current && !importMenuRef.current.contains(e.target as Node)) {
+        setImportOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onClick);
+    return () => window.removeEventListener('mousedown', onClick);
+  }, [importOpen]);
 
   const refresh = useCallback(async () => {
     try {
@@ -57,8 +72,36 @@ export default function IntentsPage() {
   const selected = intents.find(i => i.id === selectedId) || null;
   const allIntentIds = useMemo(() => intents.map(i => i.id), [intents]);
 
+  const importAction = (
+    <div ref={importMenuRef} className="relative">
+      <button
+        onClick={() => setImportOpen(v => !v)}
+        className="text-xs text-zinc-400 hover:text-white border border-zinc-700 hover:border-zinc-500 px-2.5 py-1 rounded transition-colors"
+        title="Import from OpenAPI or MCP"
+      >
+        Import ▾
+      </button>
+      {importOpen && (
+        <div className="absolute right-0 top-full mt-1 w-48 bg-zinc-900 border border-zinc-700 rounded shadow-lg z-10 py-1">
+          <button
+            onClick={() => { setImportOpen(false); navigate('/import/openapi'); }}
+            className="w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          >
+            OpenAPI / Swagger
+          </button>
+          <button
+            onClick={() => { setImportOpen(false); navigate('/import/mcp'); }}
+            className="w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          >
+            MCP Tools
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <Page title="Intents" subtitle={`${intents.length} intents`} fullscreen>
+    <Page title="Intents" subtitle={`${intents.length} intents`} actions={importAction} fullscreen>
     <div className="flex gap-0 h-full">
       {/* Left: Intent list */}
       <div className="w-72 min-w-[18rem] border-r border-zinc-800 flex flex-col">
@@ -129,7 +172,14 @@ export default function IntentsPage() {
           {filteredIntents.length === 0 && (
             <div className="text-zinc-600 text-xs text-center py-8 px-4">
               {intents.length === 0 ? (
-                <>No intents yet.{' '}<button onClick={() => setShowAdd(true)} className="text-violet-400 hover:text-violet-300">Create one</button></>
+                <div className="space-y-1.5">
+                  <div>No intents yet.</div>
+                  <div>
+                    <button onClick={() => setShowAdd(true)} className="text-violet-400 hover:text-violet-300">Create one</button>
+                    <span className="mx-1.5 text-zinc-700">or</span>
+                    <button onClick={() => navigate('/import/openapi')} className="text-violet-400 hover:text-violet-300">import OpenAPI</button>
+                  </div>
+                </div>
               ) : (
                 <span>No intents match filter</span>
               )}

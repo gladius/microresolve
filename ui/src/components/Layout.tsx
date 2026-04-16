@@ -18,7 +18,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/',           label: 'Route',     icon: '▸', hint: 'Test queries' },
   { to: '/intents',    label: 'Intents',   icon: '◆', hint: 'Manage intents' },
   { to: '/studio',     label: 'Studio',    icon: '◉', hint: 'Training + review' },
-  { to: '/import',     label: 'Import',    icon: '↓', hint: 'OpenAPI / MCP' },
   { to: '/namespaces', label: 'Workspaces', icon: '▦', hint: 'Manage namespaces' },
   { to: '/settings',   label: 'Settings',  icon: '⚙', hint: 'Config' },
 ];
