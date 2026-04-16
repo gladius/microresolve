@@ -1,0 +1,1619 @@
+{
+  "summary": {
+    "namespace": "bench_warm",
+    "total_queries": 59,
+    "by_category": {
+      "cross_provider": {
+        "n": 7,
+        "hit_1": 4,
+        "hit_3": 7,
+        "hit_5": 7,
+        "top_1_pct": 57.1,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.9
+      },
+      "false_pos_bait": {
+        "n": 5,
+        "multi_hit3": 0,
+        "multi_partial3": 1,
+        "multi_hit3_pct": 0.0,
+        "multi_partial3_pct": 20.0,
+        "avg_latency_ms": 2.6
+      },
+      "informal_oov": {
+        "n": 5,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 5,
+        "top_1_pct": 80.0,
+        "top_3_pct": 80.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.7
+      },
+      "multi_cross_domain": {
+        "n": 5,
+        "multi_hit3": 4,
+        "multi_partial3": 5,
+        "multi_hit3_pct": 80.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 3.3
+      },
+      "oos_negative": {
+        "n": 5,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 20.0,
+        "avg_latency_ms": 3.0
+      },
+      "single_linear": {
+        "n": 8,
+        "hit_1": 3,
+        "hit_3": 4,
+        "hit_5": 5,
+        "top_1_pct": 37.5,
+        "top_3_pct": 50.0,
+        "top_5_pct": 62.5,
+        "avg_latency_ms": 3.0
+      },
+      "single_shopify": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 1,
+        "hit_5": 1,
+        "top_1_pct": 12.5,
+        "top_3_pct": 12.5,
+        "top_5_pct": 12.5,
+        "avg_latency_ms": 2.9
+      },
+      "single_stripe": {
+        "n": 8,
+        "hit_1": 3,
+        "hit_3": 5,
+        "hit_5": 6,
+        "top_1_pct": 37.5,
+        "top_3_pct": 62.5,
+        "top_5_pct": 75.0,
+        "avg_latency_ms": 3.4
+      },
+      "single_vercel": {
+        "n": 8,
+        "hit_1": 2,
+        "hit_3": 2,
+        "hit_5": 3,
+        "top_1_pct": 25.0,
+        "top_3_pct": 25.0,
+        "top_5_pct": 37.5,
+        "avg_latency_ms": 2.6
+      }
+    },
+    "overall_top_1_pct": 38.6,
+    "overall_top_3_pct": 52.3,
+    "overall_top_5_pct": 61.4,
+    "overall_multi_hit3_pct": 40.0,
+    "overall_multi_partial3_pct": 60.0,
+    "overall_oos_rejection_pct": 20.0,
+    "avg_latency_ms": 2.94
+  },
+  "run": {
+    "namespace": "bench_warm",
+    "results": [
+      {
+        "category": "single_stripe",
+        "query": "need to reverse that last payment",
+        "expected": "stripe:create_refund",
+        "expected_multi": null,
+        "top_1": "stripe:create_payment",
+        "top_3": [
+          "stripe:create_payment",
+          "vercel:rollback",
+          "stripe:capture_payment"
+        ],
+        "top_5": [
+          "stripe:create_payment",
+          "vercel:rollback",
+          "stripe:capture_payment",
+          "stripe:create_refund",
+          "stripe:confirm_payment"
+        ],
+        "top_1_score": 1.899999976158142,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.5093833690194169,
+        "disposition": "confident",
+        "latency_ms": 3.5331249237060547,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": true
+      },
+      {
+        "category": "single_stripe",
+        "query": "send them a receipt for september",
+        "expected": "stripe:create_invoice",
+        "expected_multi": null,
+        "top_1": "shopify:list_themes",
+        "top_3": [
+          "shopify:list_themes"
+        ],
+        "top_5": [
+          "shopify:list_themes"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 0.0,
+        "confidence_ratio": 1.0,
+        "disposition": "confident",
+        "latency_ms": 3.350496292114258,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_stripe",
+        "query": "stop charging this customer going forward",
+        "expected": "stripe:cancel_subscription",
+        "expected_multi": null,
+        "top_1": "stripe:cancel_subscription",
+        "top_3": [
+          "stripe:cancel_subscription",
+          "stripe:update_customer",
+          "stripe:delete_customer"
+        ],
+        "top_5": [
+          "stripe:cancel_subscription",
+          "stripe:update_customer",
+          "stripe:delete_customer",
+          "stripe:create_customer",
+          "stripe:list_customers"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.690000057220459,
+        "confidence_ratio": 0.5198863610386665,
+        "disposition": "escalate",
+        "latency_ms": 3.370046615600586,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_stripe",
+        "query": "transfer the proceeds to our account",
+        "expected": "stripe:create_payout",
+        "expected_multi": null,
+        "top_1": "stripe:create_payout",
+        "top_3": [
+          "stripe:create_payout",
+          "stripe:get_balance"
+        ],
+        "top_5": [
+          "stripe:create_payout",
+          "stripe:get_balance"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 3.400564193725586,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_stripe",
+        "query": "onboard the new enterprise account",
+        "expected": "stripe:create_customer",
+        "expected_multi": null,
+        "top_1": "stripe:get_balance",
+        "top_3": [
+          "stripe:get_balance",
+          "stripe:create_customer",
+          "vercel:create_project"
+        ],
+        "top_5": [
+          "stripe:get_balance",
+          "stripe:create_customer",
+          "vercel:create_project",
+          "linear:create_team",
+          "shopify:create_product"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.4600000381469727,
+        "confidence_ratio": 0.5562310023787145,
+        "disposition": "confident",
+        "latency_ms": 3.3380985260009766,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_stripe",
+        "query": "charge their card for the annual plan",
+        "expected": "stripe:create_payment",
+        "expected_multi": null,
+        "top_1": "stripe:cancel_subscription",
+        "top_3": [
+          "stripe:cancel_subscription",
+          "stripe:create_subscription",
+          "stripe:update_subscription"
+        ],
+        "top_5": [
+          "stripe:cancel_subscription",
+          "stripe:create_subscription",
+          "stripe:update_subscription",
+          "stripe:capture_payment",
+          "stripe:confirm_payment"
+        ],
+        "top_1_score": 1.3899999856948853,
+        "top_2_score": 1.3899999856948853,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 3.3342838287353516,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_stripe",
+        "query": "which customers are paying us right now",
+        "expected": "stripe:list_customers",
+        "expected_multi": null,
+        "top_1": "shopify:list_customers",
+        "top_3": [
+          "shopify:list_customers",
+          "stripe:list_customers"
+        ],
+        "top_5": [
+          "shopify:list_customers",
+          "stripe:list_customers"
+        ],
+        "top_1_score": 1.559999942779541,
+        "top_2_score": 1.559999942779541,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 3.319978713989258,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_stripe",
+        "query": "grab the list of failed charges from this week",
+        "expected": "stripe:list_charges",
+        "expected_multi": null,
+        "top_1": "stripe:list_charges",
+        "top_3": [
+          "stripe:list_charges",
+          "linear:list_issues",
+          "shopify:list_themes"
+        ],
+        "top_5": [
+          "stripe:list_charges",
+          "linear:list_issues",
+          "shopify:list_themes",
+          "shopify:list_draft_orders",
+          "linear:list_members"
+        ],
+        "top_1_score": 2.309999942779541,
+        "top_2_score": 0.4699999988079071,
+        "confidence_ratio": 0.8309352486750321,
+        "disposition": "confident",
+        "latency_ms": 3.3795833587646484,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_shopify",
+        "query": "customer returned the item, issue the money back",
+        "expected": "shopify:update_order",
+        "expected_multi": null,
+        "top_1": "stripe:create_refund",
+        "top_3": [
+          "stripe:create_refund",
+          "linear:list_issues",
+          "stripe:update_customer"
+        ],
+        "top_5": [
+          "stripe:create_refund",
+          "linear:list_issues",
+          "stripe:update_customer",
+          "stripe:delete_customer",
+          "stripe:create_customer"
+        ],
+        "top_1_score": 4.579999923706055,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.7145085721615213,
+        "disposition": "confident",
+        "latency_ms": 3.406524658203125,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_shopify",
+        "query": "we sold out of the limited edition hat",
+        "expected": "shopify:adjust_inventory",
+        "expected_multi": null,
+        "top_1": null,
+        "top_3": [],
+        "top_5": [],
+        "top_1_score": 0.0,
+        "top_2_score": 0.0,
+        "confidence_ratio": 0.0,
+        "disposition": "no_match",
+        "latency_ms": 2.9625892639160156,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_shopify",
+        "query": "show me every order placed yesterday",
+        "expected": "shopify:list_orders",
+        "expected_multi": null,
+        "top_1": "shopify:create_order",
+        "top_3": [
+          "shopify:create_order",
+          "shopify:get_order",
+          "shopify:update_order"
+        ],
+        "top_5": [
+          "shopify:create_order",
+          "shopify:get_order",
+          "shopify:update_order",
+          "shopify:cancel_order",
+          "shopify:close_order"
+        ],
+        "top_1_score": 3.5199999809265137,
+        "top_2_score": 1.690000057220459,
+        "confidence_ratio": 0.6756237917761059,
+        "disposition": "confident",
+        "latency_ms": 3.1037330627441406,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_shopify",
+        "query": "get the summer sneaker ready for launch",
+        "expected": "shopify:create_product",
+        "expected_multi": null,
+        "top_1": "shopify:get_shop",
+        "top_3": [
+          "shopify:get_shop",
+          "shopify:get_product",
+          "linear:list_issues"
+        ],
+        "top_5": [
+          "shopify:get_shop",
+          "shopify:get_product",
+          "linear:list_issues",
+          "vercel:get_deployment",
+          "vercel:get_usage"
+        ],
+        "top_1_score": 1.0,
+        "top_2_score": 1.0,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 3.222942352294922,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_shopify",
+        "query": "package the order and hand it to the carrier",
+        "expected": "shopify:create_fulfillment",
+        "expected_multi": null,
+        "top_1": "shopify:cancel_order",
+        "top_3": [
+          "shopify:cancel_order",
+          "shopify:close_order",
+          "shopify:get_order"
+        ],
+        "top_5": [
+          "shopify:cancel_order",
+          "shopify:close_order",
+          "shopify:get_order",
+          "shopify:create_order",
+          "shopify:update_order"
+        ],
+        "top_1_score": 1.690000057220459,
+        "top_2_score": 1.690000057220459,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 2.633810043334961,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_shopify",
+        "query": "the customer changed their mailing address",
+        "expected": "shopify:update_customer",
+        "expected_multi": null,
+        "top_1": "stripe:create_customer",
+        "top_3": [
+          "stripe:create_customer",
+          "stripe:delete_customer",
+          "stripe:update_customer"
+        ],
+        "top_5": [
+          "stripe:create_customer",
+          "stripe:delete_customer",
+          "stripe:update_customer",
+          "linear:update_issue",
+          "stripe:update_subscription"
+        ],
+        "top_1_score": 1.690000057220459,
+        "top_2_score": 1.690000057220459,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 2.9785633087158203,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_shopify",
+        "query": "pull the buyer directory",
+        "expected": "shopify:list_customers",
+        "expected_multi": null,
+        "top_1": "shopify:list_customers",
+        "top_3": [
+          "shopify:list_customers",
+          "shopify:update_customer",
+          "linear:list_projects"
+        ],
+        "top_5": [
+          "shopify:list_customers",
+          "shopify:update_customer",
+          "linear:list_projects",
+          "linear:list_teams",
+          "stripe:list_customers"
+        ],
+        "top_1_score": 4.670000076293945,
+        "top_2_score": 1.559999942779541,
+        "confidence_ratio": 0.7495987258421323,
+        "disposition": "confident",
+        "latency_ms": 2.6886463165283203,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_shopify",
+        "query": "make a coupon for the black friday sale",
+        "expected": "shopify:create_discount",
+        "expected_multi": null,
+        "top_1": "stripe:create_coupon",
+        "top_3": [
+          "stripe:create_coupon",
+          "vercel:promote"
+        ],
+        "top_5": [
+          "stripe:create_coupon",
+          "vercel:promote"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 2.3779869079589844,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_linear",
+        "query": "write up a bug for the broken signup flow",
+        "expected": "linear:create_issue",
+        "expected_multi": null,
+        "top_1": "linear:create_issue",
+        "top_3": [
+          "linear:create_issue",
+          "linear:update_workflow",
+          "shopify:get_product"
+        ],
+        "top_5": [
+          "linear:create_issue",
+          "linear:update_workflow",
+          "shopify:get_product",
+          "stripe:create_coupon",
+          "linear:create_team"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 2.658367156982422,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_linear",
+        "query": "hand this ticket to the payments team",
+        "expected": "linear:assign_issue",
+        "expected_multi": null,
+        "top_1": "linear:list_members",
+        "top_3": [
+          "linear:list_members",
+          "linear:create_team",
+          "stripe:create_payment"
+        ],
+        "top_5": [
+          "linear:list_members",
+          "linear:create_team",
+          "stripe:create_payment",
+          "linear:list_teams",
+          "vercel:list_teams"
+        ],
+        "top_1_score": 2.049999952316284,
+        "top_2_score": 2.049999952316284,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 3.0395984649658203,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_linear",
+        "query": "pull up the open tickets for this sprint",
+        "expected": "linear:list_issues",
+        "expected_multi": null,
+        "top_1": "linear:create_issue",
+        "top_3": [
+          "linear:create_issue",
+          "linear:list_cycles",
+          "linear:create_cycle"
+        ],
+        "top_5": [
+          "linear:create_issue",
+          "linear:list_cycles",
+          "linear:create_cycle",
+          "linear:add_to_cycle",
+          "shopify:get_order"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.3899999856948853,
+        "confidence_ratio": 0.5683229896445631,
+        "disposition": "escalate",
+        "latency_ms": 3.272533416748047,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_linear",
+        "query": "start a fresh project for the authentication rebuild",
+        "expected": "linear:create_project",
+        "expected_multi": null,
+        "top_1": "linear:create_project",
+        "top_3": [
+          "linear:create_project",
+          "vercel:delete_project",
+          "linear:update_project"
+        ],
+        "top_5": [
+          "linear:create_project",
+          "vercel:delete_project",
+          "linear:update_project",
+          "vercel:update_project",
+          "stripe:create_subscription"
+        ],
+        "top_1_score": 2.880000114440918,
+        "top_2_score": 1.600000023841858,
+        "confidence_ratio": 0.6428571485591176,
+        "disposition": "confident",
+        "latency_ms": 3.3063888549804688,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_linear",
+        "query": "add a note with the reproduction steps",
+        "expected": "linear:create_comment",
+        "expected_multi": null,
+        "top_1": "linear:create_comment",
+        "top_3": [
+          "linear:create_comment",
+          "vercel:promote",
+          "vercel:add_env_var"
+        ],
+        "top_5": [
+          "linear:create_comment",
+          "vercel:promote",
+          "vercel:add_env_var",
+          "vercel:create_alias",
+          "shopify:create_customer"
+        ],
+        "top_1_score": 2.7100000381469727,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.5969162973038666,
+        "disposition": "confident",
+        "latency_ms": 3.27301025390625,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_linear",
+        "query": "tag this as critical priority",
+        "expected": "linear:create_label",
+        "expected_multi": null,
+        "top_1": "shopify:create_fulfillment",
+        "top_3": [
+          "shopify:create_fulfillment",
+          "linear:create_label"
+        ],
+        "top_5": [
+          "shopify:create_fulfillment",
+          "linear:create_label"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 2.659320831298828,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_linear",
+        "query": "mark this ticket as resolved",
+        "expected": "linear:update_issue",
+        "expected_multi": null,
+        "top_1": "shopify:create_fulfillment",
+        "top_3": [
+          "shopify:create_fulfillment"
+        ],
+        "top_5": [
+          "shopify:create_fulfillment"
+        ],
+        "top_1_score": 3.6700000762939453,
+        "top_2_score": 0.0,
+        "confidence_ratio": 1.0,
+        "disposition": "confident",
+        "latency_ms": 2.7093887329101562,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_linear",
+        "query": "who's on the platform team right now",
+        "expected": "linear:list_teams",
+        "expected_multi": null,
+        "top_1": "linear:list_members",
+        "top_3": [
+          "linear:list_members",
+          "linear:create_team",
+          "vercel:list_teams"
+        ],
+        "top_5": [
+          "linear:list_members",
+          "linear:create_team",
+          "vercel:list_teams",
+          "linear:list_teams"
+        ],
+        "top_1_score": 3.880000114440918,
+        "top_2_score": 2.049999952316284,
+        "confidence_ratio": 0.6543001805668919,
+        "disposition": "confident",
+        "latency_ms": 3.0412673950195312,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": true
+      },
+      {
+        "category": "single_vercel",
+        "query": "push the code to production now",
+        "expected": "vercel:create_deployment",
+        "expected_multi": null,
+        "top_1": "stripe:create_coupon",
+        "top_3": [
+          "stripe:create_coupon",
+          "vercel:promote"
+        ],
+        "top_5": [
+          "stripe:create_coupon",
+          "vercel:promote"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 2.855539321899414,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_vercel",
+        "query": "undo the last deploy, it's broken",
+        "expected": "vercel:rollback",
+        "expected_multi": null,
+        "top_1": "vercel:get_deployment",
+        "top_3": [
+          "vercel:get_deployment",
+          "vercel:create_deployment",
+          "vercel:cancel_deployment"
+        ],
+        "top_5": [
+          "vercel:get_deployment",
+          "vercel:create_deployment",
+          "vercel:cancel_deployment",
+          "vercel:list_deployments"
+        ],
+        "top_1_score": 1.2799999713897705,
+        "top_2_score": 1.2799999713897705,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 2.605438232421875,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_vercel",
+        "query": "stream the current build logs",
+        "expected": "vercel:get_logs",
+        "expected_multi": null,
+        "top_1": "vercel:get_logs",
+        "top_3": [
+          "vercel:get_logs",
+          "linear:add_to_cycle"
+        ],
+        "top_5": [
+          "vercel:get_logs",
+          "linear:add_to_cycle"
+        ],
+        "top_1_score": 2.930000066757202,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.6155462183295548,
+        "disposition": "confident",
+        "latency_ms": 2.5992393493652344,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_vercel",
+        "query": "plug in the new api credentials",
+        "expected": "vercel:add_env_var",
+        "expected_multi": null,
+        "top_1": "stripe:create_customer",
+        "top_3": [
+          "stripe:create_customer",
+          "vercel:create_project",
+          "linear:create_issue"
+        ],
+        "top_5": [
+          "stripe:create_customer",
+          "vercel:create_project",
+          "linear:create_issue",
+          "shopify:create_order",
+          "linear:create_cycle"
+        ],
+        "top_1_score": 1.4600000381469727,
+        "top_2_score": 0.9100000262260437,
+        "confidence_ratio": 0.6160337546375619,
+        "disposition": "confident",
+        "latency_ms": 2.434253692626953,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_vercel",
+        "query": "check our edge bandwidth consumption",
+        "expected": "vercel:get_usage",
+        "expected_multi": null,
+        "top_1": "vercel:get_usage",
+        "top_3": [
+          "vercel:get_usage",
+          "vercel:list_edge_config",
+          "vercel:get_deployment"
+        ],
+        "top_5": [
+          "vercel:get_usage",
+          "vercel:list_edge_config",
+          "vercel:get_deployment",
+          "shopify:list_inventory",
+          "vercel:check_dns"
+        ],
+        "top_1_score": 5.5,
+        "top_2_score": 2.930000066757202,
+        "confidence_ratio": 0.652431786055217,
+        "disposition": "confident",
+        "latency_ms": 2.4938583374023438,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "single_vercel",
+        "query": "hook up the new branded domain",
+        "expected": "vercel:add_domain",
+        "expected_multi": null,
+        "top_1": "linear:create_team",
+        "top_3": [
+          "linear:create_team",
+          "vercel:create_project",
+          "vercel:remove_domain"
+        ],
+        "top_5": [
+          "linear:create_team",
+          "vercel:create_project",
+          "vercel:remove_domain",
+          "vercel:add_domain",
+          "shopify:list_webhooks"
+        ],
+        "top_1_score": 3.5299999713897705,
+        "top_2_score": 3.5299999713897705,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 2.6750564575195312,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": true
+      },
+      {
+        "category": "single_vercel",
+        "query": "what did we ship in the last 24 hours",
+        "expected": "vercel:list_deployments",
+        "expected_multi": null,
+        "top_1": "shopify:create_fulfillment",
+        "top_3": [
+          "shopify:create_fulfillment"
+        ],
+        "top_5": [
+          "shopify:create_fulfillment"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 0.0,
+        "confidence_ratio": 1.0,
+        "disposition": "confident",
+        "latency_ms": 2.5916099548339844,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "single_vercel",
+        "query": "move the staging build to prod",
+        "expected": "vercel:promote",
+        "expected_multi": null,
+        "top_1": "vercel:remove_env_var",
+        "top_3": [
+          "vercel:remove_env_var",
+          "vercel:delete_project",
+          "linear:delete_issue"
+        ],
+        "top_5": [
+          "vercel:remove_env_var",
+          "vercel:delete_project",
+          "linear:delete_issue",
+          "stripe:delete_customer",
+          "vercel:remove_domain"
+        ],
+        "top_1_score": 1.1200000047683716,
+        "top_2_score": 1.1200000047683716,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 2.7964115142822266,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "cross_provider",
+        "query": "pull the stripe customer directory",
+        "expected": "stripe:list_customers",
+        "expected_multi": null,
+        "top_1": "stripe:list_customers",
+        "top_3": [
+          "stripe:list_customers",
+          "stripe:update_customer",
+          "stripe:create_customer"
+        ],
+        "top_5": [
+          "stripe:list_customers",
+          "stripe:update_customer",
+          "stripe:create_customer",
+          "stripe:delete_customer",
+          "stripe:get_balance"
+        ],
+        "top_1_score": 4.170000076293945,
+        "top_2_score": 1.690000057220459,
+        "confidence_ratio": 0.7116040923693769,
+        "disposition": "confident",
+        "latency_ms": 2.689838409423828,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "show me all the customers in our shopify store",
+        "expected": "shopify:list_customers",
+        "expected_multi": null,
+        "top_1": "stripe:list_customers",
+        "top_3": [
+          "stripe:list_customers",
+          "shopify:list_customers",
+          "vercel:list_projects"
+        ],
+        "top_5": [
+          "stripe:list_customers",
+          "shopify:list_customers",
+          "vercel:list_projects",
+          "linear:list_issues",
+          "shopify:create_discount"
+        ],
+        "top_1_score": 4.760000228881836,
+        "top_2_score": 2.9700000286102295,
+        "confidence_ratio": 0.615782674039157,
+        "disposition": "confident",
+        "latency_ms": 2.8717517852783203,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "onboard this customer into stripe",
+        "expected": "stripe:create_customer",
+        "expected_multi": null,
+        "top_1": "stripe:delete_customer",
+        "top_3": [
+          "stripe:delete_customer",
+          "stripe:create_customer",
+          "stripe:update_customer"
+        ],
+        "top_5": [
+          "stripe:delete_customer",
+          "stripe:create_customer",
+          "stripe:update_customer",
+          "stripe:create_product",
+          "stripe:get_balance"
+        ],
+        "top_1_score": 1.690000057220459,
+        "top_2_score": 1.690000057220459,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 2.819538116455078,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "add the buyer to our shopify database",
+        "expected": "shopify:create_customer",
+        "expected_multi": null,
+        "top_1": "shopify:update_customer",
+        "top_3": [
+          "shopify:update_customer",
+          "shopify:list_customers",
+          "shopify:create_customer"
+        ],
+        "top_5": [
+          "shopify:update_customer",
+          "shopify:list_customers",
+          "shopify:create_customer",
+          "shopify:create_product",
+          "shopify:list_products"
+        ],
+        "top_1_score": 2.559999942779541,
+        "top_2_score": 2.559999942779541,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 2.76947021484375,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "list the shopify catalog items",
+        "expected": "shopify:list_products",
+        "expected_multi": null,
+        "top_1": "shopify:list_products",
+        "top_3": [
+          "shopify:list_products",
+          "shopify:list_customers",
+          "shopify:list_orders"
+        ],
+        "top_5": [
+          "shopify:list_products",
+          "shopify:list_customers",
+          "shopify:list_orders",
+          "linear:list_issues",
+          "shopify:delete_product"
+        ],
+        "top_1_score": 4.260000228881836,
+        "top_2_score": 2.869999885559082,
+        "confidence_ratio": 0.5974754783318644,
+        "disposition": "confident",
+        "latency_ms": 3.0214786529541016,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "start a new linear project for infrastructure work",
+        "expected": "linear:create_project",
+        "expected_multi": null,
+        "top_1": "linear:create_project",
+        "top_3": [
+          "linear:create_project",
+          "linear:create_cycle",
+          "linear:create_issue"
+        ],
+        "top_5": [
+          "linear:create_project",
+          "linear:create_cycle",
+          "linear:create_issue",
+          "vercel:create_project",
+          "vercel:create_deployment"
+        ],
+        "top_1_score": 8.579999923706055,
+        "top_2_score": 3.75,
+        "confidence_ratio": 0.6958637450767433,
+        "disposition": "confident",
+        "latency_ms": 2.8922557830810547,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "spin up a vercel project for the blog",
+        "expected": "vercel:create_project",
+        "expected_multi": null,
+        "top_1": "vercel:create_project",
+        "top_3": [
+          "vercel:create_project",
+          "vercel:delete_project",
+          "linear:update_project"
+        ],
+        "top_5": [
+          "vercel:create_project",
+          "vercel:delete_project",
+          "linear:update_project",
+          "linear:create_project",
+          "vercel:update_project"
+        ],
+        "top_1_score": 4.889999866485596,
+        "top_2_score": 4.440000057220459,
+        "confidence_ratio": 0.524115745602621,
+        "disposition": "confident",
+        "latency_ms": 2.980947494506836,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "multi_cross_domain",
+        "query": "process the refund and open a linear ticket explaining it",
+        "expected": null,
+        "expected_multi": [
+          "stripe:create_refund",
+          "linear:create_issue"
+        ],
+        "top_1": "linear:create_issue",
+        "top_3": [
+          "linear:create_issue",
+          "stripe:create_refund",
+          "stripe:create_payment"
+        ],
+        "top_5": [
+          "linear:create_issue",
+          "stripe:create_refund",
+          "stripe:create_payment",
+          "stripe:list_refunds",
+          "linear:list_issues"
+        ],
+        "top_1_score": 3.2300000190734863,
+        "top_2_score": 2.490000009536743,
+        "confidence_ratio": 0.5646853151954038,
+        "disposition": "confident",
+        "latency_ms": 3.246784210205078,
+        "expected_multi_hit3": true,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "multi_cross_domain",
+        "query": "rollback the deployment and close the related bug",
+        "expected": null,
+        "expected_multi": [
+          "vercel:rollback",
+          "linear:update_issue"
+        ],
+        "top_1": "vercel:rollback",
+        "top_3": [
+          "vercel:rollback",
+          "linear:create_issue",
+          "shopify:close_order"
+        ],
+        "top_5": [
+          "vercel:rollback",
+          "linear:create_issue",
+          "shopify:close_order",
+          "vercel:cancel_deployment",
+          "vercel:create_deployment"
+        ],
+        "top_1_score": 4.789999961853027,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.7235649483992146,
+        "disposition": "confident",
+        "latency_ms": 3.620624542236328,
+        "expected_multi_hit3": false,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "multi_cross_domain",
+        "query": "cancel the shopify order and refund through stripe",
+        "expected": null,
+        "expected_multi": [
+          "shopify:cancel_order",
+          "stripe:create_refund"
+        ],
+        "top_1": "shopify:create_order",
+        "top_3": [
+          "shopify:create_order",
+          "shopify:cancel_order",
+          "stripe:create_refund"
+        ],
+        "top_5": [
+          "shopify:create_order",
+          "shopify:cancel_order",
+          "stripe:create_refund",
+          "shopify:get_order",
+          "shopify:update_order"
+        ],
+        "top_1_score": 4.53000020980835,
+        "top_2_score": 2.9700000286102295,
+        "confidence_ratio": 0.6040000087738034,
+        "disposition": "confident",
+        "latency_ms": 3.1592845916748047,
+        "expected_multi_hit3": true,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "multi_cross_domain",
+        "query": "ship the package and add a comment on the fulfillment ticket",
+        "expected": null,
+        "expected_multi": [
+          "shopify:create_fulfillment",
+          "linear:create_comment"
+        ],
+        "top_1": "linear:create_comment",
+        "top_3": [
+          "linear:create_comment",
+          "shopify:create_fulfillment",
+          "vercel:create_alias"
+        ],
+        "top_5": [
+          "linear:create_comment",
+          "shopify:create_fulfillment",
+          "vercel:create_alias",
+          "shopify:create_customer",
+          "shopify:create_collection"
+        ],
+        "top_1_score": 4.539999961853027,
+        "top_2_score": 3.6700000762939453,
+        "confidence_ratio": 0.5529841584358534,
+        "disposition": "confident",
+        "latency_ms": 3.1332969665527344,
+        "expected_multi_hit3": true,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "multi_cross_domain",
+        "query": "deploy the fix and assign the post-mortem to the on-call engineer",
+        "expected": null,
+        "expected_multi": [
+          "vercel:create_deployment",
+          "linear:assign_issue"
+        ],
+        "top_1": "linear:assign_issue",
+        "top_3": [
+          "linear:assign_issue",
+          "vercel:list_deployments",
+          "vercel:create_deployment"
+        ],
+        "top_5": [
+          "linear:assign_issue",
+          "vercel:list_deployments",
+          "vercel:create_deployment",
+          "vercel:get_deployment",
+          "vercel:cancel_deployment"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.2799999713897705,
+        "confidence_ratio": 0.5884244483915965,
+        "disposition": "confident",
+        "latency_ms": 3.2472610473632812,
+        "expected_multi_hit3": true,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "we need to create a few more customers before end of quarter",
+        "expected": null,
+        "expected_multi": [
+          "stripe:create_customer",
+          "shopify:create_customer"
+        ],
+        "top_1": "stripe:cancel_subscription",
+        "top_3": [
+          "stripe:cancel_subscription",
+          "stripe:list_customers",
+          "shopify:list_customers"
+        ],
+        "top_5": [
+          "stripe:cancel_subscription",
+          "stripe:list_customers",
+          "shopify:list_customers",
+          "stripe:create_customer",
+          "stripe:create_payout"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.559999942779541,
+        "confidence_ratio": 0.5398230237868952,
+        "disposition": "escalate",
+        "latency_ms": 3.0891895294189453,
+        "expected_multi_hit3": false,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "list the categories of shopify products",
+        "expected": "shopify:list_collections",
+        "expected_multi": null,
+        "top_1": "shopify:list_products",
+        "top_3": [
+          "shopify:list_products",
+          "shopify:list_collections",
+          "shopify:list_orders"
+        ],
+        "top_5": [
+          "shopify:list_products",
+          "shopify:list_collections",
+          "shopify:list_orders",
+          "shopify:list_customers",
+          "shopify:create_customer"
+        ],
+        "top_1_score": 5.139999866485596,
+        "top_2_score": 2.309999942779541,
+        "confidence_ratio": 0.689932885648302,
+        "disposition": "confident",
+        "latency_ms": 2.51007080078125,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "what label options are available for linear tickets",
+        "expected": "linear:list_labels",
+        "expected_multi": null,
+        "top_1": "linear:list_workflows",
+        "top_3": [
+          "linear:list_workflows",
+          "linear:create_label",
+          "shopify:list_themes"
+        ],
+        "top_5": [
+          "linear:list_workflows",
+          "linear:create_label",
+          "shopify:list_themes",
+          "linear:list_labels",
+          "linear:create_issue"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.8300000429153442,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 2.628803253173828,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "fetch the deploy logs, the cancellation seems off",
+        "expected": "vercel:get_logs",
+        "expected_multi": null,
+        "top_1": "vercel:get_logs",
+        "top_3": [
+          "vercel:get_logs",
+          "vercel:create_deployment",
+          "vercel:cancel_deployment"
+        ],
+        "top_5": [
+          "vercel:get_logs",
+          "vercel:create_deployment",
+          "vercel:cancel_deployment",
+          "vercel:get_deployment",
+          "vercel:list_deployments"
+        ],
+        "top_1_score": 2.930000066757202,
+        "top_2_score": 1.2799999713897705,
+        "confidence_ratio": 0.6959620048000852,
+        "disposition": "confident",
+        "latency_ms": 2.3086071014404297,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "update the project description on vercel",
+        "expected": "vercel:update_project",
+        "expected_multi": null,
+        "top_1": "linear:update_project",
+        "top_3": [
+          "linear:update_project",
+          "vercel:update_project",
+          "stripe:update_subscription"
+        ],
+        "top_5": [
+          "linear:update_project",
+          "vercel:update_project",
+          "stripe:update_subscription",
+          "vercel:delete_project",
+          "vercel:create_project"
+        ],
+        "top_1_score": 4.070000171661377,
+        "top_2_score": 4.070000171661377,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 2.7112960815429688,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "yo refund that stripe thing",
+        "expected": "stripe:create_refund",
+        "expected_multi": null,
+        "top_1": "stripe:create_refund",
+        "top_3": [
+          "stripe:create_refund",
+          "stripe:create_product",
+          "stripe:get_balance"
+        ],
+        "top_5": [
+          "stripe:create_refund",
+          "stripe:create_product",
+          "stripe:get_balance",
+          "stripe:list_refunds"
+        ],
+        "top_1_score": 2.490000009536743,
+        "top_2_score": 1.559999942779541,
+        "confidence_ratio": 0.6148148244082465,
+        "disposition": "confident",
+        "latency_ms": 2.451181411743164,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "kill the broken vercel deploy rn",
+        "expected": "vercel:cancel_deployment",
+        "expected_multi": null,
+        "top_1": "vercel:list_projects",
+        "top_3": [
+          "vercel:list_projects",
+          "vercel:delete_project",
+          "vercel:list_teams"
+        ],
+        "top_5": [
+          "vercel:list_projects",
+          "vercel:delete_project",
+          "vercel:list_teams",
+          "vercel:cancel_deployment",
+          "vercel:get_deployment"
+        ],
+        "top_1_score": 1.2799999713897705,
+        "top_2_score": 1.2799999713897705,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 2.7923583984375,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "whatz the balance on stripe",
+        "expected": "stripe:get_balance",
+        "expected_multi": null,
+        "top_1": "stripe:get_balance",
+        "top_3": [
+          "stripe:get_balance",
+          "stripe:create_product"
+        ],
+        "top_5": [
+          "stripe:get_balance",
+          "stripe:create_product"
+        ],
+        "top_1_score": 4.489999771118164,
+        "top_2_score": 1.559999942779541,
+        "confidence_ratio": 0.7421487575948144,
+        "disposition": "confident",
+        "latency_ms": 2.6977062225341797,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "creat a new linear ticket for the bug",
+        "expected": "linear:create_issue",
+        "expected_multi": null,
+        "top_1": "linear:create_issue",
+        "top_3": [
+          "linear:create_issue",
+          "stripe:create_customer",
+          "linear:create_project"
+        ],
+        "top_5": [
+          "linear:create_issue",
+          "stripe:create_customer",
+          "linear:create_project",
+          "linear:create_cycle",
+          "shopify:create_product"
+        ],
+        "top_1_score": 4.699999809265137,
+        "top_2_score": 3.859999895095825,
+        "confidence_ratio": 0.5490654172418584,
+        "disposition": "confident",
+        "latency_ms": 2.701282501220703,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "gimme today's shopify orders",
+        "expected": "shopify:list_orders",
+        "expected_multi": null,
+        "top_1": "shopify:list_orders",
+        "top_3": [
+          "shopify:list_orders",
+          "shopify:list_draft_orders",
+          "shopify:create_customer"
+        ],
+        "top_5": [
+          "shopify:list_orders",
+          "shopify:list_draft_orders",
+          "shopify:create_customer",
+          "shopify:create_order",
+          "shopify:list_products"
+        ],
+        "top_1_score": 5.329999923706055,
+        "top_2_score": 1.559999942779541,
+        "confidence_ratio": 0.7735849095777624,
+        "disposition": "confident",
+        "latency_ms": 2.8684139251708984,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "oos_negative",
+        "query": "what year did ww2 end",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": "stripe:cancel_subscription",
+        "top_3": [
+          "stripe:cancel_subscription"
+        ],
+        "top_5": [
+          "stripe:cancel_subscription"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 0.0,
+        "confidence_ratio": 1.0,
+        "disposition": "confident",
+        "latency_ms": 3.0634403228759766,
+        "oos_rejected": false
+      },
+      {
+        "category": "oos_negative",
+        "query": "play some relaxing music",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": null,
+        "top_3": [],
+        "top_5": [],
+        "top_1_score": 0.0,
+        "top_2_score": 0.0,
+        "confidence_ratio": 0.0,
+        "disposition": "no_match",
+        "latency_ms": 2.9098987579345703,
+        "oos_rejected": true
+      },
+      {
+        "category": "oos_negative",
+        "query": "set a timer for 10 minutes",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": "stripe:create_price",
+        "top_3": [
+          "stripe:create_price",
+          "stripe:create_coupon",
+          "shopify:create_discount"
+        ],
+        "top_5": [
+          "stripe:create_price",
+          "stripe:create_coupon",
+          "shopify:create_discount",
+          "linear:create_team",
+          "vercel:create_project"
+        ],
+        "top_1_score": 1.059999942779541,
+        "top_2_score": 1.059999942779541,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 2.986431121826172,
+        "oos_rejected": false
+      },
+      {
+        "category": "oos_negative",
+        "query": "is pluto a planet",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": "stripe:cancel_subscription",
+        "top_3": [
+          "stripe:cancel_subscription",
+          "stripe:create_subscription",
+          "stripe:update_subscription"
+        ],
+        "top_5": [
+          "stripe:cancel_subscription",
+          "stripe:create_subscription",
+          "stripe:update_subscription"
+        ],
+        "top_1_score": 1.3899999856948853,
+        "top_2_score": 1.3899999856948853,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 2.8138160705566406,
+        "oos_rejected": false
+      },
+      {
+        "category": "oos_negative",
+        "query": "tell me about the stock market today",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": "shopify:create_fulfillment",
+        "top_3": [
+          "shopify:create_fulfillment",
+          "shopify:adjust_inventory",
+          "shopify:list_inventory"
+        ],
+        "top_5": [
+          "shopify:create_fulfillment",
+          "shopify:adjust_inventory",
+          "shopify:list_inventory"
+        ],
+        "top_1_score": 1.8300000429153442,
+        "top_2_score": 1.559999942779541,
+        "confidence_ratio": 0.5398230237868952,
+        "disposition": "escalate",
+        "latency_ms": 3.1316280364990234,
+        "oos_rejected": false
+      }
+    ],
+    "total_time_s": 0.18579459190368652
+  }
+}

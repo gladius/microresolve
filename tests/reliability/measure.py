@@ -284,12 +284,13 @@ def main():
     parser.add_argument("--show-all", action="store_true")
     parser.add_argument("--only", default=None, help="only run queries in this category")
     parser.add_argument("--expand", action="store_true", help="apply equivalence-class expansion at query time")
+    parser.add_argument("--set", default="dev", choices=["dev", "validation"], help="which query set to run")
     args = parser.parse_args()
 
     if args.expand:
         load_equivalence(ROOT / "equivalence_classes.json")
 
-    dataset_path = ROOT / "dataset.json"
+    dataset_path = ROOT / ("validation.json" if args.set == "validation" else "dataset.json")
     dataset = json.loads(dataset_path.read_text())
 
     if args.only:

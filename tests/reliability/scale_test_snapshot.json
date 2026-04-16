@@ -1,0 +1,1189 @@
+[
+  {
+    "id": "linear:add_to_cycle",
+    "description": "add to cycle",
+    "phrases_by_lang": {
+      "en": [
+        "add issue to sprint",
+        "include in current cycle"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:archive_issue",
+    "description": "archive issue",
+    "phrases_by_lang": {
+      "en": [
+        "archive the issue",
+        "shelve this task"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:assign_issue",
+    "description": "assign issue",
+    "phrases_by_lang": {
+      "en": [
+        "assign issue to someone",
+        "delegate this task"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:create_comment",
+    "description": "create comment",
+    "phrases_by_lang": {
+      "en": [
+        "add a comment",
+        "post a note on issue"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:create_cycle",
+    "description": "create cycle",
+    "phrases_by_lang": {
+      "en": [
+        "create a sprint cycle",
+        "start new iteration"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:create_issue",
+    "description": "create issue",
+    "phrases_by_lang": {
+      "en": [
+        "create a linear issue",
+        "file a bug report",
+        "open a new task"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:create_label",
+    "description": "create label",
+    "phrases_by_lang": {
+      "en": [
+        "create a label",
+        "add a tag"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:create_milestone",
+    "description": "create milestone",
+    "phrases_by_lang": {
+      "en": [
+        "create a milestone",
+        "set a project goal"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:create_project",
+    "description": "create project",
+    "phrases_by_lang": {
+      "en": [
+        "create a linear project",
+        "start new project"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:create_team",
+    "description": "create team",
+    "phrases_by_lang": {
+      "en": [
+        "create a team",
+        "set up new team"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:create_view",
+    "description": "create view",
+    "phrases_by_lang": {
+      "en": [
+        "create a custom view",
+        "save a filter"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:delete_issue",
+    "description": "delete issue",
+    "phrases_by_lang": {
+      "en": [
+        "delete the issue",
+        "remove the task"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:get_issue",
+    "description": "get issue",
+    "phrases_by_lang": {
+      "en": [
+        "get issue details",
+        "look up specific task"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:list_comments",
+    "description": "list comments",
+    "phrases_by_lang": {
+      "en": [
+        "list comments on issue",
+        "show discussion thread"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:list_cycles",
+    "description": "list cycles",
+    "phrases_by_lang": {
+      "en": [
+        "list sprint cycles",
+        "show iterations"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:list_issues",
+    "description": "list issues",
+    "phrases_by_lang": {
+      "en": [
+        "list linear issues",
+        "show all tasks",
+        "get backlog items"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:list_labels",
+    "description": "list labels",
+    "phrases_by_lang": {
+      "en": [
+        "list all labels",
+        "show available tags"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:list_members",
+    "description": "list members",
+    "phrases_by_lang": {
+      "en": [
+        "list team members",
+        "show who is on team"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:list_projects",
+    "description": "list projects",
+    "phrases_by_lang": {
+      "en": [
+        "list all projects",
+        "show project directory"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:list_teams",
+    "description": "list teams",
+    "phrases_by_lang": {
+      "en": [
+        "list all teams",
+        "show team directory"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:list_workflows",
+    "description": "list workflows",
+    "phrases_by_lang": {
+      "en": [
+        "list workflow states",
+        "show status options"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:update_issue",
+    "description": "update issue",
+    "phrases_by_lang": {
+      "en": [
+        "update the issue",
+        "modify task details",
+        "change issue status"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:update_project",
+    "description": "update project",
+    "phrases_by_lang": {
+      "en": [
+        "update project details",
+        "modify project settings"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "linear:update_workflow",
+    "description": "update workflow",
+    "phrases_by_lang": {
+      "en": [
+        "update workflow state",
+        "change status flow"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:adjust_inventory",
+    "description": "adjust inventory",
+    "phrases_by_lang": {
+      "en": [
+        "adjust inventory count",
+        "update stock level"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:cancel_order",
+    "description": "cancel order",
+    "phrases_by_lang": {
+      "en": [
+        "cancel the order",
+        "void this order"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:close_order",
+    "description": "close order",
+    "phrases_by_lang": {
+      "en": [
+        "close the order",
+        "archive completed order"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:create_collection",
+    "description": "create collection",
+    "phrases_by_lang": {
+      "en": [
+        "create a collection",
+        "add product category"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:create_customer",
+    "description": "create customer",
+    "phrases_by_lang": {
+      "en": [
+        "create shopify customer",
+        "add new shopper"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:create_discount",
+    "description": "create discount",
+    "phrases_by_lang": {
+      "en": [
+        "create shopify discount",
+        "set up store promotion"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:create_draft_order",
+    "description": "create draft order",
+    "phrases_by_lang": {
+      "en": [
+        "create draft order",
+        "start a quote"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:create_fulfillment",
+    "description": "create fulfillment",
+    "phrases_by_lang": {
+      "en": [
+        "create fulfillment",
+        "ship the order",
+        "mark as shipped"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:create_order",
+    "description": "create order",
+    "phrases_by_lang": {
+      "en": [
+        "create a shopify order",
+        "place a new order"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:create_product",
+    "description": "create product",
+    "phrases_by_lang": {
+      "en": [
+        "create shopify product",
+        "add new merchandise"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:delete_product",
+    "description": "delete product",
+    "phrases_by_lang": {
+      "en": [
+        "delete the product",
+        "remove from catalog"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:get_order",
+    "description": "get order",
+    "phrases_by_lang": {
+      "en": [
+        "get order details",
+        "look up specific order"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:get_product",
+    "description": "get product",
+    "phrases_by_lang": {
+      "en": [
+        "get product details",
+        "look up product info"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:get_shop",
+    "description": "get shop",
+    "phrases_by_lang": {
+      "en": [
+        "get shop info",
+        "show store details"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:list_collections",
+    "description": "list collections",
+    "phrases_by_lang": {
+      "en": [
+        "list collections",
+        "show product categories"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:list_customers",
+    "description": "list customers",
+    "phrases_by_lang": {
+      "en": [
+        "list shopify customers",
+        "show buyer directory"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:list_draft_orders",
+    "description": "list draft orders",
+    "phrases_by_lang": {
+      "en": [
+        "list draft orders",
+        "show pending drafts"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:list_inventory",
+    "description": "list inventory",
+    "phrases_by_lang": {
+      "en": [
+        "check inventory levels",
+        "show stock counts"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:list_orders",
+    "description": "list orders",
+    "phrases_by_lang": {
+      "en": [
+        "list shopify orders",
+        "show recent orders"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:list_products",
+    "description": "list products",
+    "phrases_by_lang": {
+      "en": [
+        "list shopify products",
+        "show product catalog"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:list_themes",
+    "description": "list themes",
+    "phrases_by_lang": {
+      "en": [
+        "list store themes",
+        "show available designs"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:list_webhooks",
+    "description": "list webhooks",
+    "phrases_by_lang": {
+      "en": [
+        "list webhooks",
+        "show notification hooks"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:update_customer",
+    "description": "update customer",
+    "phrases_by_lang": {
+      "en": [
+        "update shopify customer",
+        "modify buyer details"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:update_order",
+    "description": "update order",
+    "phrases_by_lang": {
+      "en": [
+        "update order details",
+        "modify the order"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "shopify:update_product",
+    "description": "update product",
+    "phrases_by_lang": {
+      "en": [
+        "update product details",
+        "modify product listing"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:cancel_payment",
+    "description": "cancel payment",
+    "phrases_by_lang": {
+      "en": [
+        "cancel the payment intent",
+        "void the pending charge"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:cancel_subscription",
+    "description": "cancel subscription",
+    "phrases_by_lang": {
+      "en": [
+        "cancel the subscription",
+        "end recurring billing",
+        "stop the plan"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:capture_payment",
+    "description": "capture payment",
+    "phrases_by_lang": {
+      "en": [
+        "capture the authorized payment",
+        "settle the charge"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:confirm_payment",
+    "description": "confirm payment",
+    "phrases_by_lang": {
+      "en": [
+        "confirm the payment",
+        "finalize the charge",
+        "complete the transaction"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:create_coupon",
+    "description": "create coupon",
+    "phrases_by_lang": {
+      "en": [
+        "create a coupon code",
+        "set up a discount"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:create_customer",
+    "description": "create customer",
+    "phrases_by_lang": {
+      "en": [
+        "create a new customer",
+        "add customer record",
+        "register new client"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:create_invoice",
+    "description": "create invoice",
+    "phrases_by_lang": {
+      "en": [
+        "create an invoice",
+        "generate a bill"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:create_payment",
+    "description": "create payment",
+    "phrases_by_lang": {
+      "en": [
+        "create a payment",
+        "charge the customer",
+        "process a payment"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:create_payout",
+    "description": "create payout",
+    "phrases_by_lang": {
+      "en": [
+        "create a payout",
+        "transfer to bank",
+        "withdraw funds"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:create_price",
+    "description": "create price",
+    "phrases_by_lang": {
+      "en": [
+        "create a price",
+        "set product pricing"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:create_product",
+    "description": "create product",
+    "phrases_by_lang": {
+      "en": [
+        "create a product in stripe",
+        "add product to catalog"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:create_refund",
+    "description": "create refund",
+    "phrases_by_lang": {
+      "en": [
+        "refund the payment",
+        "issue a refund",
+        "return the money"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:create_subscription",
+    "description": "create subscription",
+    "phrases_by_lang": {
+      "en": [
+        "create a subscription",
+        "start recurring billing",
+        "enroll in plan"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:delete_customer",
+    "description": "delete customer",
+    "phrases_by_lang": {
+      "en": [
+        "delete the customer",
+        "remove customer record"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:get_balance",
+    "description": "get balance",
+    "phrases_by_lang": {
+      "en": [
+        "check stripe balance",
+        "show account balance"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:list_charges",
+    "description": "list charges",
+    "phrases_by_lang": {
+      "en": [
+        "list all charges",
+        "show charge history"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:list_customers",
+    "description": "list customers",
+    "phrases_by_lang": {
+      "en": [
+        "list all customers",
+        "show customer directory"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:list_disputes",
+    "description": "list disputes",
+    "phrases_by_lang": {
+      "en": [
+        "list disputes",
+        "show chargebacks"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:list_invoices",
+    "description": "list invoices",
+    "phrases_by_lang": {
+      "en": [
+        "list all invoices",
+        "show billing history"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:list_payouts",
+    "description": "list payouts",
+    "phrases_by_lang": {
+      "en": [
+        "list payouts",
+        "show withdrawal history"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:list_refunds",
+    "description": "list refunds",
+    "phrases_by_lang": {
+      "en": [
+        "list all refunds",
+        "show refund history"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:list_subscriptions",
+    "description": "list subscriptions",
+    "phrases_by_lang": {
+      "en": [
+        "list subscriptions",
+        "show active plans"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:pay_invoice",
+    "description": "pay invoice",
+    "phrases_by_lang": {
+      "en": [
+        "pay the invoice",
+        "settle the bill"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:update_customer",
+    "description": "update customer",
+    "phrases_by_lang": {
+      "en": [
+        "update customer details",
+        "modify customer info"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "stripe:update_subscription",
+    "description": "update subscription",
+    "phrases_by_lang": {
+      "en": [
+        "update the subscription",
+        "change subscription plan"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:add_domain",
+    "description": "add domain",
+    "phrases_by_lang": {
+      "en": [
+        "add a domain",
+        "configure custom domain"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:add_env_var",
+    "description": "add env var",
+    "phrases_by_lang": {
+      "en": [
+        "add environment variable",
+        "set a secret"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:cancel_deployment",
+    "description": "cancel deployment",
+    "phrases_by_lang": {
+      "en": [
+        "cancel the deployment",
+        "abort the deploy"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:check_dns",
+    "description": "check dns",
+    "phrases_by_lang": {
+      "en": [
+        "check DNS configuration",
+        "verify domain DNS"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:create_alias",
+    "description": "create alias",
+    "phrases_by_lang": {
+      "en": [
+        "create an alias",
+        "add URL mapping"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:create_deployment",
+    "description": "create deployment",
+    "phrases_by_lang": {
+      "en": [
+        "deploy the project",
+        "trigger a new deployment"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:create_project",
+    "description": "create project",
+    "phrases_by_lang": {
+      "en": [
+        "create vercel project",
+        "set up new site"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:delete_project",
+    "description": "delete project",
+    "phrases_by_lang": {
+      "en": [
+        "delete the project",
+        "remove vercel project"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:get_deployment",
+    "description": "get deployment",
+    "phrases_by_lang": {
+      "en": [
+        "get deployment details",
+        "check deploy status"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:get_logs",
+    "description": "get logs",
+    "phrases_by_lang": {
+      "en": [
+        "get deployment logs",
+        "show runtime logs"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:get_usage",
+    "description": "get usage",
+    "phrases_by_lang": {
+      "en": [
+        "get usage stats",
+        "show bandwidth consumption"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:list_aliases",
+    "description": "list aliases",
+    "phrases_by_lang": {
+      "en": [
+        "list deployment aliases",
+        "show URL mappings"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:list_certs",
+    "description": "list certs",
+    "phrases_by_lang": {
+      "en": [
+        "list SSL certificates",
+        "show cert status"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:list_deployments",
+    "description": "list deployments",
+    "phrases_by_lang": {
+      "en": [
+        "list deployments",
+        "show deploy history"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:list_domains",
+    "description": "list domains",
+    "phrases_by_lang": {
+      "en": [
+        "list domains",
+        "show configured domains"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:list_edge_config",
+    "description": "list edge config",
+    "phrases_by_lang": {
+      "en": [
+        "list edge configs",
+        "show edge configuration"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:list_env_vars",
+    "description": "list env vars",
+    "phrases_by_lang": {
+      "en": [
+        "list environment variables",
+        "show env config"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:list_projects",
+    "description": "list projects",
+    "phrases_by_lang": {
+      "en": [
+        "list vercel projects",
+        "show all hosted projects"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:list_teams",
+    "description": "list teams",
+    "phrases_by_lang": {
+      "en": [
+        "list vercel teams",
+        "show team accounts"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:promote",
+    "description": "promote",
+    "phrases_by_lang": {
+      "en": [
+        "promote to production",
+        "make this the live version"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:remove_domain",
+    "description": "remove domain",
+    "phrases_by_lang": {
+      "en": [
+        "remove the domain",
+        "delete domain mapping"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:remove_env_var",
+    "description": "remove env var",
+    "phrases_by_lang": {
+      "en": [
+        "remove environment variable",
+        "delete the secret"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:rollback",
+    "description": "rollback",
+    "phrases_by_lang": {
+      "en": [
+        "rollback deployment",
+        "revert to previous version"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  },
+  {
+    "id": "vercel:update_project",
+    "description": "update project",
+    "phrases_by_lang": {
+      "en": [
+        "update project settings",
+        "modify project config"
+      ]
+    },
+    "intent_type": "action",
+    "metadata": {}
+  }
+]

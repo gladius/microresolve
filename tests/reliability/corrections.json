@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "purpose": "Corrections used in the warm-learning phase. Feed via /api/correct to train ASV. Disjoint from dev and validation sets.",
+    "namespace": "scale-test"
+  },
+  "corrections": [
+    { "query": "get the money back for that order", "correct": "stripe:create_refund" },
+    { "query": "I need to cancel their recurring charge", "correct": "stripe:cancel_subscription" },
+    { "query": "give me a list of who signed up this month", "correct": "stripe:list_customers" },
+    { "query": "add this new client to stripe", "correct": "stripe:create_customer" },
+    { "query": "bill this one on a monthly schedule", "correct": "stripe:create_subscription" },
+    { "query": "we owe them money, send it", "correct": "stripe:create_refund" },
+    { "query": "draw up an invoice for the consulting work", "correct": "stripe:create_invoice" },
+    { "query": "move the balance out of stripe", "correct": "stripe:create_payout" },
+
+    { "query": "the buyer wants their money back", "correct": "shopify:update_order" },
+    { "query": "the tshirt drop goes live next monday, list it", "correct": "shopify:create_product" },
+    { "query": "how many orders did we get today", "correct": "shopify:list_orders" },
+    { "query": "we're almost out of mediums", "correct": "shopify:adjust_inventory" },
+    { "query": "box it up and ship it", "correct": "shopify:create_fulfillment" },
+    { "query": "make a 15 off code for the holiday sale", "correct": "shopify:create_discount" },
+    { "query": "pull the contact info for this customer", "correct": "shopify:get_order" },
+    { "query": "add a new person to the shopify contacts", "correct": "shopify:create_customer" },
+
+    { "query": "log a new bug for the UI regression", "correct": "linear:create_issue" },
+    { "query": "put emma on this one", "correct": "linear:assign_issue" },
+    { "query": "what's currently active in the sprint", "correct": "linear:list_issues" },
+    { "query": "open a new initiative for mobile rework", "correct": "linear:create_project" },
+    { "query": "leave a note on the ticket about the workaround", "correct": "linear:create_comment" },
+    { "query": "flag this as a P0", "correct": "linear:create_label" },
+    { "query": "close out this completed ticket", "correct": "linear:update_issue" },
+    { "query": "who's currently on the ios team", "correct": "linear:list_teams" },
+
+    { "query": "ship the latest main to prod", "correct": "vercel:create_deployment" },
+    { "query": "this deploy is busted, revert it", "correct": "vercel:rollback" },
+    { "query": "show me what's failing in the latest build", "correct": "vercel:get_logs" },
+    { "query": "store the new api token as an env var", "correct": "vercel:add_env_var" },
+    { "query": "how much bandwidth did we use this month", "correct": "vercel:get_usage" },
+    { "query": "attach the new marketing domain", "correct": "vercel:add_domain" },
+    { "query": "push the preview live to prod", "correct": "vercel:promote" }
+  ]
+}

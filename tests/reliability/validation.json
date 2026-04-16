@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "purpose": "Held-out validation queries. Never used to design interventions. Tests whether improvements generalize.",
+    "disjoint_from": "dataset.json",
+    "namespace": "scale-test"
+  },
+  "queries": [
+    { "category": "single_stripe", "query": "need to reverse that last payment", "expected": "stripe:create_refund" },
+    { "category": "single_stripe", "query": "send them a receipt for september", "expected": "stripe:create_invoice" },
+    { "category": "single_stripe", "query": "stop charging this customer going forward", "expected": "stripe:cancel_subscription" },
+    { "category": "single_stripe", "query": "transfer the proceeds to our account", "expected": "stripe:create_payout" },
+    { "category": "single_stripe", "query": "onboard the new enterprise account", "expected": "stripe:create_customer" },
+    { "category": "single_stripe", "query": "charge their card for the annual plan", "expected": "stripe:create_payment" },
+    { "category": "single_stripe", "query": "which customers are paying us right now", "expected": "stripe:list_customers" },
+    { "category": "single_stripe", "query": "grab the list of failed charges from this week", "expected": "stripe:list_charges" },
+
+    { "category": "single_shopify", "query": "customer returned the item, issue the money back", "expected": "shopify:update_order" },
+    { "category": "single_shopify", "query": "we sold out of the limited edition hat", "expected": "shopify:adjust_inventory" },
+    { "category": "single_shopify", "query": "show me every order placed yesterday", "expected": "shopify:list_orders" },
+    { "category": "single_shopify", "query": "get the summer sneaker ready for launch", "expected": "shopify:create_product" },
+    { "category": "single_shopify", "query": "package the order and hand it to the carrier", "expected": "shopify:create_fulfillment" },
+    { "category": "single_shopify", "query": "the customer changed their mailing address", "expected": "shopify:update_customer" },
+    { "category": "single_shopify", "query": "pull the buyer directory", "expected": "shopify:list_customers" },
+    { "category": "single_shopify", "query": "make a coupon for the black friday sale", "expected": "shopify:create_discount" },
+
+    { "category": "single_linear", "query": "write up a bug for the broken signup flow", "expected": "linear:create_issue" },
+    { "category": "single_linear", "query": "hand this ticket to the payments team", "expected": "linear:assign_issue" },
+    { "category": "single_linear", "query": "pull up the open tickets for this sprint", "expected": "linear:list_issues" },
+    { "category": "single_linear", "query": "start a fresh project for the authentication rebuild", "expected": "linear:create_project" },
+    { "category": "single_linear", "query": "add a note with the reproduction steps", "expected": "linear:create_comment" },
+    { "category": "single_linear", "query": "tag this as critical priority", "expected": "linear:create_label" },
+    { "category": "single_linear", "query": "mark this ticket as resolved", "expected": "linear:update_issue" },
+    { "category": "single_linear", "query": "who's on the platform team right now", "expected": "linear:list_teams" },
+
+    { "category": "single_vercel", "query": "push the code to production now", "expected": "vercel:create_deployment" },
+    { "category": "single_vercel", "query": "undo the last deploy, it's broken", "expected": "vercel:rollback" },
+    { "category": "single_vercel", "query": "stream the current build logs", "expected": "vercel:get_logs" },
+    { "category": "single_vercel", "query": "plug in the new api credentials", "expected": "vercel:add_env_var" },
+    { "category": "single_vercel", "query": "check our edge bandwidth consumption", "expected": "vercel:get_usage" },
+    { "category": "single_vercel", "query": "hook up the new branded domain", "expected": "vercel:add_domain" },
+    { "category": "single_vercel", "query": "what did we ship in the last 24 hours", "expected": "vercel:list_deployments" },
+    { "category": "single_vercel", "query": "move the staging build to prod", "expected": "vercel:promote" },
+
+    { "category": "cross_provider", "query": "pull the stripe customer directory", "expected": "stripe:list_customers" },
+    { "category": "cross_provider", "query": "show me all the customers in our shopify store", "expected": "shopify:list_customers" },
+    { "category": "cross_provider", "query": "onboard this customer into stripe", "expected": "stripe:create_customer" },
+    { "category": "cross_provider", "query": "add the buyer to our shopify database", "expected": "shopify:create_customer" },
+    { "category": "cross_provider", "query": "list the shopify catalog items", "expected": "shopify:list_products" },
+    { "category": "cross_provider", "query": "start a new linear project for infrastructure work", "expected": "linear:create_project" },
+    { "category": "cross_provider", "query": "spin up a vercel project for the blog", "expected": "vercel:create_project" },
+
+    { "category": "multi_cross_domain", "query": "process the refund and open a linear ticket explaining it", "expected_multi": ["stripe:create_refund", "linear:create_issue"] },
+    { "category": "multi_cross_domain", "query": "rollback the deployment and close the related bug", "expected_multi": ["vercel:rollback", "linear:update_issue"] },
+    { "category": "multi_cross_domain", "query": "cancel the shopify order and refund through stripe", "expected_multi": ["shopify:cancel_order", "stripe:create_refund"] },
+    { "category": "multi_cross_domain", "query": "ship the package and add a comment on the fulfillment ticket", "expected_multi": ["shopify:create_fulfillment", "linear:create_comment"] },
+    { "category": "multi_cross_domain", "query": "deploy the fix and assign the post-mortem to the on-call engineer", "expected_multi": ["vercel:create_deployment", "linear:assign_issue"] },
+
+    { "category": "false_pos_bait", "query": "we need to create a few more customers before end of quarter", "expected_multi": ["stripe:create_customer", "shopify:create_customer"] },
+    { "category": "false_pos_bait", "query": "list the categories of shopify products", "expected": "shopify:list_collections" },
+    { "category": "false_pos_bait", "query": "what label options are available for linear tickets", "expected": "linear:list_labels" },
+    { "category": "false_pos_bait", "query": "fetch the deploy logs, the cancellation seems off", "expected": "vercel:get_logs" },
+    { "category": "false_pos_bait", "query": "update the project description on vercel", "expected": "vercel:update_project" },
+
+    { "category": "informal_oov", "query": "yo refund that stripe thing", "expected": "stripe:create_refund" },
+    { "category": "informal_oov", "query": "kill the broken vercel deploy rn", "expected": "vercel:cancel_deployment" },
+    { "category": "informal_oov", "query": "whatz the balance on stripe", "expected": "stripe:get_balance" },
+    { "category": "informal_oov", "query": "creat a new linear ticket for the bug", "expected": "linear:create_issue" },
+    { "category": "informal_oov", "query": "gimme today's shopify orders", "expected": "shopify:list_orders" },
+
+    { "category": "oos_negative", "query": "what year did ww2 end", "expected": null },
+    { "category": "oos_negative", "query": "play some relaxing music", "expected": null },
+    { "category": "oos_negative", "query": "set a timer for 10 minutes", "expected": null },
+    { "category": "oos_negative", "query": "is pluto a planet", "expected": null },
+    { "category": "oos_negative", "query": "tell me about the stock market today", "expected": null }
+  ]
+}
