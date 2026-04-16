@@ -192,9 +192,9 @@ function IntentListItem({
 type DetailTab = 'definition' | 'phrases' | 'stats';
 
 function IntentDetailPanel({
-  intent, allIntentIds, onRefresh, onDeleted,
+  intent, onRefresh, onDeleted,
 }: {
-  intent: IntentInfo; allIntentIds: string[]; onRefresh: () => void; onDeleted: () => void;
+  intent: IntentInfo; allIntentIds?: string[]; onRefresh: () => void; onDeleted: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<DetailTab>('definition');
   const [phraseSearch, setPhraseSearch] = useState('');
@@ -780,81 +780,6 @@ function StatsTab({ intent }: { intent: IntentInfo }) {
             </div>
           );
         })}
-      </div>
-    </div>
-  );
-}
-
-// --- Metadata list editor with autocomplete ---
-
-function MetadataListEditor({
-  label, description, values, availableIds, onChange,
-}: {
-  label: string;
-  description: string;
-  values: string[];
-  availableIds: string[];
-  onChange: (values: string[]) => void;
-}) {
-  const [inputValue, setInputValue] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
-  const filtered = availableIds.filter(id =>
-    id.toLowerCase().includes(inputValue.toLowerCase()) && !values.includes(id)
-  );
-
-  const addValue = (v: string) => {
-    if (v && !values.includes(v)) {
-      onChange([...values, v]);
-    }
-    setInputValue('');
-    setShowSuggestions(false);
-  };
-
-  const removeValue = (index: number) => {
-    onChange(values.filter((_, i) => i !== index));
-  };
-
-  return (
-    <div>
-      <div className="text-[11px] text-zinc-400 font-semibold mb-1">{label}</div>
-      <div className="text-[10px] text-zinc-600 mb-2">{description}</div>
-
-      {values.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {values.map((v, i) => (
-            <span key={i} className="inline-flex items-center gap-1 text-xs font-mono text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded">
-              {v}
-              <button onClick={() => removeValue(i)} className="text-cyan-400/50 hover:text-red-400 ml-0.5">×</button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="relative">
-        <input
-          value={inputValue}
-          onChange={e => { setInputValue(e.target.value); setShowSuggestions(true); }}
-          onFocus={() => setShowSuggestions(true)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          onKeyDown={e => { if (e.key === 'Enter' && inputValue.trim()) addValue(inputValue.trim()); }}
-          placeholder="Type intent ID..."
-          autoComplete="off"
-          className="w-full max-w-sm bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-white font-mono focus:border-violet-500 focus:outline-none"
-        />
-        {showSuggestions && filtered.length > 0 && (
-          <div className="absolute top-full left-0 w-full max-w-sm mt-1 bg-zinc-800 border border-zinc-700 rounded shadow-xl z-10 max-h-32 overflow-y-auto">
-            {filtered.map(id => (
-              <div
-                key={id}
-                onMouseDown={() => addValue(id)}
-                className="px-2.5 py-1.5 text-sm text-zinc-300 font-mono hover:bg-zinc-700 cursor-pointer"
-              >
-                {id}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

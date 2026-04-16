@@ -315,7 +315,7 @@ export const api = {
     correct_intents: string[] = [],
     wrong_detections: string[] = [],
   ) =>
-    post<{ status: string; added: number; auto_resolved: number }>(
+    post<{ status: string; added: number; auto_resolved: number; resolved_count?: number; blocked?: { phrase: string; reason?: string }[] }>(
       '/review/fix', { id, phrases_by_intent, correct_intents, wrong_detections }
     ),
   // Review analysis (full 3-turn review in one call)

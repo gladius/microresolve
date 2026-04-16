@@ -1039,8 +1039,8 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
     if (Object.keys(toApply).length === 0) return;
     const result = await api.reviewFix(item.id, toApply);
     const msgs = [`Applied ${result.added} phrases.`];
-    if (result.resolved_count > 0) msgs.push(`${result.resolved_count} failures resolved.`);
-    if (result.blocked.length > 0) msgs.push(`Blocked: ${result.blocked.map((b: any) => `"${b.phrase}"`).join(', ')}`);
+    if ((result.resolved_count ?? 0) > 0) msgs.push(`${result.resolved_count} failures resolved.`);
+    if ((result.blocked ?? []).length > 0) msgs.push(`Blocked: ${result.blocked!.map(b => `"${b.phrase}"`).join(', ')}`);
     alert(msgs.join(' '));
     onFixed();
   };
