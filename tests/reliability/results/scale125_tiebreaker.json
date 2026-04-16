@@ -1,0 +1,4109 @@
+{
+  "summary": {
+    "namespace": "bench_scale125",
+    "total_queries": 151,
+    "by_category": {
+      "cross_provider": {
+        "n": 6,
+        "hit_1": 5,
+        "hit_3": 6,
+        "hit_5": 6,
+        "top_1_pct": 83.3,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.4
+      },
+      "false_pos_bait": {
+        "n": 6,
+        "multi_hit3": 5,
+        "multi_partial3": 5,
+        "multi_hit3_pct": 83.3,
+        "multi_partial3_pct": 83.3,
+        "avg_latency_ms": 3.3
+      },
+      "informal_oov": {
+        "n": 6,
+        "hit_1": 5,
+        "hit_3": 5,
+        "hit_5": 5,
+        "top_1_pct": 83.3,
+        "top_3_pct": 83.3,
+        "top_5_pct": 83.3,
+        "avg_latency_ms": 4.5
+      },
+      "linear": {
+        "n": 25,
+        "hit_1": 21,
+        "hit_3": 24,
+        "hit_5": 24,
+        "top_1_pct": 84.0,
+        "top_3_pct": 96.0,
+        "top_5_pct": 96.0,
+        "avg_latency_ms": 5.3
+      },
+      "notion": {
+        "n": 25,
+        "hit_1": 22,
+        "hit_3": 24,
+        "hit_5": 25,
+        "top_1_pct": 88.0,
+        "top_3_pct": 96.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 4.4
+      },
+      "oos_negative": {
+        "n": 8,
+        "oos_rejected": 3,
+        "oos_rejection_pct": 37.5,
+        "avg_latency_ms": 4.1
+      },
+      "shopify": {
+        "n": 25,
+        "hit_1": 21,
+        "hit_3": 22,
+        "hit_5": 22,
+        "top_1_pct": 84.0,
+        "top_3_pct": 88.0,
+        "top_5_pct": 88.0,
+        "avg_latency_ms": 4.5
+      },
+      "stripe": {
+        "n": 25,
+        "hit_1": 23,
+        "hit_3": 25,
+        "hit_5": 25,
+        "top_1_pct": 92.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 4.4
+      },
+      "twilio": {
+        "n": 25,
+        "hit_1": 24,
+        "hit_3": 25,
+        "hit_5": 25,
+        "top_1_pct": 96.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 5.1
+      }
+    },
+    "overall_top_1_pct": 88.3,
+    "overall_top_3_pct": 95.6,
+    "overall_top_5_pct": 96.4,
+    "overall_multi_hit3_pct": 83.3,
+    "overall_multi_partial3_pct": 83.3,
+    "overall_oos_rejection_pct": 37.5,
+    "avg_latency_ms": 4.57
+  },
+  "run": {
+    "namespace": "bench_scale125",
+    "results": [
+      {
+        "category": "stripe",
+        "query": "send the customer their money back",
+        "expected": "stripe:create_refund",
+        "expected_multi": null,
+        "top_1": "stripe:create_refund",
+        "top_3": [
+          "stripe:create_refund",
+          "stripe:create_invoice",
+          "stripe:create_payout"
+        ],
+        "top_5": [
+          "stripe:create_refund",
+          "stripe:create_invoice",
+          "stripe:create_payout",
+          "stripe:cancel_subscription",
+          "twilio:send_sms"
+        ],
+        "top_1_score": 17.989999771118164,
+        "top_2_score": 5.0,
+        "confidence_ratio": 0.7825141344158955,
+        "disposition": "confident",
+        "latency_ms": 5.392313003540039,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "onboard this enterprise account",
+        "expected": "stripe:create_customer",
+        "expected_multi": null,
+        "top_1": "stripe:create_customer",
+        "top_3": [
+          "stripe:create_customer",
+          "notion:create_user",
+          "twilio:get_account_balance"
+        ],
+        "top_5": [
+          "stripe:create_customer",
+          "notion:create_user",
+          "twilio:get_account_balance",
+          "stripe:delete_customer",
+          "stripe:get_balance"
+        ],
+        "top_1_score": 4.699999809265137,
+        "top_2_score": 2.700000047683716,
+        "confidence_ratio": 0.6351351216381006,
+        "disposition": "confident",
+        "latency_ms": 5.57708740234375,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "who's currently paying us",
+        "expected": "stripe:list_customers",
+        "expected_multi": null,
+        "top_1": "stripe:list_customers",
+        "top_3": [
+          "stripe:list_customers",
+          "shopify:list_customers",
+          "linear:list_members"
+        ],
+        "top_5": [
+          "stripe:list_customers",
+          "shopify:list_customers",
+          "linear:list_members",
+          "linear:add_to_cycle",
+          "linear:list_issues"
+        ],
+        "top_1_score": 4.730000019073486,
+        "top_2_score": 2.7899999618530273,
+        "confidence_ratio": 0.6289893658338439,
+        "disposition": "confident",
+        "latency_ms": 3.1707286834716797,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "change this customer's billing details",
+        "expected": "stripe:update_customer",
+        "expected_multi": null,
+        "top_1": "stripe:update_customer",
+        "top_3": [
+          "stripe:update_customer",
+          "shopify:update_customer",
+          "stripe:update_subscription"
+        ],
+        "top_5": [
+          "stripe:update_customer",
+          "shopify:update_customer",
+          "stripe:update_subscription",
+          "stripe:create_customer",
+          "stripe:create_invoice"
+        ],
+        "top_1_score": 11.680000305175781,
+        "top_2_score": 6.539999961853027,
+        "confidence_ratio": 0.6410537944015341,
+        "disposition": "confident",
+        "latency_ms": 3.2815933227539062,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "remove this customer from stripe entirely",
+        "expected": "stripe:delete_customer",
+        "expected_multi": null,
+        "top_1": "stripe:delete_customer",
+        "top_3": [
+          "stripe:delete_customer",
+          "stripe:create_customer",
+          "stripe:list_customers"
+        ],
+        "top_5": [
+          "stripe:delete_customer",
+          "stripe:create_customer",
+          "stripe:list_customers",
+          "stripe:create_product",
+          "stripe:get_balance"
+        ],
+        "top_1_score": 11.010000228881836,
+        "top_2_score": 5.369999885559082,
+        "confidence_ratio": 0.6721611814382841,
+        "disposition": "confident",
+        "latency_ms": 3.281116485595703,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "draft a bill for consulting services",
+        "expected": "stripe:create_invoice",
+        "expected_multi": null,
+        "top_1": "stripe:create_invoice",
+        "top_3": [
+          "stripe:create_invoice",
+          "shopify:create_draft_order",
+          "shopify:list_draft_orders"
+        ],
+        "top_5": [
+          "stripe:create_invoice",
+          "shopify:create_draft_order",
+          "shopify:list_draft_orders",
+          "stripe:create_subscription",
+          "stripe:pay_invoice"
+        ],
+        "top_1_score": 6.739999771118164,
+        "top_2_score": 3.740000009536743,
+        "confidence_ratio": 0.6431297626131223,
+        "disposition": "confident",
+        "latency_ms": 3.3202171325683594,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "they finally paid the invoice",
+        "expected": "stripe:pay_invoice",
+        "expected_multi": null,
+        "top_1": "stripe:pay_invoice",
+        "top_3": [
+          "stripe:pay_invoice",
+          "stripe:create_invoice",
+          "stripe:list_invoices"
+        ],
+        "top_5": [
+          "stripe:pay_invoice",
+          "stripe:create_invoice",
+          "stripe:list_invoices",
+          "stripe:list_customers"
+        ],
+        "top_1_score": 5.440000057220459,
+        "top_2_score": 3.6600000858306885,
+        "confidence_ratio": 0.5978021946927659,
+        "disposition": "confident",
+        "latency_ms": 3.551006317138672,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "pull up invoices from last month",
+        "expected": "stripe:list_invoices",
+        "expected_multi": null,
+        "top_1": "stripe:list_invoices",
+        "top_3": [
+          "stripe:list_invoices",
+          "stripe:list_customers",
+          "stripe:list_charges"
+        ],
+        "top_5": [
+          "stripe:list_invoices",
+          "stripe:list_customers",
+          "stripe:list_charges",
+          "shopify:get_product",
+          "linear:list_issues"
+        ],
+        "top_1_score": 6.670000076293945,
+        "top_2_score": 2.380000114440918,
+        "confidence_ratio": 0.7370165674827835,
+        "disposition": "confident",
+        "latency_ms": 4.052162170410156,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "they're done, end the recurring charges",
+        "expected": "stripe:cancel_subscription",
+        "expected_multi": null,
+        "top_1": "stripe:cancel_subscription",
+        "top_3": [
+          "stripe:cancel_subscription",
+          "stripe:list_charges",
+          "stripe:create_subscription"
+        ],
+        "top_5": [
+          "stripe:cancel_subscription",
+          "stripe:list_charges",
+          "stripe:create_subscription",
+          "notion:append_block",
+          "stripe:update_subscription"
+        ],
+        "top_1_score": 8.930000305175781,
+        "top_2_score": 4.070000171661377,
+        "confidence_ratio": 0.6869230752019487,
+        "disposition": "confident",
+        "latency_ms": 4.297733306884766,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "enroll this customer in monthly billing",
+        "expected": "stripe:create_subscription",
+        "expected_multi": null,
+        "top_1": "stripe:create_subscription",
+        "top_3": [
+          "stripe:create_subscription",
+          "stripe:cancel_subscription",
+          "stripe:update_customer"
+        ],
+        "top_5": [
+          "stripe:create_subscription",
+          "stripe:cancel_subscription",
+          "stripe:update_customer",
+          "stripe:create_customer",
+          "stripe:create_invoice"
+        ],
+        "top_1_score": 9.119999885559082,
+        "top_2_score": 4.960000038146973,
+        "confidence_ratio": 0.6477272681091443,
+        "disposition": "confident",
+        "latency_ms": 4.558563232421875,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "upgrade them to the pro plan",
+        "expected": "stripe:update_subscription",
+        "expected_multi": null,
+        "top_1": "stripe:update_subscription",
+        "top_3": [
+          "stripe:update_subscription",
+          "shopify:list_themes",
+          "stripe:cancel_subscription"
+        ],
+        "top_5": [
+          "stripe:update_subscription",
+          "shopify:list_themes",
+          "stripe:cancel_subscription",
+          "stripe:create_subscription",
+          "stripe:create_price"
+        ],
+        "top_1_score": 4.679999828338623,
+        "top_2_score": 3.109999895095825,
+        "confidence_ratio": 0.6007702175213054,
+        "disposition": "confident",
+        "latency_ms": 4.3487548828125,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "who are the active subscribers",
+        "expected": "stripe:list_subscriptions",
+        "expected_multi": null,
+        "top_1": "stripe:list_subscriptions",
+        "top_3": [
+          "stripe:list_subscriptions",
+          "linear:list_members",
+          "linear:list_issues"
+        ],
+        "top_5": [
+          "stripe:list_subscriptions",
+          "linear:list_members",
+          "linear:list_issues",
+          "shopify:list_webhooks",
+          "twilio:list_conversations"
+        ],
+        "top_1_score": 6.579999923706055,
+        "top_2_score": 2.059999942779541,
+        "confidence_ratio": 0.7615740770124032,
+        "disposition": "confident",
+        "latency_ms": 3.0002593994140625,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "run this card for 99 dollars",
+        "expected": "stripe:create_payment",
+        "expected_multi": null,
+        "top_1": "stripe:create_payment",
+        "top_3": [
+          "stripe:create_payment",
+          "stripe:create_refund",
+          "notion:query_database"
+        ],
+        "top_5": [
+          "stripe:create_payment",
+          "stripe:create_refund",
+          "notion:query_database"
+        ],
+        "top_1_score": 8.989999771118164,
+        "top_2_score": 1.649999976158142,
+        "confidence_ratio": 0.8449248105874703,
+        "disposition": "confident",
+        "latency_ms": 4.500627517700195,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "finalize the held authorization",
+        "expected": "stripe:capture_payment",
+        "expected_multi": null,
+        "top_1": "stripe:capture_payment",
+        "top_3": [
+          "stripe:capture_payment",
+          "stripe:cancel_payment",
+          "shopify:close_order"
+        ],
+        "top_5": [
+          "stripe:capture_payment",
+          "stripe:cancel_payment",
+          "shopify:close_order",
+          "stripe:pay_invoice",
+          "linear:close_issue"
+        ],
+        "top_1_score": 6.639999866485596,
+        "top_2_score": 1.649999976158142,
+        "confidence_ratio": 0.8009650171920937,
+        "disposition": "confident",
+        "latency_ms": 4.624843597412109,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "void this charge before capture",
+        "expected": "stripe:cancel_payment",
+        "expected_multi": null,
+        "top_1": "stripe:cancel_payment",
+        "top_3": [
+          "stripe:cancel_payment",
+          "stripe:capture_payment",
+          "shopify:cancel_order"
+        ],
+        "top_5": [
+          "stripe:cancel_payment",
+          "stripe:capture_payment",
+          "shopify:cancel_order",
+          "stripe:create_payment",
+          "stripe:confirm_payment"
+        ],
+        "top_1_score": 16.559999465942383,
+        "top_2_score": 5.880000114440918,
+        "confidence_ratio": 0.7379679044387718,
+        "disposition": "confident",
+        "latency_ms": 4.822254180908203,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "confirm the pending payment intent",
+        "expected": "stripe:confirm_payment",
+        "expected_multi": null,
+        "top_1": "stripe:confirm_payment",
+        "top_3": [
+          "stripe:confirm_payment",
+          "stripe:cancel_payment",
+          "stripe:capture_payment"
+        ],
+        "top_5": [
+          "stripe:confirm_payment",
+          "stripe:cancel_payment",
+          "stripe:capture_payment",
+          "twilio:verify_code",
+          "stripe:create_payment"
+        ],
+        "top_1_score": 9.479999542236328,
+        "top_2_score": 7.090000152587891,
+        "confidence_ratio": 0.5721182689700041,
+        "disposition": "confident",
+        "latency_ms": 4.908084869384766,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "all charges from this week",
+        "expected": "stripe:list_charges",
+        "expected_multi": null,
+        "top_1": "stripe:list_charges",
+        "top_3": [
+          "stripe:list_charges",
+          "stripe:cancel_subscription",
+          "stripe:create_payout"
+        ],
+        "top_5": [
+          "stripe:list_charges",
+          "stripe:cancel_subscription",
+          "stripe:create_payout",
+          "stripe:create_refund",
+          "notion:list_pages"
+        ],
+        "top_1_score": 10.319999694824219,
+        "top_2_score": 1.649999976158142,
+        "confidence_ratio": 0.8621553866740642,
+        "disposition": "confident",
+        "latency_ms": 5.609989166259766,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "transfer funds to our bank",
+        "expected": "stripe:create_payout",
+        "expected_multi": null,
+        "top_1": "stripe:create_payout",
+        "top_3": [
+          "stripe:create_payout",
+          "stripe:list_payouts",
+          "twilio:get_account_balance"
+        ],
+        "top_5": [
+          "stripe:create_payout",
+          "stripe:list_payouts",
+          "twilio:get_account_balance",
+          "stripe:get_balance",
+          "stripe:capture_payment"
+        ],
+        "top_1_score": 13.020000457763672,
+        "top_2_score": 3.309999942779541,
+        "confidence_ratio": 0.797305581041539,
+        "disposition": "confident",
+        "latency_ms": 5.223274230957031,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "show bank transfer history",
+        "expected": "stripe:list_payouts",
+        "expected_multi": null,
+        "top_1": "stripe:list_payouts",
+        "top_3": [
+          "stripe:list_payouts",
+          "stripe:create_payout",
+          "twilio:list_messages"
+        ],
+        "top_5": [
+          "stripe:list_payouts",
+          "stripe:create_payout",
+          "twilio:list_messages",
+          "stripe:list_charges",
+          "twilio:list_calls"
+        ],
+        "top_1_score": 9.380000114440918,
+        "top_2_score": 6.489999771118164,
+        "confidence_ratio": 0.5910523114103017,
+        "disposition": "confident",
+        "latency_ms": 7.140874862670898,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "what's sitting in the account",
+        "expected": "stripe:get_balance",
+        "expected_multi": null,
+        "top_1": "twilio:get_account_balance",
+        "top_3": [
+          "twilio:get_account_balance",
+          "stripe:get_balance",
+          "stripe:create_customer"
+        ],
+        "top_5": [
+          "twilio:get_account_balance",
+          "stripe:get_balance",
+          "stripe:create_customer",
+          "stripe:delete_customer",
+          "shopify:list_orders"
+        ],
+        "top_1_score": 3.9200000762939453,
+        "top_2_score": 3.8399999141693115,
+        "confidence_ratio": 0.5051546496277675,
+        "disposition": "confident",
+        "latency_ms": 5.218505859375,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "register a new product offering",
+        "expected": "stripe:create_product",
+        "expected_multi": null,
+        "top_1": "shopify:create_product",
+        "top_3": [
+          "shopify:create_product",
+          "stripe:create_product",
+          "shopify:create_collection"
+        ],
+        "top_5": [
+          "shopify:create_product",
+          "stripe:create_product",
+          "shopify:create_collection",
+          "shopify:create_customer",
+          "stripe:create_customer"
+        ],
+        "top_1_score": 9.579999923706055,
+        "top_2_score": 8.600000381469727,
+        "confidence_ratio": 0.5269526822273299,
+        "disposition": "confident",
+        "latency_ms": 4.78053092956543,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "configure pricing for pro tier",
+        "expected": "stripe:create_price",
+        "expected_multi": null,
+        "top_1": "stripe:create_price",
+        "top_3": [
+          "stripe:create_price"
+        ],
+        "top_5": [
+          "stripe:create_price"
+        ],
+        "top_1_score": 8.069999694824219,
+        "top_2_score": 0.0,
+        "confidence_ratio": 1.0,
+        "disposition": "confident",
+        "latency_ms": 4.206180572509766,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "issue promo code for beta users",
+        "expected": "stripe:create_coupon",
+        "expected_multi": null,
+        "top_1": "stripe:create_coupon",
+        "top_3": [
+          "stripe:create_coupon",
+          "shopify:create_discount",
+          "notion:list_users"
+        ],
+        "top_5": [
+          "stripe:create_coupon",
+          "shopify:create_discount",
+          "notion:list_users",
+          "twilio:verify_code",
+          "twilio:create_verify"
+        ],
+        "top_1_score": 7.559999942779541,
+        "top_2_score": 7.039999961853027,
+        "confidence_ratio": 0.5178082186412042,
+        "disposition": "confident",
+        "latency_ms": 3.6666393280029297,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "file a chargeback case",
+        "expected": "stripe:create_dispute",
+        "expected_multi": null,
+        "top_1": "stripe:create_dispute",
+        "top_3": [
+          "stripe:create_dispute",
+          "linear:create_issue",
+          "notion:archive_page"
+        ],
+        "top_5": [
+          "stripe:create_dispute",
+          "linear:create_issue",
+          "notion:archive_page",
+          "stripe:list_disputes",
+          "linear:archive_issue"
+        ],
+        "top_1_score": 10.319999694824219,
+        "top_2_score": 2.059999942779541,
+        "confidence_ratio": 0.83360258456532,
+        "disposition": "confident",
+        "latency_ms": 3.743886947631836,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "stripe",
+        "query": "which disputes are open right now",
+        "expected": "stripe:list_disputes",
+        "expected_multi": null,
+        "top_1": "stripe:list_disputes",
+        "top_3": [
+          "stripe:list_disputes",
+          "stripe:create_dispute",
+          "linear:list_issues"
+        ],
+        "top_5": [
+          "stripe:list_disputes",
+          "stripe:create_dispute",
+          "linear:list_issues",
+          "twilio:create_conversation",
+          "linear:create_issue"
+        ],
+        "top_1_score": 5.909999847412109,
+        "top_2_score": 2.380000114440918,
+        "confidence_ratio": 0.7129071018826727,
+        "disposition": "confident",
+        "latency_ms": 3.1576156616210938,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "log this regression as a ticket",
+        "expected": "linear:create_issue",
+        "expected_multi": null,
+        "top_1": "linear:create_issue",
+        "top_3": [
+          "linear:create_issue",
+          "linear:close_issue",
+          "twilio:list_messages"
+        ],
+        "top_5": [
+          "linear:create_issue",
+          "linear:close_issue",
+          "twilio:list_messages",
+          "linear:update_issue",
+          "linear:archive_issue"
+        ],
+        "top_1_score": 5.610000133514404,
+        "top_2_score": 3.5799999237060547,
+        "confidence_ratio": 0.6104461478329049,
+        "disposition": "confident",
+        "latency_ms": 4.977941513061523,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "mark the ticket as resolved",
+        "expected": "linear:update_issue",
+        "expected_multi": null,
+        "top_1": "linear:close_issue",
+        "top_3": [
+          "linear:close_issue",
+          "shopify:create_fulfillment",
+          "shopify:close_order"
+        ],
+        "top_5": [
+          "linear:close_issue",
+          "shopify:create_fulfillment",
+          "shopify:close_order",
+          "linear:create_issue",
+          "stripe:pay_invoice"
+        ],
+        "top_1_score": 11.850000381469727,
+        "top_2_score": 4.0,
+        "confidence_ratio": 0.7476340754744455,
+        "disposition": "confident",
+        "latency_ms": 5.337715148925781,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "linear",
+        "query": "remove this stale ticket entirely",
+        "expected": "linear:delete_issue",
+        "expected_multi": null,
+        "top_1": "linear:delete_issue",
+        "top_3": [
+          "linear:delete_issue",
+          "notion:delete_page",
+          "notion:delete_block"
+        ],
+        "top_5": [
+          "linear:delete_issue",
+          "notion:delete_page",
+          "notion:delete_block",
+          "shopify:delete_product",
+          "stripe:delete_customer"
+        ],
+        "top_1_score": 4.039999961853027,
+        "top_2_score": 2.5799999237060547,
+        "confidence_ratio": 0.610271908110741,
+        "disposition": "confident",
+        "latency_ms": 6.502628326416016,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "what's in the current sprint backlog",
+        "expected": "linear:list_issues",
+        "expected_multi": null,
+        "top_1": "linear:list_issues",
+        "top_3": [
+          "linear:list_issues",
+          "linear:add_to_cycle",
+          "stripe:get_balance"
+        ],
+        "top_5": [
+          "linear:list_issues",
+          "linear:add_to_cycle",
+          "stripe:get_balance",
+          "linear:create_cycle",
+          "linear:list_cycles"
+        ],
+        "top_1_score": 7.71999979019165,
+        "top_2_score": 6.929999828338623,
+        "confidence_ratio": 0.5269624567380119,
+        "disposition": "confident",
+        "latency_ms": 5.95402717590332,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "put sarah on this ticket",
+        "expected": "linear:assign_issue",
+        "expected_multi": null,
+        "top_1": "linear:assign_issue",
+        "top_3": [
+          "linear:assign_issue",
+          "linear:add_to_cycle",
+          "linear:archive_issue"
+        ],
+        "top_5": [
+          "linear:assign_issue",
+          "linear:add_to_cycle",
+          "linear:archive_issue",
+          "linear:close_issue",
+          "linear:update_issue"
+        ],
+        "top_1_score": 4.380000114440918,
+        "top_2_score": 4.150000095367432,
+        "confidence_ratio": 0.513481829625808,
+        "disposition": "confident",
+        "latency_ms": 5.14674186706543,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "pull up details for issue abc-123",
+        "expected": "linear:get_issue",
+        "expected_multi": null,
+        "top_1": "linear:get_issue",
+        "top_3": [
+          "linear:get_issue",
+          "shopify:get_product",
+          "notion:retrieve_user"
+        ],
+        "top_5": [
+          "linear:get_issue",
+          "shopify:get_product",
+          "notion:retrieve_user",
+          "notion:get_block",
+          "shopify:get_order"
+        ],
+        "top_1_score": 5.699999809265137,
+        "top_2_score": 3.5399999618530273,
+        "confidence_ratio": 0.6168831115214801,
+        "disposition": "confident",
+        "latency_ms": 5.44285774230957,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "move this old ticket to archive",
+        "expected": "linear:archive_issue",
+        "expected_multi": null,
+        "top_1": "linear:archive_issue",
+        "top_3": [
+          "linear:archive_issue",
+          "notion:archive_page",
+          "linear:add_to_cycle"
+        ],
+        "top_5": [
+          "linear:archive_issue",
+          "notion:archive_page",
+          "linear:add_to_cycle",
+          "linear:update_issue",
+          "notion:restore_page"
+        ],
+        "top_1_score": 13.800000190734863,
+        "top_2_score": 5.769999980926514,
+        "confidence_ratio": 0.7051609642149188,
+        "disposition": "confident",
+        "latency_ms": 6.122827529907227,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "close out this finished ticket",
+        "expected": "linear:close_issue",
+        "expected_multi": null,
+        "top_1": "linear:close_issue",
+        "top_3": [
+          "linear:close_issue",
+          "shopify:close_order",
+          "stripe:pay_invoice"
+        ],
+        "top_5": [
+          "linear:close_issue",
+          "shopify:close_order",
+          "stripe:pay_invoice",
+          "linear:update_issue",
+          "linear:archive_issue"
+        ],
+        "top_1_score": 11.979999542236328,
+        "top_2_score": 7.699999809265137,
+        "confidence_ratio": 0.608739834197318,
+        "disposition": "confident",
+        "latency_ms": 4.816532135009766,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "leave a note with the fix",
+        "expected": "linear:create_comment",
+        "expected_multi": null,
+        "top_1": "notion:create_comment",
+        "top_3": [
+          "notion:create_comment",
+          "linear:create_comment",
+          "twilio:send_voice_message"
+        ],
+        "top_5": [
+          "notion:create_comment",
+          "linear:create_comment",
+          "twilio:send_voice_message"
+        ],
+        "top_1_score": 8.020000457763672,
+        "top_2_score": 7.019999980926514,
+        "confidence_ratio": 0.5332446957336741,
+        "disposition": "confident",
+        "latency_ms": 4.700422286987305,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "show the comment thread",
+        "expected": "linear:list_comments",
+        "expected_multi": null,
+        "top_1": "notion:list_comments",
+        "top_3": [
+          "notion:list_comments",
+          "linear:list_comments",
+          "notion:create_comment"
+        ],
+        "top_5": [
+          "notion:list_comments",
+          "linear:list_comments",
+          "notion:create_comment",
+          "linear:create_comment",
+          "twilio:create_conversation"
+        ],
+        "top_1_score": 7.880000114440918,
+        "top_2_score": 7.880000114440918,
+        "confidence_ratio": 0.5,
+        "disposition": "confident",
+        "latency_ms": 5.535125732421875,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "start a new initiative for infra work",
+        "expected": "linear:create_project",
+        "expected_multi": null,
+        "top_1": "linear:create_project",
+        "top_3": [
+          "linear:create_project",
+          "twilio:create_conversation",
+          "linear:create_cycle"
+        ],
+        "top_5": [
+          "linear:create_project",
+          "twilio:create_conversation",
+          "linear:create_cycle",
+          "notion:create_page",
+          "shopify:create_draft_order"
+        ],
+        "top_1_score": 8.390000343322754,
+        "top_2_score": 5.150000095367432,
+        "confidence_ratio": 0.6196455001100705,
+        "disposition": "confident",
+        "latency_ms": 5.635976791381836,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "revise the project description",
+        "expected": "linear:update_project",
+        "expected_multi": null,
+        "top_1": "linear:update_project",
+        "top_3": [
+          "linear:update_project",
+          "linear:create_project",
+          "linear:list_projects"
+        ],
+        "top_5": [
+          "linear:update_project",
+          "linear:create_project",
+          "linear:list_projects",
+          "shopify:update_customer",
+          "shopify:update_product"
+        ],
+        "top_1_score": 10.239999771118164,
+        "top_2_score": 3.430000066757202,
+        "confidence_ratio": 0.7490855810214623,
+        "disposition": "confident",
+        "latency_ms": 4.539966583251953,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "list currently active projects",
+        "expected": "linear:list_projects",
+        "expected_multi": null,
+        "top_1": "linear:list_projects",
+        "top_3": [
+          "linear:list_projects",
+          "linear:list_issues",
+          "stripe:list_subscriptions"
+        ],
+        "top_5": [
+          "linear:list_projects",
+          "linear:list_issues",
+          "stripe:list_subscriptions",
+          "shopify:list_webhooks",
+          "twilio:list_conversations"
+        ],
+        "top_1_score": 6.989999771118164,
+        "top_2_score": 6.039999961853027,
+        "confidence_ratio": 0.5364543295753588,
+        "disposition": "confident",
+        "latency_ms": 6.441354751586914,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "spin up the platform squad",
+        "expected": "linear:create_team",
+        "expected_multi": null,
+        "top_1": "linear:create_team",
+        "top_3": [
+          "linear:create_team",
+          "twilio:create_queue",
+          "notion:create_database"
+        ],
+        "top_5": [
+          "linear:create_team",
+          "twilio:create_queue",
+          "notion:create_database",
+          "twilio:create_flow",
+          "linear:create_project"
+        ],
+        "top_1_score": 5.059999942779541,
+        "top_2_score": 3.0999999046325684,
+        "confidence_ratio": 0.6200980437988962,
+        "disposition": "confident",
+        "latency_ms": 5.376100540161133,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "show me all the teams",
+        "expected": "linear:list_teams",
+        "expected_multi": null,
+        "top_1": "linear:list_teams",
+        "top_3": [
+          "linear:list_teams",
+          "notion:list_pages",
+          "stripe:list_customers"
+        ],
+        "top_5": [
+          "linear:list_teams",
+          "notion:list_pages",
+          "stripe:list_customers",
+          "linear:list_comments",
+          "notion:list_databases"
+        ],
+        "top_1_score": 9.1899995803833,
+        "top_2_score": 3.369999885559082,
+        "confidence_ratio": 0.7316878957919423,
+        "disposition": "confident",
+        "latency_ms": 5.210638046264648,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "who's on the mobile team",
+        "expected": "linear:list_members",
+        "expected_multi": null,
+        "top_1": "linear:list_members",
+        "top_3": [
+          "linear:list_members",
+          "linear:create_team",
+          "linear:assign_issue"
+        ],
+        "top_5": [
+          "linear:list_members",
+          "linear:create_team",
+          "linear:assign_issue",
+          "linear:list_teams",
+          "stripe:list_customers"
+        ],
+        "top_1_score": 5.03000020980835,
+        "top_2_score": 3.0399999618530273,
+        "confidence_ratio": 0.6232961713522268,
+        "disposition": "confident",
+        "latency_ms": 3.9975643157958984,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "kick off the next iteration",
+        "expected": "linear:create_cycle",
+        "expected_multi": null,
+        "top_1": "linear:create_cycle",
+        "top_3": [
+          "linear:create_cycle",
+          "linear:create_project",
+          "linear:add_to_cycle"
+        ],
+        "top_5": [
+          "linear:create_cycle",
+          "linear:create_project",
+          "linear:add_to_cycle",
+          "twilio:send_sms"
+        ],
+        "top_1_score": 9.380000114440918,
+        "top_2_score": 4.800000190734863,
+        "confidence_ratio": 0.6614950573038538,
+        "disposition": "confident",
+        "latency_ms": 4.982709884643555,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "show sprint history",
+        "expected": "linear:list_cycles",
+        "expected_multi": null,
+        "top_1": "linear:list_cycles",
+        "top_3": [
+          "linear:list_cycles",
+          "linear:add_to_cycle",
+          "linear:create_cycle"
+        ],
+        "top_5": [
+          "linear:list_cycles",
+          "linear:add_to_cycle",
+          "linear:create_cycle",
+          "twilio:list_messages",
+          "linear:list_issues"
+        ],
+        "top_1_score": 4.949999809265137,
+        "top_2_score": 3.0199999809265137,
+        "confidence_ratio": 0.6210790388422466,
+        "disposition": "confident",
+        "latency_ms": 6.133317947387695,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "define the q3 milestone",
+        "expected": "linear:create_milestone",
+        "expected_multi": null,
+        "top_1": "linear:create_milestone",
+        "top_3": [
+          "linear:create_milestone",
+          "linear:create_label",
+          "stripe:create_price"
+        ],
+        "top_5": [
+          "linear:create_milestone",
+          "linear:create_label",
+          "stripe:create_price",
+          "shopify:create_collection",
+          "stripe:create_product"
+        ],
+        "top_1_score": 5.909999847412109,
+        "top_2_score": 1.100000023841858,
+        "confidence_ratio": 0.8430813061277436,
+        "disposition": "confident",
+        "latency_ms": 4.592657089233398,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "make a critical priority label",
+        "expected": "linear:create_label",
+        "expected_multi": null,
+        "top_1": "linear:create_label",
+        "top_3": [
+          "linear:create_label",
+          "linear:list_labels",
+          "shopify:create_discount"
+        ],
+        "top_5": [
+          "linear:create_label",
+          "linear:list_labels",
+          "shopify:create_discount",
+          "stripe:create_coupon",
+          "notion:create_template"
+        ],
+        "top_1_score": 5.210000038146973,
+        "top_2_score": 2.6500000953674316,
+        "confidence_ratio": 0.6628498663672987,
+        "disposition": "confident",
+        "latency_ms": 4.9953460693359375,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "view all tag options",
+        "expected": "linear:list_labels",
+        "expected_multi": null,
+        "top_1": "linear:create_label",
+        "top_3": [
+          "linear:create_label",
+          "notion:list_pages",
+          "linear:list_labels"
+        ],
+        "top_5": [
+          "linear:create_label",
+          "notion:list_pages",
+          "linear:list_labels",
+          "linear:list_comments",
+          "twilio:list_conversations"
+        ],
+        "top_1_score": 3.609999895095825,
+        "top_2_score": 3.009999990463257,
+        "confidence_ratio": 0.5453172141242338,
+        "disposition": "escalate",
+        "latency_ms": 5.115985870361328,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "build a filtered view for my bugs",
+        "expected": "linear:create_view",
+        "expected_multi": null,
+        "top_1": "linear:create_view",
+        "top_3": [
+          "linear:create_view",
+          "linear:list_issues",
+          "notion:query_database"
+        ],
+        "top_5": [
+          "linear:create_view",
+          "linear:list_issues",
+          "notion:query_database",
+          "shopify:create_collection",
+          "notion:create_database"
+        ],
+        "top_1_score": 4.789999961853027,
+        "top_2_score": 3.859999895095825,
+        "confidence_ratio": 0.553757230181345,
+        "disposition": "confident",
+        "latency_ms": 5.371809005737305,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "add this ticket to the current sprint",
+        "expected": "linear:add_to_cycle",
+        "expected_multi": null,
+        "top_1": "linear:add_to_cycle",
+        "top_3": [
+          "linear:add_to_cycle",
+          "linear:create_comment",
+          "linear:create_label"
+        ],
+        "top_5": [
+          "linear:add_to_cycle",
+          "linear:create_comment",
+          "linear:create_label",
+          "linear:list_issues",
+          "linear:create_cycle"
+        ],
+        "top_1_score": 11.720000267028809,
+        "top_2_score": 4.96999979019165,
+        "confidence_ratio": 0.7022169099369464,
+        "disposition": "confident",
+        "latency_ms": 5.217075347900391,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "show configured workflows",
+        "expected": "linear:list_workflows",
+        "expected_multi": null,
+        "top_1": "linear:list_workflows",
+        "top_3": [
+          "linear:list_workflows",
+          "stripe:create_price",
+          "linear:list_issues"
+        ],
+        "top_5": [
+          "linear:list_workflows",
+          "stripe:create_price",
+          "linear:list_issues",
+          "stripe:list_invoices",
+          "shopify:list_products"
+        ],
+        "top_1_score": 5.429999828338623,
+        "top_2_score": 1.9299999475479126,
+        "confidence_ratio": 0.7377717382721743,
+        "disposition": "confident",
+        "latency_ms": 5.480766296386719,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "linear",
+        "query": "revise the workflow states",
+        "expected": "linear:update_workflow",
+        "expected_multi": null,
+        "top_1": "linear:update_workflow",
+        "top_3": [
+          "linear:update_workflow",
+          "linear:list_workflows",
+          "notion:update_block"
+        ],
+        "top_5": [
+          "linear:update_workflow",
+          "linear:list_workflows",
+          "notion:update_block",
+          "shopify:update_product",
+          "shopify:update_customer"
+        ],
+        "top_1_score": 12.6899995803833,
+        "top_2_score": 2.6500000953674316,
+        "confidence_ratio": 0.8272490122958401,
+        "disposition": "confident",
+        "latency_ms": 4.749774932861328,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "place a new order for this buyer",
+        "expected": "shopify:create_order",
+        "expected_multi": null,
+        "top_1": "shopify:create_order",
+        "top_3": [
+          "shopify:create_order",
+          "shopify:create_customer",
+          "shopify:create_draft_order"
+        ],
+        "top_5": [
+          "shopify:create_order",
+          "shopify:create_customer",
+          "shopify:create_draft_order",
+          "stripe:create_customer",
+          "shopify:update_customer"
+        ],
+        "top_1_score": 13.050000190734863,
+        "top_2_score": 4.139999866485596,
+        "confidence_ratio": 0.7591623122335804,
+        "disposition": "confident",
+        "latency_ms": 4.894256591796875,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "customer changed their mind, kill it",
+        "expected": "shopify:cancel_order",
+        "expected_multi": null,
+        "top_1": "shopify:cancel_order",
+        "top_3": [
+          "shopify:cancel_order",
+          "stripe:update_customer",
+          "shopify:update_customer"
+        ],
+        "top_5": [
+          "shopify:cancel_order",
+          "stripe:update_customer",
+          "shopify:update_customer",
+          "stripe:create_refund",
+          "stripe:cancel_subscription"
+        ],
+        "top_1_score": 4.550000190734863,
+        "top_2_score": 3.859999895095825,
+        "confidence_ratio": 0.5410226093101689,
+        "disposition": "escalate",
+        "latency_ms": 5.705118179321289,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "what did we sell this morning",
+        "expected": "shopify:list_orders",
+        "expected_multi": null,
+        "top_1": "twilio:list_messages",
+        "top_3": [
+          "twilio:list_messages",
+          "stripe:get_balance",
+          "notion:update_page"
+        ],
+        "top_5": [
+          "twilio:list_messages",
+          "stripe:get_balance",
+          "notion:update_page",
+          "twilio:get_account_balance",
+          "linear:list_issues"
+        ],
+        "top_1_score": 3.190000057220459,
+        "top_2_score": 1.9600000381469727,
+        "confidence_ratio": 0.6194174753685835,
+        "disposition": "confident",
+        "latency_ms": 3.6728382110595703,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "shopify",
+        "query": "change the order notes",
+        "expected": "shopify:update_order",
+        "expected_multi": null,
+        "top_1": "shopify:update_order",
+        "top_3": [
+          "shopify:update_order",
+          "shopify:create_order",
+          "shopify:get_order"
+        ],
+        "top_5": [
+          "shopify:update_order",
+          "shopify:create_order",
+          "shopify:get_order",
+          "shopify:create_draft_order",
+          "shopify:close_order"
+        ],
+        "top_1_score": 8.25,
+        "top_2_score": 2.630000114440918,
+        "confidence_ratio": 0.7582720508476701,
+        "disposition": "confident",
+        "latency_ms": 3.6537647247314453,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "fetch order number 1054",
+        "expected": "shopify:get_order",
+        "expected_multi": null,
+        "top_1": "shopify:get_order",
+        "top_3": [
+          "shopify:get_order",
+          "shopify:list_orders",
+          "shopify:create_order"
+        ],
+        "top_5": [
+          "shopify:get_order",
+          "shopify:list_orders",
+          "shopify:create_order",
+          "shopify:update_order",
+          "shopify:create_draft_order"
+        ],
+        "top_1_score": 6.0,
+        "top_2_score": 3.799999952316284,
+        "confidence_ratio": 0.6122449009381746,
+        "disposition": "confident",
+        "latency_ms": 3.3833980560302734,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "mark this order as fully complete",
+        "expected": "shopify:close_order",
+        "expected_multi": null,
+        "top_1": "shopify:close_order",
+        "top_3": [
+          "shopify:close_order",
+          "shopify:create_fulfillment",
+          "linear:close_issue"
+        ],
+        "top_5": [
+          "shopify:close_order",
+          "shopify:create_fulfillment",
+          "linear:close_issue",
+          "stripe:pay_invoice",
+          "shopify:update_order"
+        ],
+        "top_1_score": 11.970000267028809,
+        "top_2_score": 6.070000171661377,
+        "confidence_ratio": 0.6635254975580203,
+        "disposition": "confident",
+        "latency_ms": 3.621816635131836,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "ship it out today",
+        "expected": "shopify:create_fulfillment",
+        "expected_multi": null,
+        "top_1": "shopify:create_fulfillment",
+        "top_3": [
+          "shopify:create_fulfillment",
+          "shopify:list_orders",
+          "stripe:pay_invoice"
+        ],
+        "top_5": [
+          "shopify:create_fulfillment",
+          "shopify:list_orders",
+          "stripe:pay_invoice",
+          "shopify:close_order",
+          "linear:close_issue"
+        ],
+        "top_1_score": 5.510000228881836,
+        "top_2_score": 3.0999999046325684,
+        "confidence_ratio": 0.6399535590521275,
+        "disposition": "confident",
+        "latency_ms": 4.351139068603516,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "launching the new hoodie line",
+        "expected": "shopify:create_product",
+        "expected_multi": null,
+        "top_1": "shopify:create_product",
+        "top_3": [
+          "shopify:create_product",
+          "twilio:buy_phone_number",
+          "linear:create_project"
+        ],
+        "top_5": [
+          "shopify:create_product",
+          "twilio:buy_phone_number",
+          "linear:create_project",
+          "twilio:create_conversation",
+          "twilio:release_phone_number"
+        ],
+        "top_1_score": 4.869999885559082,
+        "top_2_score": 4.019999980926514,
+        "confidence_ratio": 0.5478065195387113,
+        "disposition": "confident",
+        "latency_ms": 4.604578018188477,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "pull up details for the blue jacket",
+        "expected": "shopify:get_product",
+        "expected_multi": null,
+        "top_1": "shopify:get_product",
+        "top_3": [
+          "shopify:get_product",
+          "linear:get_issue",
+          "notion:get_block"
+        ],
+        "top_5": [
+          "shopify:get_product",
+          "linear:get_issue",
+          "notion:get_block",
+          "notion:retrieve_user",
+          "shopify:get_order"
+        ],
+        "top_1_score": 3.5399999618530273,
+        "top_2_score": 3.5399999618530273,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 4.657745361328125,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "show our full catalog",
+        "expected": "shopify:list_products",
+        "expected_multi": null,
+        "top_1": "shopify:list_products",
+        "top_3": [
+          "shopify:list_products",
+          "shopify:delete_product",
+          "shopify:create_product"
+        ],
+        "top_5": [
+          "shopify:list_products",
+          "shopify:delete_product",
+          "shopify:create_product",
+          "shopify:update_product",
+          "stripe:create_product"
+        ],
+        "top_1_score": 2.9200000762939453,
+        "top_2_score": 2.0999999046325684,
+        "confidence_ratio": 0.5816733241809728,
+        "disposition": "confident",
+        "latency_ms": 5.677461624145508,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "change the product title",
+        "expected": "shopify:update_product",
+        "expected_multi": null,
+        "top_1": "shopify:update_product",
+        "top_3": [
+          "shopify:update_product",
+          "shopify:adjust_inventory",
+          "shopify:get_product"
+        ],
+        "top_5": [
+          "shopify:update_product",
+          "shopify:adjust_inventory",
+          "shopify:get_product",
+          "stripe:create_product",
+          "shopify:create_product"
+        ],
+        "top_1_score": 6.809999942779541,
+        "top_2_score": 4.610000133514404,
+        "confidence_ratio": 0.5963222326868446,
+        "disposition": "confident",
+        "latency_ms": 5.848169326782227,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "drop this item from the store",
+        "expected": "shopify:delete_product",
+        "expected_multi": null,
+        "top_1": "shopify:delete_product",
+        "top_3": [
+          "shopify:delete_product",
+          "shopify:get_shop",
+          "shopify:list_themes"
+        ],
+        "top_5": [
+          "shopify:delete_product",
+          "shopify:get_shop",
+          "shopify:list_themes",
+          "shopify:create_product",
+          "twilio:release_phone_number"
+        ],
+        "top_1_score": 6.329999923706055,
+        "top_2_score": 3.8399999141693115,
+        "confidence_ratio": 0.6224188814764492,
+        "disposition": "confident",
+        "latency_ms": 4.668951034545898,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "register new shopify shopper",
+        "expected": "shopify:create_customer",
+        "expected_multi": null,
+        "top_1": "shopify:create_customer",
+        "top_3": [
+          "shopify:create_customer",
+          "shopify:create_order",
+          "shopify:create_product"
+        ],
+        "top_5": [
+          "shopify:create_customer",
+          "shopify:create_order",
+          "shopify:create_product",
+          "stripe:create_customer",
+          "shopify:update_customer"
+        ],
+        "top_1_score": 9.199999809265137,
+        "top_2_score": 6.079999923706055,
+        "confidence_ratio": 0.6020942388770709,
+        "disposition": "confident",
+        "latency_ms": 4.928112030029297,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "all our buyers list",
+        "expected": "shopify:list_customers",
+        "expected_multi": null,
+        "top_1": "shopify:list_customers",
+        "top_3": [
+          "shopify:list_customers",
+          "stripe:list_customers",
+          "notion:list_pages"
+        ],
+        "top_5": [
+          "shopify:list_customers",
+          "stripe:list_customers",
+          "notion:list_pages",
+          "stripe:list_invoices",
+          "twilio:list_conversations"
+        ],
+        "top_1_score": 6.869999885559082,
+        "top_2_score": 2.240000009536743,
+        "confidence_ratio": 0.7541163517748667,
+        "disposition": "confident",
+        "latency_ms": 4.772186279296875,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "edit the buyer's shipping address",
+        "expected": "shopify:update_customer",
+        "expected_multi": null,
+        "top_1": "shopify:update_customer",
+        "top_3": [
+          "shopify:update_customer",
+          "stripe:update_customer",
+          "shopify:create_customer"
+        ],
+        "top_5": [
+          "shopify:update_customer",
+          "stripe:update_customer",
+          "shopify:create_customer",
+          "shopify:list_customers",
+          "notion:update_page"
+        ],
+        "top_1_score": 4.289999961853027,
+        "top_2_score": 3.5399999618530273,
+        "confidence_ratio": 0.5478927207731704,
+        "disposition": "confident",
+        "latency_ms": 4.329919815063477,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "sold out of size medium",
+        "expected": "shopify:adjust_inventory",
+        "expected_multi": null,
+        "top_1": "shopify:close_order",
+        "top_3": [
+          "shopify:close_order",
+          "linear:close_issue",
+          "stripe:pay_invoice"
+        ],
+        "top_5": [
+          "shopify:close_order",
+          "linear:close_issue",
+          "stripe:pay_invoice",
+          "shopify:create_fulfillment",
+          "stripe:create_payout"
+        ],
+        "top_1_score": 1.2999999523162842,
+        "top_2_score": 1.2999999523162842,
+        "confidence_ratio": 0.5,
+        "disposition": "escalate",
+        "latency_ms": 3.804922103881836,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "shopify",
+        "query": "current stock levels please",
+        "expected": "shopify:list_inventory",
+        "expected_multi": null,
+        "top_1": "shopify:list_inventory",
+        "top_3": [
+          "shopify:list_inventory",
+          "shopify:adjust_inventory",
+          "twilio:release_phone_number"
+        ],
+        "top_5": [
+          "shopify:list_inventory",
+          "shopify:adjust_inventory",
+          "twilio:release_phone_number",
+          "linear:add_to_cycle",
+          "linear:list_issues"
+        ],
+        "top_1_score": 8.399999618530273,
+        "top_2_score": 8.289999961853027,
+        "confidence_ratio": 0.503295376256526,
+        "disposition": "confident",
+        "latency_ms": 4.183292388916016,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "run 20 percent off for black friday",
+        "expected": "shopify:create_discount",
+        "expected_multi": null,
+        "top_1": "stripe:create_payment",
+        "top_3": [
+          "stripe:create_payment",
+          "notion:query_database",
+          "linear:create_cycle"
+        ],
+        "top_5": [
+          "stripe:create_payment",
+          "notion:query_database",
+          "linear:create_cycle",
+          "twilio:send_sms",
+          "linear:create_project"
+        ],
+        "top_1_score": 3.240000009536743,
+        "top_2_score": 1.649999976158142,
+        "confidence_ratio": 0.6625766910051081,
+        "disposition": "confident",
+        "latency_ms": 3.541707992553711,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "shopify",
+        "query": "group these into a summer category",
+        "expected": "shopify:create_collection",
+        "expected_multi": null,
+        "top_1": "shopify:create_collection",
+        "top_3": [
+          "shopify:create_collection",
+          "linear:add_to_cycle"
+        ],
+        "top_5": [
+          "shopify:create_collection",
+          "linear:add_to_cycle"
+        ],
+        "top_1_score": 1.9700000286102295,
+        "top_2_score": 1.9500000476837158,
+        "confidence_ratio": 0.5025510179256708,
+        "disposition": "confident",
+        "latency_ms": 3.2541751861572266,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "show the winter collection",
+        "expected": "shopify:list_collections",
+        "expected_multi": null,
+        "top_1": "shopify:create_collection",
+        "top_3": [
+          "shopify:create_collection",
+          "shopify:list_collections",
+          "notion:create_database"
+        ],
+        "top_5": [
+          "shopify:create_collection",
+          "shopify:list_collections",
+          "notion:create_database",
+          "notion:list_pages",
+          "stripe:list_subscriptions"
+        ],
+        "top_1_score": 3.7699999809265137,
+        "top_2_score": 3.0999999046325684,
+        "confidence_ratio": 0.5487627429006442,
+        "disposition": "confident",
+        "latency_ms": 3.0841827392578125,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "start a pending order",
+        "expected": "shopify:create_draft_order",
+        "expected_multi": null,
+        "top_1": "shopify:create_draft_order",
+        "top_3": [
+          "shopify:create_draft_order",
+          "shopify:list_draft_orders",
+          "shopify:get_order"
+        ],
+        "top_5": [
+          "shopify:create_draft_order",
+          "shopify:list_draft_orders",
+          "shopify:get_order",
+          "shopify:create_order",
+          "shopify:update_order"
+        ],
+        "top_1_score": 9.529999732971191,
+        "top_2_score": 3.259999990463257,
+        "confidence_ratio": 0.7451133650542517,
+        "disposition": "confident",
+        "latency_ms": 3.0050277709960938,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "show me pending orders",
+        "expected": "shopify:list_draft_orders",
+        "expected_multi": null,
+        "top_1": "shopify:list_draft_orders",
+        "top_3": [
+          "shopify:list_draft_orders",
+          "shopify:list_orders",
+          "shopify:create_draft_order"
+        ],
+        "top_5": [
+          "shopify:list_draft_orders",
+          "shopify:list_orders",
+          "shopify:create_draft_order",
+          "stripe:cancel_payment",
+          "stripe:capture_payment"
+        ],
+        "top_1_score": 9.760000228881836,
+        "top_2_score": 4.889999866485596,
+        "confidence_ratio": 0.6662116153820441,
+        "disposition": "confident",
+        "latency_ms": 4.4078826904296875,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "what themes do we have",
+        "expected": "shopify:list_themes",
+        "expected_multi": null,
+        "top_1": "shopify:list_themes",
+        "top_3": [
+          "shopify:list_themes",
+          "stripe:get_balance",
+          "notion:update_page"
+        ],
+        "top_5": [
+          "shopify:list_themes",
+          "stripe:get_balance",
+          "notion:update_page",
+          "linear:list_issues",
+          "shopify:list_orders"
+        ],
+        "top_1_score": 4.829999923706055,
+        "top_2_score": 3.9200000762939453,
+        "confidence_ratio": 0.551999991280692,
+        "disposition": "confident",
+        "latency_ms": 5.799055099487305,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "list active webhooks",
+        "expected": "shopify:list_webhooks",
+        "expected_multi": null,
+        "top_1": "shopify:list_webhooks",
+        "top_3": [
+          "shopify:list_webhooks",
+          "stripe:list_subscriptions",
+          "twilio:list_conversations"
+        ],
+        "top_5": [
+          "shopify:list_webhooks",
+          "stripe:list_subscriptions",
+          "twilio:list_conversations",
+          "linear:list_issues",
+          "shopify:list_customers"
+        ],
+        "top_1_score": 8.890000343322754,
+        "top_2_score": 3.25,
+        "confidence_ratio": 0.7322899581475246,
+        "disposition": "confident",
+        "latency_ms": 6.30640983581543,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "shopify",
+        "query": "show store config",
+        "expected": "shopify:get_shop",
+        "expected_multi": null,
+        "top_1": "shopify:get_shop",
+        "top_3": [
+          "shopify:get_shop",
+          "shopify:list_themes",
+          "shopify:list_webhooks"
+        ],
+        "top_5": [
+          "shopify:get_shop",
+          "shopify:list_themes",
+          "shopify:list_webhooks",
+          "linear:update_workflow",
+          "linear:list_issues"
+        ],
+        "top_1_score": 6.199999809265137,
+        "top_2_score": 5.010000228881836,
+        "confidence_ratio": 0.5530775903806334,
+        "disposition": "confident",
+        "latency_ms": 5.475282669067383,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "text the customer an update",
+        "expected": "twilio:send_sms",
+        "expected_multi": null,
+        "top_1": "twilio:send_sms",
+        "top_3": [
+          "twilio:send_sms",
+          "stripe:update_customer",
+          "shopify:update_customer"
+        ],
+        "top_5": [
+          "twilio:send_sms",
+          "stripe:update_customer",
+          "shopify:update_customer",
+          "notion:update_block",
+          "twilio:transcribe_recording"
+        ],
+        "top_1_score": 6.429999828338623,
+        "top_2_score": 3.940000057220459,
+        "confidence_ratio": 0.6200578494984197,
+        "disposition": "confident",
+        "latency_ms": 5.173683166503906,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "ring up this phone number",
+        "expected": "twilio:make_call",
+        "expected_multi": null,
+        "top_1": "twilio:make_call",
+        "top_3": [
+          "twilio:make_call",
+          "twilio:buy_phone_number",
+          "twilio:release_phone_number"
+        ],
+        "top_5": [
+          "twilio:make_call",
+          "twilio:buy_phone_number",
+          "twilio:release_phone_number",
+          "twilio:lookup_number",
+          "twilio:list_phone_numbers"
+        ],
+        "top_1_score": 9.699999809265137,
+        "top_2_score": 8.630000114440918,
+        "confidence_ratio": 0.5291871167288003,
+        "disposition": "escalate",
+        "latency_ms": 4.715919494628906,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "what texts did we send today",
+        "expected": "twilio:list_messages",
+        "expected_multi": null,
+        "top_1": "twilio:list_messages",
+        "top_3": [
+          "twilio:list_messages",
+          "shopify:list_orders",
+          "twilio:send_mms"
+        ],
+        "top_5": [
+          "twilio:list_messages",
+          "shopify:list_orders",
+          "twilio:send_mms",
+          "twilio:create_verify",
+          "twilio:send_whatsapp"
+        ],
+        "top_1_score": 11.8100004196167,
+        "top_2_score": 4.300000190734863,
+        "confidence_ratio": 0.7330850386205525,
+        "disposition": "confident",
+        "latency_ms": 4.509925842285156,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "call log for the week",
+        "expected": "twilio:list_calls",
+        "expected_multi": null,
+        "top_1": "twilio:list_calls",
+        "top_3": [
+          "twilio:list_calls",
+          "twilio:make_call",
+          "twilio:list_messages"
+        ],
+        "top_5": [
+          "twilio:list_calls",
+          "twilio:make_call",
+          "twilio:list_messages",
+          "twilio:get_recording",
+          "twilio:create_queue"
+        ],
+        "top_1_score": 7.949999809265137,
+        "top_2_score": 2.8299999237060547,
+        "confidence_ratio": 0.7374768094798414,
+        "disposition": "confident",
+        "latency_ms": 5.011081695556641,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "provision a new toll free line",
+        "expected": "twilio:buy_phone_number",
+        "expected_multi": null,
+        "top_1": "twilio:buy_phone_number",
+        "top_3": [
+          "twilio:buy_phone_number",
+          "twilio:release_phone_number",
+          "linear:create_project"
+        ],
+        "top_5": [
+          "twilio:buy_phone_number",
+          "twilio:release_phone_number",
+          "linear:create_project",
+          "notion:create_page",
+          "shopify:create_product"
+        ],
+        "top_1_score": 11.720000267028809,
+        "top_2_score": 2.6500000953674316,
+        "confidence_ratio": 0.8155880286334567,
+        "disposition": "confident",
+        "latency_ms": 4.119157791137695,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "show our active phone numbers",
+        "expected": "twilio:list_phone_numbers",
+        "expected_multi": null,
+        "top_1": "twilio:list_phone_numbers",
+        "top_3": [
+          "twilio:list_phone_numbers",
+          "stripe:list_subscriptions",
+          "shopify:list_webhooks"
+        ],
+        "top_5": [
+          "twilio:list_phone_numbers",
+          "stripe:list_subscriptions",
+          "shopify:list_webhooks",
+          "twilio:lookup_number",
+          "twilio:buy_phone_number"
+        ],
+        "top_1_score": 11.609999656677246,
+        "top_2_score": 4.659999847412109,
+        "confidence_ratio": 0.7135832827628023,
+        "disposition": "confident",
+        "latency_ms": 4.244089126586914,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "drop this phone number",
+        "expected": "twilio:release_phone_number",
+        "expected_multi": null,
+        "top_1": "twilio:release_phone_number",
+        "top_3": [
+          "twilio:release_phone_number",
+          "twilio:lookup_number",
+          "twilio:buy_phone_number"
+        ],
+        "top_5": [
+          "twilio:release_phone_number",
+          "twilio:lookup_number",
+          "twilio:buy_phone_number",
+          "twilio:list_phone_numbers",
+          "twilio:create_verify"
+        ],
+        "top_1_score": 11.979999542236328,
+        "top_2_score": 8.289999961853027,
+        "confidence_ratio": 0.5910212054923549,
+        "disposition": "confident",
+        "latency_ms": 5.34820556640625,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "launch a new chat thread",
+        "expected": "twilio:create_conversation",
+        "expected_multi": null,
+        "top_1": "twilio:create_conversation",
+        "top_3": [
+          "twilio:create_conversation",
+          "shopify:create_product",
+          "linear:create_project"
+        ],
+        "top_5": [
+          "twilio:create_conversation",
+          "shopify:create_product",
+          "linear:create_project",
+          "twilio:list_conversations",
+          "notion:list_comments"
+        ],
+        "top_1_score": 13.220000267028809,
+        "top_2_score": 4.840000152587891,
+        "confidence_ratio": 0.7320044274566737,
+        "disposition": "confident",
+        "latency_ms": 4.247188568115234,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "pull up all active conversations",
+        "expected": "twilio:list_conversations",
+        "expected_multi": null,
+        "top_1": "twilio:list_conversations",
+        "top_3": [
+          "twilio:list_conversations",
+          "stripe:list_customers",
+          "stripe:list_subscriptions"
+        ],
+        "top_5": [
+          "twilio:list_conversations",
+          "stripe:list_customers",
+          "stripe:list_subscriptions",
+          "linear:list_issues",
+          "shopify:list_webhooks"
+        ],
+        "top_1_score": 8.850000381469727,
+        "top_2_score": 5.53000020980835,
+        "confidence_ratio": 0.6154381097061659,
+        "disposition": "confident",
+        "latency_ms": 4.385948181152344,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "send them an image message",
+        "expected": "twilio:send_mms",
+        "expected_multi": null,
+        "top_1": "twilio:send_mms",
+        "top_3": [
+          "twilio:send_mms",
+          "twilio:send_voice_message",
+          "twilio:send_whatsapp"
+        ],
+        "top_5": [
+          "twilio:send_mms",
+          "twilio:send_voice_message",
+          "twilio:send_whatsapp",
+          "twilio:send_sms",
+          "twilio:list_messages"
+        ],
+        "top_1_score": 6.789999961853027,
+        "top_2_score": 5.159999847412109,
+        "confidence_ratio": 0.5682008426969655,
+        "disposition": "confident",
+        "latency_ms": 6.046533584594727,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "start phone verification flow",
+        "expected": "twilio:create_verify",
+        "expected_multi": null,
+        "top_1": "twilio:create_verify",
+        "top_3": [
+          "twilio:create_verify",
+          "twilio:verify_code",
+          "twilio:create_flow"
+        ],
+        "top_5": [
+          "twilio:create_verify",
+          "twilio:verify_code",
+          "twilio:create_flow",
+          "twilio:make_call",
+          "twilio:lookup_number"
+        ],
+        "top_1_score": 12.569999694824219,
+        "top_2_score": 5.28000020980835,
+        "confidence_ratio": 0.7042016673379341,
+        "disposition": "confident",
+        "latency_ms": 6.08372688293457,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "check if the otp is valid",
+        "expected": "twilio:verify_code",
+        "expected_multi": null,
+        "top_1": "twilio:verify_code",
+        "top_3": [
+          "twilio:verify_code",
+          "twilio:lookup_number",
+          "stripe:get_balance"
+        ],
+        "top_5": [
+          "twilio:verify_code",
+          "twilio:lookup_number",
+          "stripe:get_balance",
+          "twilio:create_verify",
+          "twilio:get_account_balance"
+        ],
+        "top_1_score": 8.880000114440918,
+        "top_2_score": 3.0299999713897705,
+        "confidence_ratio": 0.7455919437822207,
+        "disposition": "confident",
+        "latency_ms": 5.219221115112305,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "download the call audio",
+        "expected": "twilio:get_recording",
+        "expected_multi": null,
+        "top_1": "twilio:get_recording",
+        "top_3": [
+          "twilio:get_recording",
+          "twilio:transcribe_recording",
+          "twilio:send_voice_message"
+        ],
+        "top_5": [
+          "twilio:get_recording",
+          "twilio:transcribe_recording",
+          "twilio:send_voice_message",
+          "twilio:make_call",
+          "twilio:list_calls"
+        ],
+        "top_1_score": 13.15999984741211,
+        "top_2_score": 3.75,
+        "confidence_ratio": 0.778237727153268,
+        "disposition": "confident",
+        "latency_ms": 5.050420761108398,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "show all call recordings",
+        "expected": "twilio:list_recordings",
+        "expected_multi": null,
+        "top_1": "twilio:list_recordings",
+        "top_3": [
+          "twilio:list_recordings",
+          "twilio:list_calls",
+          "twilio:list_queues"
+        ],
+        "top_5": [
+          "twilio:list_recordings",
+          "twilio:list_calls",
+          "twilio:list_queues",
+          "notion:list_pages",
+          "twilio:make_call"
+        ],
+        "top_1_score": 13.960000038146973,
+        "top_2_score": 4.289999961853027,
+        "confidence_ratio": 0.7649315089395602,
+        "disposition": "confident",
+        "latency_ms": 4.997014999389648,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "set up a call waiting queue",
+        "expected": "twilio:create_queue",
+        "expected_multi": null,
+        "top_1": "twilio:create_queue",
+        "top_3": [
+          "twilio:create_queue",
+          "twilio:list_queues",
+          "twilio:make_call"
+        ],
+        "top_5": [
+          "twilio:create_queue",
+          "twilio:list_queues",
+          "twilio:make_call",
+          "stripe:create_subscription",
+          "twilio:get_recording"
+        ],
+        "top_1_score": 14.449999809265137,
+        "top_2_score": 4.769999980926514,
+        "confidence_ratio": 0.7518210180542905,
+        "disposition": "confident",
+        "latency_ms": 5.1116943359375,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "what queues do we have",
+        "expected": "twilio:list_queues",
+        "expected_multi": null,
+        "top_1": "twilio:list_queues",
+        "top_3": [
+          "twilio:list_queues",
+          "stripe:get_balance",
+          "linear:list_issues"
+        ],
+        "top_5": [
+          "twilio:list_queues",
+          "stripe:get_balance",
+          "linear:list_issues",
+          "twilio:list_messages",
+          "shopify:list_orders"
+        ],
+        "top_1_score": 4.809999942779541,
+        "top_2_score": 3.9200000762939453,
+        "confidence_ratio": 0.5509736463081962,
+        "disposition": "confident",
+        "latency_ms": 5.224466323852539,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "convert that recording to text",
+        "expected": "twilio:transcribe_recording",
+        "expected_multi": null,
+        "top_1": "twilio:transcribe_recording",
+        "top_3": [
+          "twilio:transcribe_recording",
+          "twilio:get_recording",
+          "twilio:send_sms"
+        ],
+        "top_5": [
+          "twilio:transcribe_recording",
+          "twilio:get_recording",
+          "twilio:send_sms",
+          "twilio:list_recordings",
+          "twilio:send_mms"
+        ],
+        "top_1_score": 12.710000038146973,
+        "top_2_score": 3.690000057220459,
+        "confidence_ratio": 0.7749999978193423,
+        "disposition": "confident",
+        "latency_ms": 4.777669906616211,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "build a studio flow for onboarding",
+        "expected": "twilio:create_flow",
+        "expected_multi": null,
+        "top_1": "twilio:create_flow",
+        "top_3": [
+          "twilio:create_flow",
+          "twilio:list_flows",
+          "stripe:create_customer"
+        ],
+        "top_5": [
+          "twilio:create_flow",
+          "twilio:list_flows",
+          "stripe:create_customer",
+          "twilio:create_verify",
+          "notion:create_database"
+        ],
+        "top_1_score": 11.949999809265137,
+        "top_2_score": 5.440000057220459,
+        "confidence_ratio": 0.6871765325481944,
+        "disposition": "confident",
+        "latency_ms": 5.031585693359375,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "pull up all studio flows",
+        "expected": "twilio:list_flows",
+        "expected_multi": null,
+        "top_1": "twilio:list_flows",
+        "top_3": [
+          "twilio:list_flows",
+          "stripe:list_customers",
+          "twilio:create_flow"
+        ],
+        "top_5": [
+          "twilio:list_flows",
+          "stripe:list_customers",
+          "twilio:create_flow",
+          "linear:list_issues",
+          "shopify:get_product"
+        ],
+        "top_1_score": 13.050000190734863,
+        "top_2_score": 5.5,
+        "confidence_ratio": 0.7035040461753161,
+        "disposition": "confident",
+        "latency_ms": 4.851818084716797,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "ping them on whatsapp",
+        "expected": "twilio:send_whatsapp",
+        "expected_multi": null,
+        "top_1": "twilio:send_whatsapp",
+        "top_3": [
+          "twilio:send_whatsapp",
+          "shopify:list_themes"
+        ],
+        "top_5": [
+          "twilio:send_whatsapp",
+          "shopify:list_themes"
+        ],
+        "top_1_score": 4.849999904632568,
+        "top_2_score": 3.109999895095825,
+        "confidence_ratio": 0.6092964857609742,
+        "disposition": "confident",
+        "latency_ms": 6.19959831237793,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "how much credit is left on twilio",
+        "expected": "twilio:get_account_balance",
+        "expected_multi": null,
+        "top_1": "twilio:get_account_balance",
+        "top_3": [
+          "twilio:get_account_balance",
+          "stripe:get_balance",
+          "twilio:list_phone_numbers"
+        ],
+        "top_5": [
+          "twilio:get_account_balance",
+          "stripe:get_balance",
+          "twilio:list_phone_numbers",
+          "twilio:create_flow",
+          "twilio:buy_phone_number"
+        ],
+        "top_1_score": 10.199999809265137,
+        "top_2_score": 4.960000038146973,
+        "confidence_ratio": 0.6728232131879823,
+        "disposition": "confident",
+        "latency_ms": 4.943370819091797,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "show this month's twilio usage",
+        "expected": "twilio:list_usage_records",
+        "expected_multi": null,
+        "top_1": "twilio:list_usage_records",
+        "top_3": [
+          "twilio:list_usage_records",
+          "twilio:get_account_balance",
+          "stripe:list_invoices"
+        ],
+        "top_5": [
+          "twilio:list_usage_records",
+          "twilio:get_account_balance",
+          "stripe:list_invoices",
+          "twilio:list_phone_numbers",
+          "twilio:list_messages"
+        ],
+        "top_1_score": 8.279999732971191,
+        "top_2_score": 2.559999942779541,
+        "confidence_ratio": 0.7638376365908658,
+        "disposition": "confident",
+        "latency_ms": 4.629850387573242,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "set up alert for call failures",
+        "expected": "twilio:create_notification",
+        "expected_multi": null,
+        "top_1": "twilio:create_queue",
+        "top_3": [
+          "twilio:create_queue",
+          "twilio:create_notification",
+          "twilio:make_call"
+        ],
+        "top_5": [
+          "twilio:create_queue",
+          "twilio:create_notification",
+          "twilio:make_call",
+          "stripe:create_subscription",
+          "twilio:list_calls"
+        ],
+        "top_1_score": 4.96999979019165,
+        "top_2_score": 4.199999809265137,
+        "confidence_ratio": 0.5419847336183159,
+        "disposition": "confident",
+        "latency_ms": 5.29789924621582,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "leave a voice message on their phone",
+        "expected": "twilio:send_voice_message",
+        "expected_multi": null,
+        "top_1": "twilio:send_voice_message",
+        "top_3": [
+          "twilio:send_voice_message",
+          "twilio:make_call",
+          "twilio:send_sms"
+        ],
+        "top_5": [
+          "twilio:send_voice_message",
+          "twilio:make_call",
+          "twilio:send_sms",
+          "twilio:send_mms",
+          "notion:create_comment"
+        ],
+        "top_1_score": 13.279999732971191,
+        "top_2_score": 4.989999771118164,
+        "confidence_ratio": 0.7268746630233209,
+        "disposition": "confident",
+        "latency_ms": 5.5255889892578125,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "twilio",
+        "query": "validate this phone number's carrier",
+        "expected": "twilio:lookup_number",
+        "expected_multi": null,
+        "top_1": "twilio:lookup_number",
+        "top_3": [
+          "twilio:lookup_number",
+          "twilio:buy_phone_number",
+          "twilio:release_phone_number"
+        ],
+        "top_5": [
+          "twilio:lookup_number",
+          "twilio:buy_phone_number",
+          "twilio:release_phone_number",
+          "twilio:list_phone_numbers",
+          "twilio:create_verify"
+        ],
+        "top_1_score": 13.869999885559082,
+        "top_2_score": 8.079999923706055,
+        "confidence_ratio": 0.6318906608693695,
+        "disposition": "confident",
+        "latency_ms": 5.566596984863281,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "start a fresh doc in notion",
+        "expected": "notion:create_page",
+        "expected_multi": null,
+        "top_1": "notion:create_page",
+        "top_3": [
+          "notion:create_page",
+          "notion:create_comment",
+          "notion:delete_page"
+        ],
+        "top_5": [
+          "notion:create_page",
+          "notion:create_comment",
+          "notion:delete_page",
+          "notion:update_page",
+          "notion:restore_page"
+        ],
+        "top_1_score": 4.110000133514404,
+        "top_2_score": 3.059999942779541,
+        "confidence_ratio": 0.5732217698439406,
+        "disposition": "confident",
+        "latency_ms": 4.462957382202148,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "edit this notion doc",
+        "expected": "notion:update_page",
+        "expected_multi": null,
+        "top_1": "notion:update_page",
+        "top_3": [
+          "notion:update_page",
+          "notion:delete_page",
+          "notion:update_block"
+        ],
+        "top_5": [
+          "notion:update_page",
+          "notion:delete_page",
+          "notion:update_block",
+          "notion:create_page",
+          "notion:create_comment"
+        ],
+        "top_1_score": 8.069999694824219,
+        "top_2_score": 4.730000019073486,
+        "confidence_ratio": 0.6304687402502166,
+        "disposition": "confident",
+        "latency_ms": 3.4008026123046875,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "remove this page from notion",
+        "expected": "notion:delete_page",
+        "expected_multi": null,
+        "top_1": "notion:delete_page",
+        "top_3": [
+          "notion:delete_page",
+          "notion:delete_block",
+          "notion:create_page"
+        ],
+        "top_5": [
+          "notion:delete_page",
+          "notion:delete_block",
+          "notion:create_page",
+          "notion:create_comment",
+          "notion:update_page"
+        ],
+        "top_1_score": 8.020000457763672,
+        "top_2_score": 5.389999866485596,
+        "confidence_ratio": 0.5980611680717954,
+        "disposition": "confident",
+        "latency_ms": 3.2303333282470703,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "pull up every page",
+        "expected": "notion:list_pages",
+        "expected_multi": null,
+        "top_1": "notion:list_pages",
+        "top_3": [
+          "notion:list_pages",
+          "notion:create_page",
+          "stripe:list_customers"
+        ],
+        "top_5": [
+          "notion:list_pages",
+          "notion:create_page",
+          "stripe:list_customers",
+          "stripe:list_charges",
+          "notion:list_comments"
+        ],
+        "top_1_score": 5.800000190734863,
+        "top_2_score": 2.569999933242798,
+        "confidence_ratio": 0.6929510280554857,
+        "disposition": "confident",
+        "latency_ms": 4.776477813720703,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "find pages about onboarding",
+        "expected": "notion:search_content",
+        "expected_multi": null,
+        "top_1": "notion:search_content",
+        "top_3": [
+          "notion:search_content",
+          "notion:list_pages",
+          "notion:query_database"
+        ],
+        "top_5": [
+          "notion:search_content",
+          "notion:list_pages",
+          "notion:query_database",
+          "stripe:create_customer",
+          "shopify:create_customer"
+        ],
+        "top_1_score": 12.640000343322754,
+        "top_2_score": 3.809999942779541,
+        "confidence_ratio": 0.7683890652574394,
+        "disposition": "confident",
+        "latency_ms": 4.345417022705078,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "build a new tracking database",
+        "expected": "notion:create_database",
+        "expected_multi": null,
+        "top_1": "notion:create_database",
+        "top_3": [
+          "notion:create_database",
+          "notion:update_database",
+          "notion:query_database"
+        ],
+        "top_5": [
+          "notion:create_database",
+          "notion:update_database",
+          "notion:query_database",
+          "shopify:create_collection",
+          "twilio:create_flow"
+        ],
+        "top_1_score": 8.149999618530273,
+        "top_2_score": 3.4100000858306885,
+        "confidence_ratio": 0.7050172860692825,
+        "disposition": "confident",
+        "latency_ms": 5.934000015258789,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "change the database schema",
+        "expected": "notion:update_database",
+        "expected_multi": null,
+        "top_1": "notion:update_database",
+        "top_3": [
+          "notion:update_database",
+          "notion:create_database",
+          "notion:query_database"
+        ],
+        "top_5": [
+          "notion:update_database",
+          "notion:create_database",
+          "notion:query_database",
+          "notion:list_databases",
+          "shopify:adjust_inventory"
+        ],
+        "top_1_score": 14.180000305175781,
+        "top_2_score": 3.380000114440918,
+        "confidence_ratio": 0.8075170823649276,
+        "disposition": "confident",
+        "latency_ms": 6.035327911376953,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "what databases do we have",
+        "expected": "notion:list_databases",
+        "expected_multi": null,
+        "top_1": "notion:list_databases",
+        "top_3": [
+          "notion:list_databases",
+          "stripe:get_balance",
+          "notion:update_page"
+        ],
+        "top_5": [
+          "notion:list_databases",
+          "stripe:get_balance",
+          "notion:update_page",
+          "twilio:list_messages",
+          "linear:list_issues"
+        ],
+        "top_1_score": 4.730000019073486,
+        "top_2_score": 3.9100000858306885,
+        "confidence_ratio": 0.5474536992642718,
+        "disposition": "confident",
+        "latency_ms": 6.580829620361328,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "filter the database by date",
+        "expected": "notion:query_database",
+        "expected_multi": null,
+        "top_1": "notion:query_database",
+        "top_3": [
+          "notion:query_database",
+          "notion:update_database",
+          "notion:create_database"
+        ],
+        "top_5": [
+          "notion:query_database",
+          "notion:update_database",
+          "notion:create_database",
+          "notion:list_databases",
+          "stripe:list_charges"
+        ],
+        "top_1_score": 9.680000305175781,
+        "top_2_score": 3.4100000858306885,
+        "confidence_ratio": 0.7394957995437845,
+        "disposition": "confident",
+        "latency_ms": 4.43267822265625,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "leave a comment on this doc",
+        "expected": "notion:create_comment",
+        "expected_multi": null,
+        "top_1": "notion:create_comment",
+        "top_3": [
+          "notion:create_comment",
+          "linear:create_comment",
+          "notion:list_comments"
+        ],
+        "top_5": [
+          "notion:create_comment",
+          "linear:create_comment",
+          "notion:list_comments",
+          "twilio:send_voice_message",
+          "linear:list_comments"
+        ],
+        "top_1_score": 8.0600004196167,
+        "top_2_score": 7.769999980926514,
+        "confidence_ratio": 0.509159836745179,
+        "disposition": "confident",
+        "latency_ms": 4.454612731933594,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "show the discussion on this page",
+        "expected": "notion:list_comments",
+        "expected_multi": null,
+        "top_1": "notion:list_pages",
+        "top_3": [
+          "notion:list_pages",
+          "notion:list_comments",
+          "notion:get_page_property"
+        ],
+        "top_5": [
+          "notion:list_pages",
+          "notion:list_comments",
+          "notion:get_page_property",
+          "notion:update_page",
+          "notion:delete_page"
+        ],
+        "top_1_score": 2.640000104904175,
+        "top_2_score": 2.630000114440918,
+        "confidence_ratio": 0.5009487656591122,
+        "disposition": "escalate",
+        "latency_ms": 4.944324493408203,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "add a paragraph block at the end",
+        "expected": "notion:append_block",
+        "expected_multi": null,
+        "top_1": "notion:append_block",
+        "top_3": [
+          "notion:append_block",
+          "notion:get_block",
+          "notion:update_block"
+        ],
+        "top_5": [
+          "notion:append_block",
+          "notion:get_block",
+          "notion:update_block",
+          "notion:delete_block",
+          "notion:list_block_children"
+        ],
+        "top_1_score": 9.210000038146973,
+        "top_2_score": 3.2100000381469727,
+        "confidence_ratio": 0.7415458922360315,
+        "disposition": "confident",
+        "latency_ms": 4.078388214111328,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "edit this block's text",
+        "expected": "notion:update_block",
+        "expected_multi": null,
+        "top_1": "notion:update_block",
+        "top_3": [
+          "notion:update_block",
+          "notion:get_block",
+          "notion:delete_block"
+        ],
+        "top_5": [
+          "notion:update_block",
+          "notion:get_block",
+          "notion:delete_block",
+          "notion:append_block",
+          "notion:list_block_children"
+        ],
+        "top_1_score": 10.130000114440918,
+        "top_2_score": 3.2100000381469727,
+        "confidence_ratio": 0.7593703147353975,
+        "disposition": "confident",
+        "latency_ms": 3.9985179901123047,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "remove this block from the page",
+        "expected": "notion:delete_block",
+        "expected_multi": null,
+        "top_1": "notion:delete_block",
+        "top_3": [
+          "notion:delete_block",
+          "notion:append_block",
+          "notion:delete_page"
+        ],
+        "top_5": [
+          "notion:delete_block",
+          "notion:append_block",
+          "notion:delete_page",
+          "notion:update_block",
+          "notion:get_block"
+        ],
+        "top_1_score": 12.25,
+        "top_2_score": 7.760000228881836,
+        "confidence_ratio": 0.6121938960459739,
+        "disposition": "confident",
+        "latency_ms": 4.284381866455078,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "fetch this block's content",
+        "expected": "notion:get_block",
+        "expected_multi": null,
+        "top_1": "notion:update_block",
+        "top_3": [
+          "notion:update_block",
+          "notion:get_block",
+          "notion:append_block"
+        ],
+        "top_5": [
+          "notion:update_block",
+          "notion:get_block",
+          "notion:append_block",
+          "notion:list_block_children",
+          "notion:delete_block"
+        ],
+        "top_1_score": 8.59000015258789,
+        "top_2_score": 7.059999942779541,
+        "confidence_ratio": 0.5488817955426482,
+        "disposition": "confident",
+        "latency_ms": 4.732608795166016,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "show nested blocks under this one",
+        "expected": "notion:list_block_children",
+        "expected_multi": null,
+        "top_1": "notion:list_block_children",
+        "top_3": [
+          "notion:list_block_children",
+          "stripe:list_invoices",
+          "linear:list_comments"
+        ],
+        "top_5": [
+          "notion:list_block_children",
+          "stripe:list_invoices",
+          "linear:list_comments",
+          "notion:list_comments",
+          "notion:list_pages"
+        ],
+        "top_1_score": 10.699999809265137,
+        "top_2_score": 0.800000011920929,
+        "confidence_ratio": 0.9304347804904209,
+        "disposition": "confident",
+        "latency_ms": 4.132270812988281,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "invite a new user to the workspace",
+        "expected": "notion:create_user",
+        "expected_multi": null,
+        "top_1": "notion:create_user",
+        "top_3": [
+          "notion:create_user",
+          "notion:list_users",
+          "notion:retrieve_user"
+        ],
+        "top_5": [
+          "notion:create_user",
+          "notion:list_users",
+          "notion:retrieve_user",
+          "notion:share_page",
+          "notion:search_content"
+        ],
+        "top_1_score": 10.489999771118164,
+        "top_2_score": 5.679999828338623,
+        "confidence_ratio": 0.6487322220756618,
+        "disposition": "confident",
+        "latency_ms": 5.543947219848633,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "who has access to notion",
+        "expected": "notion:list_users",
+        "expected_multi": null,
+        "top_1": "stripe:list_subscriptions",
+        "top_3": [
+          "stripe:list_subscriptions",
+          "shopify:list_customers",
+          "notion:share_page"
+        ],
+        "top_5": [
+          "stripe:list_subscriptions",
+          "shopify:list_customers",
+          "notion:share_page",
+          "notion:list_users",
+          "linear:list_members"
+        ],
+        "top_1_score": 4.639999866485596,
+        "top_2_score": 4.619999885559082,
+        "confidence_ratio": 0.5010799126059424,
+        "disposition": "confident",
+        "latency_ms": 5.771160125732422,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "lookup user permissions",
+        "expected": "notion:retrieve_user",
+        "expected_multi": null,
+        "top_1": "notion:retrieve_user",
+        "top_3": [
+          "notion:retrieve_user",
+          "notion:create_user",
+          "twilio:lookup_number"
+        ],
+        "top_5": [
+          "notion:retrieve_user",
+          "notion:create_user",
+          "twilio:lookup_number",
+          "notion:list_users",
+          "notion:get_page_property"
+        ],
+        "top_1_score": 6.71999979019165,
+        "top_2_score": 3.0299999713897705,
+        "confidence_ratio": 0.6892307645658533,
+        "disposition": "confident",
+        "latency_ms": 4.873752593994141,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "give the team access to this page",
+        "expected": "notion:share_page",
+        "expected_multi": null,
+        "top_1": "notion:share_page",
+        "top_3": [
+          "notion:share_page",
+          "linear:assign_issue",
+          "linear:create_team"
+        ],
+        "top_5": [
+          "notion:share_page",
+          "linear:assign_issue",
+          "linear:create_team",
+          "linear:list_members",
+          "notion:create_page"
+        ],
+        "top_1_score": 9.170000076293945,
+        "top_2_score": 3.319999933242798,
+        "confidence_ratio": 0.7341873554277173,
+        "disposition": "confident",
+        "latency_ms": 4.304647445678711,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "put this page in archive",
+        "expected": "notion:archive_page",
+        "expected_multi": null,
+        "top_1": "notion:archive_page",
+        "top_3": [
+          "notion:archive_page",
+          "linear:archive_issue",
+          "notion:restore_page"
+        ],
+        "top_5": [
+          "notion:archive_page",
+          "linear:archive_issue",
+          "notion:restore_page",
+          "linear:assign_issue",
+          "linear:add_to_cycle"
+        ],
+        "top_1_score": 12.800000190734863,
+        "top_2_score": 5.079999923706055,
+        "confidence_ratio": 0.7158836749892885,
+        "disposition": "confident",
+        "latency_ms": 3.3109188079833984,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "bring back the archived page",
+        "expected": "notion:restore_page",
+        "expected_multi": null,
+        "top_1": "notion:restore_page",
+        "top_3": [
+          "notion:restore_page",
+          "notion:archive_page",
+          "stripe:create_refund"
+        ],
+        "top_5": [
+          "notion:restore_page",
+          "notion:archive_page",
+          "stripe:create_refund",
+          "notion:create_page",
+          "notion:update_page"
+        ],
+        "top_1_score": 15.140000343322754,
+        "top_2_score": 3.490000009536743,
+        "confidence_ratio": 0.812667743240216,
+        "disposition": "confident",
+        "latency_ms": 3.2362937927246094,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "save this as a reusable template",
+        "expected": "notion:create_template",
+        "expected_multi": null,
+        "top_1": "notion:create_template",
+        "top_3": [
+          "notion:create_template",
+          "notion:list_templates",
+          "shopify:create_fulfillment"
+        ],
+        "top_5": [
+          "notion:create_template",
+          "notion:list_templates",
+          "shopify:create_fulfillment",
+          "linear:create_view",
+          "shopify:close_order"
+        ],
+        "top_1_score": 4.159999847412109,
+        "top_2_score": 3.2699999809265137,
+        "confidence_ratio": 0.5598923207973077,
+        "disposition": "confident",
+        "latency_ms": 3.22723388671875,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "what templates are available",
+        "expected": "notion:list_templates",
+        "expected_multi": null,
+        "top_1": "notion:list_templates",
+        "top_3": [
+          "notion:list_templates",
+          "stripe:get_balance",
+          "notion:update_page"
+        ],
+        "top_5": [
+          "notion:list_templates",
+          "stripe:get_balance",
+          "notion:update_page",
+          "shopify:list_orders",
+          "twilio:get_account_balance"
+        ],
+        "top_1_score": 4.820000171661377,
+        "top_2_score": 3.9200000762939453,
+        "confidence_ratio": 0.5514874181827387,
+        "disposition": "confident",
+        "latency_ms": 3.2117366790771484,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "notion",
+        "query": "fetch the status property",
+        "expected": "notion:get_page_property",
+        "expected_multi": null,
+        "top_1": "notion:get_page_property",
+        "top_3": [
+          "notion:get_page_property",
+          "linear:update_issue",
+          "linear:update_project"
+        ],
+        "top_5": [
+          "notion:get_page_property",
+          "linear:update_issue",
+          "linear:update_project",
+          "shopify:update_order",
+          "twilio:get_recording"
+        ],
+        "top_1_score": 5.460000038146973,
+        "top_2_score": 2.390000104904175,
+        "confidence_ratio": 0.6955413934584685,
+        "disposition": "confident",
+        "latency_ms": 3.093242645263672,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "pull the stripe customer directory",
+        "expected": "stripe:list_customers",
+        "expected_multi": null,
+        "top_1": "stripe:list_customers",
+        "top_3": [
+          "stripe:list_customers",
+          "stripe:delete_customer",
+          "stripe:create_customer"
+        ],
+        "top_5": [
+          "stripe:list_customers",
+          "stripe:delete_customer",
+          "stripe:create_customer",
+          "stripe:create_product",
+          "stripe:get_balance"
+        ],
+        "top_1_score": 6.989999771118164,
+        "top_2_score": 5.460000038146973,
+        "confidence_ratio": 0.5614457733498351,
+        "disposition": "escalate",
+        "latency_ms": 3.3004283905029297,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "show shopify customer list",
+        "expected": "shopify:list_customers",
+        "expected_multi": null,
+        "top_1": "shopify:list_customers",
+        "top_3": [
+          "shopify:list_customers",
+          "shopify:create_customer",
+          "shopify:update_customer"
+        ],
+        "top_5": [
+          "shopify:list_customers",
+          "shopify:create_customer",
+          "shopify:update_customer",
+          "stripe:list_customers",
+          "stripe:delete_customer"
+        ],
+        "top_1_score": 8.850000381469727,
+        "top_2_score": 8.399999618530273,
+        "confidence_ratio": 0.5130435003750566,
+        "disposition": "confident",
+        "latency_ms": 3.4682750701904297,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "add customer to stripe",
+        "expected": "stripe:create_customer",
+        "expected_multi": null,
+        "top_1": "stripe:create_customer",
+        "top_3": [
+          "stripe:create_customer",
+          "shopify:create_customer",
+          "stripe:delete_customer"
+        ],
+        "top_5": [
+          "stripe:create_customer",
+          "shopify:create_customer",
+          "stripe:delete_customer",
+          "stripe:create_product",
+          "stripe:list_customers"
+        ],
+        "top_1_score": 8.079999923706055,
+        "top_2_score": 6.619999885559082,
+        "confidence_ratio": 0.5496598658874391,
+        "disposition": "confident",
+        "latency_ms": 3.3185482025146484,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "add buyer to shopify",
+        "expected": "shopify:create_customer",
+        "expected_multi": null,
+        "top_1": "shopify:create_customer",
+        "top_3": [
+          "shopify:create_customer",
+          "shopify:update_customer",
+          "shopify:list_customers"
+        ],
+        "top_5": [
+          "shopify:create_customer",
+          "shopify:update_customer",
+          "shopify:list_customers",
+          "stripe:create_customer",
+          "shopify:create_product"
+        ],
+        "top_1_score": 6.420000076293945,
+        "top_2_score": 4.190000057220459,
+        "confidence_ratio": 0.6050895377479525,
+        "disposition": "confident",
+        "latency_ms": 3.248453140258789,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "new project in linear",
+        "expected": "linear:create_project",
+        "expected_multi": null,
+        "top_1": "linear:create_project",
+        "top_3": [
+          "linear:create_project",
+          "linear:update_project",
+          "linear:list_projects"
+        ],
+        "top_5": [
+          "linear:create_project",
+          "linear:update_project",
+          "linear:list_projects",
+          "linear:create_issue",
+          "linear:create_team"
+        ],
+        "top_1_score": 12.720000267028809,
+        "top_2_score": 4.260000228881836,
+        "confidence_ratio": 0.7491166016215496,
+        "disposition": "confident",
+        "latency_ms": 3.296375274658203,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "cross_provider",
+        "query": "list all stripe subscriptions",
+        "expected": "stripe:list_subscriptions",
+        "expected_multi": null,
+        "top_1": "stripe:list_customers",
+        "top_3": [
+          "stripe:list_customers",
+          "stripe:list_subscriptions",
+          "notion:list_pages"
+        ],
+        "top_5": [
+          "stripe:list_customers",
+          "stripe:list_subscriptions",
+          "notion:list_pages",
+          "stripe:list_invoices",
+          "twilio:list_conversations"
+        ],
+        "top_1_score": 8.069999694824219,
+        "top_2_score": 6.130000114440918,
+        "confidence_ratio": 0.5683098452972337,
+        "disposition": "confident",
+        "latency_ms": 3.5042762756347656,
+        "hit_1": false,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "gimme stripe balance",
+        "expected": "stripe:get_balance",
+        "expected_multi": null,
+        "top_1": "stripe:get_balance",
+        "top_3": [
+          "stripe:get_balance",
+          "stripe:create_payout",
+          "twilio:get_account_balance"
+        ],
+        "top_5": [
+          "stripe:get_balance",
+          "stripe:create_payout",
+          "twilio:get_account_balance",
+          "stripe:create_product",
+          "stripe:create_customer"
+        ],
+        "top_1_score": 8.970000267028809,
+        "top_2_score": 4.25,
+        "confidence_ratio": 0.678517404375576,
+        "disposition": "confident",
+        "latency_ms": 4.307985305786133,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "yo refund this charge",
+        "expected": "stripe:create_refund",
+        "expected_multi": null,
+        "top_1": "stripe:create_refund",
+        "top_3": [
+          "stripe:create_refund",
+          "stripe:create_payment",
+          "stripe:cancel_payment"
+        ],
+        "top_5": [
+          "stripe:create_refund",
+          "stripe:create_payment",
+          "stripe:cancel_payment",
+          "stripe:capture_payment",
+          "stripe:list_charges"
+        ],
+        "top_1_score": 5.510000228881836,
+        "top_2_score": 2.509999990463257,
+        "confidence_ratio": 0.6870324287013272,
+        "disposition": "confident",
+        "latency_ms": 5.551815032958984,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "creat a new linear ticket",
+        "expected": "linear:create_issue",
+        "expected_multi": null,
+        "top_1": "linear:create_issue",
+        "top_3": [
+          "linear:create_issue",
+          "linear:create_label",
+          "linear:create_project"
+        ],
+        "top_5": [
+          "linear:create_issue",
+          "linear:create_label",
+          "linear:create_project",
+          "linear:create_cycle",
+          "linear:create_view"
+        ],
+        "top_1_score": 10.630000114440918,
+        "top_2_score": 6.510000228881836,
+        "confidence_ratio": 0.6201866920371479,
+        "disposition": "confident",
+        "latency_ms": 5.719661712646484,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "gimme the shopify orders from today",
+        "expected": "shopify:list_orders",
+        "expected_multi": null,
+        "top_1": "shopify:list_orders",
+        "top_3": [
+          "shopify:list_orders",
+          "shopify:list_draft_orders",
+          "shopify:create_customer"
+        ],
+        "top_5": [
+          "shopify:list_orders",
+          "shopify:list_draft_orders",
+          "shopify:create_customer",
+          "shopify:list_customers",
+          "shopify:update_customer"
+        ],
+        "top_1_score": 10.020000457763672,
+        "top_2_score": 3.809999942779541,
+        "confidence_ratio": 0.7245119427017592,
+        "disposition": "confident",
+        "latency_ms": 4.926443099975586,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "informal_oov",
+        "query": "txt em",
+        "expected": "twilio:send_sms",
+        "expected_multi": null,
+        "top_1": null,
+        "top_3": [],
+        "top_5": [],
+        "top_1_score": 0.0,
+        "top_2_score": 0.0,
+        "confidence_ratio": 0.0,
+        "disposition": "no_match",
+        "latency_ms": 3.323793411254883,
+        "hit_1": false,
+        "hit_3": false,
+        "hit_5": false
+      },
+      {
+        "category": "informal_oov",
+        "query": "new notion pg",
+        "expected": "notion:create_page",
+        "expected_multi": null,
+        "top_1": "notion:create_page",
+        "top_3": [
+          "notion:create_page",
+          "notion:create_database",
+          "notion:create_user"
+        ],
+        "top_5": [
+          "notion:create_page",
+          "notion:create_database",
+          "notion:create_user",
+          "notion:create_template",
+          "linear:create_project"
+        ],
+        "top_1_score": 4.369999885559082,
+        "top_2_score": 4.28000020980835,
+        "confidence_ratio": 0.5052022933386401,
+        "disposition": "escalate",
+        "latency_ms": 3.0984878540039062,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "list the customers on shopify and stripe",
+        "expected": null,
+        "expected_multi": [
+          "shopify:list_customers",
+          "stripe:list_customers"
+        ],
+        "top_1": "shopify:list_customers",
+        "top_3": [
+          "shopify:list_customers",
+          "stripe:list_customers",
+          "stripe:create_product"
+        ],
+        "top_5": [
+          "shopify:list_customers",
+          "stripe:list_customers",
+          "stripe:create_product",
+          "stripe:get_balance",
+          "shopify:create_customer"
+        ],
+        "top_1_score": 8.069999694824219,
+        "top_2_score": 6.809999942779541,
+        "confidence_ratio": 0.5423387023767289,
+        "disposition": "confident",
+        "latency_ms": 3.2503604888916016,
+        "expected_multi_hit3": true,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "cancel the subscription and refund this month",
+        "expected": null,
+        "expected_multi": [
+          "stripe:cancel_subscription",
+          "stripe:create_refund"
+        ],
+        "top_1": "stripe:cancel_subscription",
+        "top_3": [
+          "stripe:cancel_subscription",
+          "stripe:create_refund",
+          "stripe:update_subscription"
+        ],
+        "top_5": [
+          "stripe:cancel_subscription",
+          "stripe:create_refund",
+          "stripe:update_subscription",
+          "shopify:cancel_order",
+          "stripe:create_subscription"
+        ],
+        "top_1_score": 7.71999979019165,
+        "top_2_score": 4.5,
+        "confidence_ratio": 0.6317512211733496,
+        "disposition": "confident",
+        "latency_ms": 3.3292770385742188,
+        "expected_multi_hit3": true,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "create a new stripe customer and send them an invoice",
+        "expected": null,
+        "expected_multi": [
+          "stripe:create_customer",
+          "stripe:create_invoice"
+        ],
+        "top_1": "stripe:create_customer",
+        "top_3": [
+          "stripe:create_customer",
+          "stripe:create_invoice",
+          "stripe:create_product"
+        ],
+        "top_5": [
+          "stripe:create_customer",
+          "stripe:create_invoice",
+          "stripe:create_product",
+          "stripe:delete_customer",
+          "shopify:create_order"
+        ],
+        "top_1_score": 10.260000228881836,
+        "top_2_score": 8.270000457763672,
+        "confidence_ratio": 0.5536966998752555,
+        "disposition": "escalate",
+        "latency_ms": 3.429412841796875,
+        "expected_multi_hit3": true,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "update customer then send sms alert",
+        "expected": null,
+        "expected_multi": [
+          "twilio:send_sms"
+        ],
+        "top_1": "twilio:send_sms",
+        "top_3": [
+          "twilio:send_sms",
+          "stripe:update_customer",
+          "shopify:update_customer"
+        ],
+        "top_5": [
+          "twilio:send_sms",
+          "stripe:update_customer",
+          "shopify:update_customer",
+          "twilio:send_mms",
+          "twilio:send_whatsapp"
+        ],
+        "top_1_score": 13.579999923706055,
+        "top_2_score": 7.139999866485596,
+        "confidence_ratio": 0.6554054083598254,
+        "disposition": "confident",
+        "latency_ms": 3.180980682373047,
+        "expected_multi_hit3": true,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "purge the customer record",
+        "expected": "stripe:delete_customer",
+        "expected_multi": null,
+        "top_1": "stripe:delete_customer",
+        "top_3": [
+          "stripe:delete_customer",
+          "stripe:update_customer",
+          "shopify:update_customer"
+        ],
+        "top_5": [
+          "stripe:delete_customer",
+          "stripe:update_customer",
+          "shopify:update_customer",
+          "shopify:create_customer",
+          "shopify:create_order"
+        ],
+        "top_1_score": 8.0,
+        "top_2_score": 4.75,
+        "confidence_ratio": 0.6274509803921569,
+        "disposition": "confident",
+        "latency_ms": 3.15093994140625,
+        "hit_1": true,
+        "hit_3": true,
+        "hit_5": true
+      },
+      {
+        "category": "false_pos_bait",
+        "query": "list all our active conversations and recent messages",
+        "expected": null,
+        "expected_multi": [
+          "twilio:list_conversations",
+          "twilio:list_messages"
+        ],
+        "top_1": "twilio:list_conversations",
+        "top_3": [
+          "twilio:list_conversations",
+          "stripe:list_subscriptions",
+          "twilio:list_messages"
+        ],
+        "top_5": [
+          "twilio:list_conversations",
+          "stripe:list_subscriptions",
+          "twilio:list_messages",
+          "stripe:list_charges",
+          "shopify:list_orders"
+        ],
+        "top_1_score": 10.239999771118164,
+        "top_2_score": 5.75,
+        "confidence_ratio": 0.6404002450090148,
+        "disposition": "confident",
+        "latency_ms": 3.2339096069335938,
+        "expected_multi_hit3": true,
+        "expected_multi_partial3": true
+      },
+      {
+        "category": "oos_negative",
+        "query": "what's the weather tomorrow",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": "stripe:get_balance",
+        "top_3": [
+          "stripe:get_balance",
+          "twilio:list_messages",
+          "shopify:list_orders"
+        ],
+        "top_5": [
+          "stripe:get_balance",
+          "twilio:list_messages",
+          "shopify:list_orders",
+          "linear:list_issues",
+          "twilio:get_account_balance"
+        ],
+        "top_1_score": 1.9600000381469727,
+        "top_2_score": 1.2400000095367432,
+        "confidence_ratio": 0.6125000027939677,
+        "disposition": "confident",
+        "latency_ms": 2.9811859130859375,
+        "oos_rejected": false
+      },
+      {
+        "category": "oos_negative",
+        "query": "play some jazz music",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": null,
+        "top_3": [],
+        "top_5": [],
+        "top_1_score": 0.0,
+        "top_2_score": 0.0,
+        "confidence_ratio": 0.0,
+        "disposition": "no_match",
+        "latency_ms": 3.155231475830078,
+        "oos_rejected": true
+      },
+      {
+        "category": "oos_negative",
+        "query": "tell me a joke",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": null,
+        "top_3": [],
+        "top_5": [],
+        "top_1_score": 0.0,
+        "top_2_score": 0.0,
+        "confidence_ratio": 0.0,
+        "disposition": "no_match",
+        "latency_ms": 3.8220882415771484,
+        "oos_rejected": true
+      },
+      {
+        "category": "oos_negative",
+        "query": "what year did ww2 end",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": "twilio:list_messages",
+        "top_3": [
+          "twilio:list_messages",
+          "notion:append_block",
+          "stripe:cancel_subscription"
+        ],
+        "top_5": [
+          "twilio:list_messages",
+          "notion:append_block",
+          "stripe:cancel_subscription",
+          "stripe:get_balance",
+          "shopify:list_orders"
+        ],
+        "top_1_score": 3.180000066757202,
+        "top_2_score": 2.6600000858306885,
+        "confidence_ratio": 0.5445205451489659,
+        "disposition": "escalate",
+        "latency_ms": 4.131317138671875,
+        "oos_rejected": false
+      },
+      {
+        "category": "oos_negative",
+        "query": "book a flight to miami",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": "shopify:create_order",
+        "top_3": [
+          "shopify:create_order"
+        ],
+        "top_5": [
+          "shopify:create_order"
+        ],
+        "top_1_score": 1.9299999475479126,
+        "top_2_score": 0.0,
+        "confidence_ratio": 1.0,
+        "disposition": "confident",
+        "latency_ms": 4.096508026123047,
+        "oos_rejected": false
+      },
+      {
+        "category": "oos_negative",
+        "query": "who is the president",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": "linear:list_members",
+        "top_3": [
+          "linear:list_members",
+          "notion:list_users",
+          "stripe:list_customers"
+        ],
+        "top_5": [
+          "linear:list_members",
+          "notion:list_users",
+          "stripe:list_customers",
+          "stripe:list_subscriptions",
+          "shopify:list_customers"
+        ],
+        "top_1_score": 2.0799999237060547,
+        "top_2_score": 1.2999999523162842,
+        "confidence_ratio": 0.6153846153846154,
+        "disposition": "confident",
+        "latency_ms": 5.646228790283203,
+        "oos_rejected": false
+      },
+      {
+        "category": "oos_negative",
+        "query": "translate this to spanish",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": null,
+        "top_3": [],
+        "top_5": [],
+        "top_1_score": 0.0,
+        "top_2_score": 0.0,
+        "confidence_ratio": 0.0,
+        "disposition": "no_match",
+        "latency_ms": 4.695892333984375,
+        "oos_rejected": true
+      },
+      {
+        "category": "oos_negative",
+        "query": "what time is it in london",
+        "expected": null,
+        "expected_multi": null,
+        "top_1": "stripe:get_balance",
+        "top_3": [
+          "stripe:get_balance",
+          "linear:list_issues",
+          "shopify:list_orders"
+        ],
+        "top_5": [
+          "stripe:get_balance",
+          "linear:list_issues",
+          "shopify:list_orders",
+          "twilio:list_messages",
+          "twilio:get_account_balance"
+        ],
+        "top_1_score": 1.9600000381469727,
+        "top_2_score": 1.2400000095367432,
+        "confidence_ratio": 0.6125000027939677,
+        "disposition": "confident",
+        "latency_ms": 4.599809646606445,
+        "oos_rejected": false
+      }
+    ],
+    "total_time_s": 0.7205202579498291
+  }
+}
