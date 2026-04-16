@@ -85,14 +85,57 @@ pub fn resolve_turn(
     let previous_intent: Option<String> = history.iter().rev()
         .find_map(|msg| msg.get("intent").and_then(|v| v.as_str()).map(String::from));
 
-    // Decide: transition or continue?
-    let (intent, is_transition) = resolve_intent(
-        &route_result, previous_intent.as_deref(), threshold,
-    );
+    // Option H: check the last assistant message for a `next_intent` directive
+    // (set when the previous turn emitted `→ intent_id`). This is a forced
+    // handoff that overrides ASV routing for this turn.
+    let last_assistant = history.iter().rev()
+        .find(|m| m.get("role").and_then(|v| v.as_str()) == Some("assistant"));
+    let forced_next: Option<String> = last_assistant
+        .and_then(|m| m.get("next_intent")).and_then(|v| v.as_str())
+        .map(String::from);
+    let briefing: Option<String> = last_assistant
+        .and_then(|m| m.get("context")).and_then(|v| v.as_str())
+        .map(String::from);
 
-    // Assemble system prompt from active intent's metadata
+    // Decide the active intent.
+    //
+    // Design commitment: ASV is ENTRY-ONLY. It fires only when there's no
+    // previous intent in history (first user message). Once a conversation
+    // is in progress, intent transitions are driven solely by the intent
+    // programming layer via `→ <intent_id>` handoff directives from the
+    // previous assistant turn. ASV does not re-route mid-conversation.
+    //
+    // Priority:
+    //   1. Forced handoff (previous assistant emitted `next_intent`)
+    //   2. Continue previous intent (if any)
+    //   3. ASV routing (only when history has no intent — entry point)
+    let (intent, is_transition) = if let Some(id) = forced_next {
+        // Validate the forced intent exists in router
+        if router.intent_ids().iter().any(|x| x == &id) {
+            (Some(id), true)
+        } else {
+            // Hallucinated intent name: ignore, fall through to normal logic
+            if let Some(prev) = previous_intent.as_deref() {
+                (Some(prev.to_string()), false)
+            } else {
+                resolve_intent(&route_result, None, threshold)
+            }
+        }
+    } else if let Some(prev) = previous_intent.as_deref() {
+        // Conversation in progress: stay in the current intent. No ASV hijack.
+        (Some(prev.to_string()), false)
+    } else {
+        // Entry point: no history → ASV decides
+        resolve_intent(&route_result, None, threshold)
+    };
+
+    // Assemble system prompt from active intent's metadata.
+    // Only inject briefing on the FIRST turn after handoff (when transitioning into the new intent).
     let system_prompt = match &intent {
-        Some(id) => assemble_prompt(router, id),
+        Some(id) => {
+            let b = if is_transition { briefing.as_deref() } else { None };
+            assemble_prompt(router, id, b)
+        }
         None => String::new(),
     };
 
@@ -140,12 +183,45 @@ fn resolve_intent(
     }
 }
 
+/// Returns true if the intent is marked as a fact-returning node.
+/// Fact intents have `metadata.mode = ["fact"]` and their instructions ARE
+/// the literal answer (or a parameterized template).
+pub fn is_fact_intent(router: &Router, intent_id: &str) -> bool {
+    router.get_metadata(intent_id)
+        .and_then(|m| m.get("mode"))
+        .map(|v| v.iter().any(|s| s == "fact"))
+        .unwrap_or(false)
+}
+
+/// List all fact-mode intents in the namespace as `id: one-line description`,
+/// for inclusion in conversational intents' system prompts.
+pub fn list_fact_intents(router: &Router) -> Vec<(String, String)> {
+    router.intent_ids().into_iter()
+        .filter(|id| is_fact_intent(router, id))
+        .map(|id| {
+            let desc = router.get_description(&id).to_string();
+            (id, desc)
+        })
+        .collect()
+}
+
 /// Assemble a system prompt from an intent's metadata blocks.
 ///
 /// Blocks are concatenated in order: instructions, guardrails, persona, tools.
 /// Only present blocks are included. Appends a remark instruction for audit trail.
-pub fn assemble_prompt(router: &Router, intent_id: &str) -> String {
+/// If `briefing` is provided, prepends it as a "carried-forward context" block.
+/// Appends Option H handoff convention.
+pub fn assemble_prompt(router: &Router, intent_id: &str, briefing: Option<&str>) -> String {
     let mut parts = Vec::new();
+
+    if let Some(b) = briefing {
+        if !b.trim().is_empty() {
+            parts.push(format!(
+                "Briefing from previous intent: {}\n\nUse this briefing — do not re-ask the user for information already in it.",
+                b.trim()
+            ));
+        }
+    }
 
     if let Some(meta) = router.get_metadata(intent_id) {
         if let Some(v) = meta.get("instructions") {
@@ -164,8 +240,7 @@ pub fn assemble_prompt(router: &Router, intent_id: &str) -> String {
         }
     }
 
-    // Fallback to description if no metadata
-    if parts.is_empty() {
+    if parts.is_empty() || (parts.len() == 1 && briefing.is_some()) {
         let desc = router.get_description(intent_id);
         if !desc.is_empty() {
             parts.push(desc.to_string());
@@ -177,8 +252,66 @@ pub fn assemble_prompt(router: &Router, intent_id: &str) -> String {
     }
 
     let mut prompt = parts.join("\n");
-    prompt.push_str("\n\nAfter your response, add on a new line: [REMARK: one sentence explaining your reasoning]");
+    // Fact-intent registry: list available fact-returning intents the LLM can look up.
+    let facts = list_fact_intents(router);
+    if !facts.is_empty() {
+        prompt.push_str("\n\nFACT INTENTS AVAILABLE (look these up for accurate, authoritative answers):\n");
+        for (id, desc) in &facts {
+            let line = if desc.is_empty() {
+                format!("- {}\n", id)
+            } else {
+                format!("- {}: {}\n", id, desc)
+            };
+            prompt.push_str(&line);
+        }
+        prompt.push_str(
+            "\nWhen you need one of these facts to answer accurately, emit on its own line:\n\
+             lookup: <intent_id>\n\
+             You may emit multiple lookups (each on its own line). The system will \
+             execute them and return results to you in the next round, then you \
+             produce the final reply. Do NOT invent values for facts available via lookup.\n"
+        );
+    }
+
+    prompt.push_str(
+        "\n\nHANDOFF CONVENTION: When you have finished this intent's job and want to hand off to another intent, \
+         end your response with these two lines exactly (each on its own line):\n\
+         → <intent_id>\n\
+         context: <one short paragraph briefing the next intent on what you have learned>\n\n\
+         If you are NOT handing off, do NOT write `→` at all and do NOT write any meta-commentary \
+         about whether you are handing off. Just continue the conversation naturally.\n\n\
+         After your reply, on a new line (BEFORE any handoff lines), add: \
+         [REMARK: one sentence explaining your reasoning]"
+    );
     prompt
+}
+
+/// Extract `lookup: <intent_id>` directives from LLM response.
+/// Returns (cleaned_text, list_of_lookup_ids).
+pub fn extract_lookups(text: &str) -> (String, Vec<String>) {
+    let mut ids = Vec::new();
+    let mut keep = Vec::new();
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(rest) = t.strip_prefix("lookup:") {
+            let id = rest.trim().trim_matches(|c: char| c == '`' || c == '*').to_string();
+            if !id.is_empty() { ids.push(id); }
+            continue;
+        }
+        keep.push(line);
+    }
+    (keep.join("\n").trim().to_string(), ids)
+}
+
+/// Get the literal body of a fact intent (its `instructions` field, or
+/// description as fallback). Used when a lookup directive resolves a fact intent.
+pub fn fact_body(router: &Router, intent_id: &str) -> String {
+    if let Some(meta) = router.get_metadata(intent_id) {
+        if let Some(v) = meta.get("instructions") {
+            return v.join("\n");
+        }
+    }
+    router.get_description(intent_id).to_string()
 }
 
 /// Build LLM-ready messages array: [system_prompt, ...clean_history, user_query].
@@ -223,6 +356,40 @@ pub fn extract_remark(text: &str) -> (String, Option<String>) {
     } else {
         (text.to_string(), None)
     }
+}
+
+/// Extract Option H handoff directives `→ <intent_id>` and `context: <text>`
+/// from the trailing lines of an LLM response.
+///
+/// Returns `(clean_response, optional_handoff_intent, optional_context)`.
+/// Stripped from user-facing text. Either or both directives may be absent.
+/// The arrow can be `→` or `->`.
+pub fn extract_handoff(text: &str) -> (String, Option<String>, Option<String>) {
+    let mut handoff: Option<String> = None;
+    let mut context: Option<String> = None;
+    let mut keep_lines: Vec<&str> = Vec::new();
+
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(rest) = t.strip_prefix('→').or_else(|| t.strip_prefix("->")) {
+            let id = rest.trim().trim_matches(|c: char| c == '`' || c == '*').to_string();
+            if !id.is_empty() { handoff = Some(id); }
+            continue;
+        }
+        if let Some(rest) = t.to_lowercase().strip_prefix("context:") {
+            // strip_prefix on lowercase gives wrong byte offsets; use case-insensitive find
+            let _ = rest;
+            if let Some(colon) = t.find(':') {
+                let body = t[colon+1..].trim().to_string();
+                if !body.is_empty() { context = Some(body); }
+            }
+            continue;
+        }
+        keep_lines.push(line);
+    }
+
+    let clean = keep_lines.join("\n").trim().to_string();
+    (clean, handoff, context)
 }
 
 #[cfg(test)]

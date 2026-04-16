@@ -336,31 +336,97 @@ pub async fn execute(
         }))),
     };
 
-    // Call LLM with assembled messages
-    let llm_response = crate::pipeline::call_llm_with_messages(&state, &turn.messages, 1024).await;
+    // ── Inline lookup loop: LLM may emit `lookup: <fact_intent>` directives.
+    // For each, fetch the fact intent's body and re-call the LLM with results.
+    // Bounded to MAX_LOOKUP_ROUNDS to prevent runaway.
+    const MAX_LOOKUP_ROUNDS: usize = 3;
+    let mut messages = turn.messages.clone();
+    let mut lookups_log: Vec<serde_json::Value> = Vec::new();
+    let final_text;
+
+    let mut round = 0;
+    loop {
+        round += 1;
+        let resp = match crate::pipeline::call_llm_with_messages(&state, &messages, 1024).await {
+            Ok(t) => t,
+            Err((_status, msg)) => {
+                let total_us = t0.elapsed().as_micros() as u64;
+                let _ = total_us;
+                return Ok(Json(serde_json::json!({
+                    "response": null,
+                    "error": msg,
+                    "routing": { "intent": intent, "is_transition": turn.is_transition },
+                })));
+            }
+        };
+
+        let (cleaned, lookup_ids) = asv_router::execute::extract_lookups(&resp);
+
+        if lookup_ids.is_empty() || round >= MAX_LOOKUP_ROUNDS {
+            final_text = if lookup_ids.is_empty() { resp } else { cleaned };
+            break;
+        }
+
+        // Resolve each lookup against the router
+        let mut results: Vec<String> = Vec::new();
+        {
+            let routers = state.routers.read().unwrap();
+            if let Some(router) = routers.get(&app_id) {
+                for id in &lookup_ids {
+                    if router.intent_ids().iter().any(|x| x == id)
+                        && asv_router::execute::is_fact_intent(router, id) {
+                        let body = asv_router::execute::fact_body(router, id);
+                        results.push(format!("{} = {}", id, body));
+                        lookups_log.push(serde_json::json!({"intent": id, "value": body}));
+                    } else {
+                        results.push(format!("{} = [unknown fact intent — do not use this value]", id));
+                        lookups_log.push(serde_json::json!({"intent": id, "value": null, "error": "not a fact intent"}));
+                    }
+                }
+            }
+        }
+
+        // Feed results back. Drop the LLM's intermediate text (it was just the lookup directives).
+        messages.push(serde_json::json!({"role": "assistant", "content": resp}));
+        messages.push(serde_json::json!({
+            "role": "user",
+            "content": format!("[Lookup results:\n{}\n]\nNow produce the final reply using these facts. Do not emit more lookups.", results.join("\n"))
+        }));
+    }
+
     let total_us = t0.elapsed().as_micros() as u64;
 
-    match llm_response {
-        Ok(text) => {
-            let (clean_response, remark) = asv_router::execute::extract_remark(&text);
-            Ok(Json(serde_json::json!({
-                "response": clean_response,
-                "remark": remark,
-                "routing": {
-                    "intent": intent,
-                    "is_transition": turn.is_transition,
-                    "disposition": if turn.is_transition {
-                        &turn.route_result.disposition
-                    } else { "continued" },
-                    "routing_us": routing_us,
-                    "total_us": total_us,
-                },
-            })))
-        }
-        Err((_status, msg)) => Ok(Json(serde_json::json!({
-            "response": null,
-            "error": msg,
-            "routing": { "intent": intent, "is_transition": turn.is_transition },
-        }))),
-    }
+    // Order matters: handoff first, then remark
+    let (after_handoff, handoff_intent, handoff_context) =
+        asv_router::execute::extract_handoff(&final_text);
+    let (clean_response, remark) =
+        asv_router::execute::extract_remark(&after_handoff);
+
+    let validated_handoff = handoff_intent.and_then(|id| {
+        let routers = state.routers.read().unwrap();
+        routers.get(&app_id).and_then(|r| {
+            if r.intent_ids().iter().any(|x| x == &id) { Some(id) }
+            else {
+                eprintln!("[handoff] hallucinated intent '{}' — ignoring", id);
+                None
+            }
+        })
+    });
+
+    Ok(Json(serde_json::json!({
+        "response": clean_response,
+        "remark": remark,
+        "next_intent": validated_handoff,
+        "context": handoff_context,
+        "lookups": lookups_log,
+        "routing": {
+            "intent": intent,
+            "is_transition": turn.is_transition,
+            "disposition": if turn.is_transition {
+                &turn.route_result.disposition
+            } else { "continued" },
+            "routing_us": routing_us,
+            "total_us": total_us,
+        },
+    })))
 }

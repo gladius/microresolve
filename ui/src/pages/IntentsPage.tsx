@@ -189,14 +189,14 @@ function IntentListItem({
 
 // --- Right detail panel with tabs ---
 
-type DetailTab = 'phrases' | 'metadata' | 'stats';
+type DetailTab = 'definition' | 'phrases' | 'stats';
 
 function IntentDetailPanel({
   intent, allIntentIds, onRefresh, onDeleted,
 }: {
   intent: IntentInfo; allIntentIds: string[]; onRefresh: () => void; onDeleted: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<DetailTab>('phrases');
+  const [activeTab, setActiveTab] = useState<DetailTab>('definition');
   const [phraseSearch, setPhraseSearch] = useState('');
 
   const handleTypeChange = async (newType: IntentType) => {
@@ -211,12 +211,15 @@ function IntentDetailPanel({
   };
 
   const langKeys = Object.keys(intent.phrases_by_lang).filter(k => k !== '_learned');
-  const metaKeyCount = Object.keys(intent.metadata || {}).length;
-
+  const m = intent.metadata || {};
+  const hasInstructions = (m.instructions?.[0] || '').trim().length > 0;
+  const hasGuardrails = (m.guardrails || []).length > 0;
+  const hasPersona = (m.persona?.[0] || '').trim().length > 0;
+  const definitionCount = (hasInstructions ? 1 : 0) + (hasGuardrails ? 1 : 0) + (hasPersona ? 1 : 0);
 
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
+    { id: 'definition', label: 'Definition', count: definitionCount },
     { id: 'phrases', label: 'Phrases', count: intent.phrases.length },
-    { id: 'metadata', label: 'Metadata', count: metaKeyCount },
     { id: 'stats', label: 'Stats' },
   ];
 
@@ -302,8 +305,8 @@ function IntentDetailPanel({
         {activeTab === 'phrases' && (
           <PhrasesTab intent={intent} onRefresh={onRefresh} phraseSearch={phraseSearch} />
         )}
-        {activeTab === 'metadata' && (
-          <MetadataTab intent={intent} allIntentIds={allIntentIds} onRefresh={onRefresh} />
+        {activeTab === 'definition' && (
+          <DefinitionTab intent={intent} onRefresh={onRefresh} />
         )}
         {activeTab === 'stats' && (
           <StatsTab intent={intent} />
@@ -599,64 +602,139 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
   );
 }
 
-// --- Metadata Tab ---
+// --- Definition Tab (Intent Programming: instructions, guardrails, persona) ---
 
-function MetadataTab({
-  intent, allIntentIds, onRefresh,
+function DefinitionTab({
+  intent, onRefresh,
 }: {
-  intent: IntentInfo; allIntentIds: string[]; onRefresh: () => void;
+  intent: IntentInfo; onRefresh: () => void;
 }) {
-  const [contextIntents, setContextIntents] = useState<string[]>(intent.metadata?.context_intents || []);
-  const [actionIntents, setActionIntents] = useState<string[]>(intent.metadata?.action_intents || []);
+  const m = intent.metadata || {};
+  const [instructions, setInstructions] = useState<string>(m.instructions?.[0] || '');
+  const [guardrails, setGuardrails] = useState<string[]>(m.guardrails || []);
+  const [persona, setPersona] = useState<string>(m.persona?.[0] || '');
+  const [newGuardrail, setNewGuardrail] = useState('');
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setContextIntents(intent.metadata?.context_intents || []);
-    setActionIntents(intent.metadata?.action_intents || []);
+    const mm = intent.metadata || {};
+    setInstructions(mm.instructions?.[0] || '');
+    setGuardrails(mm.guardrails || []);
+    setPersona(mm.persona?.[0] || '');
+    setNewGuardrail('');
     setDirty(false);
   }, [intent.id, intent.metadata]);
 
-  const handleSave = async () => {
-    if (contextIntents.length > 0) {
-      await api.setMetadata(intent.id, 'context_intents', contextIntents.filter(Boolean));
-    }
-    if (actionIntents.length > 0) {
-      await api.setMetadata(intent.id, 'action_intents', actionIntents.filter(Boolean));
-    }
-    setDirty(false);
-    onRefresh();
+  const addGuardrail = () => {
+    const v = newGuardrail.trim();
+    if (!v) return;
+    setGuardrails([...guardrails, v]);
+    setNewGuardrail('');
+    setDirty(true);
+  };
+  const removeGuardrail = (i: number) => {
+    setGuardrails(guardrails.filter((_, idx) => idx !== i));
+    setDirty(true);
   };
 
-  const availableIds = allIntentIds.filter(id => id !== intent.id);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.setMetadata(intent.id, 'instructions', instructions.trim() ? [instructions] : []);
+      await api.setMetadata(intent.id, 'guardrails', guardrails.filter(Boolean));
+      await api.setMetadata(intent.id, 'persona', persona.trim() ? [persona] : []);
+      setDirty(false);
+      onRefresh();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <p className="text-xs text-zinc-600">
-        Opaque key-value data returned alongside routing results. Your app interprets it.
+        What the LLM should do when this intent fires. Loaded fresh each turn.
       </p>
 
-      <MetadataListEditor
-        label="Context Intents"
-        description="Supporting intents that provide data when this intent fires"
-        values={contextIntents}
-        availableIds={availableIds}
-        onChange={v => { setContextIntents(v); setDirty(true); }}
-      />
-      <MetadataListEditor
-        label="Action Intents"
-        description="Related action intents commonly needed alongside this one"
-        values={actionIntents}
-        availableIds={availableIds}
-        onChange={v => { setActionIntents(v); setDirty(true); }}
-      />
+      {/* Instructions */}
+      <div>
+        <div className="flex items-baseline justify-between mb-1.5">
+          <label className="text-sm font-medium text-zinc-300">Instructions</label>
+          <span className="text-[10px] text-zinc-600">The function body — flow logic in plain language</span>
+        </div>
+        <textarea
+          value={instructions}
+          onChange={e => { setInstructions(e.target.value); setDirty(true); }}
+          rows={8}
+          placeholder="Describe what the agent should do step-by-step. Include conditional logic, when to ask for info, when to transition to other intents."
+          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none font-mono leading-relaxed"
+        />
+      </div>
 
+      {/* Guardrails */}
+      <div>
+        <div className="flex items-baseline justify-between mb-1.5">
+          <label className="text-sm font-medium text-zinc-300">Guardrails</label>
+          <span className="text-[10px] text-zinc-600">Hard rules the LLM must not violate</span>
+        </div>
+        <div className="space-y-1.5">
+          {guardrails.map((g, i) => (
+            <div key={i} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded px-3 py-1.5">
+              <span className="text-red-400/70 text-xs">⚠</span>
+              <input
+                value={g}
+                onChange={e => { const n = [...guardrails]; n[i] = e.target.value; setGuardrails(n); setDirty(true); }}
+                className="flex-1 bg-transparent text-sm text-zinc-200 focus:outline-none"
+              />
+              <button onClick={() => removeGuardrail(i)} className="text-zinc-600 hover:text-red-400 text-sm px-1">×</button>
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <input
+              value={newGuardrail}
+              onChange={e => setNewGuardrail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addGuardrail()}
+              placeholder="Add a guardrail..."
+              className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-3 py-1.5 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+            />
+            <button
+              onClick={addGuardrail}
+              disabled={!newGuardrail.trim()}
+              className="px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded disabled:opacity-40"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Persona */}
+      <div>
+        <div className="flex items-baseline justify-between mb-1.5">
+          <label className="text-sm font-medium text-zinc-300">Persona</label>
+          <span className="text-[10px] text-zinc-600">Tone and voice for responses</span>
+        </div>
+        <input
+          value={persona}
+          onChange={e => { setPersona(e.target.value); setDirty(true); }}
+          placeholder="e.g. professional but warm"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+        />
+      </div>
+
+      {/* Save bar */}
       {dirty && (
-        <button
-          onClick={handleSave}
-          className="px-4 py-2 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors"
-        >
-          Save Metadata
-        </button>
+        <div className="sticky bottom-0 -mx-5 px-5 py-3 bg-zinc-950/95 border-t border-zinc-800 flex items-center justify-between">
+          <span className="text-xs text-amber-400">Unsaved changes</span>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save definition'}
+          </button>
+        </div>
       )}
     </div>
   );

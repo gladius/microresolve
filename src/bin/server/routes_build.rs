@@ -22,7 +22,7 @@ struct BuildRequest {
 
 const BUILDER_SYSTEM: &str = r#"You are an AI agent builder. You help users create intent-based agents through conversation.
 
-You have these tools (call them by responding with JSON tool calls):
+You have these tools. To call them, respond with ONLY a JSON array of tool calls — no prose, no markdown fences. Example: [{"tool":"create_intent",...},{"tool":"create_intent",...}]. You may include one or many calls per response; all will execute in order. When you're done and want to speak to the user, respond with plain prose (no JSON).
 
 1. create_intent: Create a new intent with phrases and instructions.
    {"tool": "create_intent", "id": "intent_name", "phrases": ["phrase1", "phrase2", ...], "instructions": "what the agent should do", "guardrails": ["constraint1"], "persona": "tone description"}
@@ -101,26 +101,26 @@ pub async fn build(
     let mut actions: Vec<serde_json::Value> = Vec::new();
 
     for _round in 0..MAX_TOOL_ROUNDS {
-        let response = pipeline::call_llm_with_messages(&state, &messages, 2048).await
+        let response = pipeline::call_llm_with_messages(&state, &messages, 4096).await
             .map_err(|e| e)?;
 
-        // Check if response is a tool call (JSON with "tool" field)
-        if let Some(tool_call) = try_parse_tool_call(&response) {
-            let tool_name = tool_call.get("tool").and_then(|v| v.as_str()).unwrap_or("");
-            let result = execute_tool(&state, &app_id, &tool_call).await;
+        let calls = parse_tool_calls(&response);
+        if !calls.is_empty() {
+            let mut results_summary = Vec::new();
+            for tool_call in &calls {
+                let tool_name = tool_call.get("tool").and_then(|v| v.as_str()).unwrap_or("");
+                let result = execute_tool(&state, &app_id, tool_call).await;
+                actions.push(serde_json::json!({"tool": tool_name, "result": result}));
+                results_summary.push(format!("{}: {}", tool_name, result));
+            }
 
-            actions.push(serde_json::json!({
-                "tool": tool_name,
-                "result": result,
-            }));
-
-            // Feed tool result back to LLM
             messages.push(serde_json::json!({"role": "assistant", "content": response}));
             messages.push(serde_json::json!({"role": "user", "content": format!(
-                "[Tool result: {}]", result
+                "[Tool results:\n{}\n]\nIf done, reply to the user in plain prose. Otherwise emit another JSON array of tool calls.",
+                results_summary.join("\n")
             )}));
 
-            continue; // LLM may call another tool
+            continue;
         }
 
         // No tool call — this is the final response to the user
@@ -137,27 +137,19 @@ pub async fn build(
     })))
 }
 
-fn try_parse_tool_call(text: &str) -> Option<serde_json::Value> {
-    let trimmed = text.trim();
-    // Try to find JSON in the response
-    let json_str = if trimmed.starts_with('{') {
-        trimmed
-    } else if let Some(start) = trimmed.find('{') {
-        if let Some(end) = trimmed.rfind('}') {
-            &trimmed[start..=end]
-        } else {
-            return None;
-        }
-    } else {
-        return None;
-    };
-
-    if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
-        if val.get("tool").is_some() {
-            return Some(val);
+fn parse_tool_calls(text: &str) -> Vec<serde_json::Value> {
+    let s = text.trim();
+    if s.starts_with('[') {
+        if let Ok(serde_json::Value::Array(arr)) = serde_json::from_str::<serde_json::Value>(s) {
+            return arr.into_iter().filter(|v| v.get("tool").is_some()).collect();
         }
     }
-    None
+    if s.starts_with('{') {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(s) {
+            if val.get("tool").is_some() { return vec![val]; }
+        }
+    }
+    Vec::new()
 }
 
 async fn execute_tool(
@@ -200,6 +192,7 @@ async fn execute_tool(
                     if !persona.is_empty() {
                         router.set_metadata(id, "persona", vec![persona.to_string()]);
                     }
+                    crate::state::maybe_persist(state, app_id, router);
                 }
             }
 
@@ -226,6 +219,7 @@ async fn execute_tool(
                 };
                 if !vals.is_empty() {
                     router.set_metadata(id, field, vals);
+                    crate::state::maybe_persist(state, app_id, router);
                     format!("Updated '{}' field '{}' successfully.", id, field)
                 } else {
                     format!("No valid value provided for '{}'.", field)
