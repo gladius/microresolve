@@ -54,6 +54,10 @@ def expand_query(q: str) -> str:
     return " ".join(out)
 
 
+# Step 5: bigram re-ranking toggle
+BIGRAM_RERANK = False
+
+
 def route(namespace: str, query: str) -> dict:
     query = expand_query(query)
     body = json.dumps({"query": query, "threshold": 0.3, "gap": 1.5, "log": False}).encode()
@@ -67,12 +71,17 @@ def route(namespace: str, query: str) -> dict:
     with urllib.request.urlopen(req, timeout=10) as r:
         data = json.loads(r.read())
     data["_latency_ms"] = (time.time() - t0) * 1000
+    data["_query"] = query
     return data
 
 
 def top_ids(routing: dict, k: int = 3) -> list:
-    # Prefer the ranked list (raw IDF, pre-token-consumption), fall back to confirmed
     ranked = routing.get("ranked") or []
+    # Apply bigram re-ranking if enabled
+    if BIGRAM_RERANK and ranked and "_query" in routing:
+        import bigram_rerank
+        rescored = bigram_rerank.rerank(routing["_query"], ranked, top_k=10, alpha=0.5)
+        return [r["id"] for r in rescored[:k]]
     if ranked:
         return [r["id"] for r in ranked[:k]]
     confirmed = routing.get("confirmed") or []

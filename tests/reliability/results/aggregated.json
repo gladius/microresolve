@@ -1,6 +1,6 @@
 {
-  "e4_dev": {
-    "namespace": "bench_e4",
+  "e4_llm_dev": {
+    "namespace": "bench_e4_llm",
     "total_queries": 105,
     "by_category": {
       "cross_provider": {
@@ -11,33 +11,33 @@
         "top_1_pct": 80.0,
         "top_3_pct": 90.0,
         "top_5_pct": 90.0,
-        "avg_latency_ms": 2.2
+        "avg_latency_ms": 1.9
       },
       "false_pos_bait": {
         "n": 10,
         "multi_hit3": 1,
-        "multi_partial3": 2,
+        "multi_partial3": 1,
         "multi_hit3_pct": 10.0,
-        "multi_partial3_pct": 20.0,
-        "avg_latency_ms": 2.3
+        "multi_partial3_pct": 10.0,
+        "avg_latency_ms": 2.0
       },
       "informal_oov": {
         "n": 10,
-        "hit_1": 8,
+        "hit_1": 7,
         "hit_3": 9,
         "hit_5": 9,
-        "top_1_pct": 80.0,
+        "top_1_pct": 70.0,
         "top_3_pct": 90.0,
         "top_5_pct": 90.0,
-        "avg_latency_ms": 2.7
+        "avg_latency_ms": 2.0
       },
       "multi_cross_domain": {
         "n": 15,
         "multi_hit3": 10,
-        "multi_partial3": 14,
+        "multi_partial3": 15,
         "multi_hit3_pct": 66.7,
-        "multi_partial3_pct": 93.3,
-        "avg_latency_ms": 2.2
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 2.0
       },
       "multi_same_domain": {
         "n": 10,
@@ -45,13 +45,13 @@
         "multi_partial3": 10,
         "multi_hit3_pct": 50.0,
         "multi_partial3_pct": 100.0,
-        "avg_latency_ms": 2.6
+        "avg_latency_ms": 1.9
       },
       "oos_negative": {
         "n": 10,
         "oos_rejected": 8,
         "oos_rejection_pct": 80.0,
-        "avg_latency_ms": 2.7
+        "avg_latency_ms": 2.0
       },
       "single_linear": {
         "n": 10,
@@ -61,7 +61,7 @@
         "top_1_pct": 70.0,
         "top_3_pct": 90.0,
         "top_5_pct": 90.0,
-        "avg_latency_ms": 2.5
+        "avg_latency_ms": 2.3
       },
       "single_shopify": {
         "n": 10,
@@ -71,17 +71,215 @@
         "top_1_pct": 30.0,
         "top_3_pct": 40.0,
         "top_5_pct": 40.0,
-        "avg_latency_ms": 2.6
+        "avg_latency_ms": 2.3
       },
       "single_stripe": {
         "n": 10,
-        "hit_1": 6,
+        "hit_1": 5,
         "hit_3": 7,
         "hit_5": 8,
-        "top_1_pct": 60.0,
+        "top_1_pct": 50.0,
         "top_3_pct": 70.0,
         "top_5_pct": 80.0,
+        "avg_latency_ms": 2.3
+      },
+      "single_vercel": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 90.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 2.0
+      }
+    },
+    "overall_top_1_pct": 65.0,
+    "overall_top_3_pct": 78.3,
+    "overall_top_5_pct": 80.0,
+    "overall_multi_hit3_pct": 45.7,
+    "overall_multi_partial3_pct": 74.3,
+    "overall_oos_rejection_pct": 80.0,
+    "avg_latency_ms": 2.06
+  },
+  "e4_llm_validation": {
+    "namespace": "bench_e4_llm",
+    "total_queries": 59,
+    "by_category": {
+      "cross_provider": {
+        "n": 7,
+        "hit_1": 5,
+        "hit_3": 7,
+        "hit_5": 7,
+        "top_1_pct": 71.4,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.0
+      },
+      "false_pos_bait": {
+        "n": 5,
+        "multi_hit3": 0,
+        "multi_partial3": 0,
+        "multi_hit3_pct": 0.0,
+        "multi_partial3_pct": 0.0,
+        "avg_latency_ms": 2.8
+      },
+      "informal_oov": {
+        "n": 5,
+        "hit_1": 4,
+        "hit_3": 5,
+        "hit_5": 5,
+        "top_1_pct": 80.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.3
+      },
+      "multi_cross_domain": {
+        "n": 5,
+        "multi_hit3": 4,
+        "multi_partial3": 5,
+        "multi_hit3_pct": 80.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 2.2
+      },
+      "oos_negative": {
+        "n": 5,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 20.0,
+        "avg_latency_ms": 2.7
+      },
+      "single_linear": {
+        "n": 8,
+        "hit_1": 3,
+        "hit_3": 5,
+        "hit_5": 5,
+        "top_1_pct": 37.5,
+        "top_3_pct": 62.5,
+        "top_5_pct": 62.5,
+        "avg_latency_ms": 1.9
+      },
+      "single_shopify": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 1,
+        "hit_5": 1,
+        "top_1_pct": 12.5,
+        "top_3_pct": 12.5,
+        "top_5_pct": 12.5,
+        "avg_latency_ms": 2.0
+      },
+      "single_stripe": {
+        "n": 8,
+        "hit_1": 3,
+        "hit_3": 5,
+        "hit_5": 6,
+        "top_1_pct": 37.5,
+        "top_3_pct": 62.5,
+        "top_5_pct": 75.0,
+        "avg_latency_ms": 2.1
+      },
+      "single_vercel": {
+        "n": 8,
+        "hit_1": 2,
+        "hit_3": 2,
+        "hit_5": 3,
+        "top_1_pct": 25.0,
+        "top_3_pct": 25.0,
+        "top_5_pct": 37.5,
+        "avg_latency_ms": 2.0
+      }
+    },
+    "overall_top_1_pct": 40.9,
+    "overall_top_3_pct": 56.8,
+    "overall_top_5_pct": 61.4,
+    "overall_multi_hit3_pct": 40.0,
+    "overall_multi_partial3_pct": 50.0,
+    "overall_oos_rejection_pct": 20.0,
+    "avg_latency_ms": 2.18
+  },
+  "e4_llm_e2b_dev": {
+    "namespace": "bench_e4_llm_e2b",
+    "total_queries": 105,
+    "by_category": {
+      "cross_provider": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 2.5
+      },
+      "false_pos_bait": {
+        "n": 10,
+        "multi_hit3": 1,
+        "multi_partial3": 1,
+        "multi_hit3_pct": 10.0,
+        "multi_partial3_pct": 10.0,
+        "avg_latency_ms": 2.0
+      },
+      "informal_oov": {
+        "n": 10,
+        "hit_1": 7,
+        "hit_3": 9,
+        "hit_5": 10,
+        "top_1_pct": 70.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.4
+      },
+      "multi_cross_domain": {
+        "n": 15,
+        "multi_hit3": 10,
+        "multi_partial3": 15,
+        "multi_hit3_pct": 66.7,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 2.1
+      },
+      "multi_same_domain": {
+        "n": 10,
+        "multi_hit3": 5,
+        "multi_partial3": 10,
+        "multi_hit3_pct": 50.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 2.8
+      },
+      "oos_negative": {
+        "n": 10,
+        "oos_rejected": 8,
+        "oos_rejection_pct": 80.0,
+        "avg_latency_ms": 2.0
+      },
+      "single_linear": {
+        "n": 10,
+        "hit_1": 7,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 70.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
         "avg_latency_ms": 2.9
+      },
+      "single_shopify": {
+        "n": 10,
+        "hit_1": 3,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 30.0,
+        "top_3_pct": 40.0,
+        "top_5_pct": 40.0,
+        "avg_latency_ms": 2.5
+      },
+      "single_stripe": {
+        "n": 10,
+        "hit_1": 5,
+        "hit_3": 7,
+        "hit_5": 8,
+        "top_1_pct": 50.0,
+        "top_3_pct": 70.0,
+        "top_5_pct": 80.0,
+        "avg_latency_ms": 2.6
       },
       "single_vercel": {
         "n": 10,
@@ -94,16 +292,16 @@
         "avg_latency_ms": 2.2
       }
     },
-    "overall_top_1_pct": 68.3,
+    "overall_top_1_pct": 65.0,
     "overall_top_3_pct": 78.3,
-    "overall_top_5_pct": 80.0,
+    "overall_top_5_pct": 81.7,
     "overall_multi_hit3_pct": 45.7,
     "overall_multi_partial3_pct": 74.3,
     "overall_oos_rejection_pct": 80.0,
-    "avg_latency_ms": 2.48
+    "avg_latency_ms": 2.38
   },
-  "e4_validation": {
-    "namespace": "bench_e4",
+  "e4_llm_e2b_validation": {
+    "namespace": "bench_e4_llm_e2b",
     "total_queries": 59,
     "by_category": {
       "cross_provider": {
@@ -114,25 +312,25 @@
         "top_1_pct": 57.1,
         "top_3_pct": 85.7,
         "top_5_pct": 100.0,
-        "avg_latency_ms": 2.1
+        "avg_latency_ms": 2.9
       },
       "false_pos_bait": {
         "n": 5,
         "multi_hit3": 0,
-        "multi_partial3": 1,
+        "multi_partial3": 0,
         "multi_hit3_pct": 0.0,
-        "multi_partial3_pct": 20.0,
-        "avg_latency_ms": 2.2
+        "multi_partial3_pct": 0.0,
+        "avg_latency_ms": 1.9
       },
       "informal_oov": {
         "n": 5,
         "hit_1": 4,
         "hit_3": 4,
-        "hit_5": 5,
+        "hit_5": 4,
         "top_1_pct": 80.0,
         "top_3_pct": 80.0,
-        "top_5_pct": 100.0,
-        "avg_latency_ms": 2.0
+        "top_5_pct": 80.0,
+        "avg_latency_ms": 1.8
       },
       "multi_cross_domain": {
         "n": 5,
@@ -140,23 +338,23 @@
         "multi_partial3": 5,
         "multi_hit3_pct": 80.0,
         "multi_partial3_pct": 100.0,
-        "avg_latency_ms": 1.9
+        "avg_latency_ms": 2.2
       },
       "oos_negative": {
         "n": 5,
         "oos_rejected": 1,
         "oos_rejection_pct": 20.0,
-        "avg_latency_ms": 2.3
+        "avg_latency_ms": 1.9
       },
       "single_linear": {
         "n": 8,
-        "hit_1": 3,
+        "hit_1": 4,
         "hit_3": 5,
         "hit_5": 5,
-        "top_1_pct": 37.5,
+        "top_1_pct": 50.0,
         "top_3_pct": 62.5,
         "top_5_pct": 62.5,
-        "avg_latency_ms": 3.2
+        "avg_latency_ms": 2.2
       },
       "single_shopify": {
         "n": 8,
@@ -166,39 +364,39 @@
         "top_1_pct": 12.5,
         "top_3_pct": 12.5,
         "top_5_pct": 12.5,
-        "avg_latency_ms": 2.6
+        "avg_latency_ms": 2.3
       },
       "single_stripe": {
         "n": 8,
         "hit_1": 4,
         "hit_3": 5,
-        "hit_5": 5,
+        "hit_5": 6,
         "top_1_pct": 50.0,
         "top_3_pct": 62.5,
-        "top_5_pct": 62.5,
-        "avg_latency_ms": 3.2
+        "top_5_pct": 75.0,
+        "avg_latency_ms": 2.3
       },
       "single_vercel": {
         "n": 8,
         "hit_1": 2,
-        "hit_3": 3,
+        "hit_3": 2,
         "hit_5": 3,
         "top_1_pct": 25.0,
-        "top_3_pct": 37.5,
+        "top_3_pct": 25.0,
         "top_5_pct": 37.5,
-        "avg_latency_ms": 3.5
+        "avg_latency_ms": 2.6
       }
     },
-    "overall_top_1_pct": 40.9,
-    "overall_top_3_pct": 54.5,
+    "overall_top_1_pct": 43.2,
+    "overall_top_3_pct": 52.3,
     "overall_top_5_pct": 59.1,
     "overall_multi_hit3_pct": 40.0,
-    "overall_multi_partial3_pct": 60.0,
+    "overall_multi_partial3_pct": 50.0,
     "overall_oos_rejection_pct": 20.0,
-    "avg_latency_ms": 2.63
+    "avg_latency_ms": 2.27
   },
-  "e4_e2b_dev": {
-    "namespace": "bench_e4_e2b",
+  "e5_dev": {
+    "namespace": "bench_baseline",
     "total_queries": 105,
     "by_category": {
       "cross_provider": {
@@ -209,7 +407,7 @@
         "top_1_pct": 80.0,
         "top_3_pct": 90.0,
         "top_5_pct": 90.0,
-        "avg_latency_ms": 2.0
+        "avg_latency_ms": 3.2
       },
       "false_pos_bait": {
         "n": 10,
@@ -217,17 +415,17 @@
         "multi_partial3": 1,
         "multi_hit3_pct": 10.0,
         "multi_partial3_pct": 10.0,
-        "avg_latency_ms": 2.3
+        "avg_latency_ms": 2.1
       },
       "informal_oov": {
         "n": 10,
-        "hit_1": 9,
+        "hit_1": 8,
         "hit_3": 10,
         "hit_5": 10,
-        "top_1_pct": 90.0,
+        "top_1_pct": 80.0,
         "top_3_pct": 100.0,
         "top_5_pct": 100.0,
-        "avg_latency_ms": 2.5
+        "avg_latency_ms": 2.2
       },
       "multi_cross_domain": {
         "n": 15,
@@ -235,13 +433,13 @@
         "multi_partial3": 15,
         "multi_hit3_pct": 66.7,
         "multi_partial3_pct": 100.0,
-        "avg_latency_ms": 2.9
+        "avg_latency_ms": 2.6
       },
       "multi_same_domain": {
         "n": 10,
-        "multi_hit3": 5,
+        "multi_hit3": 4,
         "multi_partial3": 10,
-        "multi_hit3_pct": 50.0,
+        "multi_hit3_pct": 40.0,
         "multi_partial3_pct": 100.0,
         "avg_latency_ms": 2.4
       },
@@ -253,13 +451,13 @@
       },
       "single_linear": {
         "n": 10,
-        "hit_1": 8,
+        "hit_1": 9,
         "hit_3": 9,
         "hit_5": 9,
-        "top_1_pct": 80.0,
+        "top_1_pct": 90.0,
         "top_3_pct": 90.0,
         "top_5_pct": 90.0,
-        "avg_latency_ms": 2.3
+        "avg_latency_ms": 2.8
       },
       "single_shopify": {
         "n": 10,
@@ -269,50 +467,50 @@
         "top_1_pct": 30.0,
         "top_3_pct": 40.0,
         "top_5_pct": 40.0,
-        "avg_latency_ms": 2.1
+        "avg_latency_ms": 2.3
       },
       "single_stripe": {
         "n": 10,
-        "hit_1": 6,
+        "hit_1": 5,
         "hit_3": 7,
         "hit_5": 8,
-        "top_1_pct": 60.0,
+        "top_1_pct": 50.0,
         "top_3_pct": 70.0,
         "top_5_pct": 80.0,
-        "avg_latency_ms": 2.3
+        "avg_latency_ms": 2.5
       },
       "single_vercel": {
         "n": 10,
-        "hit_1": 8,
+        "hit_1": 9,
         "hit_3": 9,
         "hit_5": 9,
-        "top_1_pct": 80.0,
+        "top_1_pct": 90.0,
         "top_3_pct": 90.0,
         "top_5_pct": 90.0,
-        "avg_latency_ms": 1.9
+        "avg_latency_ms": 3.2
       }
     },
     "overall_top_1_pct": 70.0,
     "overall_top_3_pct": 80.0,
     "overall_top_5_pct": 81.7,
-    "overall_multi_hit3_pct": 45.7,
+    "overall_multi_hit3_pct": 42.9,
     "overall_multi_partial3_pct": 74.3,
     "overall_oos_rejection_pct": 80.0,
-    "avg_latency_ms": 2.31
+    "avg_latency_ms": 2.53
   },
-  "e4_e2b_validation": {
-    "namespace": "bench_e4_e2b",
+  "e5_validation": {
+    "namespace": "bench_baseline",
     "total_queries": 59,
     "by_category": {
       "cross_provider": {
         "n": 7,
-        "hit_1": 4,
+        "hit_1": 5,
         "hit_3": 6,
         "hit_5": 7,
-        "top_1_pct": 57.1,
+        "top_1_pct": 71.4,
         "top_3_pct": 85.7,
         "top_5_pct": 100.0,
-        "avg_latency_ms": 2.5
+        "avg_latency_ms": 2.3
       },
       "false_pos_bait": {
         "n": 5,
@@ -320,15 +518,15 @@
         "multi_partial3": 0,
         "multi_hit3_pct": 0.0,
         "multi_partial3_pct": 0.0,
-        "avg_latency_ms": 2.7
+        "avg_latency_ms": 3.1
       },
       "informal_oov": {
         "n": 5,
         "hit_1": 4,
-        "hit_3": 5,
+        "hit_3": 4,
         "hit_5": 5,
         "top_1_pct": 80.0,
-        "top_3_pct": 100.0,
+        "top_3_pct": 80.0,
         "top_5_pct": 100.0,
         "avg_latency_ms": 2.9
       },
@@ -344,7 +542,7 @@
         "n": 5,
         "oos_rejected": 1,
         "oos_rejection_pct": 20.0,
-        "avg_latency_ms": 3.2
+        "avg_latency_ms": 2.7
       },
       "single_linear": {
         "n": 8,
@@ -354,7 +552,7 @@
         "top_1_pct": 37.5,
         "top_3_pct": 62.5,
         "top_5_pct": 62.5,
-        "avg_latency_ms": 1.9
+        "avg_latency_ms": 2.0
       },
       "single_shopify": {
         "n": 8,
@@ -364,35 +562,233 @@
         "top_1_pct": 12.5,
         "top_3_pct": 12.5,
         "top_5_pct": 12.5,
-        "avg_latency_ms": 2.0
+        "avg_latency_ms": 2.2
       },
       "single_stripe": {
         "n": 8,
-        "hit_1": 3,
+        "hit_1": 2,
         "hit_3": 5,
-        "hit_5": 7,
-        "top_1_pct": 37.5,
+        "hit_5": 6,
+        "top_1_pct": 25.0,
         "top_3_pct": 62.5,
-        "top_5_pct": 87.5,
-        "avg_latency_ms": 2.3
+        "top_5_pct": 75.0,
+        "avg_latency_ms": 2.0
       },
       "single_vercel": {
         "n": 8,
         "hit_1": 2,
-        "hit_3": 2,
+        "hit_3": 3,
         "hit_5": 3,
         "top_1_pct": 25.0,
-        "top_3_pct": 25.0,
+        "top_3_pct": 37.5,
         "top_5_pct": 37.5,
-        "avg_latency_ms": 2.1
+        "avg_latency_ms": 2.0
       }
     },
     "overall_top_1_pct": 38.6,
     "overall_top_3_pct": 54.5,
-    "overall_top_5_pct": 63.6,
+    "overall_top_5_pct": 61.4,
     "overall_multi_hit3_pct": 40.0,
     "overall_multi_partial3_pct": 50.0,
     "overall_oos_rejection_pct": 20.0,
-    "avg_latency_ms": 2.38
+    "avg_latency_ms": 2.34
+  },
+  "e5_e2a_dev": {
+    "namespace": "bench_baseline",
+    "total_queries": 105,
+    "by_category": {
+      "cross_provider": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 80.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.1
+      },
+      "false_pos_bait": {
+        "n": 10,
+        "multi_hit3": 1,
+        "multi_partial3": 2,
+        "multi_hit3_pct": 10.0,
+        "multi_partial3_pct": 20.0,
+        "avg_latency_ms": 2.3
+      },
+      "informal_oov": {
+        "n": 10,
+        "hit_1": 7,
+        "hit_3": 9,
+        "hit_5": 10,
+        "top_1_pct": 70.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.1
+      },
+      "multi_cross_domain": {
+        "n": 15,
+        "multi_hit3": 11,
+        "multi_partial3": 15,
+        "multi_hit3_pct": 73.3,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 2.2
+      },
+      "multi_same_domain": {
+        "n": 10,
+        "multi_hit3": 4,
+        "multi_partial3": 10,
+        "multi_hit3_pct": 40.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 2.1
+      },
+      "oos_negative": {
+        "n": 10,
+        "oos_rejected": 8,
+        "oos_rejection_pct": 80.0,
+        "avg_latency_ms": 1.8
+      },
+      "single_linear": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.1
+      },
+      "single_shopify": {
+        "n": 10,
+        "hit_1": 5,
+        "hit_3": 7,
+        "hit_5": 7,
+        "top_1_pct": 50.0,
+        "top_3_pct": 70.0,
+        "top_5_pct": 70.0,
+        "avg_latency_ms": 2.7
+      },
+      "single_stripe": {
+        "n": 10,
+        "hit_1": 5,
+        "hit_3": 6,
+        "hit_5": 6,
+        "top_1_pct": 50.0,
+        "top_3_pct": 60.0,
+        "top_5_pct": 60.0,
+        "avg_latency_ms": 2.6
+      },
+      "single_vercel": {
+        "n": 10,
+        "hit_1": 7,
+        "hit_3": 9,
+        "hit_5": 10,
+        "top_1_pct": 70.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.3
+      }
+    },
+    "overall_top_1_pct": 66.7,
+    "overall_top_3_pct": 83.3,
+    "overall_top_5_pct": 86.7,
+    "overall_multi_hit3_pct": 45.7,
+    "overall_multi_partial3_pct": 77.1,
+    "overall_oos_rejection_pct": 80.0,
+    "avg_latency_ms": 2.32
+  },
+  "e5_e2a_validation": {
+    "namespace": "bench_baseline",
+    "total_queries": 59,
+    "by_category": {
+      "cross_provider": {
+        "n": 7,
+        "hit_1": 3,
+        "hit_3": 5,
+        "hit_5": 7,
+        "top_1_pct": 42.9,
+        "top_3_pct": 71.4,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.2
+      },
+      "false_pos_bait": {
+        "n": 5,
+        "multi_hit3": 0,
+        "multi_partial3": 1,
+        "multi_hit3_pct": 0.0,
+        "multi_partial3_pct": 20.0,
+        "avg_latency_ms": 2.9
+      },
+      "informal_oov": {
+        "n": 5,
+        "hit_1": 5,
+        "hit_3": 5,
+        "hit_5": 5,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.0
+      },
+      "multi_cross_domain": {
+        "n": 5,
+        "multi_hit3": 4,
+        "multi_partial3": 5,
+        "multi_hit3_pct": 80.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 2.6
+      },
+      "oos_negative": {
+        "n": 5,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 20.0,
+        "avg_latency_ms": 3.0
+      },
+      "single_linear": {
+        "n": 8,
+        "hit_1": 4,
+        "hit_3": 5,
+        "hit_5": 5,
+        "top_1_pct": 50.0,
+        "top_3_pct": 62.5,
+        "top_5_pct": 62.5,
+        "avg_latency_ms": 3.2
+      },
+      "single_shopify": {
+        "n": 8,
+        "hit_1": 0,
+        "hit_3": 3,
+        "hit_5": 3,
+        "top_1_pct": 0.0,
+        "top_3_pct": 37.5,
+        "top_5_pct": 37.5,
+        "avg_latency_ms": 2.3
+      },
+      "single_stripe": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 4,
+        "hit_5": 5,
+        "top_1_pct": 12.5,
+        "top_3_pct": 50.0,
+        "top_5_pct": 62.5,
+        "avg_latency_ms": 2.2
+      },
+      "single_vercel": {
+        "n": 8,
+        "hit_1": 2,
+        "hit_3": 3,
+        "hit_5": 4,
+        "top_1_pct": 25.0,
+        "top_3_pct": 37.5,
+        "top_5_pct": 50.0,
+        "avg_latency_ms": 2.4
+      }
+    },
+    "overall_top_1_pct": 34.1,
+    "overall_top_3_pct": 56.8,
+    "overall_top_5_pct": 65.9,
+    "overall_multi_hit3_pct": 40.0,
+    "overall_multi_partial3_pct": 60.0,
+    "overall_oos_rejection_pct": 20.0,
+    "avg_latency_ms": 2.59
   }
 }

@@ -31,10 +31,11 @@ DEV_PATH = ROOT / "dataset.json"
 VAL_PATH = ROOT / "validation.json"
 
 
-def run_measurement(namespace: str, query_set: str, label: str, use_expansion: bool = False):
+def run_measurement(namespace: str, query_set: str, label: str, use_expansion: bool = False, use_bigram: bool = False):
     """Execute the measure.py logic for the given configuration, save result, return summary."""
     # Reload equivalence in the measure module if needed
     measure.EQUIVALENCE_MAP = EQUIVALENCE if use_expansion else None
+    measure.BIGRAM_RERANK = use_bigram
 
     path = DEV_PATH if query_set == "dev" else VAL_PATH
     dataset = json.loads(path.read_text())
@@ -70,6 +71,15 @@ def configure_namespace(mode: str, namespace: str, corrections: list = None):
     if mode in ("e4", "e4_e2b"):
         l3_seeds = json.loads((ROOT / "l3_seed_corrections.json").read_text())["corrections"]
         print(f"  Applying {len(l3_seeds)} L3-seeding corrections to '{namespace}'...")
+        stats = ns_ops.apply_corrections(namespace, l3_seeds)
+        print(f"    applied={stats['applied']} skipped={stats['skipped']}")
+
+    if mode in ("e4_llm", "e4_llm_e2b"):
+        l3_path = ROOT / "l3_llm_corrections.json"
+        if not l3_path.exists():
+            raise RuntimeError("Run build_l3_pairs.py first")
+        l3_seeds = json.loads(l3_path.read_text())["corrections"]
+        print(f"  Applying {len(l3_seeds)} LLM-identified L3-seeding corrections to '{namespace}'...")
         stats = ns_ops.apply_corrections(namespace, l3_seeds)
         print(f"    applied={stats['applied']} skipped={stats['skipped']}")
 
@@ -121,7 +131,14 @@ def main():
         "e2_b_warm":     ("bench_e2b_warm",   "e2_b_warm", False),  # seed augmentation + corrections
         "e4":            ("bench_e4",         "e4",        False),  # L3 cross-provider seeding only
         "e4_e2b":        ("bench_e4_e2b",     "e4_e2b",    False),  # L3 seeding + seed augmentation
+        "e4_llm":        ("bench_e4_llm",     "e4_llm",    False),  # LLM-identified L3 pairs
+        "e4_llm_e2b":    ("bench_e4_llm_e2b", "e4_llm_e2b",False),  # LLM L3 + seed aug + query expand
+        "e5":            ("bench_baseline",   "baseline",  False),  # bigram rerank on baseline
+        "e5_e2a":        ("bench_baseline",   "baseline",  True),   # bigram rerank + query expand
     }
+
+    # Special: e5 uses bigram rerank flag
+    bigram_experiments = {"e5", "e5_e2a"}
 
     results_summary = {}
 
@@ -136,7 +153,8 @@ def main():
         for query_set in args.sets:
             label = f"{exp}_{query_set}"
             print(f"  Measuring on {query_set} set...")
-            summary = run_measurement(namespace, query_set, exp, use_expansion)
+            use_bigram = exp in bigram_experiments
+            summary = run_measurement(namespace, query_set, exp, use_expansion, use_bigram)
             results_summary[label] = summary
 
     # ── Print final summary table ─────────────────────────────────────────

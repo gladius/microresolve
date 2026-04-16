@@ -1,0 +1,354 @@
+{
+  "_meta": {
+    "pairs_count": 29,
+    "corrections_count": 57
+  },
+  "pairs": [
+    [
+      "stripe:create_customer",
+      "shopify:create_customer"
+    ],
+    [
+      "stripe:list_customers",
+      "shopify:list_customers"
+    ],
+    [
+      "stripe:get_balance",
+      "stripe:list_charges"
+    ],
+    [
+      "stripe:update_customer",
+      "shopify:update_customer"
+    ],
+    [
+      "stripe:cancel_payment",
+      "stripe:cancel_subscription"
+    ],
+    [
+      "stripe:create_payment",
+      "stripe:create_invoice"
+    ],
+    [
+      "vercel:create_deployment",
+      "vercel:cancel_deployment"
+    ],
+    [
+      "vercel:list_deployments",
+      "vercel:get_deployment"
+    ],
+    [
+      "vercel:add_env_var",
+      "vercel:remove_env_var"
+    ],
+    [
+      "linear:create_issue",
+      "linear:update_issue"
+    ],
+    [
+      "linear:list_issues",
+      "linear:get_issue"
+    ],
+    [
+      "shopify:create_order",
+      "shopify:update_order"
+    ],
+    [
+      "shopify:list_orders",
+      "shopify:get_order"
+    ],
+    [
+      "vercel:list_projects",
+      "vercel:create_project"
+    ],
+    [
+      "vercel:list_aliases",
+      "vercel:create_alias"
+    ],
+    [
+      "linear:create_label",
+      "linear:list_labels"
+    ],
+    [
+      "shopify:create_collection",
+      "shopify:list_collections"
+    ],
+    [
+      "stripe:create_refund",
+      "stripe:list_refunds"
+    ],
+    [
+      "stripe:create_subscription",
+      "stripe:list_subscriptions"
+    ],
+    [
+      "stripe:pay_invoice",
+      "stripe:list_invoices"
+    ],
+    [
+      "vercel:get_usage",
+      "vercel:list_edge_config"
+    ],
+    [
+      "linear:assign_issue",
+      "linear:update_issue"
+    ],
+    [
+      "shopify:adjust_inventory",
+      "shopify:list_inventory"
+    ],
+    [
+      "stripe:capture_payment",
+      "stripe:confirm_payment"
+    ],
+    [
+      "vercel:add_domain",
+      "vercel:remove_domain"
+    ],
+    [
+      "linear:list_comments",
+      "linear:create_comment"
+    ],
+    [
+      "stripe:create_payout",
+      "stripe:list_payouts"
+    ],
+    [
+      "vercel:promote",
+      "vercel:rollback"
+    ],
+    [
+      "linear:create_cycle",
+      "linear:list_cycles"
+    ]
+  ],
+  "corrections": [
+    {
+      "query": "create a new customer",
+      "correct": "stripe:create_customer"
+    },
+    {
+      "query": "create shopify customer",
+      "correct": "shopify:create_customer"
+    },
+    {
+      "query": "list all customers",
+      "correct": "stripe:list_customers"
+    },
+    {
+      "query": "list shopify customers",
+      "correct": "shopify:list_customers"
+    },
+    {
+      "query": "check stripe balance",
+      "correct": "stripe:get_balance"
+    },
+    {
+      "query": "list all charges",
+      "correct": "stripe:list_charges"
+    },
+    {
+      "query": "update customer details",
+      "correct": "stripe:update_customer"
+    },
+    {
+      "query": "update shopify customer",
+      "correct": "shopify:update_customer"
+    },
+    {
+      "query": "cancel the payment intent",
+      "correct": "stripe:cancel_payment"
+    },
+    {
+      "query": "cancel the subscription",
+      "correct": "stripe:cancel_subscription"
+    },
+    {
+      "query": "create a payment",
+      "correct": "stripe:create_payment"
+    },
+    {
+      "query": "create an invoice",
+      "correct": "stripe:create_invoice"
+    },
+    {
+      "query": "deploy the project",
+      "correct": "vercel:create_deployment"
+    },
+    {
+      "query": "cancel the deployment",
+      "correct": "vercel:cancel_deployment"
+    },
+    {
+      "query": "list deployments",
+      "correct": "vercel:list_deployments"
+    },
+    {
+      "query": "get deployment details",
+      "correct": "vercel:get_deployment"
+    },
+    {
+      "query": "add environment variable",
+      "correct": "vercel:add_env_var"
+    },
+    {
+      "query": "remove environment variable",
+      "correct": "vercel:remove_env_var"
+    },
+    {
+      "query": "create a linear issue",
+      "correct": "linear:create_issue"
+    },
+    {
+      "query": "update the issue",
+      "correct": "linear:update_issue"
+    },
+    {
+      "query": "list linear issues",
+      "correct": "linear:list_issues"
+    },
+    {
+      "query": "get issue details",
+      "correct": "linear:get_issue"
+    },
+    {
+      "query": "create a shopify order",
+      "correct": "shopify:create_order"
+    },
+    {
+      "query": "update order details",
+      "correct": "shopify:update_order"
+    },
+    {
+      "query": "list shopify orders",
+      "correct": "shopify:list_orders"
+    },
+    {
+      "query": "get order details",
+      "correct": "shopify:get_order"
+    },
+    {
+      "query": "list vercel projects",
+      "correct": "vercel:list_projects"
+    },
+    {
+      "query": "create vercel project",
+      "correct": "vercel:create_project"
+    },
+    {
+      "query": "list deployment aliases",
+      "correct": "vercel:list_aliases"
+    },
+    {
+      "query": "create an alias",
+      "correct": "vercel:create_alias"
+    },
+    {
+      "query": "create a label",
+      "correct": "linear:create_label"
+    },
+    {
+      "query": "list all labels",
+      "correct": "linear:list_labels"
+    },
+    {
+      "query": "create a collection",
+      "correct": "shopify:create_collection"
+    },
+    {
+      "query": "list collections",
+      "correct": "shopify:list_collections"
+    },
+    {
+      "query": "refund the payment",
+      "correct": "stripe:create_refund"
+    },
+    {
+      "query": "list all refunds",
+      "correct": "stripe:list_refunds"
+    },
+    {
+      "query": "create a subscription",
+      "correct": "stripe:create_subscription"
+    },
+    {
+      "query": "list subscriptions",
+      "correct": "stripe:list_subscriptions"
+    },
+    {
+      "query": "pay the invoice",
+      "correct": "stripe:pay_invoice"
+    },
+    {
+      "query": "list all invoices",
+      "correct": "stripe:list_invoices"
+    },
+    {
+      "query": "get usage stats",
+      "correct": "vercel:get_usage"
+    },
+    {
+      "query": "list edge configs",
+      "correct": "vercel:list_edge_config"
+    },
+    {
+      "query": "assign issue to someone",
+      "correct": "linear:assign_issue"
+    },
+    {
+      "query": "adjust inventory count",
+      "correct": "shopify:adjust_inventory"
+    },
+    {
+      "query": "check inventory levels",
+      "correct": "shopify:list_inventory"
+    },
+    {
+      "query": "capture the authorized payment",
+      "correct": "stripe:capture_payment"
+    },
+    {
+      "query": "confirm the payment",
+      "correct": "stripe:confirm_payment"
+    },
+    {
+      "query": "add a domain",
+      "correct": "vercel:add_domain"
+    },
+    {
+      "query": "remove the domain",
+      "correct": "vercel:remove_domain"
+    },
+    {
+      "query": "list comments on issue",
+      "correct": "linear:list_comments"
+    },
+    {
+      "query": "add a comment",
+      "correct": "linear:create_comment"
+    },
+    {
+      "query": "create a payout",
+      "correct": "stripe:create_payout"
+    },
+    {
+      "query": "list payouts",
+      "correct": "stripe:list_payouts"
+    },
+    {
+      "query": "promote to production",
+      "correct": "vercel:promote"
+    },
+    {
+      "query": "rollback deployment",
+      "correct": "vercel:rollback"
+    },
+    {
+      "query": "create a sprint cycle",
+      "correct": "linear:create_cycle"
+    },
+    {
+      "query": "list sprint cycles",
+      "correct": "linear:list_cycles"
+    }
+  ]
+}
