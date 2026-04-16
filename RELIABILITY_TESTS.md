@@ -130,8 +130,36 @@ This is NOT "LLM paraphrase learning" (which failed because paraphrases used nov
 
 ## Experiment Results Log
 
-### Baseline (Step 0)
-(populated after measurement harness runs)
+### Baseline (Step 0) — 2026-04-16 afternoon
+Dataset: `tests/reliability/dataset.json` (105 queries, enterprise-focused, 4 SaaS domains). Namespace: `scale-test` (98 intents, 207 seed phrases, ~2-3 phrases/intent — realistic enterprise cold start).
+
+**Overall:**
+- Top-1: **66.7%** (single-intent queries only)
+- Top-3: **78.3%**
+- Multi-intent hit-all-in-top5: **42.9%**
+- Multi-intent partial (at least one): **77.1%**
+- OOS rejection: **70.0%** (30% false-accept rate on off-topic queries)
+- Avg latency: **3.4ms** (includes HTTP round-trip)
+
+**By category (top-3):**
+- `cross_provider` — 90% (good: cross-provider disambiguation largely works)
+- `multi_cross_domain` — 66.7% hit-all, 100% partial
+- `multi_same_domain` — 40% hit-all, 100% partial
+- `single_vercel` — 80%
+- `single_linear` — 90%
+- `single_stripe` — 70%
+- `single_shopify` — 50% (**weakest**: thin seeds + vocab overlap with other providers)
+- `informal_oov` — 90% (n-gram correction carrying)
+- `false_pos_bait` — 20% partial (**expected low**: traps designed to fool the naive router)
+- `oos_negative` — 70% rejection
+
+**Key observations:**
+- Top-1 (66.7%) vs Top-3 (78.3%) gap is ~12 points — the prefilter pitch holds.
+- Multi-partial@5 is 77-100% — at least one correct intent almost always surfaces.
+- Shopify lagging: likely from thin seeds + overlap with Linear/Stripe vocab.
+- OOS false-accept rate of 30% is the main calibration target.
+
+Saved: `tests/reliability/results/baseline.json`
 
 ### Step 1: Confidence calibration
 (pending)
