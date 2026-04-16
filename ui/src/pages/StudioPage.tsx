@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api, type MultiRouteOutput, type ReviewItem, type ReviewAnalyzeResult } from '@/api/client';
 import { useAppStore } from '@/store';
+import Page from '@/components/Page';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ export default function StudioPage() {
   const workerEvents = feedEvents.filter(e => e.id !== 0);
 
   return (
+    <Page title="Studio" subtitle="Training + review" fullscreen>
     <div className="flex gap-0 h-full">
 
       {/* ── Left panel ── */}
@@ -206,6 +208,7 @@ export default function StudioPage() {
         </div>
       </div>
     </div>
+    </Page>
   );
 }
 

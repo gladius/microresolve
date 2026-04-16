@@ -3,7 +3,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { useNavigate } from 'react-router-dom';
 import { api, setApiNamespaceId } from '@/api/client';
 import { useAppStore } from '@/store';
-import PageContainer from '@/components/PageContainer';
+import Page from '@/components/Page';
 
 interface NamespaceInfo {
   id: string;
@@ -100,22 +100,23 @@ export default function NamespacesPage() {
   };
 
   return (
-    <PageContainer size="sm" className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Namespaces</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">Isolated routing workspaces. Each has its own intents, training data, and auto-learn setting.</p>
-        </div>
+    <Page
+      size="sm"
+      className="space-y-6"
+      title="Namespaces"
+      subtitle="Isolated routing workspaces"
+      actions={
         <button
           onClick={openModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white text-sm rounded hover:bg-violet-500 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1 bg-violet-600 text-white text-xs rounded hover:bg-violet-500 transition-colors"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          New Namespace
+          New
         </button>
-      </div>
+      }
+    >
 
       {loading ? (
         <div className="text-xs text-zinc-500 text-center py-12">Loading…</div>
@@ -279,6 +280,6 @@ export default function NamespacesPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </Page>
   );
 }

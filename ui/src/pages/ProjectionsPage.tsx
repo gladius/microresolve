@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import { api } from '@/api/client';
-import PageContainer from '@/components/PageContainer';
+import Page from '@/components/Page';
 
 const SIMULATION_QUERIES = [
   "I want a refund, how much was I charged for that order",
@@ -103,15 +103,13 @@ export default function ProjectionsPage() {
   );
 
   return (
-    <PageContainer size="md" className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-white">Projected Context</h1>
-          <p className="text-xs text-zinc-500 mt-1">
-            Context intents that historically co-occur with each action — discovered from usage patterns, not configured.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+    <Page
+      size="md"
+      className="space-y-6"
+      title="Projected Context"
+      subtitle="Context intents that historically co-occur with each action"
+      actions={
+        <>
           <span className="text-xs text-zinc-600">{coCount} co-occurrences tracked</span>
           <button
             onClick={refresh}
@@ -119,9 +117,9 @@ export default function ProjectionsPage() {
           >
             Refresh
           </button>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {/* Simulate button */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
         <div className="flex items-center justify-between">
@@ -198,6 +196,6 @@ export default function ProjectionsPage() {
           ))}
         </div>
       )}
-    </PageContainer>
+    </Page>
   );
 }

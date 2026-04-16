@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { api, type MultiRouteOutput, type ReviewAnalysis } from '@/api/client';
+import Page from '@/components/Page';
 
 const INTENT_COLORS = [
   'text-emerald-400', 'text-blue-400', 'text-amber-400', 'text-pink-400',
@@ -105,7 +106,8 @@ export default function RouterPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <Page title="Route" subtitle="Test queries against the router" fullscreen>
+    <div className="flex flex-col h-full px-6 py-4">
       <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
         {messages.length === 0 && (
           <div className="text-zinc-600 text-sm text-center py-16">
@@ -135,6 +137,7 @@ export default function RouterPage() {
         </button>
       </form>
     </div>
+    </Page>
   );
 }
 

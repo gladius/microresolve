@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import { api, type IntentInfo, type IntentType } from '@/api/client';
 import { useAppStore } from '@/store';
+import Page from '@/components/Page';
 
 export default function IntentsPage() {
   const [intents, setIntents] = useState<IntentInfo[]>([]);
@@ -49,10 +50,11 @@ export default function IntentsPage() {
   const allIntentIds = useMemo(() => intents.map(i => i.id), [intents]);
 
   return (
+    <Page title="Intents" subtitle={`${intents.length} intents`} fullscreen>
     <div className="flex gap-0 h-full">
       {/* Left: Intent list */}
       <div className="w-72 min-w-[18rem] border-r border-zinc-800 flex flex-col">
-        <div className="px-3 py-3 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
+        <div className="h-12 px-4 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
           <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">
             Intents ({filteredIntents.length}{filteredIntents.length !== intents.length ? `/${intents.length}` : ''})
           </span>
@@ -151,6 +153,7 @@ export default function IntentsPage() {
         )}
       </div>
     </div>
+    </Page>
   );
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '@/store';
 import { api } from '@/api/client';
 import SidebarLayout, { type SidebarItem } from '@/components/SidebarLayout';
+import Page from '@/components/Page';
 
 export default function SettingsPage() {
   const [section, setSection] = useState('llm');
@@ -13,18 +14,20 @@ export default function SettingsPage() {
   ];
 
   return (
-    <SidebarLayout
-      title="Settings"
-      items={items}
-      selected={section}
-      onSelect={setSection}
-    >
-      <div className="p-5 max-w-2xl">
-        {section === 'llm' && <LLMSection />}
-        {section === 'languages' && <LanguagesSection />}
-        {section === 'data' && <DataSection />}
-      </div>
-    </SidebarLayout>
+    <Page title="Settings" fullscreen>
+      <SidebarLayout
+        title="Settings"
+        items={items}
+        selected={section}
+        onSelect={setSection}
+      >
+        <div className="p-5 max-w-2xl">
+          {section === 'llm' && <LLMSection />}
+          {section === 'languages' && <LanguagesSection />}
+          {section === 'data' && <DataSection />}
+        </div>
+      </SidebarLayout>
+    </Page>
   );
 }
 

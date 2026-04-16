@@ -3,7 +3,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, setApiNamespaceId } from '@/api/client';
 import { useAppStore } from '@/store';
-import PageContainer from '@/components/PageContainer';
+import Page from '@/components/Page';
 
 interface DomainInfo {
   name: string;
@@ -89,33 +89,31 @@ export default function DomainsPage() {
   };
 
   return (
-    <PageContainer size="sm" className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <button onClick={() => navigate('/namespaces')} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
-              Namespaces
-            </button>
-            <span className="text-zinc-700 text-xs">/</span>
-            <span className="text-sm font-mono text-white">{namespaceId}</span>
-            {isActive && (
-              <span className="text-[9px] text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded uppercase tracking-wide">active</span>
-            )}
-          </div>
-          <p className="text-xs text-zinc-500">
-            Domains group intents via <span className="font-mono text-zinc-400">domain:intent_id</span> prefixes.
-          </p>
-        </div>
-        <button
-          onClick={openModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white text-sm rounded hover:bg-violet-500 transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          New Domain
-        </button>
-      </div>
+    <Page
+      size="sm"
+      className="space-y-6"
+      title={`${namespaceId} · domains`}
+      subtitle={isActive ? 'active workspace' : undefined}
+      actions={
+        <>
+          <button onClick={() => navigate('/namespaces')} className="text-xs text-zinc-500 hover:text-zinc-300">
+            ← Namespaces
+          </button>
+          <button
+            onClick={openModal}
+            className="flex items-center gap-1.5 px-3 py-1 bg-violet-600 text-white text-xs rounded hover:bg-violet-500 transition-colors"
+          >
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New
+          </button>
+        </>
+      }
+    >
+      <p className="text-xs text-zinc-500 mb-4">
+        Domains group intents via <span className="font-mono text-zinc-400">domain:intent_id</span> prefixes.
+      </p>
 
       {loading ? (
         <div className="text-xs text-zinc-500 text-center py-12">Loading…</div>
@@ -245,6 +243,6 @@ export default function DomainsPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </Page>
   );
 }

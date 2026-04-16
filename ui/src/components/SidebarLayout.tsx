@@ -20,10 +20,10 @@ export default function SidebarLayout({
   title, items, selected, onSelect, headerActions, children,
 }: SidebarLayoutProps) {
   return (
-    <div className="flex gap-0 h-[calc(100vh-6rem)] -mx-4">
-      {/* Sidebar */}
+    <div className="flex gap-0 h-full">
+      {/* Sub-sidebar */}
       <div className="w-56 min-w-[14rem] border-r border-zinc-800 flex flex-col">
-        <div className="px-3 py-3 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
+        <div className="h-12 px-4 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
           <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">{title}</span>
           {headerActions}
         </div>
