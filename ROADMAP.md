@@ -75,6 +75,19 @@ hardcoded universal list instead. Revisit post-launch.
 
 ---
 
+## Theme Selection (UI)
+
+Add light / dark / system theme selection in Settings. Current UI is dark-only
+(zinc/violet palette hardcoded across all pages). Needs:
+- Theme preference persisted in app settings
+- Tailwind dark-mode classes or CSS variables across all pages
+- System theme detection via `matchMedia('(prefers-color-scheme: dark)')`
+
+Touches every page component. Ship dark-only for launch; revisit when
+non-launch-critical work can resume.
+
+---
+
 ## Reproducible Benchmark Suite
 
 Port the ad-hoc reliability tests (`tests/reliability/*.py`) into a public

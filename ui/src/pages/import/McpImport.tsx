@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
-import ImportBreadcrumb from './ImportBreadcrumb';
+import Page from '@/components/Page';
 import GenerationPlan from './GenerationPlan';
 import { ImportReport } from './ImportReport';
 import type { ImportResult } from './ImportReport';
@@ -145,12 +145,24 @@ export default function McpImport() {
     setShowPaste(false);
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <ImportBreadcrumb title="Import MCP Tools" />
-      </div>
+  const subtitle = (
+    <>
+      into <span className="text-violet-400 font-mono">{currentApp}</span>
+      {currentDomain && (
+        <>
+          <span className="text-zinc-600 mx-1">/</span>
+          <span className="text-violet-400 font-mono">{currentDomain}</span>
+        </>
+      )}
+    </>
+  );
+  const backAction = (
+    <button onClick={() => navigate('/import')} className="text-xs text-zinc-500 hover:text-white transition-colors">← Back</button>
+  );
 
+  return (
+    <Page title="Import MCP Tools" subtitle={subtitle} actions={backAction} size="lg">
+      <div className="space-y-6">
       {error && (
         <div className="bg-red-900/20 border border-red-800 rounded px-4 py-3 text-sm text-red-400">
           {error}
@@ -298,7 +310,8 @@ export default function McpImport() {
 
       {/* Step 3: Result */}
       {result && <ImportReport result={result} onViewIntents={() => navigate('/intents')} onImportMore={reset} />}
-    </div>
+      </div>
+    </Page>
   );
 }
 

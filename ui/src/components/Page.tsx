@@ -32,7 +32,7 @@ const MAX_W: Record<Size, string> = {
 interface PageProps {
   children: ReactNode;
   title?: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
   /** If true, content area is edge-to-edge with no max-width / padding. */
   fullscreen?: boolean;

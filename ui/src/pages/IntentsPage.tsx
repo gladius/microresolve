@@ -4,12 +4,15 @@ import { api, type IntentInfo, type IntentType } from '@/api/client';
 import { useAppStore } from '@/store';
 import Page from '@/components/Page';
 
+const UNCATEGORIZED = '(uncategorized)';
+
 export default function IntentsPage() {
   const [intents, setIntents] = useState<IntentInfo[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState('');
   const [nsFilter, setNsFilter] = useState('');
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     try {
@@ -45,6 +48,29 @@ export default function IntentsPage() {
     if (filter && !i.id.toLowerCase().includes(filter.toLowerCase())) return false;
     return true;
   }), [intents, filter, nsFilter]);
+
+  const grouped = useMemo(() => {
+    const byDomain = new Map<string, IntentInfo[]>();
+    for (const i of filteredIntents) {
+      const colon = i.id.indexOf(':');
+      const domain = colon > 0 ? i.id.slice(0, colon) : UNCATEGORIZED;
+      if (!byDomain.has(domain)) byDomain.set(domain, []);
+      byDomain.get(domain)!.push(i);
+    }
+    return Array.from(byDomain.entries()).sort(([a], [b]) => {
+      if (a === UNCATEGORIZED) return 1;
+      if (b === UNCATEGORIZED) return -1;
+      return a.localeCompare(b);
+    });
+  }, [filteredIntents]);
+
+  const toggleDomain = useCallback((d: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d); else next.add(d);
+      return next;
+    });
+  }, []);
 
   const selected = intents.find(i => i.id === selectedId) || null;
   const allIntentIds = useMemo(() => intents.map(i => i.id), [intents]);
@@ -104,14 +130,29 @@ export default function IntentsPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {filteredIntents.map(intent => (
-            <IntentListItem
-              key={intent.id}
-              intent={intent}
-              selected={selectedId === intent.id}
-              onClick={() => { setSelectedId(intent.id); setShowAdd(false); }}
-            />
-          ))}
+          {grouped.map(([domain, items]) => {
+            const isCollapsed = collapsed.has(domain);
+            return (
+              <div key={domain}>
+                <button
+                  onClick={() => toggleDomain(domain)}
+                  className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40 border-b border-zinc-800/50 transition-colors"
+                >
+                  <span className="w-3 text-zinc-600">{isCollapsed ? '▸' : '▾'}</span>
+                  <span className="flex-1 text-left">{domain}</span>
+                  <span className="text-zinc-600">{items.length}</span>
+                </button>
+                {!isCollapsed && items.map(intent => (
+                  <IntentListItem
+                    key={intent.id}
+                    intent={intent}
+                    selected={selectedId === intent.id}
+                    onClick={() => { setSelectedId(intent.id); setShowAdd(false); }}
+                  />
+                ))}
+              </div>
+            );
+          })}
           {filteredIntents.length === 0 && (
             <div className="text-zinc-600 text-xs text-center py-8 px-4">
               {intents.length === 0 ? (
@@ -166,10 +207,12 @@ function IntentListItem({
 }) {
   const typeChar = intent.intent_type === 'action' ? 'A' : 'C';
   const typeColor = intent.intent_type === 'action' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30' : 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30';
+  const colon = intent.id.indexOf(':');
+  const shortName = colon > 0 ? intent.id.slice(colon + 1) : intent.id;
   return (
     <div
       onClick={onClick}
-      className={`px-3 py-2 cursor-pointer border-b border-zinc-800/50 transition-colors ${
+      className={`pl-7 pr-3 py-2 cursor-pointer border-b border-zinc-800/50 transition-colors ${
         selected ? 'bg-zinc-800/80' : 'hover:bg-zinc-800/40'
       }`}
     >
@@ -177,7 +220,7 @@ function IntentListItem({
         <span className={`text-[9px] w-4 h-4 flex items-center justify-center rounded border font-bold ${typeColor}`}>
           {typeChar}
         </span>
-        <span className="text-emerald-400 font-mono text-sm font-semibold truncate flex-1">{intent.id}</span>
+        <span className="text-emerald-400 font-mono text-sm font-semibold truncate flex-1" title={intent.id}>{shortName}</span>
         <span className="text-zinc-600 text-[11px]">{intent.phrases.length}</span>
         {intent.learned_count > 0 && (
           <span className="text-emerald-400/40 text-[10px]">+{intent.learned_count}</span>
