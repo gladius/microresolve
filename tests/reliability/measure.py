@@ -57,6 +57,10 @@ def expand_query(q: str) -> str:
 # Step 5: bigram re-ranking toggle
 BIGRAM_RERANK = False
 
+# Post-filter toggles (none by default)
+FP_FILTER = None        # set to a NgramFPFilter instance
+TIEBREAKER = None       # set to a CharNgramTiebreaker instance
+
 
 def route(namespace: str, query: str) -> dict:
     query = expand_query(query)
@@ -77,11 +81,18 @@ def route(namespace: str, query: str) -> dict:
 
 def top_ids(routing: dict, k: int = 3) -> list:
     ranked = routing.get("ranked") or []
-    # Apply bigram re-ranking if enabled
-    if BIGRAM_RERANK and ranked and "_query" in routing:
+    query = routing.get("_query", "")
+
+    # Apply post-filters in order: FP filter → tiebreaker → bigram rerank
+    if FP_FILTER is not None and ranked:
+        ranked = FP_FILTER.apply(query, ranked)
+    if TIEBREAKER is not None and ranked:
+        ranked = TIEBREAKER.apply(query, ranked)
+    if BIGRAM_RERANK and ranked:
         import bigram_rerank
-        rescored = bigram_rerank.rerank(routing["_query"], ranked, top_k=10, alpha=0.5)
+        rescored = bigram_rerank.rerank(query, ranked, top_k=10, alpha=0.5)
         return [r["id"] for r in rescored[:k]]
+
     if ranked:
         return [r["id"] for r in ranked[:k]]
     confirmed = routing.get("confirmed") or []

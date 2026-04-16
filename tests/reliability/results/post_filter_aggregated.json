@@ -1,0 +1,1250 @@
+{
+  "dense_baseline_dev": {
+    "namespace": "bench_dense",
+    "total_queries": 37,
+    "by_category": {
+      "cross_provider": {
+        "n": 4,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.4
+      },
+      "linear": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.3
+      },
+      "oos": {
+        "n": 3,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 33.3,
+        "avg_latency_ms": 3.4
+      },
+      "shopify": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.5
+      },
+      "stripe": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.6
+      }
+    },
+    "overall_top_1_pct": 100.0,
+    "overall_top_3_pct": 100.0,
+    "overall_top_5_pct": 100.0,
+    "overall_oos_rejection_pct": 33.3,
+    "avg_latency_ms": 3.47
+  },
+  "dense_fp_only_dev": {
+    "namespace": "bench_dense",
+    "total_queries": 37,
+    "by_category": {
+      "cross_provider": {
+        "n": 4,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.1
+      },
+      "linear": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 8,
+        "hit_5": 10,
+        "top_1_pct": 80.0,
+        "top_3_pct": 80.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.9
+      },
+      "oos": {
+        "n": 3,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 33.3,
+        "avg_latency_ms": 3.6
+      },
+      "shopify": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.4
+      },
+      "stripe": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.0
+      }
+    },
+    "overall_top_1_pct": 94.1,
+    "overall_top_3_pct": 94.1,
+    "overall_top_5_pct": 100.0,
+    "overall_oos_rejection_pct": 33.3,
+    "avg_latency_ms": 3.17
+  },
+  "dense_tiebreaker_only_dev": {
+    "namespace": "bench_dense",
+    "total_queries": 37,
+    "by_category": {
+      "cross_provider": {
+        "n": 4,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.9
+      },
+      "linear": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.6
+      },
+      "oos": {
+        "n": 3,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 33.3,
+        "avg_latency_ms": 3.2
+      },
+      "shopify": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.6
+      },
+      "stripe": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.0
+      }
+    },
+    "overall_top_1_pct": 100.0,
+    "overall_top_3_pct": 100.0,
+    "overall_top_5_pct": 100.0,
+    "overall_oos_rejection_pct": 33.3,
+    "avg_latency_ms": 3.44
+  },
+  "dense_fp_plus_tiebreaker_dev": {
+    "namespace": "bench_dense",
+    "total_queries": 37,
+    "by_category": {
+      "cross_provider": {
+        "n": 4,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.6
+      },
+      "linear": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.6
+      },
+      "oos": {
+        "n": 3,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 33.3,
+        "avg_latency_ms": 2.9
+      },
+      "shopify": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.2
+      },
+      "stripe": {
+        "n": 10,
+        "hit_1": 10,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.4
+      }
+    },
+    "overall_top_1_pct": 100.0,
+    "overall_top_3_pct": 100.0,
+    "overall_top_5_pct": 100.0,
+    "overall_oos_rejection_pct": 33.3,
+    "avg_latency_ms": 3.1
+  },
+  "dense_baseline_validation": {
+    "namespace": "bench_dense",
+    "total_queries": 37,
+    "by_category": {
+      "cross_provider": {
+        "n": 4,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.8
+      },
+      "linear": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 90.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 2.7
+      },
+      "oos": {
+        "n": 3,
+        "oos_rejected": 2,
+        "oos_rejection_pct": 66.7,
+        "avg_latency_ms": 2.8
+      },
+      "shopify": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 90.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.2
+      },
+      "stripe": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 90.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 2.5
+      }
+    },
+    "overall_top_1_pct": 91.2,
+    "overall_top_3_pct": 97.1,
+    "overall_top_5_pct": 97.1,
+    "overall_oos_rejection_pct": 66.7,
+    "avg_latency_ms": 2.9
+  },
+  "dense_fp_only_validation": {
+    "namespace": "bench_dense",
+    "total_queries": 37,
+    "by_category": {
+      "cross_provider": {
+        "n": 4,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.7
+      },
+      "linear": {
+        "n": 10,
+        "hit_1": 7,
+        "hit_3": 8,
+        "hit_5": 9,
+        "top_1_pct": 70.0,
+        "top_3_pct": 80.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.5
+      },
+      "oos": {
+        "n": 3,
+        "oos_rejected": 2,
+        "oos_rejection_pct": 66.7,
+        "avg_latency_ms": 4.2
+      },
+      "shopify": {
+        "n": 10,
+        "hit_1": 6,
+        "hit_3": 7,
+        "hit_5": 10,
+        "top_1_pct": 60.0,
+        "top_3_pct": 70.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.1
+      },
+      "stripe": {
+        "n": 10,
+        "hit_1": 7,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 70.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.2
+      }
+    },
+    "overall_top_1_pct": 70.6,
+    "overall_top_3_pct": 85.3,
+    "overall_top_5_pct": 97.1,
+    "overall_oos_rejection_pct": 66.7,
+    "avg_latency_ms": 3.4
+  },
+  "dense_tiebreaker_only_validation": {
+    "namespace": "bench_dense",
+    "total_queries": 37,
+    "by_category": {
+      "cross_provider": {
+        "n": 4,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.6
+      },
+      "linear": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 90.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.8
+      },
+      "oos": {
+        "n": 3,
+        "oos_rejected": 2,
+        "oos_rejection_pct": 66.7,
+        "avg_latency_ms": 3.0
+      },
+      "shopify": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 90.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.7
+      },
+      "stripe": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 90.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.5
+      }
+    },
+    "overall_top_1_pct": 91.2,
+    "overall_top_3_pct": 97.1,
+    "overall_top_5_pct": 97.1,
+    "overall_oos_rejection_pct": 66.7,
+    "avg_latency_ms": 3.59
+  },
+  "dense_fp_plus_tiebreaker_validation": {
+    "namespace": "bench_dense",
+    "total_queries": 37,
+    "by_category": {
+      "cross_provider": {
+        "n": 4,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.2
+      },
+      "linear": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 90.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.3
+      },
+      "oos": {
+        "n": 3,
+        "oos_rejected": 2,
+        "oos_rejection_pct": 66.7,
+        "avg_latency_ms": 3.1
+      },
+      "shopify": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 90.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.5
+      },
+      "stripe": {
+        "n": 10,
+        "hit_1": 7,
+        "hit_3": 10,
+        "hit_5": 10,
+        "top_1_pct": 70.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.6
+      }
+    },
+    "overall_top_1_pct": 85.3,
+    "overall_top_3_pct": 97.1,
+    "overall_top_5_pct": 97.1,
+    "overall_oos_rejection_pct": 66.7,
+    "avg_latency_ms": 3.41
+  },
+  "thin_baseline_dev": {
+    "namespace": "bench_baseline",
+    "total_queries": 105,
+    "by_category": {
+      "cross_provider": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 4.2
+      },
+      "false_pos_bait": {
+        "n": 10,
+        "multi_hit3": 1,
+        "multi_partial3": 2,
+        "multi_hit3_pct": 10.0,
+        "multi_partial3_pct": 20.0,
+        "avg_latency_ms": 4.3
+      },
+      "informal_oov": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.9
+      },
+      "multi_cross_domain": {
+        "n": 15,
+        "multi_hit3": 10,
+        "multi_partial3": 15,
+        "multi_hit3_pct": 66.7,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 4.5
+      },
+      "multi_same_domain": {
+        "n": 10,
+        "multi_hit3": 4,
+        "multi_partial3": 10,
+        "multi_hit3_pct": 40.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 4.1
+      },
+      "oos_negative": {
+        "n": 10,
+        "oos_rejected": 8,
+        "oos_rejection_pct": 80.0,
+        "avg_latency_ms": 3.7
+      },
+      "single_linear": {
+        "n": 10,
+        "hit_1": 7,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 70.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.7
+      },
+      "single_shopify": {
+        "n": 10,
+        "hit_1": 3,
+        "hit_3": 4,
+        "hit_5": 5,
+        "top_1_pct": 30.0,
+        "top_3_pct": 40.0,
+        "top_5_pct": 50.0,
+        "avg_latency_ms": 3.8
+      },
+      "single_stripe": {
+        "n": 10,
+        "hit_1": 6,
+        "hit_3": 7,
+        "hit_5": 8,
+        "top_1_pct": 60.0,
+        "top_3_pct": 70.0,
+        "top_5_pct": 80.0,
+        "avg_latency_ms": 2.6
+      },
+      "single_vercel": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 8,
+        "hit_5": 8,
+        "top_1_pct": 80.0,
+        "top_3_pct": 80.0,
+        "top_5_pct": 80.0,
+        "avg_latency_ms": 3.6
+      }
+    },
+    "overall_top_1_pct": 66.7,
+    "overall_top_3_pct": 76.7,
+    "overall_top_5_pct": 80.0,
+    "overall_multi_hit3_pct": 42.9,
+    "overall_multi_partial3_pct": 77.1,
+    "overall_oos_rejection_pct": 80.0,
+    "avg_latency_ms": 3.87
+  },
+  "thin_fp_only_dev": {
+    "namespace": "bench_baseline",
+    "total_queries": 105,
+    "by_category": {
+      "cross_provider": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 4.0
+      },
+      "false_pos_bait": {
+        "n": 10,
+        "multi_hit3": 1,
+        "multi_partial3": 1,
+        "multi_hit3_pct": 10.0,
+        "multi_partial3_pct": 10.0,
+        "avg_latency_ms": 4.2
+      },
+      "informal_oov": {
+        "n": 10,
+        "hit_1": 6,
+        "hit_3": 7,
+        "hit_5": 9,
+        "top_1_pct": 60.0,
+        "top_3_pct": 70.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.8
+      },
+      "multi_cross_domain": {
+        "n": 15,
+        "multi_hit3": 10,
+        "multi_partial3": 15,
+        "multi_hit3_pct": 66.7,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 4.1
+      },
+      "multi_same_domain": {
+        "n": 10,
+        "multi_hit3": 4,
+        "multi_partial3": 10,
+        "multi_hit3_pct": 40.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 3.0
+      },
+      "oos_negative": {
+        "n": 10,
+        "oos_rejected": 8,
+        "oos_rejection_pct": 80.0,
+        "avg_latency_ms": 3.6
+      },
+      "single_linear": {
+        "n": 10,
+        "hit_1": 4,
+        "hit_3": 6,
+        "hit_5": 9,
+        "top_1_pct": 40.0,
+        "top_3_pct": 60.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 4.0
+      },
+      "single_shopify": {
+        "n": 10,
+        "hit_1": 2,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 20.0,
+        "top_3_pct": 40.0,
+        "top_5_pct": 40.0,
+        "avg_latency_ms": 3.8
+      },
+      "single_stripe": {
+        "n": 10,
+        "hit_1": 6,
+        "hit_3": 7,
+        "hit_5": 8,
+        "top_1_pct": 60.0,
+        "top_3_pct": 70.0,
+        "top_5_pct": 80.0,
+        "avg_latency_ms": 3.8
+      },
+      "single_vercel": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 4.1
+      }
+    },
+    "overall_top_1_pct": 56.7,
+    "overall_top_3_pct": 70.0,
+    "overall_top_5_pct": 80.0,
+    "overall_multi_hit3_pct": 42.9,
+    "overall_multi_partial3_pct": 74.3,
+    "overall_oos_rejection_pct": 80.0,
+    "avg_latency_ms": 3.85
+  },
+  "thin_tiebreaker_only_dev": {
+    "namespace": "bench_baseline",
+    "total_queries": 105,
+    "by_category": {
+      "cross_provider": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.6
+      },
+      "false_pos_bait": {
+        "n": 10,
+        "multi_hit3": 1,
+        "multi_partial3": 1,
+        "multi_hit3_pct": 10.0,
+        "multi_partial3_pct": 10.0,
+        "avg_latency_ms": 3.6
+      },
+      "informal_oov": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 4.1
+      },
+      "multi_cross_domain": {
+        "n": 15,
+        "multi_hit3": 10,
+        "multi_partial3": 15,
+        "multi_hit3_pct": 66.7,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 3.6
+      },
+      "multi_same_domain": {
+        "n": 10,
+        "multi_hit3": 5,
+        "multi_partial3": 10,
+        "multi_hit3_pct": 50.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 4.0
+      },
+      "oos_negative": {
+        "n": 10,
+        "oos_rejected": 8,
+        "oos_rejection_pct": 80.0,
+        "avg_latency_ms": 3.4
+      },
+      "single_linear": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 4.0
+      },
+      "single_shopify": {
+        "n": 10,
+        "hit_1": 3,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 30.0,
+        "top_3_pct": 40.0,
+        "top_5_pct": 40.0,
+        "avg_latency_ms": 4.5
+      },
+      "single_stripe": {
+        "n": 10,
+        "hit_1": 6,
+        "hit_3": 7,
+        "hit_5": 8,
+        "top_1_pct": 60.0,
+        "top_3_pct": 70.0,
+        "top_5_pct": 80.0,
+        "avg_latency_ms": 4.3
+      },
+      "single_vercel": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 90.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 4.0
+      }
+    },
+    "overall_top_1_pct": 70.0,
+    "overall_top_3_pct": 78.3,
+    "overall_top_5_pct": 80.0,
+    "overall_multi_hit3_pct": 45.7,
+    "overall_multi_partial3_pct": 74.3,
+    "overall_oos_rejection_pct": 80.0,
+    "avg_latency_ms": 3.89
+  },
+  "thin_fp_plus_tiebreaker_dev": {
+    "namespace": "bench_baseline",
+    "total_queries": 105,
+    "by_category": {
+      "cross_provider": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 4.1
+      },
+      "false_pos_bait": {
+        "n": 10,
+        "multi_hit3": 1,
+        "multi_partial3": 1,
+        "multi_hit3_pct": 10.0,
+        "multi_partial3_pct": 10.0,
+        "avg_latency_ms": 3.8
+      },
+      "informal_oov": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.5
+      },
+      "multi_cross_domain": {
+        "n": 15,
+        "multi_hit3": 10,
+        "multi_partial3": 15,
+        "multi_hit3_pct": 66.7,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 4.0
+      },
+      "multi_same_domain": {
+        "n": 10,
+        "multi_hit3": 5,
+        "multi_partial3": 10,
+        "multi_hit3_pct": 50.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 4.0
+      },
+      "oos_negative": {
+        "n": 10,
+        "oos_rejected": 8,
+        "oos_rejection_pct": 80.0,
+        "avg_latency_ms": 2.8
+      },
+      "single_linear": {
+        "n": 10,
+        "hit_1": 8,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 80.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 4.2
+      },
+      "single_shopify": {
+        "n": 10,
+        "hit_1": 3,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 30.0,
+        "top_3_pct": 40.0,
+        "top_5_pct": 40.0,
+        "avg_latency_ms": 3.6
+      },
+      "single_stripe": {
+        "n": 10,
+        "hit_1": 6,
+        "hit_3": 7,
+        "hit_5": 8,
+        "top_1_pct": 60.0,
+        "top_3_pct": 70.0,
+        "top_5_pct": 80.0,
+        "avg_latency_ms": 3.5
+      },
+      "single_vercel": {
+        "n": 10,
+        "hit_1": 9,
+        "hit_3": 9,
+        "hit_5": 9,
+        "top_1_pct": 90.0,
+        "top_3_pct": 90.0,
+        "top_5_pct": 90.0,
+        "avg_latency_ms": 3.7
+      }
+    },
+    "overall_top_1_pct": 70.0,
+    "overall_top_3_pct": 78.3,
+    "overall_top_5_pct": 80.0,
+    "overall_multi_hit3_pct": 45.7,
+    "overall_multi_partial3_pct": 74.3,
+    "overall_oos_rejection_pct": 80.0,
+    "avg_latency_ms": 3.72
+  },
+  "thin_baseline_validation": {
+    "namespace": "bench_baseline",
+    "total_queries": 59,
+    "by_category": {
+      "cross_provider": {
+        "n": 7,
+        "hit_1": 4,
+        "hit_3": 7,
+        "hit_5": 7,
+        "top_1_pct": 57.1,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.0
+      },
+      "false_pos_bait": {
+        "n": 5,
+        "multi_hit3": 0,
+        "multi_partial3": 0,
+        "multi_hit3_pct": 0.0,
+        "multi_partial3_pct": 0.0,
+        "avg_latency_ms": 3.9
+      },
+      "informal_oov": {
+        "n": 5,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 80.0,
+        "top_3_pct": 80.0,
+        "top_5_pct": 80.0,
+        "avg_latency_ms": 3.4
+      },
+      "multi_cross_domain": {
+        "n": 5,
+        "multi_hit3": 4,
+        "multi_partial3": 5,
+        "multi_hit3_pct": 80.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 3.9
+      },
+      "oos_negative": {
+        "n": 5,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 20.0,
+        "avg_latency_ms": 3.9
+      },
+      "single_linear": {
+        "n": 8,
+        "hit_1": 2,
+        "hit_3": 5,
+        "hit_5": 5,
+        "top_1_pct": 25.0,
+        "top_3_pct": 62.5,
+        "top_5_pct": 62.5,
+        "avg_latency_ms": 3.8
+      },
+      "single_shopify": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 1,
+        "hit_5": 1,
+        "top_1_pct": 12.5,
+        "top_3_pct": 12.5,
+        "top_5_pct": 12.5,
+        "avg_latency_ms": 3.7
+      },
+      "single_stripe": {
+        "n": 8,
+        "hit_1": 3,
+        "hit_3": 5,
+        "hit_5": 7,
+        "top_1_pct": 37.5,
+        "top_3_pct": 62.5,
+        "top_5_pct": 87.5,
+        "avg_latency_ms": 2.8
+      },
+      "single_vercel": {
+        "n": 8,
+        "hit_1": 2,
+        "hit_3": 3,
+        "hit_5": 3,
+        "top_1_pct": 25.0,
+        "top_3_pct": 37.5,
+        "top_5_pct": 37.5,
+        "avg_latency_ms": 3.9
+      }
+    },
+    "overall_top_1_pct": 36.4,
+    "overall_top_3_pct": 56.8,
+    "overall_top_5_pct": 61.4,
+    "overall_multi_hit3_pct": 40.0,
+    "overall_multi_partial3_pct": 50.0,
+    "overall_oos_rejection_pct": 20.0,
+    "avg_latency_ms": 3.55
+  },
+  "thin_fp_only_validation": {
+    "namespace": "bench_baseline",
+    "total_queries": 59,
+    "by_category": {
+      "cross_provider": {
+        "n": 7,
+        "hit_1": 5,
+        "hit_3": 7,
+        "hit_5": 7,
+        "top_1_pct": 71.4,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.3
+      },
+      "false_pos_bait": {
+        "n": 5,
+        "multi_hit3": 0,
+        "multi_partial3": 1,
+        "multi_hit3_pct": 0.0,
+        "multi_partial3_pct": 20.0,
+        "avg_latency_ms": 4.1
+      },
+      "informal_oov": {
+        "n": 5,
+        "hit_1": 3,
+        "hit_3": 4,
+        "hit_5": 5,
+        "top_1_pct": 60.0,
+        "top_3_pct": 80.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.8
+      },
+      "multi_cross_domain": {
+        "n": 5,
+        "multi_hit3": 4,
+        "multi_partial3": 5,
+        "multi_hit3_pct": 80.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 3.2
+      },
+      "oos_negative": {
+        "n": 5,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 20.0,
+        "avg_latency_ms": 3.6
+      },
+      "single_linear": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 3,
+        "hit_5": 5,
+        "top_1_pct": 12.5,
+        "top_3_pct": 37.5,
+        "top_5_pct": 62.5,
+        "avg_latency_ms": 3.9
+      },
+      "single_shopify": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 1,
+        "hit_5": 1,
+        "top_1_pct": 12.5,
+        "top_3_pct": 12.5,
+        "top_5_pct": 12.5,
+        "avg_latency_ms": 3.8
+      },
+      "single_stripe": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 4,
+        "hit_5": 6,
+        "top_1_pct": 12.5,
+        "top_3_pct": 50.0,
+        "top_5_pct": 75.0,
+        "avg_latency_ms": 3.9
+      },
+      "single_vercel": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 3,
+        "hit_5": 3,
+        "top_1_pct": 12.5,
+        "top_3_pct": 37.5,
+        "top_5_pct": 37.5,
+        "avg_latency_ms": 4.1
+      }
+    },
+    "overall_top_1_pct": 27.3,
+    "overall_top_3_pct": 50.0,
+    "overall_top_5_pct": 61.4,
+    "overall_multi_hit3_pct": 40.0,
+    "overall_multi_partial3_pct": 60.0,
+    "overall_oos_rejection_pct": 20.0,
+    "avg_latency_ms": 3.76
+  },
+  "thin_tiebreaker_only_validation": {
+    "namespace": "bench_baseline",
+    "total_queries": 59,
+    "by_category": {
+      "cross_provider": {
+        "n": 7,
+        "hit_1": 4,
+        "hit_3": 7,
+        "hit_5": 7,
+        "top_1_pct": 57.1,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 4.2
+      },
+      "false_pos_bait": {
+        "n": 5,
+        "multi_hit3": 0,
+        "multi_partial3": 0,
+        "multi_hit3_pct": 0.0,
+        "multi_partial3_pct": 0.0,
+        "avg_latency_ms": 4.6
+      },
+      "informal_oov": {
+        "n": 5,
+        "hit_1": 4,
+        "hit_3": 4,
+        "hit_5": 4,
+        "top_1_pct": 80.0,
+        "top_3_pct": 80.0,
+        "top_5_pct": 80.0,
+        "avg_latency_ms": 3.4
+      },
+      "multi_cross_domain": {
+        "n": 5,
+        "multi_hit3": 4,
+        "multi_partial3": 5,
+        "multi_hit3_pct": 80.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 3.7
+      },
+      "oos_negative": {
+        "n": 5,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 20.0,
+        "avg_latency_ms": 3.6
+      },
+      "single_linear": {
+        "n": 8,
+        "hit_1": 4,
+        "hit_3": 5,
+        "hit_5": 5,
+        "top_1_pct": 50.0,
+        "top_3_pct": 62.5,
+        "top_5_pct": 62.5,
+        "avg_latency_ms": 3.8
+      },
+      "single_shopify": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 1,
+        "hit_5": 1,
+        "top_1_pct": 12.5,
+        "top_3_pct": 12.5,
+        "top_5_pct": 12.5,
+        "avg_latency_ms": 3.8
+      },
+      "single_stripe": {
+        "n": 8,
+        "hit_1": 4,
+        "hit_3": 6,
+        "hit_5": 6,
+        "top_1_pct": 50.0,
+        "top_3_pct": 75.0,
+        "top_5_pct": 75.0,
+        "avg_latency_ms": 4.0
+      },
+      "single_vercel": {
+        "n": 8,
+        "hit_1": 2,
+        "hit_3": 2,
+        "hit_5": 3,
+        "top_1_pct": 25.0,
+        "top_3_pct": 25.0,
+        "top_5_pct": 37.5,
+        "avg_latency_ms": 3.6
+      }
+    },
+    "overall_top_1_pct": 43.2,
+    "overall_top_3_pct": 56.8,
+    "overall_top_5_pct": 59.1,
+    "overall_multi_hit3_pct": 40.0,
+    "overall_multi_partial3_pct": 50.0,
+    "overall_oos_rejection_pct": 20.0,
+    "avg_latency_ms": 3.84
+  },
+  "thin_fp_plus_tiebreaker_validation": {
+    "namespace": "bench_baseline",
+    "total_queries": 59,
+    "by_category": {
+      "cross_provider": {
+        "n": 7,
+        "hit_1": 4,
+        "hit_3": 7,
+        "hit_5": 7,
+        "top_1_pct": 57.1,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 3.2
+      },
+      "false_pos_bait": {
+        "n": 5,
+        "multi_hit3": 0,
+        "multi_partial3": 0,
+        "multi_hit3_pct": 0.0,
+        "multi_partial3_pct": 0.0,
+        "avg_latency_ms": 2.8
+      },
+      "informal_oov": {
+        "n": 5,
+        "hit_1": 5,
+        "hit_3": 5,
+        "hit_5": 5,
+        "top_1_pct": 100.0,
+        "top_3_pct": 100.0,
+        "top_5_pct": 100.0,
+        "avg_latency_ms": 4.0
+      },
+      "multi_cross_domain": {
+        "n": 5,
+        "multi_hit3": 4,
+        "multi_partial3": 5,
+        "multi_hit3_pct": 80.0,
+        "multi_partial3_pct": 100.0,
+        "avg_latency_ms": 2.2
+      },
+      "oos_negative": {
+        "n": 5,
+        "oos_rejected": 1,
+        "oos_rejection_pct": 20.0,
+        "avg_latency_ms": 2.9
+      },
+      "single_linear": {
+        "n": 8,
+        "hit_1": 3,
+        "hit_3": 4,
+        "hit_5": 5,
+        "top_1_pct": 37.5,
+        "top_3_pct": 50.0,
+        "top_5_pct": 62.5,
+        "avg_latency_ms": 3.5
+      },
+      "single_shopify": {
+        "n": 8,
+        "hit_1": 1,
+        "hit_3": 1,
+        "hit_5": 1,
+        "top_1_pct": 12.5,
+        "top_3_pct": 12.5,
+        "top_5_pct": 12.5,
+        "avg_latency_ms": 4.1
+      },
+      "single_stripe": {
+        "n": 8,
+        "hit_1": 4,
+        "hit_3": 6,
+        "hit_5": 6,
+        "top_1_pct": 50.0,
+        "top_3_pct": 75.0,
+        "top_5_pct": 75.0,
+        "avg_latency_ms": 3.6
+      },
+      "single_vercel": {
+        "n": 8,
+        "hit_1": 2,
+        "hit_3": 2,
+        "hit_5": 3,
+        "top_1_pct": 25.0,
+        "top_3_pct": 25.0,
+        "top_5_pct": 37.5,
+        "avg_latency_ms": 2.8
+      }
+    },
+    "overall_top_1_pct": 43.2,
+    "overall_top_3_pct": 56.8,
+    "overall_top_5_pct": 61.4,
+    "overall_multi_hit3_pct": 40.0,
+    "overall_multi_partial3_pct": 50.0,
+    "overall_oos_rejection_pct": 20.0,
+    "avg_latency_ms": 3.3
+  }
+}
