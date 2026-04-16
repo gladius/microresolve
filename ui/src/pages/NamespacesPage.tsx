@@ -3,6 +3,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { useNavigate } from 'react-router-dom';
 import { api, setApiNamespaceId } from '@/api/client';
 import { useAppStore } from '@/store';
+import PageContainer from '@/components/PageContainer';
 
 interface NamespaceInfo {
   id: string;
@@ -99,7 +100,7 @@ export default function NamespacesPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <PageContainer size="sm" className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">Namespaces</h2>
@@ -278,6 +279,6 @@ export default function NamespacesPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

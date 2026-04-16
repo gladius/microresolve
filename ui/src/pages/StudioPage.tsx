@@ -86,7 +86,7 @@ export default function StudioPage() {
   const workerEvents = feedEvents.filter(e => e.id !== 0);
 
   return (
-    <div className="flex gap-0 h-[calc(100vh-4rem)] -mx-4 -mt-4">
+    <div className="flex gap-0 h-full">
 
       {/* ── Left panel ── */}
       <div className="w-[52%] min-w-0 border-r border-zinc-800 flex flex-col">

@@ -138,13 +138,11 @@ export default function Layout() {
         )}
       </aside>
 
-      {/* Main content. Default: padded with a sensible max-width.
-          Pages wanting fullscreen (Studio) wrap their content in `h-full`
-          and use their own internal layout. */}
+      {/* Main content — pages handle their own padding and max-width.
+          Fullscreen pages (Studio, Intents, Router) use `h-full`
+          and fill the viewport. Content pages add `p-6 max-w-*` themselves. */}
       <main className="flex-1 min-h-0 min-w-0 overflow-auto">
-        <div className="min-h-full p-6">
-          <Outlet />
-        </div>
+        <Outlet />
       </main>
     </div>
   );

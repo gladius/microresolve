@@ -49,7 +49,7 @@ export default function IntentsPage() {
   const allIntentIds = useMemo(() => intents.map(i => i.id), [intents]);
 
   return (
-    <div className="flex gap-0 h-[calc(100vh-6rem)] -mx-4">
+    <div className="flex gap-0 h-full">
       {/* Left: Intent list */}
       <div className="w-72 min-w-[18rem] border-r border-zinc-800 flex flex-col">
         <div className="px-3 py-3 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">

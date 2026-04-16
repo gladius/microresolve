@@ -105,7 +105,7 @@ export default function RouterPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)]">
+    <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
         {messages.length === 0 && (
           <div className="text-zinc-600 text-sm text-center py-16">

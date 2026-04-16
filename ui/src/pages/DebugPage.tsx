@@ -1,14 +1,15 @@
 import { useState, useCallback } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import { api, type LogEntry } from '@/api/client';
+import PageContainer from '@/components/PageContainer';
 
 export default function DebugPage() {
   return (
-    <div className="space-y-8">
+    <PageContainer size="lg" className="space-y-8">
       <h1 className="text-lg font-semibold text-white">Debug & Tuning</h1>
       <CoOccurrenceSection />
       <QueryLogSection />
-    </div>
+    </PageContainer>
   );
 }
 

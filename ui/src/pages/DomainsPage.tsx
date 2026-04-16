@@ -3,6 +3,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, setApiNamespaceId } from '@/api/client';
 import { useAppStore } from '@/store';
+import PageContainer from '@/components/PageContainer';
 
 interface DomainInfo {
   name: string;
@@ -88,7 +89,7 @@ export default function DomainsPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <PageContainer size="sm" className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
@@ -244,6 +245,6 @@ export default function DomainsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import { api } from '@/api/client';
+import PageContainer from '@/components/PageContainer';
 
 const SIMULATION_QUERIES = [
   "I want a refund, how much was I charged for that order",
@@ -102,7 +103,7 @@ export default function ProjectionsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <PageContainer size="md" className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white">Projected Context</h1>
@@ -197,6 +198,6 @@ export default function ProjectionsPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
