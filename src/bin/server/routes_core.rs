@@ -26,6 +26,10 @@ pub struct RouteMultiRequest {
     /// If false, skip logging to review queue (use for UI test/explore)
     #[serde(default = "default_log")]
     pub log: bool,
+    /// Apply char-ngram Jaccard tiebreaker when top-1/top-2 scores are close.
+    /// Safe default is off for backward compatibility.
+    #[serde(default)]
+    pub tiebreaker: bool,
 }
 
 fn default_threshold() -> f32 { 0.3 }
@@ -74,8 +78,19 @@ pub async fn route_multi(
             Some(ig) => {
                 // Raw single-pass scores (no token consumption) — for top-N ranking
                 let (raw, neg) = ig.score_normalized(&processed_query);
+                // Optional tiebreaker on the RANKED list (not the consumed list)
+                let raw = if req.tiebreaker {
+                    ig.apply_char_ngram_tiebreaker(&processed_query, raw, 0.65, 0.5)
+                } else {
+                    raw
+                };
                 // Token-consumed scores — for confirmed intents
                 let (consumed, _) = ig.score_multi_normalized(&processed_query, req.threshold, req.gap);
+                let consumed = if req.tiebreaker {
+                    ig.apply_char_ngram_tiebreaker(&processed_query, consumed, 0.65, 0.5)
+                } else {
+                    consumed
+                };
                 (Some(consumed), raw, neg)
             }
             None => (None, vec![], false),

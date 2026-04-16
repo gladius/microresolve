@@ -192,6 +192,8 @@ pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)
         if !word_refs.is_empty() {
             ig.learn_phrase(&word_refs, intent_id);
         }
+        // Char-ngram tiebreaker index (derived from original phrase)
+        ig.index_char_ngrams(phrase, intent_id);
     }
 
     // Persist

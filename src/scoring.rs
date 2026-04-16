@@ -629,6 +629,12 @@ pub struct IntentGraph {
     /// Anti-Hebbian: when A fires and B is wrong, A learns to suppress B.
     #[serde(default)]
     pub inhibit: HashMap<String, HashMap<String, f32>>,
+
+    /// Char-ngram tiebreaker index: intent_id → set of char 4-grams from seed phrases.
+    /// Used when top-1/top-2 scores are close (ambiguous). Derived from phrases
+    /// at seed/learn time — no separate training needed.
+    #[serde(default)]
+    pub char_ngrams: HashMap<String, std::collections::HashSet<String>>,
 }
 
 impl IntentGraph {
@@ -656,6 +662,74 @@ impl IntentGraph {
         for word in words {
             self.learn_word(word, intent, Self::PHRASE_RATE);
         }
+    }
+
+    /// Index char 4-grams from a phrase for the tiebreaker layer.
+    /// Takes the ORIGINAL phrase (before tokenization) so char-level patterns
+    /// include word boundaries implicitly via spaces.
+    pub fn index_char_ngrams(&mut self, phrase: &str, intent: &str) {
+        let normalized: String = phrase.to_lowercase();
+        let s: String = format!("  {}  ", normalized.split_whitespace().collect::<Vec<_>>().join(" "));
+        if s.chars().count() < 4 { return; }
+        let chars: Vec<char> = s.chars().collect();
+        let set = self.char_ngrams.entry(intent.to_string()).or_default();
+        for window in chars.windows(4) {
+            let ngram: String = window.iter().collect();
+            set.insert(ngram);
+        }
+    }
+
+    /// Char-ngram tiebreaker: when top-1/top-2 scores are close, re-rank
+    /// top-K by combined score + alpha * jaccard(query_char_ngrams, intent_char_ngrams).
+    ///
+    /// - `ratio_threshold`: only fires when top1/(top1+top2) < this (default 0.65)
+    /// - `alpha`: weight of jaccard in the combined score (default 0.5)
+    ///
+    /// Dormant when confident top-1 exists; activates on ambiguous cases.
+    pub fn apply_char_ngram_tiebreaker(
+        &self,
+        query: &str,
+        ranked: Vec<(String, f32)>,
+        ratio_threshold: f32,
+        alpha: f32,
+    ) -> Vec<(String, f32)> {
+        if ranked.len() < 2 { return ranked; }
+        let top1 = ranked[0].1;
+        let top2 = ranked[1].1;
+        if top1 + top2 <= 0.0 { return ranked; }
+        let ratio = top1 / (top1 + top2);
+        if ratio >= ratio_threshold { return ranked; }
+
+        // Extract char 4-grams from the query
+        let normalized: String = query.to_lowercase();
+        let s: String = format!("  {}  ", normalized.split_whitespace().collect::<Vec<_>>().join(" "));
+        if s.chars().count() < 4 { return ranked; }
+        let chars: Vec<char> = s.chars().collect();
+        let mut q_ngrams: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for window in chars.windows(4) {
+            let ngram: String = window.iter().collect();
+            q_ngrams.insert(ngram);
+        }
+        if q_ngrams.is_empty() { return ranked; }
+
+        // Re-rank top-5 (cap)
+        let k = ranked.len().min(5);
+        let (head, tail) = ranked.split_at(k);
+        let mut rescored: Vec<(String, f32)> = head.iter().map(|(id, score)| {
+            let intent_set = self.char_ngrams.get(id);
+            let jaccard = match intent_set {
+                Some(iset) if !iset.is_empty() => {
+                    let inter = q_ngrams.iter().filter(|n| iset.contains(*n)).count();
+                    let uni = q_ngrams.len() + iset.len() - inter;
+                    if uni == 0 { 0.0 } else { inter as f32 / uni as f32 }
+                }
+                _ => 0.0,
+            };
+            (id.clone(), score + alpha * jaccard)
+        }).collect();
+        rescored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        rescored.extend_from_slice(tail);
+        rescored
     }
 
     /// Learn specific intent-bearing words from a user query.

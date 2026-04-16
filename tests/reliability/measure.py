@@ -60,11 +60,15 @@ BIGRAM_RERANK = False
 # Post-filter toggles (none by default)
 FP_FILTER = None        # set to a NgramFPFilter instance
 TIEBREAKER = None       # set to a CharNgramTiebreaker instance
+SERVER_TIEBREAKER = False  # use server-side (Rust) tiebreaker via tiebreaker=true flag
 
 
 def route(namespace: str, query: str) -> dict:
     query = expand_query(query)
-    body = json.dumps({"query": query, "threshold": 0.3, "gap": 1.5, "log": False}).encode()
+    body_dict = {"query": query, "threshold": 0.3, "gap": 1.5, "log": False}
+    if SERVER_TIEBREAKER:
+        body_dict["tiebreaker"] = True
+    body = json.dumps(body_dict).encode()
     req = urllib.request.Request(
         f"{BASE_URL}/api/route_multi",
         data=body,
