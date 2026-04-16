@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "description": "Query sets for the dense-seed experiment (15 intents × 12 phrases). Dev uses similar-to-seed phrasings; validation uses deliberately different phrasings to test generalization.",
+    "namespace": "bench_dense"
+  },
+  "dev": [
+    { "category": "stripe", "query": "refund this charge", "expected": "stripe:create_refund" },
+    { "category": "stripe", "query": "process a refund", "expected": "stripe:create_refund" },
+    { "category": "stripe", "query": "create a customer", "expected": "stripe:create_customer" },
+    { "category": "stripe", "query": "onboard a new client", "expected": "stripe:create_customer" },
+    { "category": "stripe", "query": "show customer list", "expected": "stripe:list_customers" },
+    { "category": "stripe", "query": "list stripe customers", "expected": "stripe:list_customers" },
+    { "category": "stripe", "query": "send invoice", "expected": "stripe:create_invoice" },
+    { "category": "stripe", "query": "bill the customer this month", "expected": "stripe:create_invoice" },
+    { "category": "stripe", "query": "cancel subscription", "expected": "stripe:cancel_subscription" },
+    { "category": "stripe", "query": "end their monthly billing", "expected": "stripe:cancel_subscription" },
+
+    { "category": "linear", "query": "create an issue", "expected": "linear:create_issue" },
+    { "category": "linear", "query": "file a new bug", "expected": "linear:create_issue" },
+    { "category": "linear", "query": "assign this to alice", "expected": "linear:assign_issue" },
+    { "category": "linear", "query": "put bob on this ticket", "expected": "linear:assign_issue" },
+    { "category": "linear", "query": "show active tickets", "expected": "linear:list_issues" },
+    { "category": "linear", "query": "list the backlog", "expected": "linear:list_issues" },
+    { "category": "linear", "query": "start a new project", "expected": "linear:create_project" },
+    { "category": "linear", "query": "create a project for the migration", "expected": "linear:create_project" },
+    { "category": "linear", "query": "update the issue status", "expected": "linear:update_issue" },
+    { "category": "linear", "query": "mark the ticket as done", "expected": "linear:update_issue" },
+
+    { "category": "shopify", "query": "create a new order", "expected": "shopify:create_order" },
+    { "category": "shopify", "query": "place a customer order", "expected": "shopify:create_order" },
+    { "category": "shopify", "query": "cancel the order", "expected": "shopify:cancel_order" },
+    { "category": "shopify", "query": "void this sale", "expected": "shopify:cancel_order" },
+    { "category": "shopify", "query": "pull today's orders", "expected": "shopify:list_orders" },
+    { "category": "shopify", "query": "show me all orders", "expected": "shopify:list_orders" },
+    { "category": "shopify", "query": "add a new product", "expected": "shopify:create_product" },
+    { "category": "shopify", "query": "list a new item in the store", "expected": "shopify:create_product" },
+    { "category": "shopify", "query": "adjust stock levels", "expected": "shopify:adjust_inventory" },
+    { "category": "shopify", "query": "update product quantity", "expected": "shopify:adjust_inventory" },
+
+    { "category": "cross_provider", "query": "list stripe customers", "expected": "stripe:list_customers" },
+    { "category": "cross_provider", "query": "add a customer to stripe", "expected": "stripe:create_customer" },
+    { "category": "cross_provider", "query": "create order in shopify", "expected": "shopify:create_order" },
+    { "category": "cross_provider", "query": "new linear project", "expected": "linear:create_project" },
+
+    { "category": "oos", "query": "what's the weather today", "expected": null },
+    { "category": "oos", "query": "play some music", "expected": null },
+    { "category": "oos", "query": "book a flight", "expected": null }
+  ],
+  "validation": [
+    { "category": "stripe", "query": "send this customer a check back", "expected": "stripe:create_refund" },
+    { "category": "stripe", "query": "they want their funds returned", "expected": "stripe:create_refund" },
+    { "category": "stripe", "query": "set up a new account for this buyer", "expected": "stripe:create_customer" },
+    { "category": "stripe", "query": "add this enterprise client", "expected": "stripe:create_customer" },
+    { "category": "stripe", "query": "who's currently paying us", "expected": "stripe:list_customers" },
+    { "category": "stripe", "query": "grab the full customer directory", "expected": "stripe:list_customers" },
+    { "category": "stripe", "query": "send them something official for september", "expected": "stripe:create_invoice" },
+    { "category": "stripe", "query": "draft the monthly billing", "expected": "stripe:create_invoice" },
+    { "category": "stripe", "query": "they're done with us, stop the plan", "expected": "stripe:cancel_subscription" },
+    { "category": "stripe", "query": "end the recurring billing for this user", "expected": "stripe:cancel_subscription" },
+
+    { "category": "linear", "query": "log a regression in the signup flow", "expected": "linear:create_issue" },
+    { "category": "linear", "query": "write up this defect", "expected": "linear:create_issue" },
+    { "category": "linear", "query": "hand this over to the platform team", "expected": "linear:assign_issue" },
+    { "category": "linear", "query": "delegate the bug to someone", "expected": "linear:assign_issue" },
+    { "category": "linear", "query": "what tickets are open right now", "expected": "linear:list_issues" },
+    { "category": "linear", "query": "pull up current bugs", "expected": "linear:list_issues" },
+    { "category": "linear", "query": "spin up a new initiative for auth rework", "expected": "linear:create_project" },
+    { "category": "linear", "query": "kick off a new effort", "expected": "linear:create_project" },
+    { "category": "linear", "query": "move this ticket to done", "expected": "linear:update_issue" },
+    { "category": "linear", "query": "edit the ticket details", "expected": "linear:update_issue" },
+
+    { "category": "shopify", "query": "this customer wants to place something", "expected": "shopify:create_order" },
+    { "category": "shopify", "query": "enter a new purchase", "expected": "shopify:create_order" },
+    { "category": "shopify", "query": "customer changed their mind, kill the order", "expected": "shopify:cancel_order" },
+    { "category": "shopify", "query": "scrap this sale", "expected": "shopify:cancel_order" },
+    { "category": "shopify", "query": "how many purchases came in today", "expected": "shopify:list_orders" },
+    { "category": "shopify", "query": "what did we sell this week", "expected": "shopify:list_orders" },
+    { "category": "shopify", "query": "we're launching a new sneaker next week", "expected": "shopify:create_product" },
+    { "category": "shopify", "query": "add the new colorway to catalog", "expected": "shopify:create_product" },
+    { "category": "shopify", "query": "we're running low on the medium blue jacket", "expected": "shopify:adjust_inventory" },
+    { "category": "shopify", "query": "sold out of smalls, update the count", "expected": "shopify:adjust_inventory" },
+
+    { "category": "cross_provider", "query": "pull up all our stripe customers", "expected": "stripe:list_customers" },
+    { "category": "cross_provider", "query": "onboard this client into stripe", "expected": "stripe:create_customer" },
+    { "category": "cross_provider", "query": "set up a project in linear for the new work", "expected": "linear:create_project" },
+    { "category": "cross_provider", "query": "place a new shopify order for this buyer", "expected": "shopify:create_order" },
+
+    { "category": "oos", "query": "tell me a joke", "expected": null },
+    { "category": "oos", "query": "what year did ww2 end", "expected": null },
+    { "category": "oos", "query": "translate this to spanish", "expected": null }
+  ]
+}
