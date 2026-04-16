@@ -25,7 +25,6 @@
 //! ```
 
 pub mod scoring;
-pub mod execute;
 pub mod discovery;
 pub mod import;
 pub mod connect;

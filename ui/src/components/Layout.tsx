@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
 import { useState, useEffect } from 'react';
 import { api } from '@/api/client';
@@ -7,7 +7,6 @@ const links = [
   { to: '/namespaces',   label: 'Namespaces' },
   { to: '/intents',      label: 'Intents' },
   { to: '/studio',       label: 'Studio' },
-  { to: '/build',        label: 'Build' },
   { to: '/import',       label: 'Import' },
   { to: '/settings',     label: 'Settings' },
 ];
@@ -15,8 +14,6 @@ const links = [
 export default function Layout() {
   const { settings, setSelectedNamespaceId, setSelectedDomain } = useAppStore();
   const navigate = useNavigate();
-  const location = useLocation();
-  const fullscreen = location.pathname.startsWith('/build');
 
   const [namespaces, setNamespaces] = useState<string[]>(['default']);
   const [domains, setDomains] = useState<string[]>([]);
@@ -49,9 +46,9 @@ export default function Layout() {
   const activeDomain = settings.selectedDomain;
 
   return (
-    <div className={`${fullscreen ? 'h-screen overflow-hidden' : 'min-h-screen'} flex flex-col`}>
+    <div className="min-h-screen flex flex-col">
       <nav className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur sticky top-0 z-50">
-        <div className={`${fullscreen ? 'px-4' : 'max-w-7xl mx-auto px-4'} flex items-center h-12 gap-6`}>
+        <div className="max-w-7xl mx-auto px-4 flex items-center h-12 gap-6">
           <NavLink to="/" className="font-semibold text-white tracking-tight hover:text-violet-400 transition-colors">
             ASV Router
           </NavLink>
@@ -171,7 +168,7 @@ export default function Layout() {
         </div>
       </nav>
 
-      <main className={fullscreen ? 'flex-1 min-h-0' : 'flex-1 max-w-7xl mx-auto w-full px-4 py-6'}>
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
         <Outlet />
       </main>
     </div>
