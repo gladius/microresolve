@@ -17,14 +17,14 @@ Route natural language queries to intents in 30µs. Gets smarter from every prod
 
 ## Benchmarks
 
-| Dataset | Intents | Seeds/intent | Accuracy | Latency |
-|---|---|---|---|---|
-| CLINC150 | 150 | 50 | 84.0% | 22µs avg |
-| CLINC150 | 150 | 100 | 87.5% | 24µs avg |
-| BANKING77 | 77 | 50 | 81.9% | 21µs avg |
-| BANKING77 | 77 | 130 | 85.5% | 23µs avg |
+| Dataset | Intents | Seeds/intent | Seed-only | + Learning | Top-3 | Latency |
+|---|---|---|---|---|---|---|
+| CLINC150 | 150 | 50 | 84.0% | 85.8% | 94.2% | 22µs avg |
+| CLINC150 | 150 | 100 | 87.5% | 96.4% | 95.9% | 24µs avg |
+| BANKING77 | 77 | 50 | 81.9% | 85.0% | 94.1% | 21µs avg |
+| BANKING77 | 77 | 130 | 85.5% | 92.8% | 96.0% | 23µs avg |
 
-Zero ML training. Zero GPU. Accuracy improves further with incremental learning from production traffic.
+Zero ML training. Zero GPU. **+ Learning** shows accuracy after incremental learning from corrections — no retraining, just routing confirmations feeding back into the weights.
 
 ## Quick Start
 
@@ -154,6 +154,20 @@ ASV natively detects when a single query contains multiple intents:
 
 Detected relations: `sequential`, `conditional`, `negation`, `parallel`.
 
+## Projected Context
+
+ASV tracks which intents fire together and uses co-occurrence patterns to predict what auxiliary data your workflow will need — even when the user doesn't ask for it explicitly.
+
+```
+Query: "I want a refund"
+→ refund_order    (confirmed, high)
+→ projected:      check_balance (21%), warranty_lookup (13%)
+```
+
+The user only asked for a refund. But from past routing patterns, ASV knows refund workflows typically also need balance and warranty data. Your orchestrator can pre-fetch both in parallel — eliminating LLM round-trips.
+
+These relationships are not configured. They emerge from accumulated co-occurrence across real queries. ASV discovers your domain's dependency graph automatically.
+
 ## Import Formats
 
 Bootstrap intents from your existing specs — no manual phrase writing:
@@ -193,6 +207,17 @@ GET  /api/export               — export state
 POST /api/import               — import state
 GET  /api/events               — SSE stream (live routing events)
 ```
+
+## Why Server-Side
+
+ASV is designed for server-side deployment. A WASM build exists for demos, but production routing belongs on the server:
+
+- **Seed phrases are your business logic.** Shipping them to the browser exposes your entire intent taxonomy — competitors can inspect it, attackers can game it.
+- **Learned weights contain user patterns.** If the router has learned from corrections, those weights reflect real user behaviour. They belong on your server.
+- **The hybrid pattern needs a decision point.** Route the easy 80% with ASV ($0, 30µs), send the hard 20% to your LLM. This logic lives on the server where you control the fallback.
+- **Namespaces.** The server supports multiple isolated namespaces via `X-Namespace-ID`, each with independent intents and persistence.
+
+WASM is appropriate for: public demos, open-source intent sets, offline tools, and edge devices with no server available.
 
 ## Architecture
 
