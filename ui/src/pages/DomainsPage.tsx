@@ -132,7 +132,12 @@ export default function DomainsPage() {
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-mono text-violet-400">{domain.name}</span>
+                    <button
+                      onClick={() => viewIntents(domain.name)}
+                      className="text-sm font-mono text-violet-400 hover:text-violet-300 hover:underline transition-colors"
+                    >
+                      {domain.name}
+                    </button>
                     <span className="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded">
                       {domain.intent_count} intent{domain.intent_count !== 1 ? 's' : ''}
                     </span>
@@ -174,12 +179,6 @@ export default function DomainsPage() {
                     className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:text-white hover:border-zinc-500 transition-colors"
                   >
                     Import
-                  </button>
-                  <button
-                    onClick={() => viewIntents(domain.name)}
-                    className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:text-white hover:border-violet-500 transition-colors"
-                  >
-                    View Intents
                   </button>
                   <button
                     onClick={() => deleteDomain(domain.name)}
