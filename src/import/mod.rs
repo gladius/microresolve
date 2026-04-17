@@ -69,27 +69,7 @@ pub fn import_spec(router: &mut Router, spec: &ParsedSpec) -> ImportResult {
             router.set_description(&intent_name, desc);
         }
 
-        // Store endpoint metadata
         let endpoint = format!("{} {}", op.method, op.path);
-        router.set_metadata(&intent_name, "endpoint", vec![endpoint.clone()]);
-        if let Some(ref op_id) = op.operation_id {
-            router.set_metadata(&intent_name, "operation_id", vec![op_id.clone()]);
-        }
-        if !op.tags.is_empty() {
-            router.set_metadata(&intent_name, "tags", op.tags.clone());
-        }
-
-        // Store parameter info as metadata for LLM tool calling
-        if !op.parameters.is_empty() {
-            let param_names: Vec<String> = op.parameters.iter()
-                .map(|p| format!("{}({}{})", p.name, p.location, if p.required { ",required" } else { "" }))
-                .collect();
-            router.set_metadata(&intent_name, "parameters", param_names);
-        }
-
-        if op.request_body.is_some() {
-            router.set_metadata(&intent_name, "has_body", vec!["true".to_string()]);
-        }
 
         created.push(ImportedIntent {
             intent_id: intent_name,

@@ -10,6 +10,8 @@ import DomainsPage from '@/pages/DomainsPage';
 import ImportLanding from '@/pages/import/ImportLanding';
 import OpenApiImport from '@/pages/import/OpenApiImport';
 import McpImport from '@/pages/import/McpImport';
+import OpenAIFunctionsImport from '@/pages/import/OpenAIFunctionsImport';
+import LangChainImport from '@/pages/import/LangChainImport';
 import { AppContext, defaults, type AppSettings } from '@/store';
 import { setApiNamespaceId } from '@/api/client';
 
@@ -88,6 +90,8 @@ export default function App() {
             <Route path="/import" element={<ImportLanding />} />
             <Route path="/import/openapi" element={<OpenApiImport />} />
             <Route path="/import/mcp" element={<McpImport />} />
+            <Route path="/import/openai-functions" element={<OpenAIFunctionsImport />} />
+            <Route path="/import/langchain" element={<LangChainImport />} />
             <Route path="/namespaces" element={<NamespacesPage />} />
             <Route path="/namespaces/:nsId" element={<DomainsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

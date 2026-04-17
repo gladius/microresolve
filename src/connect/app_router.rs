@@ -102,6 +102,7 @@ impl AppRouter {
         self.apps.read().unwrap().keys().cloned().collect()
     }
 
+    #[allow(dead_code)]
     fn get_router(&self, app_id: &str) -> Option<Arc<Router>> {
         self.apps.read().unwrap().get(app_id).map(Arc::clone)
     }

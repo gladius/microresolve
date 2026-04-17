@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '@/api/client';
 
 // 2026 layout: sidebar + fullscreen main area. No top navbar bloat.
@@ -15,11 +15,12 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/',           label: 'Route',     icon: '▸', hint: 'Test queries' },
-  { to: '/intents',    label: 'Intents',   icon: '◆', hint: 'Manage intents' },
-  { to: '/studio',     label: 'Studio',    icon: '◉', hint: 'Training + review' },
-  { to: '/namespaces', label: 'Workspaces', icon: '▦', hint: 'Manage namespaces' },
-  { to: '/settings',   label: 'Settings',  icon: '⚙', hint: 'Config' },
+  { to: '/',           label: 'Route',      icon: '▸', hint: 'Test queries' },
+  { to: '/intents',    label: 'Intents',    icon: '◆', hint: 'Manage intents' },
+  { to: '/import',     label: 'Import',     icon: '↓', hint: 'Import from OpenAPI, MCP, and more' },
+  { to: '/studio',     label: 'Studio',     icon: '◉', hint: 'Training + review' },
+  { to: '/namespaces', label: 'Namespaces', icon: '▦', hint: 'Manage namespaces' },
+  { to: '/settings',   label: 'Settings',   icon: '⚙', hint: 'Config' },
 ];
 
 export default function Layout() {
@@ -28,11 +29,25 @@ export default function Layout() {
 
   const [namespaces, setNamespaces] = useState<string[]>(['default']);
   const [showNsMenu, setShowNsMenu] = useState(false);
+  const [nsFilter, setNsFilter] = useState('');
   const [collapsed, setCollapsed] = useState(false);
+  const nsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!showNsMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (nsMenuRef.current && !nsMenuRef.current.contains(e.target as Node)) {
+        setShowNsMenu(false);
+        setNsFilter('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showNsMenu]);
 
   const switchNamespace = (namespaceId: string) => {
     setSelectedNamespaceId(namespaceId);
@@ -65,7 +80,7 @@ export default function Layout() {
         </div>
 
         {/* Namespace switcher */}
-        <div className="px-2 py-2 border-b border-zinc-800/60 relative">
+        <div ref={nsMenuRef} className="px-2 py-2 border-b border-zinc-800/60 relative">
           <button
             onClick={() => setShowNsMenu(!showNsMenu)}
             className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-zinc-300 hover:bg-zinc-800/70 border border-zinc-800 transition-colors"
@@ -83,24 +98,38 @@ export default function Layout() {
           </button>
 
           {showNsMenu && (
-            <div className={`absolute ${collapsed ? 'left-full ml-1' : 'left-2 right-2'} top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 py-1 min-w-[12rem]`}>
-              {namespaces.map(ns => (
-                <button
-                  key={ns}
-                  onClick={() => switchNamespace(ns)}
-                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-800 transition-colors ${
-                    ns === activeNs ? 'text-blue-400 font-medium' : 'text-zinc-300'
-                  }`}
-                >
-                  {ns}
-                </button>
-              ))}
-              <div className="border-t border-zinc-700 mt-1 pt-1 px-2 pb-1">
+            <div className={`absolute ${collapsed ? 'left-full ml-1' : 'left-2 right-2'} top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 min-w-[12rem] flex flex-col max-h-72`}>
+              <div className="px-2 pt-2 pb-1 shrink-0">
+                <input
+                  autoFocus
+                  value={nsFilter}
+                  onChange={e => setNsFilter(e.target.value)}
+                  placeholder="Filter namespaces..."
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+                />
+              </div>
+              <div className="overflow-y-auto flex-1 py-1">
+                {namespaces.filter(ns => !nsFilter || ns.includes(nsFilter)).map(ns => (
+                  <button
+                    key={ns}
+                    onClick={() => { setNsFilter(''); switchNamespace(ns); }}
+                    className={`w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-800 transition-colors ${
+                      ns === activeNs ? 'text-blue-400 font-medium' : 'text-zinc-300'
+                    }`}
+                  >
+                    {ns}
+                  </button>
+                ))}
+                {namespaces.filter(ns => !nsFilter || ns.includes(nsFilter)).length === 0 && (
+                  <div className="px-3 py-2 text-xs text-zinc-600">No match</div>
+                )}
+              </div>
+              <div className="border-t border-zinc-700 shrink-0 pt-1 px-2 pb-1">
                 <button
                   onClick={() => { setShowNsMenu(false); navigate('/namespaces'); }}
                   className="w-full text-left text-xs text-zinc-400 hover:text-violet-400 px-1 py-1"
                 >
-                  + Manage workspaces
+                  + Manage namespaces
                 </button>
               </div>
             </div>

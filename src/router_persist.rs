@@ -74,6 +74,11 @@ impl Router {
                 if let Some(desc) = val.get("description").and_then(|d| d.as_str()) {
                     router.namespace_description = desc.to_string();
                 }
+                if let Some(models) = val.get("models") {
+                    if let Ok(m) = serde_json::from_value::<Vec<NamespaceModel>>(models.clone()) {
+                        router.namespace_models = m;
+                    }
+                }
             }
         }
 
@@ -140,6 +145,7 @@ impl Router {
         let ns_meta = serde_json::json!({
             "name": self.namespace_name,
             "description": self.namespace_description,
+            "models": self.namespace_models,
         });
         std::fs::write(
             path.join("_ns.json"),
@@ -186,7 +192,12 @@ impl Router {
                 "description": self.get_description(&intent_id),
                 "type": self.get_intent_type(&intent_id),
                 "phrases": self.get_training_by_lang(&intent_id).cloned().unwrap_or_default(),
-                "metadata": self.get_metadata(&intent_id).cloned().unwrap_or_default(),
+                "instructions": self.get_instructions(&intent_id),
+                "persona": self.get_persona(&intent_id),
+                "guardrails": self.get_guardrails(&intent_id),
+                "source": self.get_source(&intent_id),
+                "target": self.get_target(&intent_id),
+                "schema": self.get_schema(&intent_id),
             });
 
             std::fs::write(&file_path, serde_json::to_string_pretty(&intent_json).unwrap_or_default())
@@ -246,15 +257,28 @@ fn load_intent_file(router: &mut Router, path: &Path, intent_id: &str) {
         router.set_intent_type(intent_id, intent_type);
     }
 
-    if let Some(meta) = val.get("metadata").and_then(|m| m.as_object()) {
-        for (key, values) in meta {
-            if let Ok(vals) = serde_json::from_value::<Vec<String>>(values.clone()) {
-                router.set_metadata(intent_id, key, vals);
-            }
-        }
+    if let Some(v) = val.get("instructions").and_then(|v| v.as_str()) {
+        if !v.is_empty() { router.set_instructions(intent_id, v); }
+    }
+    if let Some(v) = val.get("persona").and_then(|v| v.as_str()) {
+        if !v.is_empty() { router.set_persona(intent_id, v); }
+    }
+    if let Some(rules) = val.get("guardrails").and_then(|v| v.as_array()) {
+        let r: Vec<String> = rules.iter().filter_map(|s| s.as_str().map(String::from)).collect();
+        if !r.is_empty() { router.set_guardrails(intent_id, r); }
+    }
+    if let Some(src) = val.get("source").and_then(|v| serde_json::from_value::<IntentSource>(v.clone()).ok()) {
+        router.set_source(intent_id, src);
+    }
+    if let Some(tgt) = val.get("target").and_then(|v| serde_json::from_value::<IntentTarget>(v.clone()).ok()) {
+        router.set_target(intent_id, tgt);
+    }
+    if let Some(schema) = val.get("schema") {
+        if !schema.is_null() { router.set_schema(intent_id, schema.clone()); }
     }
 
-    // "learned" field is ignored — weights are now managed by Hebbian L2.
+    // "learned" and "metadata" fields are ignored — old format.
+    // "learned" weights are now managed by Hebbian L2.
 }
 
 /// Remove `*.json` files in `ns_dir` (and one level of subdirs) not in `written`.

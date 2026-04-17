@@ -891,6 +891,7 @@ impl IntentGraph {
     /// Token consumption: after confirming an intent, remove tokens that
     /// are primarily associated with it. Remaining tokens indicate additional intents.
     pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, _gap: f32) -> (Vec<(String, f32)>, bool) {
+        #[allow(dead_code)]
         const MULTI_RATIO: f32 = 0.50;
         const GATE_RATIO: f32 = 0.55;
         const MAX_ROUNDS: usize = 3;

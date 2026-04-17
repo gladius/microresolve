@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import { useNavigate } from 'react-router-dom';
-import { api, setApiNamespaceId } from '@/api/client';
+import { api, setApiNamespaceId, type NamespaceModel } from '@/api/client';
 import { useAppStore } from '@/store';
 import Page from '@/components/Page';
 
@@ -104,7 +104,7 @@ export default function NamespacesPage() {
       size="sm"
       className="space-y-6"
       title="Namespaces"
-      subtitle="Isolated routing workspaces"
+      subtitle="Isolated routing namespaces"
       actions={
         <button
           onClick={openModal}
@@ -223,10 +223,11 @@ export default function NamespacesPage() {
                   </div>
                 ) : (
                   /* Read-only view */
-                  <div className="ml-0.5">
+                  <div className="ml-0.5 space-y-3">
                     <div className="text-xs text-zinc-500">
                       {ns.description || <span className="italic text-zinc-600">No description — click Edit to add one</span>}
                     </div>
+                    <ModelsPanel nsId={ns.id} />
                   </div>
                 )}
               </div>
@@ -281,5 +282,95 @@ export default function NamespacesPage() {
         </div>
       )}
     </Page>
+  );
+}
+
+function ModelsPanel({ nsId }: { nsId: string }) {
+  const [models, setModels] = useState<NamespaceModel[]>([]);
+  const [open, setOpen] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const [newModelId, setNewModelId] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    api.getNsModels().then(setModels).catch(() => {});
+  }, [open, nsId]);
+
+  const save = async (updated: NamespaceModel[]) => {
+    setSaving(true);
+    try { await api.setNsModels(updated); setModels(updated); }
+    finally { setSaving(false); }
+  };
+
+  const add = async () => {
+    const label = newLabel.trim();
+    const model_id = newModelId.trim();
+    if (!label || !model_id) return;
+    await save([...models, { label, model_id }]);
+    setNewLabel(''); setNewModelId('');
+  };
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors"
+      >
+        <span>{open ? '▾' : '▸'}</span>
+        <span className="uppercase tracking-wide font-semibold">Models</span>
+        {models.length > 0 && !open && (
+          <span className="text-zinc-700">{models.length} defined</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="mt-2 border border-zinc-800 rounded-lg p-3 space-y-3 bg-zinc-900/40">
+          <p className="text-[10px] text-zinc-600">
+            Route intents to specific models. Assign per-intent in the Details tab.
+          </p>
+
+          {models.length === 0 && (
+            <div className="text-[10px] text-zinc-700 italic">No models yet.</div>
+          )}
+          {models.map((m, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <span className="text-xs text-white font-medium">{m.label}</span>
+                <span className="text-zinc-600 mx-1.5">—</span>
+                <span className="text-xs text-zinc-400 font-mono">{m.model_id}</span>
+              </div>
+              <button
+                onClick={() => save(models.filter((_, idx) => idx !== i))}
+                className="text-zinc-700 hover:text-red-400 text-sm"
+              >×</button>
+            </div>
+          ))}
+
+          <div className="flex gap-2 pt-1">
+            <input
+              value={newLabel}
+              onChange={e => setNewLabel(e.target.value)}
+              placeholder="Label (e.g. Fast)"
+              className="w-28 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+            />
+            <input
+              value={newModelId}
+              onChange={e => setNewModelId(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && add()}
+              placeholder="Model ID (e.g. claude-haiku-4-5)"
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none font-mono"
+            />
+            <button
+              onClick={add}
+              disabled={!newLabel.trim() || !newModelId.trim() || saving}
+              className="px-3 py-1 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded disabled:opacity-40"
+            >
+              {saving ? '…' : 'Add'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

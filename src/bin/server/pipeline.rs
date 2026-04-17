@@ -118,6 +118,7 @@ pub fn extract_json(text: &str) -> &str {
 /// Call the "smart" model for one-time, high-quality tasks (e.g. L1 import seeding).
 /// Uses LLM_SMART_MODEL if set, otherwise falls back to LLM_MODEL.
 /// Set in .env: LLM_SMART_MODEL=claude-sonnet-4-6
+#[allow(dead_code)]
 pub async fn call_llm_smart(
     state: &ServerState,
     prompt: &str,
@@ -146,7 +147,7 @@ pub async fn call_llm(
 }
 
 /// Call LLM with a full messages array (system + history + user).
-/// Used by /api/execute for intent-assembled conversations.
+#[allow(dead_code)]
 pub async fn call_llm_with_messages(
     state: &ServerState,
     messages: &[serde_json::Value],

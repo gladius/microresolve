@@ -66,18 +66,24 @@ impl WasmRouter {
         }
     }
 
-    /// Set metadata for an intent. values_json is a JSON array: ["val1", "val2"]
-    pub fn set_metadata(&mut self, intent_id: &str, key: &str, values_json: &str) {
-        let values: Vec<String> = serde_json::from_str(values_json).unwrap_or_default();
-        self.inner.set_metadata(intent_id, key, values);
+    /// Set LLM instructions for an intent.
+    pub fn set_instructions(&mut self, intent_id: &str, instructions: &str) {
+        self.inner.set_instructions(intent_id, instructions);
     }
 
-    /// Get all metadata for an intent. Returns JSON object or "null".
-    pub fn get_metadata(&self, intent_id: &str) -> String {
-        match self.inner.get_metadata(intent_id) {
-            Some(meta) => serde_json::to_string(meta).unwrap_or_default(),
-            None => "null".to_string(),
-        }
+    /// Get LLM instructions for an intent.
+    pub fn get_instructions(&self, intent_id: &str) -> String {
+        self.inner.get_instructions(intent_id).to_string()
+    }
+
+    /// Set LLM persona for an intent.
+    pub fn set_persona(&mut self, intent_id: &str, persona: &str) {
+        self.inner.set_persona(intent_id, persona);
+    }
+
+    /// Get LLM persona for an intent.
+    pub fn get_persona(&self, intent_id: &str) -> String {
+        self.inner.get_persona(intent_id).to_string()
     }
 
     pub fn learn(&mut self, query: &str, intent_id: &str) {
@@ -108,13 +114,14 @@ impl WasmRouter {
             let all_phrases = self.inner.get_training(id).unwrap_or_default();
             let by_lang = self.inner.get_training_by_lang(id).cloned().unwrap_or_default();
             let intent_type = self.inner.get_intent_type(id);
-            let metadata = self.inner.get_metadata(id).cloned().unwrap_or_default();
             serde_json::json!({
                 "id": id,
                 "phrases": all_phrases,
                 "phrases_by_lang": by_lang,
                 "intent_type": intent_type,
-                "metadata": metadata
+                "instructions": self.inner.get_instructions(id),
+                "persona": self.inner.get_persona(id),
+                "guardrails": self.inner.get_guardrails(id),
             })
         }).collect();
         serde_json::to_string(&intents).unwrap_or_default()

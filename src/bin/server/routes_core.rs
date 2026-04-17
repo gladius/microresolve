@@ -182,7 +182,6 @@ pub async fn route_multi(
             "ranked": ranked,
             "disposition": disposition,
             "relations": [],
-            "metadata": {},
             "routing_us": latency_us,
             "source": "hebbian_l2",
             "hebbian": if hebbian_injected.is_empty() { serde_json::json!(null) }
@@ -215,7 +214,6 @@ pub async fn route_multi(
         "candidates": [],
         "disposition": "no_match",
         "relations": [],
-        "metadata": {},
         "routing_us": latency_us,
         "source": "none",
         "hebbian": if hebbian_injected.is_empty() { serde_json::json!(null) }

@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
-import { api, type IntentInfo, type IntentType } from '@/api/client';
+import { api, type IntentInfo, type IntentType, type NamespaceModel } from '@/api/client';
 import { useAppStore } from '@/store';
 import Page from '@/components/Page';
 
@@ -14,20 +14,7 @@ export default function IntentsPage() {
   const [filter, setFilter] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [importOpen, setImportOpen] = useState(false);
-  const importMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!importOpen) return;
-    const onClick = (e: MouseEvent) => {
-      if (importMenuRef.current && !importMenuRef.current.contains(e.target as Node)) {
-        setImportOpen(false);
-      }
-    };
-    window.addEventListener('mousedown', onClick);
-    return () => window.removeEventListener('mousedown', onClick);
-  }, [importOpen]);
 
   const refresh = useCallback(async () => {
     try {
@@ -72,36 +59,8 @@ export default function IntentsPage() {
   const selected = intents.find(i => i.id === selectedId) || null;
   const allIntentIds = useMemo(() => intents.map(i => i.id), [intents]);
 
-  const importAction = (
-    <div ref={importMenuRef} className="relative">
-      <button
-        onClick={() => setImportOpen(v => !v)}
-        className="text-xs text-zinc-400 hover:text-white border border-zinc-700 hover:border-zinc-500 px-2.5 py-1 rounded transition-colors"
-        title="Import from OpenAPI or MCP"
-      >
-        Import ▾
-      </button>
-      {importOpen && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-zinc-900 border border-zinc-700 rounded shadow-lg z-10 py-1">
-          <button
-            onClick={() => { setImportOpen(false); navigate('/import/openapi'); }}
-            className="w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white"
-          >
-            OpenAPI / Swagger
-          </button>
-          <button
-            onClick={() => { setImportOpen(false); navigate('/import/mcp'); }}
-            className="w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white"
-          >
-            MCP Tools
-          </button>
-        </div>
-      )}
-    </div>
-  );
-
   return (
-    <Page title="Intents" subtitle={`${intents.length} intents`} actions={importAction} fullscreen>
+    <Page title="Intents" subtitle={`${intents.length} intents`} fullscreen>
     <div className="flex gap-0 h-full">
       {/* Left: Intent list */}
       <div className="w-72 min-w-[18rem] border-r border-zinc-800 flex flex-col">
@@ -177,7 +136,7 @@ export default function IntentsPage() {
                   <div>
                     <button onClick={() => setShowAdd(true)} className="text-violet-400 hover:text-violet-300">Create one</button>
                     <span className="mx-1.5 text-zinc-700">or</span>
-                    <button onClick={() => navigate('/import/openapi')} className="text-violet-400 hover:text-violet-300">import OpenAPI</button>
+                    <button onClick={() => navigate('/import')} className="text-violet-400 hover:text-violet-300">import</button>
                   </div>
                 </div>
               ) : (
@@ -248,6 +207,11 @@ function IntentListItem({
         {intent.learned_count > 0 && (
           <span className="text-emerald-400/40 text-[10px]">+{intent.learned_count}</span>
         )}
+        {intent.source && (
+          <span className="text-[9px] text-amber-400/70 border border-amber-400/20 rounded px-1" title={`Source: ${intent.source.type}`}>
+            {intent.source.type}
+          </span>
+        )}
       </div>
       {intent.description && intent.description !== intent.id && intent.description !== shortName && (
         <div className="text-[10px] text-zinc-500 mt-0.5 pl-6 truncate">{intent.description}</div>
@@ -258,14 +222,14 @@ function IntentListItem({
 
 // --- Right detail panel with tabs ---
 
-type DetailTab = 'definition' | 'phrases' | 'stats';
+type DetailTab = 'details' | 'phrases' | 'stats';
 
 function IntentDetailPanel({
   intent, onRefresh, onDeleted,
 }: {
   intent: IntentInfo; allIntentIds?: string[]; onRefresh: () => void; onDeleted: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<DetailTab>('definition');
+  const [activeTab, setActiveTab] = useState<DetailTab>('details');
   const [phraseSearch, setPhraseSearch] = useState('');
 
   const handleTypeChange = async (newType: IntentType) => {
@@ -280,14 +244,9 @@ function IntentDetailPanel({
   };
 
   const langKeys = Object.keys(intent.phrases_by_lang).filter(k => k !== '_learned');
-  const m = intent.metadata || {};
-  const hasInstructions = (m.instructions?.[0] || '').trim().length > 0;
-  const hasGuardrails = (m.guardrails || []).length > 0;
-  const hasPersona = (m.persona?.[0] || '').trim().length > 0;
-  const definitionCount = (hasInstructions ? 1 : 0) + (hasGuardrails ? 1 : 0) + (hasPersona ? 1 : 0);
 
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
-    { id: 'definition', label: 'Definition', count: definitionCount },
+    { id: 'details', label: 'Details' },
     { id: 'phrases', label: 'Phrases', count: intent.phrases.length },
     { id: 'stats', label: 'Stats' },
   ];
@@ -314,6 +273,11 @@ function IntentDetailPanel({
                 </button>
               ))}
             </div>
+            {intent.source && (
+              <span className="text-[10px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-1.5 py-0.5 uppercase">
+                {intent.source.label || intent.source.type}
+              </span>
+            )}
             {langKeys.length > 1 && (
               <div className="flex gap-1">
                 {langKeys.map(lang => (
@@ -374,8 +338,8 @@ function IntentDetailPanel({
         {activeTab === 'phrases' && (
           <PhrasesTab intent={intent} onRefresh={onRefresh} phraseSearch={phraseSearch} />
         )}
-        {activeTab === 'definition' && (
-          <DefinitionTab intent={intent} onRefresh={onRefresh} />
+        {activeTab === 'details' && (
+          <DetailsTab intent={intent} onRefresh={onRefresh} />
         )}
         {activeTab === 'stats' && (
           <StatsTab intent={intent} />
@@ -671,29 +635,35 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
   );
 }
 
-// --- Definition Tab (Intent Programming: instructions, guardrails, persona) ---
+// --- Details Tab (source, target, schema, guardrails, instructions, persona) ---
 
-function DefinitionTab({
+
+function DetailsTab({
   intent, onRefresh,
 }: {
   intent: IntentInfo; onRefresh: () => void;
 }) {
-  const m = intent.metadata || {};
-  const [instructions, setInstructions] = useState<string>(m.instructions?.[0] || '');
-  const [guardrails, setGuardrails] = useState<string[]>(m.guardrails || []);
-  const [persona, setPersona] = useState<string>(m.persona?.[0] || '');
+  const [instructions, setInstructions] = useState<string>(intent.instructions || '');
+  const [guardrails, setGuardrails] = useState<string[]>(intent.guardrails || []);
+  const [persona, setPersona] = useState<string>(intent.persona || '');
+  const [model, setModel] = useState<string>(intent.target?.model || '');
+  const [nsModels, setNsModels] = useState<NamespaceModel[]>([]);
   const [newGuardrail, setNewGuardrail] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const mm = intent.metadata || {};
-    setInstructions(mm.instructions?.[0] || '');
-    setGuardrails(mm.guardrails || []);
-    setPersona(mm.persona?.[0] || '');
+    api.getNsModels().then(setNsModels).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setInstructions(intent.instructions || '');
+    setGuardrails(intent.guardrails || []);
+    setPersona(intent.persona || '');
+    setModel(intent.target?.model || '');
     setNewGuardrail('');
     setDirty(false);
-  }, [intent.id, intent.metadata]);
+  }, [intent.id, intent.instructions, intent.guardrails, intent.persona, intent.target]);
 
   const addGuardrail = () => {
     const v = newGuardrail.trim();
@@ -710,9 +680,12 @@ function DefinitionTab({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.setMetadata(intent.id, 'instructions', instructions.trim() ? [instructions] : []);
-      await api.setMetadata(intent.id, 'guardrails', guardrails.filter(Boolean));
-      await api.setMetadata(intent.id, 'persona', persona.trim() ? [persona] : []);
+      await api.setInstructions(intent.id, instructions.trim());
+      await api.setPersona(intent.id, persona.trim());
+      await api.setGuardrails(intent.id, guardrails.filter(Boolean));
+      if (model !== (intent.target?.model || '')) {
+        await api.setTarget(intent.id, { type: 'llm', model: model || undefined });
+      }
       setDirty(false);
       onRefresh();
     } finally {
@@ -720,31 +693,71 @@ function DefinitionTab({
     }
   };
 
+  // Determine if this is an imported tool (has source from import)
+  const isImported = !!intent.source;
+  const importedTarget = isImported ? intent.target : null;
+
   return (
     <div className="space-y-6">
-      <p className="text-xs text-zinc-600">
-        What the LLM should do when this intent fires. Loaded fresh each turn.
-      </p>
 
-      {/* Instructions */}
+      {/* Source — read-only, import provenance */}
+      {intent.source && (
+        <div className="flex items-center gap-3 bg-zinc-900/60 border border-zinc-800 rounded px-3 py-2 text-xs">
+          <span className="text-zinc-600">Imported from</span>
+          <span className="text-amber-400 font-semibold">{intent.source.label || intent.source.type}</span>
+          {importedTarget?.handler && (
+            <>
+              <span className="text-zinc-700">→</span>
+              <span className="text-zinc-400 font-mono">{importedTarget.handler}</span>
+            </>
+          )}
+          {importedTarget?.url && (
+            <>
+              <span className="text-zinc-700">→</span>
+              <a href={importedTarget.url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">{importedTarget.url}</a>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Schema */}
+      {intent.schema && (
+        <div>
+          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">Schema</div>
+          <pre className="bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-300 overflow-auto max-h-48 font-mono">
+            {JSON.stringify(intent.schema, null, 2)}
+          </pre>
+        </div>
+      )}
+
+      {/* Route to model */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <label className="text-sm font-medium text-zinc-300">Instructions</label>
-          <span className="text-[10px] text-zinc-600">The function body — flow logic in plain language</span>
+          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Route to Model</div>
+          {nsModels.length === 0 ? (
+            <a href="/settings" className="text-[10px] text-violet-400 hover:underline">
+              Add models in Settings →
+            </a>
+          ) : (
+            <span className="text-[10px] text-zinc-600">Which LLM handles this intent when it fires</span>
+          )}
         </div>
-        <textarea
-          value={instructions}
-          onChange={e => { setInstructions(e.target.value); setDirty(true); }}
-          rows={8}
-          placeholder="Describe what the agent should do step-by-step. Include conditional logic, when to ask for info, when to transition to other intents."
-          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none font-mono leading-relaxed"
-        />
+        <select
+          value={model}
+          onChange={e => { setModel(e.target.value); setDirty(true); }}
+          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none"
+        >
+          <option value="">Default</option>
+          {nsModels.map(m => (
+            <option key={m.model_id} value={m.model_id}>{m.label} — {m.model_id}</option>
+          ))}
+        </select>
       </div>
 
       {/* Guardrails */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <label className="text-sm font-medium text-zinc-300">Guardrails</label>
+          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Guardrails</div>
           <span className="text-[10px] text-zinc-600">Hard rules the LLM must not violate</span>
         </div>
         <div className="space-y-1.5">
@@ -767,21 +780,30 @@ function DefinitionTab({
               placeholder="Add a guardrail..."
               className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-3 py-1.5 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
             />
-            <button
-              onClick={addGuardrail}
-              disabled={!newGuardrail.trim()}
-              className="px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded disabled:opacity-40"
-            >
-              Add
-            </button>
+            <button onClick={addGuardrail} disabled={!newGuardrail.trim()} className="px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded disabled:opacity-40">Add</button>
           </div>
         </div>
+      </div>
+
+      {/* Instructions */}
+      <div>
+        <div className="flex items-baseline justify-between mb-1.5">
+          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Instructions</div>
+          <span className="text-[10px] text-zinc-600">What the LLM should do when this intent fires</span>
+        </div>
+        <textarea
+          value={instructions}
+          onChange={e => { setInstructions(e.target.value); setDirty(true); }}
+          rows={6}
+          placeholder="Step-by-step flow logic, conditions, handoffs..."
+          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none font-mono leading-relaxed"
+        />
       </div>
 
       {/* Persona */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <label className="text-sm font-medium text-zinc-300">Persona</label>
+          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Persona</div>
           <span className="text-[10px] text-zinc-600">Tone and voice for responses</span>
         </div>
         <input
@@ -796,12 +818,8 @@ function DefinitionTab({
       {dirty && (
         <div className="sticky bottom-0 -mx-5 px-5 py-3 bg-zinc-950/95 border-t border-zinc-800 flex items-center justify-between">
           <span className="text-xs text-amber-400">Unsaved changes</span>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Save definition'}
+          <button onClick={handleSave} disabled={saving} className="px-4 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       )}

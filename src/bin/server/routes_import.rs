@@ -3,7 +3,7 @@
 use axum::{
     extract::{State, Query},
     http::{StatusCode, HeaderMap},
-    routing::{get, post, delete},
+    routing::{get, post},
     Json,
 };
 use std::collections::HashMap;
@@ -313,9 +313,6 @@ pub async fn mcp_search(
     let data: serde_json::Value = resp.json().await
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Smithery parse failed: {}", e)))?;
 
-    // Extract servers with relevant info
-    let servers = data.get("servers").or(data.as_array().map(|_| &data));
-
     Ok(Json(data))
 }
 
@@ -475,31 +472,31 @@ pub async fn import_apply(
             };
             router.set_intent_type(&intent_name, intent_type);
 
-            // Store full operation spec as metadata for LLM tool calling
+            // Source — openapi
+            router.set_source(&intent_name, asv_router::IntentSource::new("openapi")
+                .with_label(parsed.title.clone()));
+
+            // Schema — full operation as structured value
             let endpoint = format!("{} {}", op.method, op.path);
-            router.set_metadata(&intent_name, "endpoint", vec![endpoint]);
-            if let Some(ref op_id) = op.operation_id {
-                router.set_metadata(&intent_name, "operation_id", vec![op_id.clone()]);
-            }
-            if !op.tags.is_empty() {
-                router.set_metadata(&intent_name, "tags", op.tags.clone());
-            }
+            let schema = serde_json::json!({
+                "method": op.method,
+                "path": op.path,
+                "operation_id": op.operation_id,
+                "summary": op.summary,
+                "tags": op.tags,
+                "parameters": op.parameters.iter().map(|p| serde_json::json!({
+                    "name": p.name,
+                    "in": p.location,
+                    "required": p.required,
+                })).collect::<Vec<_>>(),
+                "has_body": op.request_body.is_some(),
+            });
+            router.set_schema(&intent_name, schema);
 
-            // Store full operation JSON for LLM context
-            if let Ok(op_json) = serde_json::to_string(op) {
-                router.set_metadata(&intent_name, "operation_spec", vec![op_json]);
-            }
+            // Target — API endpoint
+            router.set_target(&intent_name, asv_router::IntentTarget::new("api_endpoint")
+                .with_handler(endpoint.clone()));
 
-            // Store parameter info
-            if !op.parameters.is_empty() {
-                let param_names: Vec<String> = op.parameters.iter()
-                    .map(|p| format!("{}({}{})", p.name, p.location, if p.required { ",required" } else { "" }))
-                    .collect();
-                router.set_metadata(&intent_name, "parameters", param_names);
-            }
-            if op.request_body.is_some() {
-                router.set_metadata(&intent_name, "has_body", vec!["true".to_string()]);
-            }
         }
 
         maybe_persist(&state, &app_id, router);
@@ -665,23 +662,81 @@ pub struct McpParseRequest {
     tools_json: String,
 }
 
-/// Parse MCP tools/list response — return tools for selection.
-pub async fn mcp_parse(
-    Json(req): Json<McpParseRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    // MCP tools/list response is either:
-    // { "tools": [...] }  (standard MCP response)
-    // or just [...] (plain array)
-    let parsed: serde_json::Value = serde_json::from_str(&req.tools_json)
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid JSON: {}", e)))?;
+/// Normalize a tool definition into MCP shape {name, description, inputSchema, annotations}.
+///
+/// Handles three input formats:
+///   MCP:      { "name": "...", "description": "...", "inputSchema": {...} }
+///   OpenAI:   { "type": "function", "function": { "name": "...", "description": "...", "parameters": {...} } }
+///   LangChain:{ "name": "...", "description": "...", "args_schema": {...} }
+fn normalize_tool(tool: &serde_json::Value) -> serde_json::Value {
+    // OpenAI function calling: unwrap the "function" wrapper
+    if tool.get("type").and_then(|t| t.as_str()) == Some("function") {
+        if let Some(func) = tool.get("function") {
+            return serde_json::json!({
+                "name": func.get("name").cloned().unwrap_or(serde_json::Value::Null),
+                "description": func.get("description").cloned().unwrap_or(serde_json::json!("")),
+                "inputSchema": func.get("parameters").cloned().unwrap_or(serde_json::Value::Null),
+            });
+        }
+    }
+    // LangChain tool: args_schema → inputSchema
+    if tool.get("args_schema").is_some() {
+        return serde_json::json!({
+            "name": tool.get("name").cloned().unwrap_or(serde_json::Value::Null),
+            "description": tool.get("description").cloned().unwrap_or(serde_json::json!("")),
+            "inputSchema": tool.get("args_schema").cloned().unwrap_or(serde_json::Value::Null),
+        });
+    }
+    // Already MCP shape — pass through
+    tool.clone()
+}
 
-    let tools_array = if let Some(arr) = parsed.as_array() {
+/// Detect source type from raw (pre-normalization) tool entry.
+fn detect_source_type(tool: &serde_json::Value) -> &'static str {
+    if tool.get("type").and_then(|t| t.as_str()) == Some("function") {
+        return "function";
+    }
+    if tool.get("args_schema").is_some() {
+        return "langchain";
+    }
+    "mcp"
+}
+
+/// Extract and normalize the tools array from any supported input format.
+/// Returns (normalized_tools, source_types).
+fn extract_tools(parsed: &serde_json::Value) -> Result<Vec<serde_json::Value>, (StatusCode, String)> {
+    let raw = if let Some(arr) = parsed.as_array() {
         arr.clone()
     } else if let Some(arr) = parsed.get("tools").and_then(|t| t.as_array()) {
         arr.clone()
     } else {
-        return Err((StatusCode::BAD_REQUEST, "Expected array of tools or {\"tools\": [...]}".to_string()));
+        return Err((StatusCode::BAD_REQUEST,
+            "Expected array of tools or {\"tools\": [...]}. Supports MCP, OpenAI function calling, and LangChain tool formats.".to_string()));
     };
+    Ok(raw.iter().map(normalize_tool).collect())
+}
+
+/// Extract tools retaining the original source type per tool.
+fn extract_tools_with_source(parsed: &serde_json::Value) -> Result<Vec<(serde_json::Value, &'static str)>, (StatusCode, String)> {
+    let raw = if let Some(arr) = parsed.as_array() {
+        arr.clone()
+    } else if let Some(arr) = parsed.get("tools").and_then(|t| t.as_array()) {
+        arr.clone()
+    } else {
+        return Err((StatusCode::BAD_REQUEST,
+            "Expected array of tools or {\"tools\": [...]}. Supports MCP, OpenAI function calling, and LangChain tool formats.".to_string()));
+    };
+    Ok(raw.iter().map(|t| (normalize_tool(t), detect_source_type(t))).collect())
+}
+
+/// Parse MCP / OpenAI / LangChain tools — return normalized list for selection.
+pub async fn mcp_parse(
+    Json(req): Json<McpParseRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let parsed: serde_json::Value = serde_json::from_str(&req.tools_json)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid JSON: {}", e)))?;
+
+    let tools_array = extract_tools(&parsed)?;
 
     let tools: Vec<serde_json::Value> = tools_array.iter().map(|tool| {
         let name = tool.get("name").and_then(|v| v.as_str()).unwrap_or("unnamed");
@@ -744,34 +799,29 @@ pub async fn mcp_apply(
     let parsed: serde_json::Value = serde_json::from_str(&req.tools_json)
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid JSON: {}", e)))?;
 
-    let tools_array = if let Some(arr) = parsed.as_array() {
-        arr.clone()
-    } else if let Some(arr) = parsed.get("tools").and_then(|t| t.as_array()) {
-        arr.clone()
-    } else {
-        return Err((StatusCode::BAD_REQUEST, "Expected array of tools".to_string()));
-    };
+    let tools_with_source = extract_tools_with_source(&parsed)?;
 
     let selected_set: std::collections::HashSet<&str> = req.selected.iter().map(|s| s.as_str()).collect();
 
-    let selected_tools: Vec<&serde_json::Value> = tools_array.iter()
-        .filter(|t| {
+    let selected_tools: Vec<(&serde_json::Value, &str)> = tools_with_source.iter()
+        .filter(|(t, _)| {
             t.get("name").and_then(|n| n.as_str())
                 .map(|n| selected_set.contains(n))
                 .unwrap_or(false)
         })
+        .map(|(t, s)| (t, *s))
         .collect();
 
     if selected_tools.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "No tools selected".to_string()));
     }
 
-    // Create intents from MCP tools
+    // Create intents from tools
     {
         let mut routers = state.routers.write().unwrap();
         let router = routers.entry(app_id.clone()).or_insert_with(Router::new);
 
-        for tool in &selected_tools {
+        for (tool, source_type) in &selected_tools {
             let base_name = tool.get("name").and_then(|v| v.as_str()).unwrap_or("unnamed");
             let name = if req.domain.is_empty() {
                 base_name.to_string()
@@ -783,32 +833,28 @@ pub async fn mcp_apply(
             let name_words = base_name.replace('_', " ");
             router.add_intent(&name, &[name_words.as_str()]);
 
-            // Set description
             if !description.is_empty() {
                 router.set_description(&name, description);
             }
 
-            // Set type based on readOnlyHint
+            // Intent type from readOnlyHint (MCP convention)
             let read_only = tool.get("annotations")
                 .and_then(|a| a.get("readOnlyHint"))
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
             router.set_intent_type(&name, if read_only { IntentType::Context } else { IntentType::Action });
 
-            // Store full tool spec as metadata
-            if let Ok(tool_json) = serde_json::to_string(tool) {
-                router.set_metadata(&name, "mcp_tool", vec![tool_json]);
-            }
+            // Source — track origin format
+            router.set_source(&name, asv_router::IntentSource::new(*source_type));
 
-            // Store input schema params as metadata
-            let params: Vec<String> = tool.get("inputSchema")
-                .and_then(|s| s.get("properties"))
-                .and_then(|p| p.as_object())
-                .map(|props| props.keys().cloned().collect())
-                .unwrap_or_default();
-            if !params.is_empty() {
-                router.set_metadata(&name, "parameters", params);
-            }
+            // Schema — store full normalized tool definition
+            router.set_schema(&name, (*tool).clone());
+
+            // Target — execution destination (same server for MCP)
+            router.set_target(&name, asv_router::IntentTarget::new(
+                if *source_type == "mcp" { "mcp_server" } else { "handler" }
+            ));
+
         }
 
         maybe_persist(&state, &app_id, router);
@@ -827,7 +873,7 @@ pub async fn mcp_apply(
         let (batch_size, max_tokens, _) = seed_gen_params(setting_langs.len());
 
         for batch in selected_tools.chunks(batch_size) {
-            let tools_desc: Vec<String> = batch.iter().map(|t| {
+            let tools_desc: Vec<String> = batch.iter().map(|(t, _)| {
                 let base = t.get("name").and_then(|v| v.as_str()).unwrap_or("?");
                 let name = if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) };
                 let desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("");
@@ -837,7 +883,7 @@ pub async fn mcp_apply(
             let existing_seeds: String = {
                 let routers = state.routers.read().unwrap();
                 if let Some(router) = routers.get(&app_id) {
-                    batch.iter().map(|t| {
+                    batch.iter().map(|(t, _)| {
                         let base = t.get("name").and_then(|v| v.as_str()).unwrap_or("?");
                         let name = if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) };
                         let seeds = router.get_training(&name).unwrap_or_default();
@@ -851,7 +897,7 @@ pub async fn mcp_apply(
 
             // Build example using the first real tool name from this batch
             let example_intent = {
-                let base = batch[0].get("name").and_then(|v| v.as_str()).unwrap_or("tool");
+                let base = batch[0].0.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
                 if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) }
             };
 
@@ -931,7 +977,7 @@ pub async fn mcp_apply(
     seed_into_l1(&state, &app_id, &all_accepted).await;
 
     let tool_names: Vec<String> = selected_tools.iter()
-        .filter_map(|t| t.get("name").and_then(|v| v.as_str()).map(|base| {
+        .filter_map(|(t, _)| t.get("name").and_then(|v| v.as_str()).map(|base| {
             if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) }
         }))
         .collect();
@@ -958,3 +1004,4 @@ pub async fn mcp_apply(
         "per_intent": per_intent,
     })))
 }
+

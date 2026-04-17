@@ -28,7 +28,7 @@ use log_store::LogStore;
 use asv_router::Router;
 use axum::{
     extract::State,
-    http::{StatusCode, HeaderMap},
+    http::HeaderMap,
     routing::get,
     Json,
 };

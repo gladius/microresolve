@@ -72,7 +72,12 @@ impl Router {
         self.training.remove(id);
         self.intent_types.remove(id);
         self.descriptions.remove(id);
-        self.metadata.remove(id);
+        self.instructions.remove(id);
+        self.persona.remove(id);
+        self.sources.remove(id);
+        self.targets.remove(id);
+        self.schemas.remove(id);
+        self.guardrails.remove(id);
         self.version += 1;
     }
 

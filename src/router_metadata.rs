@@ -1,7 +1,6 @@
-//! Router: intent types, descriptions, and metadata.
+//! Router: intent types, descriptions, instructions, persona, and import metadata.
 
 use crate::*;
-use std::collections::HashMap;
 
 impl Router {
     pub fn set_intent_type(&mut self, intent_id: &str, intent_type: IntentType) {
@@ -24,37 +23,87 @@ impl Router {
         self.descriptions.get(intent_id).map(|s| s.as_str()).unwrap_or("")
     }
 
-    /// Set opaque metadata for an intent.
-    ///
-    /// ASV stores and returns this data but never interprets it.
-    /// The application layer decides what to do with it.
-    ///
-    /// ```
-    /// use asv_router::Router;
-    ///
-    /// let mut router = Router::new();
-    /// router.add_intent("cancel_order", &["cancel my order"]);
-    /// router.set_metadata("cancel_order", "context_intents", vec!["check_balance".into(), "track_order".into()]);
-    /// ```
-    pub fn set_metadata(&mut self, intent_id: &str, key: &str, values: Vec<String>) {
+    /// Set LLM instructions for an intent (what the LLM should do when this intent fires).
+    pub fn set_instructions(&mut self, intent_id: &str, instructions: &str) {
         self.require_local();
-        self.metadata
-            .entry(intent_id.to_string())
-            .or_default()
-            .insert(key.to_string(), values);
+        if instructions.is_empty() {
+            self.instructions.remove(intent_id);
+        } else {
+            self.instructions.insert(intent_id.to_string(), instructions.to_string());
+        }
     }
 
-    /// Get all metadata for an intent.
-    pub fn get_metadata(&self, intent_id: &str) -> Option<&HashMap<String, Vec<String>>> {
-        self.metadata.get(intent_id)
+    /// Get LLM instructions for an intent.
+    pub fn get_instructions(&self, intent_id: &str) -> &str {
+        self.instructions.get(intent_id).map(|s| s.as_str()).unwrap_or("")
     }
 
-    /// Get a specific metadata key for an intent.
-    pub fn get_metadata_key(&self, intent_id: &str, key: &str) -> Option<&Vec<String>> {
-        self.metadata.get(intent_id)?.get(key)
+    /// Set LLM persona for an intent (tone and voice).
+    pub fn set_persona(&mut self, intent_id: &str, persona: &str) {
+        self.require_local();
+        if persona.is_empty() {
+            self.persona.remove(intent_id);
+        } else {
+            self.persona.insert(intent_id.to_string(), persona.to_string());
+        }
     }
 
-    // Record co-occurrence for a set of intents detected together.
-    // Call after route_multi to track which intents fire together.
+    /// Get LLM persona for an intent.
+    pub fn get_persona(&self, intent_id: &str) -> &str {
+        self.persona.get(intent_id).map(|s| s.as_str()).unwrap_or("")
+    }
 
+    /// Set the import source for an intent.
+    pub fn set_source(&mut self, intent_id: &str, source: IntentSource) {
+        self.require_local();
+        self.sources.insert(intent_id.to_string(), source);
+    }
+
+    /// Get the import source for an intent.
+    pub fn get_source(&self, intent_id: &str) -> Option<&IntentSource> {
+        self.sources.get(intent_id)
+    }
+
+    /// Set the execution target for an intent.
+    pub fn set_target(&mut self, intent_id: &str, target: IntentTarget) {
+        self.require_local();
+        self.targets.insert(intent_id.to_string(), target);
+    }
+
+    /// Get the execution target for an intent.
+    pub fn get_target(&self, intent_id: &str) -> Option<&IntentTarget> {
+        self.targets.get(intent_id)
+    }
+
+    /// Set the tool/API schema for an intent (JSON Schema format).
+    pub fn set_schema(&mut self, intent_id: &str, schema: serde_json::Value) {
+        self.require_local();
+        self.schemas.insert(intent_id.to_string(), schema);
+    }
+
+    /// Get the tool/API schema for an intent.
+    pub fn get_schema(&self, intent_id: &str) -> Option<&serde_json::Value> {
+        self.schemas.get(intent_id)
+    }
+
+    /// Set guardrail rules for an intent.
+    pub fn set_guardrails(&mut self, intent_id: &str, rules: Vec<String>) {
+        self.require_local();
+        self.guardrails.insert(intent_id.to_string(), rules);
+    }
+
+    /// Get guardrail rules for an intent.
+    pub fn get_guardrails(&self, intent_id: &str) -> &[String] {
+        self.guardrails.get(intent_id).map(|v| v.as_slice()).unwrap_or(&[])
+    }
+
+    /// Set the namespace model registry.
+    pub fn set_namespace_models(&mut self, models: Vec<NamespaceModel>) {
+        self.namespace_models = models;
+    }
+
+    /// Get the namespace model registry.
+    pub fn get_namespace_models(&self) -> &[NamespaceModel] {
+        &self.namespace_models
+    }
 }

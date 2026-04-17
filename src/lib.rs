@@ -61,8 +61,18 @@ pub struct Router {
     /// Human-readable description per intent.
     /// Used by LLM prompts for Hebbian bootstrap context.
     descriptions: HashMap<String, String>,
-    /// Opaque metadata per intent. User-defined key-value pairs.
-    metadata: HashMap<String, HashMap<String, Vec<String>>>,
+    /// LLM instructions per intent (what to do when this intent fires).
+    instructions: HashMap<String, String>,
+    /// LLM persona per intent (tone and voice).
+    persona: HashMap<String, String>,
+    /// Import provenance: where this intent's definition came from.
+    sources: HashMap<String, IntentSource>,
+    /// Execution target: where to send when this intent fires.
+    targets: HashMap<String, IntentTarget>,
+    /// Tool/API schema for imported intents (JSON Schema format).
+    schemas: HashMap<String, serde_json::Value>,
+    /// Guardrail rules for this intent.
+    guardrails: HashMap<String, Vec<String>>,
     /// Monotonic version counter. Incremented on every mutation.
     version: u64,
     /// When true, write operations are blocked (connected/read-only mode).
@@ -74,6 +84,8 @@ pub struct Router {
     namespace_name: String,
     /// Human-readable description of this namespace.
     namespace_description: String,
+    /// User-defined model registry for this namespace.
+    namespace_models: Vec<NamespaceModel>,
     /// Descriptions for domain prefixes (e.g., "billing" in "billing:cancel_order").
     domain_descriptions: HashMap<String, String>,
     // Legacy config fields kept for API compatibility.

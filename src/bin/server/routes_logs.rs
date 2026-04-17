@@ -2,8 +2,8 @@
 
 use axum::{
     extract::{State, Query},
-    http::{StatusCode, HeaderMap},
-    routing::{get, delete},
+    http::HeaderMap,
+    routing::get,
     Json,
 };
 use crate::state::*;

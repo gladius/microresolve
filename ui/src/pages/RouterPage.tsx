@@ -236,23 +236,6 @@ function MessageBubble({ msg, onApplySuggestion }: {
           </div>
         ))}
 
-      {/* Metadata */}
-      {Object.keys(result.metadata).length > 0 && (
-        <div className="mt-1 pl-2">
-          {Object.entries(result.metadata).map(([intentId, meta]) => (
-            <div key={intentId} className="text-xs">
-              {Object.entries(meta).map(([key, values]) => (
-                <div key={key} className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-zinc-500">{intentId}.{key}:</span>
-                  {values.map((v, i) => (
-                    <span key={i} className="text-cyan-400/70 font-mono">{v}</span>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
 
 
       {/* E1: LLM Review card */}

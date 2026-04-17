@@ -222,7 +222,7 @@ export default function McpImport() {
           <div className="flex items-center gap-3">
             <div className="flex-1 border-t border-zinc-800" />
             <button onClick={() => setShowPaste(!showPaste)} className="text-[10px] text-zinc-600 hover:text-zinc-400">
-              {showPaste ? 'Hide' : 'Or paste JSON manually'}
+              {showPaste ? 'Hide' : 'Or paste tools/list JSON manually'}
             </button>
             <div className="flex-1 border-t border-zinc-800" />
           </div>

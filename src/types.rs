@@ -43,6 +43,74 @@ pub enum IntentType {
     Context,
 }
 
+/// Where an intent definition came from.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct IntentSource {
+    /// Origin format: mcp | openapi | function | langchain | manual | dialogflow | rasa
+    #[serde(rename = "type")]
+    pub source_type: String,
+    /// Human-readable label (e.g. server name, spec title).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// URL the definition was fetched from or spec base URL.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
+impl IntentSource {
+    pub fn new(source_type: impl Into<String>) -> Self {
+        Self { source_type: source_type.into(), label: None, url: None }
+    }
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into()); self
+    }
+    pub fn with_url(mut self, url: impl Into<String>) -> Self {
+        self.url = Some(url.into()); self
+    }
+}
+
+/// Where to send execution when this intent fires.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct IntentTarget {
+    /// Destination type: mcp_server | api_endpoint | model | handler | block
+    #[serde(rename = "type")]
+    pub target_type: String,
+    /// Server or API base URL.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    /// Model identifier (e.g. "gpt-4o", "claude-opus-4-6").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// Named handler in the application layer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handler: Option<String>,
+}
+
+impl IntentTarget {
+    pub fn new(target_type: impl Into<String>) -> Self {
+        Self { target_type: target_type.into(), url: None, model: None, handler: None }
+    }
+    pub fn with_url(mut self, url: impl Into<String>) -> Self {
+        self.url = Some(url.into()); self
+    }
+    pub fn with_model(mut self, model: impl Into<String>) -> Self {
+        self.model = Some(model.into()); self
+    }
+    pub fn with_handler(mut self, handler: impl Into<String>) -> Self {
+        self.handler = Some(handler.into()); self
+    }
+}
+
+/// A model entry in the namespace model registry.
+/// Users define these per namespace; intents reference them by label.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct NamespaceModel {
+    /// Display label (e.g. "Fast", "Smart", "Vision")
+    pub label: String,
+    /// Model ID passed to the LLM provider (e.g. "claude-haiku-4-5", "gpt-4o")
+    pub model_id: String,
+}
+
 /// A routing result.
 #[derive(Debug, Clone)]
 pub struct RouteResult {

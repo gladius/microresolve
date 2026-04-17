@@ -64,8 +64,25 @@ export interface MultiRouteOutput {
   confirmed: MultiRouteResult[];
   candidates: MultiRouteResult[];
   relations: { type: string; [key: string]: unknown }[];
-  metadata: Record<string, Record<string, string[]>>;
   routing_us: number;
+}
+
+export interface NamespaceModel {
+  label: string;
+  model_id: string;
+}
+
+export interface IntentSource {
+  type: string;
+  label?: string;
+  url?: string;
+}
+
+export interface IntentTarget {
+  type: string;
+  url?: string;
+  model?: string;
+  handler?: string;
 }
 
 export interface IntentInfo {
@@ -75,7 +92,12 @@ export interface IntentInfo {
   phrases_by_lang: Record<string, string[]>;
   learned_count: number;
   intent_type: IntentType;
-  metadata: Record<string, string[]>;
+  instructions?: string;
+  persona?: string;
+  guardrails?: string[];
+  source?: IntentSource;
+  target?: IntentTarget;
+  schema?: Record<string, unknown>;
 }
 
 export interface ReviewAnalysis {
@@ -113,10 +135,10 @@ export const api = {
 
   // Intents
   listIntents: () => get<IntentInfo[]>('/intents'),
-  addIntent: (id: string, phrases: string[], intent_type?: IntentType, metadata?: Record<string, string[]>) =>
-    post<void>('/intents', { id, phrases, intent_type, metadata }),
-  addIntentMultilingual: (id: string, phrases_by_lang: Record<string, string[]>, intent_type?: IntentType, metadata?: Record<string, string[]>) =>
-    post<void>('/intents/multilingual', { id, phrases_by_lang, intent_type, metadata }),
+  addIntent: (id: string, phrases: string[], intent_type?: IntentType) =>
+    post<void>('/intents', { id, phrases, intent_type }),
+  addIntentMultilingual: (id: string, phrases_by_lang: Record<string, string[]>, intent_type?: IntentType) =>
+    post<void>('/intents/multilingual', { id, phrases_by_lang, intent_type }),
   addPhrase: (intent_id: string, phrase: string, lang = 'en') =>
     post<{
       added: boolean;
@@ -139,11 +161,19 @@ export const api = {
   correct: (query: string, wrong_intent: string, correct_intent: string) =>
     post<void>('/correct', { query, wrong_intent, correct_intent }),
 
-  // Metadata
-  setMetadata: (intent_id: string, key: string, values: string[]) =>
-    post<void>('/metadata', { intent_id, key, values }),
-  getMetadata: (intent_id: string) =>
-    post<Record<string, string[]>>('/metadata/get', { intent_id }),
+  // Intent behavior (instructions, persona, guardrails)
+  setInstructions: (intent_id: string, instructions: string) =>
+    post<void>('/intents/instructions', { intent_id, instructions }),
+  setPersona: (intent_id: string, persona: string) =>
+    post<void>('/intents/persona', { intent_id, persona }),
+  setGuardrails: (intent_id: string, guardrails: string[]) =>
+    post<void>('/intents/guardrails', { intent_id, guardrails }),
+  setTarget: (intent_id: string, target: IntentTarget) =>
+    post<void>('/intents/target', { intent_id, target }),
+
+  // Namespace model registry
+  getNsModels: () => get<NamespaceModel[]>('/ns/models'),
+  setNsModels: (models: NamespaceModel[]) => post<void>('/ns/models', models),
 
   // Phrase generation
   buildPhrasePrompt: (intent_id: string, description: string, languages: string[]) =>

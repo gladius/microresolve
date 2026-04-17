@@ -10,12 +10,18 @@ impl Router {
             training: HashMap::new(),
             intent_types: HashMap::new(),
             descriptions: HashMap::new(),
-            metadata: HashMap::new(),
+            instructions: HashMap::new(),
+            persona: HashMap::new(),
+            sources: HashMap::new(),
+            targets: HashMap::new(),
+            schemas: HashMap::new(),
+            guardrails: HashMap::new(),
             version: 0,
             connected: false,
             similarity: HashMap::new(),
             namespace_name: String::new(),
             namespace_description: String::new(),
+            namespace_models: Vec::new(),
             domain_descriptions: HashMap::new(),
             top_k: 10,
             max_intents: 5,
@@ -130,24 +136,29 @@ impl Router {
         self.version
     }
 
-    /// Export router state as JSON (training phrases, types, descriptions, metadata).
+    /// Export router state as JSON.
     pub fn export_json(&self) -> String {
         let state = RouterState {
             training: self.training.clone(),
             intent_types: self.intent_types.clone(),
             descriptions: self.descriptions.clone(),
-            metadata: self.metadata.clone(),
+            instructions: self.instructions.clone(),
+            persona: self.persona.clone(),
+            sources: self.sources.clone(),
+            targets: self.targets.clone(),
+            schemas: self.schemas.clone(),
+            guardrails: self.guardrails.clone(),
             version: self.version,
             top_k: self.top_k,
             max_intents: self.max_intents,
             similarity: self.similarity.clone(),
+            metadata: serde_json::Value::Null,
             intents: serde_json::Value::Null,
             paraphrases: serde_json::Value::Null,
         };
         serde_json::to_string(&state).unwrap_or_default()
     }
 
-    /// Import router state from JSON.
     pub fn import_json(json: &str) -> Result<Self, String> {
         let state: RouterState =
             serde_json::from_str(json).map_err(|e| format!("invalid JSON: {}", e))?;
@@ -156,12 +167,18 @@ impl Router {
             training: state.training,
             intent_types: state.intent_types,
             descriptions: state.descriptions,
-            metadata: state.metadata,
+            instructions: state.instructions,
+            persona: state.persona,
+            sources: state.sources,
+            targets: state.targets,
+            schemas: state.schemas,
+            guardrails: state.guardrails,
             version: state.version,
             connected: false,
             similarity: state.similarity,
             namespace_name: String::new(),
             namespace_description: String::new(),
+            namespace_models: Vec::new(),
             domain_descriptions: HashMap::new(),
             top_k: state.top_k,
             max_intents: state.max_intents,
@@ -179,7 +196,17 @@ struct RouterState {
     #[serde(default)]
     descriptions: HashMap<String, String>,
     #[serde(default)]
-    metadata: HashMap<String, HashMap<String, Vec<String>>>,
+    instructions: HashMap<String, String>,
+    #[serde(default)]
+    persona: HashMap<String, String>,
+    #[serde(default)]
+    sources: HashMap<String, IntentSource>,
+    #[serde(default)]
+    targets: HashMap<String, IntentTarget>,
+    #[serde(default)]
+    schemas: HashMap<String, serde_json::Value>,
+    #[serde(default)]
+    guardrails: HashMap<String, Vec<String>>,
     #[serde(default)]
     version: u64,
     #[serde(default = "default_top_k")]
@@ -189,6 +216,9 @@ struct RouterState {
     #[serde(default)]
     similarity: HashMap<String, Vec<(String, f32)>>,
     // Old fields present in saved JSON — ignored during load.
+    #[serde(default, skip_serializing)]
+    #[allow(dead_code)]
+    metadata: serde_json::Value,
     #[serde(default, skip_serializing)]
     #[allow(dead_code)]
     intents: serde_json::Value,

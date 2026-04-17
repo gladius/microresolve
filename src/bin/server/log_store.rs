@@ -123,6 +123,7 @@ pub struct LogQueryResult {
 
 /// Compact index entry — kept in memory, avoids reading file for filtering.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct LogMeta {
     offset: u64,
     payload_len: u32,
@@ -405,6 +406,7 @@ impl LogStore {
     }
 
     /// Get the LLM review status for a record (in-memory only).
+    #[allow(dead_code)]
     pub fn get_review_status(&self, app_id: &str, id: u64) -> Option<ReviewStatus> {
         self.apps.get(app_id)?.review_status.get(&id).cloned()
     }
