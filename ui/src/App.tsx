@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import RouterPage from '@/pages/RouterPage';
-import StudioPage from '@/pages/StudioPage';
+import SimulatePage from '@/pages/SimulatePage';
+import ReviewPage from '@/pages/ReviewPage';
 import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NamespacesPage from '@/pages/NamespacesPage';
+import ModelsPage from '@/pages/ModelsPage';
 import DomainsPage from '@/pages/DomainsPage';
 import ImportLanding from '@/pages/import/ImportLanding';
 import OpenApiImport from '@/pages/import/OpenApiImport';
@@ -85,7 +87,8 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<RouterPage />} />
-            <Route path="/studio" element={<StudioPage />} />
+            <Route path="/simulate" element={<SimulatePage />} />
+            <Route path="/review" element={<ReviewPage />} />
             <Route path="/intents" element={<IntentsPage />} />
             <Route path="/import" element={<ImportLanding />} />
             <Route path="/import/openapi" element={<OpenApiImport />} />
@@ -94,6 +97,7 @@ export default function App() {
             <Route path="/import/langchain" element={<LangChainImport />} />
             <Route path="/namespaces" element={<NamespacesPage />} />
             <Route path="/namespaces/:nsId" element={<DomainsPage />} />
+            <Route path="/models" element={<ModelsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>

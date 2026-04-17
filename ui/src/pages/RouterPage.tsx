@@ -15,6 +15,8 @@ type Message =
   | { type: 'query'; text: string }
   | { type: 'result'; result: MultiRouteOutput; latency: number; query: string; review?: ReviewAnalysis; reviewing?: boolean }
   | { type: 'learn'; text: string }
+  | { type: 'training'; query: string }
+  | { type: 'trained'; query: string; phrases_added: number; summary: string }
   | { type: 'system'; html: string }
   | { type: 'error'; text: string }
   | { type: 'help' };
@@ -96,6 +98,20 @@ export default function RouterPage() {
     }
   };
 
+  const handleTrain = async (query: string, detected: string[]) => {
+    push({ type: 'training', query });
+    try {
+      const r = await api.learnNow(query, detected);
+      setMessages(prev => prev.map(m =>
+        m.type === 'training' && m.query === query
+          ? { type: 'trained', query, phrases_added: r.phrases_added, summary: r.summary }
+          : m
+      ));
+    } catch (err) {
+      push({ type: 'error', text: `Train failed: ${err}` });
+    }
+  };
+
   const applySuggestion = async (suggestion: ReviewAnalysis['suggestions'][0]) => {
     try {
       await api.learn(suggestion.phrase, suggestion.intent_id);
@@ -110,12 +126,31 @@ export default function RouterPage() {
     <div className="flex flex-col h-full px-6 py-4">
       <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
         {messages.length === 0 && (
-          <div className="text-zinc-600 text-sm text-center py-16">
-            Type a query to route it. Try: <code className="text-violet-400">cancel my order and track the package</code>
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
+            <div className="space-y-1">
+              <div className="text-zinc-300 text-sm font-medium">Test your router</div>
+              <div className="text-zinc-600 text-xs max-w-sm leading-relaxed">
+                Type any natural language query. The router detects which intents it matches — in under 1ms.
+                Weak or missing results show a <span className="text-violet-400">Train →</span> button to improve instantly.
+              </div>
+            </div>
+            <div className="space-y-1.5 text-left">
+              <div className="text-[10px] text-zinc-600 uppercase tracking-wide font-semibold mb-2">Try these</div>
+              {[
+                'cancel my subscription',
+                'I need to refund my last order and update my address',
+                'how do I reset my password',
+              ].map(q => (
+                <button key={q} onClick={() => handleInput(q)}
+                  className="block w-full text-left text-xs font-mono text-violet-400 hover:text-violet-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded px-3 py-1.5 transition-colors">
+                  {q}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((msg, i) => (
-          <MessageBubble key={i} msg={msg} onApplySuggestion={applySuggestion} />
+          <MessageBubble key={i} msg={msg} onApplySuggestion={applySuggestion} onTrain={handleTrain} />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -141,9 +176,10 @@ export default function RouterPage() {
   );
 }
 
-function MessageBubble({ msg, onApplySuggestion }: {
+function MessageBubble({ msg, onApplySuggestion, onTrain }: {
   msg: Message;
   onApplySuggestion: (s: ReviewAnalysis['suggestions'][0]) => void;
+  onTrain: (query: string, detected: string[]) => void;
 }) {
   if (msg.type === 'query') {
     return (
@@ -160,6 +196,26 @@ function MessageBubble({ msg, onApplySuggestion }: {
 
   if (msg.type === 'learn') {
     return <div className="text-emerald-400 text-sm pl-5">{msg.text}</div>;
+  }
+
+  if (msg.type === 'training') {
+    return (
+      <div className="text-blue-400 text-xs pl-5 flex items-center gap-2">
+        <div className="w-2.5 h-2.5 border border-blue-400 border-t-transparent rounded-full animate-spin" />
+        Training from "{msg.query.slice(0, 50)}"...
+      </div>
+    );
+  }
+
+  if (msg.type === 'trained') {
+    return (
+      <div className="pl-5 text-xs">
+        {msg.phrases_added > 0
+          ? <span className="text-emerald-400">✓ +{msg.phrases_added} phrases learned{msg.summary ? ` — ${msg.summary.slice(0, 80)}` : ''}</span>
+          : <span className="text-zinc-500">No new phrases (already well-trained or no clear fix)</span>
+        }
+      </div>
+    );
   }
 
   if (msg.type === 'system') {
@@ -183,12 +239,21 @@ function MessageBubble({ msg, onApplySuggestion }: {
   const { result, latency, query, review, reviewing } = msg;
   const allIntents = [...(result?.confirmed || []), ...(result?.candidates || [])];
   if (!result || allIntents.length === 0) {
-    return <div className="text-zinc-500 text-sm pl-5">No match found.</div>;
+    return (
+      <div className="pl-5 flex items-center gap-3">
+        <span className="text-zinc-500 text-sm">No match found.</span>
+        <button onClick={() => onTrain(query, [])}
+          className="text-[10px] px-2 py-0.5 border border-violet-500/40 text-violet-400 rounded hover:bg-violet-500/10 transition-colors">
+          Train →
+        </button>
+      </div>
+    );
   }
 
   const confirmed = result.confirmed || [];
   const candidates = result.candidates || [];
   const bestScore = Math.max(...allIntents.map(i => i.score));
+  const isWeak = confirmed.length > 0 && confirmed[0].confidence !== 'high';
 
   return (
     <div className="pl-5 mb-3">
@@ -219,13 +284,21 @@ function MessageBubble({ msg, onApplySuggestion }: {
         </div>
       )}
 
-      {/* Timing */}
-      <div className="text-zinc-600 text-xs pl-2">
-        {confirmed.length} confirmed{candidates.length > 0 ? `, ${candidates.length} candidates` : ''}{' '}
-        <span className="text-zinc-700">·</span>{' '}
-        <span className="text-emerald-700" title="library routing time">router {result.routing_us != null ? (result.routing_us < 1000 ? `${result.routing_us}µs` : `${(result.routing_us / 1000).toFixed(1)}ms`) : '—'}</span>
-        <span className="text-zinc-700"> · </span>
-        <span title="HTTP round trip">http {latency.toFixed(0)}ms</span>
+      {/* Timing + Train */}
+      <div className="flex items-center gap-3 pl-2">
+        <div className="text-zinc-600 text-xs">
+          {confirmed.length} confirmed{candidates.length > 0 ? `, ${candidates.length} candidates` : ''}{' '}
+          <span className="text-zinc-700">·</span>{' '}
+          <span className="text-emerald-700" title="library routing time">router {result.routing_us != null ? (result.routing_us < 1000 ? `${result.routing_us}µs` : `${(result.routing_us / 1000).toFixed(1)}ms`) : '—'}</span>
+          <span className="text-zinc-700"> · </span>
+          <span title="HTTP round trip">http {latency.toFixed(0)}ms</span>
+        </div>
+        {isWeak && (
+          <button onClick={() => onTrain(query, allIntents.map(i => i.id))}
+            className="text-[10px] px-2 py-0.5 border border-violet-500/40 text-violet-400 rounded hover:bg-violet-500/10 transition-colors">
+            Train →
+          </button>
+        )}
       </div>
 
       {/* Relations */}

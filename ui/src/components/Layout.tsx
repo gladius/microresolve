@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/api/client';
 
 // 2026 layout: sidebar + fullscreen main area. No top navbar bloat.
@@ -12,30 +12,42 @@ type NavItem = {
   label: string;
   icon: string;
   hint?: string;
+  badge?: number;
 };
-
-const NAV_ITEMS: NavItem[] = [
-  { to: '/',           label: 'Route',      icon: '▸', hint: 'Test queries' },
-  { to: '/intents',    label: 'Intents',    icon: '◆', hint: 'Manage intents' },
-  { to: '/import',     label: 'Import',     icon: '↓', hint: 'Import from OpenAPI, MCP, and more' },
-  { to: '/studio',     label: 'Studio',     icon: '◉', hint: 'Training + review' },
-  { to: '/namespaces', label: 'Namespaces', icon: '▦', hint: 'Manage namespaces' },
-  { to: '/settings',   label: 'Settings',   icon: '⚙', hint: 'Config' },
-];
 
 export default function Layout() {
   const { settings, setSelectedNamespaceId, setSelectedDomain } = useAppStore();
   const navigate = useNavigate();
 
-  const [namespaces, setNamespaces] = useState<string[]>(['default']);
-  const [showNsMenu, setShowNsMenu] = useState(false);
-  const [nsFilter, setNsFilter] = useState('');
-  const [collapsed, setCollapsed] = useState(false);
+  const [namespaces,    setNamespaces]    = useState<string[]>(['default']);
+  const [showNsMenu,    setShowNsMenu]    = useState(false);
+  const [nsFilter,      setNsFilter]      = useState('');
+  const [collapsed,     setCollapsed]     = useState(false);
+  const [reviewPending, setReviewPending] = useState(0);
   const nsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
   }, []);
+
+  // Poll review queue count + refresh on SSE events
+  const refreshReviewCount = useCallback(() => {
+    api.getReviewStats().then(s => setReviewPending(s.pending)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshReviewCount();
+    const es = new EventSource('/api/events');
+    es.onmessage = (e) => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.type === 'item_queued' || ev.type === 'fix_applied' || ev.type === 'escalated') {
+          setTimeout(refreshReviewCount, 600);
+        }
+      } catch { /* */ }
+    };
+    return () => es.close();
+  }, [refreshReviewCount]);
 
   useEffect(() => {
     if (!showNsMenu) return;
@@ -57,6 +69,33 @@ export default function Layout() {
   };
 
   const activeNs = settings.selectedNamespaceId;
+
+  type NavGroup = { label: string; items: NavItem[] };
+  const NAV_GROUPS: NavGroup[] = [
+    {
+      label: 'Use',
+      items: [
+        { to: '/',        label: 'Route',    icon: '▸', hint: 'Test queries, train on weak results' },
+        { to: '/intents', label: 'Intents',  icon: '◆', hint: 'Manage intents and training data' },
+        { to: '/import',  label: 'Import',   icon: '↓', hint: 'Import from OpenAPI, MCP, and more' },
+      ],
+    },
+    {
+      label: 'Train',
+      items: [
+        { to: '/simulate', label: 'Simulate', icon: '◎', hint: 'LLM generates queries, system learns from failures' },
+        { to: '/review',   label: 'Review',   icon: '✦', hint: 'Triage flagged queries from production', badge: reviewPending || undefined },
+      ],
+    },
+    {
+      label: 'Config',
+      items: [
+        { to: '/namespaces', label: 'Namespaces', icon: '▦', hint: 'Manage isolated namespaces' },
+        { to: '/models',     label: 'Models',     icon: '⬡', hint: 'Routing model registry for this namespace' },
+        { to: '/settings',   label: 'Settings',   icon: '⚙', hint: 'LLM config, languages, data' },
+      ],
+    },
+  ];
 
   const sidebarWidth = collapsed ? 'w-14' : 'w-56';
 
@@ -136,25 +175,45 @@ export default function Layout() {
           )}
         </div>
 
-        {/* Nav items */}
+        {/* Nav groups */}
         <nav className="flex-1 py-2 overflow-y-auto">
-          {NAV_ITEMS.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                `mx-2 my-0.5 px-2 py-1.5 rounded flex items-center gap-2.5 text-sm transition-colors ${
-                  isActive
-                    ? 'bg-zinc-800 text-white'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-                }`
-              }
-              title={collapsed ? item.label : item.hint}
-            >
-              <span className="w-4 text-center text-zinc-500 shrink-0">{item.icon}</span>
-              {!collapsed && <span className="truncate">{item.label}</span>}
-            </NavLink>
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={group.label}>
+              {/* Group divider — only between groups, not before first */}
+              {gi > 0 && <div className="mx-2 my-1 border-t border-zinc-800/60" />}
+              {/* Group label — hidden when collapsed */}
+              {!collapsed && (
+                <div className="px-4 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest text-zinc-600">
+                  {group.label}
+                </div>
+              )}
+              {group.items.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  className={({ isActive }) =>
+                    `relative mx-2 my-0.5 px-2 py-1.5 rounded flex items-center gap-2.5 text-sm transition-colors ${
+                      isActive
+                        ? 'bg-zinc-800 text-white'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                    }`
+                  }
+                  title={collapsed ? item.label : item.hint}
+                >
+                  <span className="w-4 text-center text-zinc-500 shrink-0">{item.icon}</span>
+                  {!collapsed && <span className="truncate flex-1">{item.label}</span>}
+                  {!collapsed && item.badge && item.badge > 0 && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold flex-shrink-0">
+                      {item.badge}
+                    </span>
+                  )}
+                  {collapsed && item.badge && item.badge > 0 && (
+                    <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400" />
+                  )}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 

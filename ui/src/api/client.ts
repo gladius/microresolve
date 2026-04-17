@@ -42,11 +42,6 @@ async function get<T>(path: string): Promise<T> {
 
 export type IntentType = 'action' | 'context';
 
-export interface RouteResult {
-  id: string;
-  score: number;
-}
-
 export type ConfidenceTier = 'high' | 'medium' | 'low';
 export type DetectionSource = 'dual' | 'paraphrase' | 'routing';
 
@@ -337,7 +332,6 @@ export const api = {
     post<{ id: number }>('/report', { query, detected, flag, session_id }),
   getReviewQueue: (status?: string, limit = 50, offset = 0) =>
     get<{ total: number; items: ReviewItem[] }>(`/review/queue?limit=${limit}&offset=${offset}${status ? `&status=${status}` : ''}`),
-  reviewApprove: (id: number) => post<{ status: string; intent: string }>('/review/approve', { id }),
   reviewReject: (id: number) => post<{ status: string }>('/review/reject', { id }),
   reviewFix: (
     id: number,
@@ -423,10 +417,4 @@ export interface AccuracyResult {
   sample_issues: { query: string; detected?: string[] }[];
 }
 
-export interface ReviewFixResult {
-  status: string;
-  added: number;
-  blocked: { phrase: string; intent: string; reason: string }[];
-  resolved_count: number;
-}
 
