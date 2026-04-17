@@ -208,25 +208,6 @@ intents before a human or LLM reviews.
 
 ---
 
-## 11. Chatbot Migration — Import Dialogflow / Rasa / Botpress / LUIS
-
-**The problem**: Teams have years of labeled training data locked in legacy chatbot
-platforms. Moving to an LLM stack means throwing that away or re-labeling.
-
-**How ASV helps**: Import your existing utterances as ASV seeds. Keep the fast,
-deterministic layer you already paid to train — add LLM only for the long tail.
-
-**Formats**: Dialogflow JSON, Rasa NLU YAML, Botpress JSON, LUIS JSON
-
-**Status**: Import UI/server not yet built. Intent: one unified paste UI with
-auto-format detection.
-
-**Demo namespace**: `dialogflow-migration-demo`
-
-**Blog angle**: "Migrate off Dialogflow without losing your training data"
-
----
-
 ## Launch Plan
 
 For each use case:
