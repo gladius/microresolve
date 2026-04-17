@@ -1,10 +1,11 @@
-# ASV — Launch Use Cases & Blog Ideas
+# ASV — Launch Use Cases
 
 **The pitch**: a trainable, zero-cost decision layer you embed in your stack before
 anything expensive runs. 30µs per query. No LLM at inference time. Gets smarter
 from corrections.
 
-Each entry below maps to: one blog post + one demo namespace with real example intents.
+Each entry maps to: one blog post + one demo namespace with real example intents
++ a "Load this demo" one-click button in the UI.
 
 ---
 
@@ -47,37 +48,7 @@ Run it as the first layer — if it fires, never forward to the LLM.
 
 ---
 
-## 3. MCP Tool Routing — Select the Right Tool Before the LLM Decides
-
-**The problem**: LLMs doing tool selection read the full tool list on every turn.
-With 30+ tools, that's thousands of tokens per query.
-
-**How ASV helps**: Import your MCP tools/list JSON. ASV pre-selects the likely
-tool(s). LLM only sees the top-3 candidates + user query — a 90% token reduction
-in the tool selection prompt.
-
-**Demo namespace**: `mcp-stripe-demo` (import Stripe MCP)
-**Demo namespace**: `mcp-github-demo` (import GitHub MCP)
-
-**Blog angle**: "MCP tool selection at 30µs — strip 90% of tokens from your tool prompt"
-
----
-
-## 4. OpenAPI Routing — Dispatch API Calls Without an LLM
-
-**The problem**: AI agents routing to REST APIs re-read the full spec every call.
-
-**How ASV helps**: Import the OpenAPI spec. Each endpoint becomes an intent.
-Natural language → endpoint + method, deterministically, before any LLM.
-
-**Demo namespace**: `openapi-petstore-demo`
-**Demo namespace**: `openapi-stripe-demo`
-
-**Blog angle**: "Natural language → API endpoint in 30µs, no model required"
-
----
-
-## 5. Multi-Agent Orchestration — Route to the Right Specialist Agent
+## 3. Multi-Agent Orchestration — Route to the Right Specialist Agent
 
 **The problem**: Orchestrator agents re-read all agent descriptions on every turn
 to decide who handles what.
@@ -97,7 +68,7 @@ phrases). Incoming queries route to the right agent before any LLM orchestration
 
 ---
 
-## 6. Escalation & Human Handoff Detection
+## 4. Escalation & Human Handoff Detection
 
 **The problem**: Chatbots miss the signals that a customer needs a human. By the
 time the LLM figures it out, the customer is already angry.
@@ -119,13 +90,13 @@ at 30µs, before the response is generated.
 
 ---
 
-## 7. Slack / Internal Bot Routing — Command Dispatch Without Rules
+## 5. Slack / Internal Bot Routing — Command Dispatch Without Rules
 
 **The problem**: Internal Slack bots are a mess of regex patterns and if/else
 chains. Every new command needs a code deploy.
 
 **How ASV helps**: Each bot command is an intent. Add new commands via API or
-Studio — no deploys. Handles natural phrasing ("can someone deploy staging" vs
+UI — no deploys. Handles natural phrasing ("can someone deploy staging" vs
 "deploy to staging plz").
 
 **Intent examples**:
@@ -141,7 +112,7 @@ Studio — no deploys. Handles natural phrasing ("can someone deploy staging" vs
 
 ---
 
-## 8. Conversation State Routing — Know Which Step of the Flow You're On
+## 6. Conversation State Routing — Know Which Step of the Flow You're On
 
 **The problem**: Multi-turn flows require the LLM to re-read conversation history
 to figure out which step the user is responding to.
@@ -162,7 +133,7 @@ re-reading history.
 
 ---
 
-## 9. Search Query Classification — Navigational vs Informational vs Transactional
+## 7. Search Query Classification — Navigational vs Informational vs Transactional
 
 **The problem**: Search engines and product catalogs serve different result types
 for different query intents. Classifying them on every search is expensive.
@@ -177,7 +148,7 @@ for different query intents. Classifying them on every search is expensive.
 
 ---
 
-## 10. Prompt Injection Detection — Catch Attacks Before They Reach the Model
+## 8. Prompt Injection Detection — Catch Attacks Before They Reach the Model
 
 **The problem**: Users submitting content that will be embedded in prompts can
 inject instructions. Detecting this with the LLM is circular.
@@ -197,22 +168,7 @@ Fire before the prompt is assembled. Zero LLM exposure to the attack payload.
 
 ---
 
-## 11. Dialogflow / Rasa Migration — Import Your Existing Training Data
-
-**The problem**: Teams have years of labeled training data locked in Dialogflow or
-Rasa. Moving to an LLM stack means throwing that away or re-labeling.
-
-**How ASV helps**: Import Dialogflow intent JSON or Rasa NLU YAML. Your existing
-utterances become ASV seeds. Keep the fast, deterministic layer you already paid
-to train — add LLM only for the long tail.
-
-**Demo namespace**: `dialogflow-migration-demo`
-
-**Blog angle**: "Migrate off Dialogflow without losing your training data"
-
----
-
-## 12. E-Commerce Intent Layer — Browse vs Buy vs Return vs Complain
+## 9. E-Commerce Intent Layer — Browse vs Buy vs Return vs Complain
 
 **The problem**: Product pages, checkout flows, and support tickets all get mixed
 into the same chat interface. The LLM treats them all the same.
@@ -232,7 +188,7 @@ into the same chat interface. The LLM treats them all the same.
 
 ---
 
-## 13. GitHub Issue / PR Triage — Auto-Label Before Any Reviewer Sees It
+## 10. GitHub Issue / PR Triage — Auto-Label Before Any Reviewer Sees It
 
 **The problem**: Issue triage is slow. Labels get applied inconsistently or late.
 
@@ -252,37 +208,36 @@ intents before a human or LLM reviews.
 
 ---
 
-## Import Formats (for launch + post-launch)
+## 11. Chatbot Migration — Import Dialogflow / Rasa / Botpress / LUIS
 
-### Launch
-- OpenAPI / Swagger spec
-- MCP tools/list JSON
+**The problem**: Teams have years of labeled training data locked in legacy chatbot
+platforms. Moving to an LLM stack means throwing that away or re-labeling.
 
-### Near-term
-- OpenAI function calling schema (same shape as OpenAPI, huge installed base)
-- LangChain tool definitions (Python dict → intents)
-- Dialogflow intent export (JSON)
-- Rasa NLU training data (YAML)
+**How ASV helps**: Import your existing utterances as ASV seeds. Keep the fast,
+deterministic layer you already paid to train — add LLM only for the long tail.
 
-### Post-launch
-- GraphQL schema (query/mutation → intents)
-- Zapier action catalog
-- n8n node definitions
-- Botpress NLU export
+**Formats**: Dialogflow JSON, Rasa NLU YAML, Botpress JSON, LUIS JSON
+
+**Status**: Import UI/server not yet built. Intent: one unified paste UI with
+auto-format detection.
+
+**Demo namespace**: `dialogflow-migration-demo`
+
+**Blog angle**: "Migrate off Dialogflow without losing your training data"
 
 ---
 
 ## Launch Plan
 
-For each use case above:
+For each use case:
 1. Create demo namespace with real intents (scripts in `demos/`)
-2. Write the blog post (draft in `blog/`)
-3. Export namespace as shareable backup
+2. Write the blog post (draft in `docs/blog/`)
+3. Export namespace as shareable JSON backup
 4. Ship with a "Load this demo" one-click button in the UI
 
-Priority order for launch week:
+**Priority order**:
 1. Guardrails (most universally needed)
-2. MCP tool routing (hottest ecosystem right now)
+2. Multi-agent orchestration (hottest use case right now)
 3. LLM cost reduction (most compelling ROI story)
-4. OpenAPI routing (developer audience)
-5. Escalation detection (chatbot builders)
+4. Escalation detection (chatbot builders)
+5. Prompt injection detection (security audience)
