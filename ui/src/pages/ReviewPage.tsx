@@ -17,7 +17,9 @@ export default function ReviewPage() {
   const [filter,       setFilter]       = useState<'all' | 'miss' | 'low_confidence'>('all');
   const [autoLearn,    setAutoLearn]    = useState<boolean | null>(null);
   const [toggling,     setToggling]     = useState(false);
+  const [toggleError,  setToggleError]  = useState<string | null>(null);
   const [stats,        setStats]        = useState<{ pending: number; total: number } | null>(null);
+  const [loading,      setLoading]      = useState(true);
 
   const { settings } = useAppStore();
   const nsId = settings.selectedNamespaceId;
@@ -40,7 +42,7 @@ export default function ReviewPage() {
         if (prev) return q.items.find((x: ReviewItem) => x.id === prev.id) ?? (q.items[0] ?? null);
         return null;
       });
-    } catch { /* */ }
+    } catch { /* */ } finally { setLoading(false); }
   }, [nsId]);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -62,10 +64,14 @@ export default function ReviewPage() {
   const toggle = async () => {
     if (autoLearn === null || toggling) return;
     setToggling(true);
+    setToggleError(null);
     try {
       const next = !autoLearn;
       await api.updateNamespace(nsId, { auto_learn: next });
       setAutoLearn(next);
+    } catch {
+      setToggleError('Save failed');
+      setTimeout(() => setToggleError(null), 3000);
     } finally { setToggling(false); }
   };
 
@@ -88,11 +94,12 @@ export default function ReviewPage() {
           )}
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-500">Auto-learn</span>
+            {toggleError && <span className="text-[10px] text-red-400">{toggleError}</span>}
             {autoLearn === null ? (
               <span className="text-[10px] text-zinc-600">...</span>
             ) : (
               <button onClick={toggle} disabled={toggling}
-                className={`relative w-8 h-5 rounded-full transition-colors ${autoLearn ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
+                className={`relative w-8 h-5 rounded-full transition-colors ${autoLearn ? 'bg-emerald-500' : 'bg-zinc-600'} ${toggling ? 'opacity-50' : ''}`}>
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${autoLearn ? 'translate-x-3' : 'translate-x-0'}`} />
               </button>
             )}
@@ -151,9 +158,13 @@ export default function ReviewPage() {
 
         {/* Right — detail */}
         <div className="flex-1 min-w-0 overflow-y-auto">
-          {selected ? (
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
+            </div>
+          ) : selected ? (
             <ReviewDetail item={selected} intents={intents} onFixed={onFixed} onDismiss={onFixed} />
-          ) : items.length === 0 ? (
+          ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-8 gap-3">
               <div className="text-zinc-600 text-3xl mb-1">✓</div>
               <div className="text-zinc-300 text-sm font-medium">Queue is clear</div>
@@ -163,11 +174,6 @@ export default function ReviewPage() {
                 <span className="text-amber-400 font-mono mx-1">low confidence</span>.
                 You can fix them manually or enable <span className="text-emerald-400">Auto-learn</span> to let the LLM process them automatically.
               </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center px-8 gap-2">
-              <div className="text-zinc-400 text-sm font-medium">Select an item to review</div>
-              <div className="text-zinc-600 text-xs">Click any flagged query on the left to inspect and fix it.</div>
             </div>
           )}
         </div>
@@ -204,9 +210,11 @@ function CopyAnalysisButton({ item, analysis }: { item: ReviewItem; analysis: Re
 function ReviewDetail({ item, intents, onFixed, onDismiss }: {
   item: ReviewItem; intents: string[]; onFixed: () => void; onDismiss: () => void;
 }) {
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysis,  setAnalysis]  = useState<ReviewAnalyzeResult | null>(null);
-  const [blocks,    setBlocks]    = useState<IntentBlock[]>([]);
+  const [analyzing,   setAnalyzing]   = useState(false);
+  const [analysis,    setAnalysis]    = useState<ReviewAnalyzeResult | null>(null);
+  const [blocks,      setBlocks]      = useState<IntentBlock[]>([]);
+  const [applyResult, setApplyResult] = useState<{ added: number; resolved: number } | null>(null);
+  const [applyError,  setApplyError]  = useState<string | null>(null);
   const { settings } = useAppStore();
   const enabledLangs = settings.languages.length > 0 ? settings.languages : ['en'];
 
@@ -214,6 +222,7 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
 
   const runAnalysis = async () => {
     setAnalyzing(true);
+    setApplyError(null);
     try {
       const result = await api.reviewAnalyze(item.id);
       setAnalysis(result);
@@ -222,7 +231,8 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
         phrases: (phraseList as string[]).map(s => ({ phrase: s, lang: result.languages[0] || 'en' })),
       })));
     } catch (e) {
-      alert('Analysis failed: ' + (e instanceof Error ? e.message : String(e)));
+      setApplyError('Analysis failed: ' + (e instanceof Error ? e.message : String(e)));
+      setTimeout(() => setApplyError(null), 5000);
     } finally { setAnalyzing(false); }
   };
 
@@ -247,11 +257,14 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
       if (phrases.length > 0) toApply[block.intentId] = [...(toApply[block.intentId] || []), ...phrases];
     }
     if (Object.keys(toApply).length === 0) return;
-    const result = await api.reviewFix(item.id, toApply);
-    const msgs = [`Applied ${result.added} phrases.`];
-    if ((result.resolved_count ?? 0) > 0) msgs.push(`${result.resolved_count} failures resolved.`);
-    alert(msgs.join(' '));
-    onFixed();
+    try {
+      const result = await api.reviewFix(item.id, toApply);
+      setApplyResult({ added: result.added, resolved: result.resolved_count ?? 0 });
+      setTimeout(onFixed, 1200);
+    } catch (e) {
+      setApplyError(e instanceof Error ? e.message : 'Apply failed');
+      setTimeout(() => setApplyError(null), 4000);
+    }
   };
 
   const totalPhrases = blocks.flatMap(b => b.phrases).filter(s => s.phrase.trim()).length;
@@ -363,12 +376,22 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
           className="text-xs px-3 py-1.5 border border-violet-500/50 text-violet-400 rounded hover:bg-violet-500/10 disabled:opacity-40 transition-colors">
           {analyzing ? 'Analyzing...' : analysis ? 'Re-analyze' : 'Analyze with AI'}
         </button>
-        <div className="flex-1" />
-        <button onClick={async () => { await api.reviewReject(item.id); onDismiss(); }}
+        <div className="flex-1">
+          {applyResult && (
+            <span className="text-xs text-emerald-400">
+              ✓ {applyResult.added} phrases added{applyResult.resolved > 0 ? `, ${applyResult.resolved} resolved` : ''}
+            </span>
+          )}
+          {applyError && <span className="text-xs text-red-400">{applyError}</span>}
+        </div>
+        <button onClick={async () => {
+            if (!confirm('Dismiss this item? It will be removed from the queue without training.')) return;
+            await api.reviewReject(item.id); onDismiss();
+          }}
           className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-500 rounded hover:text-white transition-colors">
           Dismiss
         </button>
-        <button onClick={handleApply} disabled={totalPhrases === 0}
+        <button onClick={handleApply} disabled={totalPhrases === 0 || !!applyResult}
           className="text-xs px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded disabled:opacity-30 transition-colors">
           Apply ({totalPhrases})
         </button>

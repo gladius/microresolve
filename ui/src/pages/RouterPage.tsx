@@ -24,8 +24,13 @@ type Message =
 export default function RouterPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [intentCount, setIntentCount] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    api.listIntents().then(list => setIntentCount(list.length)).catch(() => setIntentCount(0));
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -150,7 +155,7 @@ export default function RouterPage() {
           </div>
         )}
         {messages.map((msg, i) => (
-          <MessageBubble key={i} msg={msg} onApplySuggestion={applySuggestion} onTrain={handleTrain} />
+          <MessageBubble key={i} msg={msg} onApplySuggestion={applySuggestion} onTrain={handleTrain} intentCount={intentCount} />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -176,10 +181,11 @@ export default function RouterPage() {
   );
 }
 
-function MessageBubble({ msg, onApplySuggestion, onTrain }: {
+function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount }: {
   msg: Message;
   onApplySuggestion: (s: ReviewAnalysis['suggestions'][0]) => void;
   onTrain: (query: string, detected: string[]) => void;
+  intentCount: number | null;
 }) {
   if (msg.type === 'query') {
     return (
@@ -239,13 +245,23 @@ function MessageBubble({ msg, onApplySuggestion, onTrain }: {
   const { result, latency, query, review, reviewing } = msg;
   const allIntents = [...(result?.confirmed || []), ...(result?.candidates || [])];
   if (!result || allIntents.length === 0) {
+    const noIntents = intentCount !== null && intentCount === 0;
     return (
-      <div className="pl-5 flex items-center gap-3">
-        <span className="text-zinc-500 text-sm">No match found.</span>
-        <button onClick={() => onTrain(query, [])}
-          className="text-[10px] px-2 py-0.5 border border-violet-500/40 text-violet-400 rounded hover:bg-violet-500/10 transition-colors">
-          Train →
-        </button>
+      <div className="pl-5 space-y-1">
+        <div className="flex items-center gap-3">
+          <span className="text-zinc-500 text-sm">No match found.</span>
+          {!noIntents && (
+            <button onClick={() => onTrain(query, [])}
+              className="text-[10px] px-2 py-0.5 border border-violet-500/40 text-violet-400 rounded hover:bg-violet-500/10 transition-colors">
+              Train →
+            </button>
+          )}
+        </div>
+        {noIntents && (
+          <div className="text-[11px] text-zinc-600">
+            No intents exist yet — <a href="/intents" className="text-violet-400 hover:underline">create some</a> or <a href="/import" className="text-violet-400 hover:underline">import from a spec</a>.
+          </div>
+        )}
       </div>
     );
   }
@@ -302,12 +318,30 @@ function MessageBubble({ msg, onApplySuggestion, onTrain }: {
       </div>
 
       {/* Relations */}
-      {result.relations.length > 0 &&
-        result.relations.map((rel, i) => (
-          <div key={i} className="text-violet-400 text-xs pl-2 mt-0.5">
-            Relation: {rel.type}
-          </div>
-        ))}
+      {result.relations.length > 0 && (
+        <div className="pl-2 mt-1 flex flex-wrap gap-1.5">
+          {result.relations.map((rel, i) => {
+            const labels: Record<string, string> = {
+              sequential: 'do in order',
+              conditional: 'if/then',
+              negation: 'negated',
+              parallel: 'at the same time',
+            };
+            const hint: Record<string, string> = {
+              sequential: 'Intents should be handled in sequence',
+              conditional: 'One intent is conditional on another',
+              negation: 'User is negating or cancelling an intent',
+              parallel: 'Intents can be handled simultaneously',
+            };
+            return (
+              <span key={i} title={hint[rel.type] || rel.type}
+                className="text-[10px] text-violet-400 bg-violet-400/10 border border-violet-400/20 px-1.5 py-0.5 rounded font-mono cursor-default">
+                {labels[rel.type] || rel.type}
+              </span>
+            );
+          })}
+        </div>
+      )}
 
 
 
