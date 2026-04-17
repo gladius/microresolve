@@ -92,7 +92,8 @@ export default function Layout() {
       items: [
         { to: '/namespaces', label: 'Namespaces', icon: '▦', hint: 'Manage isolated namespaces' },
         { to: '/models',     label: 'Models',     icon: '⬡', hint: 'Routing model registry for this namespace' },
-        { to: '/settings',   label: 'Settings',   icon: '⚙', hint: 'LLM config, languages, data' },
+        { to: '/languages',  label: 'Languages',  icon: '◌', hint: 'Phrase generation languages for this namespace' },
+        { to: '/settings',   label: 'Settings',   icon: '⚙', hint: 'LLM config and data management' },
       ],
     },
   ];
