@@ -76,12 +76,6 @@ pub fn convert_postman(collection: &PostmanCollection) -> Result<ParsedSpec, Con
     Ok(spec)
 }
 
-/// Parse a Postman collection from JSON string
-#[allow(dead_code)]
-pub fn parse_postman(input: &str) -> Result<PostmanCollection, ConvertError> {
-    serde_json::from_str(input).map_err(|e| ConvertError::InvalidJson(e.to_string()))
-}
-
 /// Extract base URL from collection
 fn extract_base_url(collection: &PostmanCollection) -> Option<String> {
     // Try collection variables first

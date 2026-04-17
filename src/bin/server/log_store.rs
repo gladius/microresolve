@@ -405,12 +405,6 @@ impl LogStore {
         }
     }
 
-    /// Get the LLM review status for a record (in-memory only).
-    #[allow(dead_code)]
-    pub fn get_review_status(&self, app_id: &str, id: u64) -> Option<ReviewStatus> {
-        self.apps.get(app_id)?.review_status.get(&id).cloned()
-    }
-
     /// Return (app_id, id) for all alive flagged records not yet reviewed by LLM.
     /// Used by the background worker to find pending work.
     pub fn pending_worker_ids(&self, app_id_filter: Option<&str>) -> Vec<(String, u64)> {

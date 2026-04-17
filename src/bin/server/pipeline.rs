@@ -115,24 +115,6 @@ pub fn extract_json(text: &str) -> &str {
 /// - "anthropic": Anthropic Messages API (/v1/messages)
 /// - "openai" (or anything else): OpenAI Chat Completions format (/v1/chat/completions)
 ///   Covers: OpenAI, Ollama, Groq, Together, DeepSeek, vLLM, LM Studio, any compatible endpoint.
-/// Call the "smart" model for one-time, high-quality tasks (e.g. L1 import seeding).
-/// Uses LLM_SMART_MODEL if set, otherwise falls back to LLM_MODEL.
-/// Set in .env: LLM_SMART_MODEL=claude-sonnet-4-6
-#[allow(dead_code)]
-pub async fn call_llm_smart(
-    state: &ServerState,
-    prompt: &str,
-    max_tokens: u32,
-) -> Result<String, (StatusCode, String)> {
-    let smart = std::env::var("LLM_SMART_MODEL").ok();
-    if let Some(model) = smart {
-        eprintln!("[llm] using smart model: {}", model);
-        call_llm_with_model(state, prompt, max_tokens, &model).await
-    } else {
-        call_llm(state, prompt, max_tokens).await
-    }
-}
-
 pub async fn call_llm(
     state: &ServerState,
     prompt: &str,
@@ -144,83 +126,6 @@ pub async fn call_llm(
         _ => "claude-haiku-4-5-20251001".to_string(),
     });
     call_llm_with_model(state, prompt, max_tokens, &model).await
-}
-
-/// Call LLM with a full messages array (system + history + user).
-#[allow(dead_code)]
-pub async fn call_llm_with_messages(
-    state: &ServerState,
-    messages: &[serde_json::Value],
-    max_tokens: u32,
-) -> Result<String, (StatusCode, String)> {
-    let key = state.llm_key.as_ref().ok_or_else(|| {
-        (StatusCode::SERVICE_UNAVAILABLE, "LLM_API_KEY not set".to_string())
-    })?;
-    let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
-    let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| match provider.as_str() {
-        "gemini" => "gemini-2.5-flash".to_string(),
-        _ => "claude-haiku-4-5-20251001".to_string(),
-    });
-
-    let resp = match provider.as_str() {
-        "anthropic" => {
-            // Anthropic: system goes in top-level, not in messages
-            let system = messages.iter()
-                .find(|m| m["role"].as_str() == Some("system"))
-                .and_then(|m| m["content"].as_str())
-                .unwrap_or("");
-            let non_system: Vec<&serde_json::Value> = messages.iter()
-                .filter(|m| m["role"].as_str() != Some("system"))
-                .collect();
-            let url = std::env::var("LLM_API_URL")
-                .unwrap_or_else(|_| "https://api.anthropic.com/v1/messages".to_string());
-            let body = serde_json::json!({
-                "model": model,
-                "max_tokens": max_tokens,
-                "system": system,
-                "messages": non_system,
-            });
-            state.http.post(&url)
-                .header("x-api-key", key)
-                .header("anthropic-version", "2023-06-01")
-                .header("content-type", "application/json")
-                .json(&body).send().await
-        }
-        _ => {
-            // OpenAI-compatible (Groq, OpenAI, etc.) — messages array as-is
-            let url = std::env::var("LLM_API_URL")
-                .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
-            let body = serde_json::json!({
-                "model": model,
-                "max_tokens": max_tokens,
-                "messages": messages,
-            });
-            state.http.post(&url)
-                .header("Authorization", format!("Bearer {}", key))
-                .header("content-type", "application/json")
-                .json(&body).send().await
-        }
-    }.map_err(|e| (StatusCode::BAD_GATEWAY, format!("LLM request failed: {}", e)))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status().as_u16();
-        let text = resp.text().await.unwrap_or_default();
-        return Err((StatusCode::BAD_GATEWAY, format!("LLM API {}: {}", status, text)));
-    }
-
-    let data: serde_json::Value = resp.json().await
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Bad response: {}", e)))?;
-
-    // Extract text based on provider
-    if provider == "anthropic" {
-        data["content"][0]["text"].as_str()
-            .map(|s| s.trim().to_string())
-            .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
-    } else {
-        data["choices"][0]["message"]["content"].as_str()
-            .map(|s| s.trim().to_string())
-            .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
-    }
 }
 
 async fn call_llm_with_model(
