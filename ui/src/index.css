@@ -8,6 +8,14 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+button, [role="button"], select, label[for], summary {
+  cursor: pointer;
+}
+
+button:disabled, [role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 #root {
   min-height: 100vh;
 }
