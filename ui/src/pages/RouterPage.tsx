@@ -25,6 +25,7 @@ export default function RouterPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [intentCount, setIntentCount] = useState<number | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -95,7 +96,7 @@ export default function RouterPage() {
     push({ type: 'query', text: raw });
     const t0 = performance.now();
     try {
-      const result = await api.routeMulti(raw, 0.3);
+      const result = await api.routeMulti(raw, 0.3, true, debugMode);
       const latency = performance.now() - t0;
       push({ type: 'result', result, latency, query: raw });
     } catch (err) {
@@ -155,7 +156,7 @@ export default function RouterPage() {
           </div>
         )}
         {messages.map((msg, i) => (
-          <MessageBubble key={i} msg={msg} onApplySuggestion={applySuggestion} onTrain={handleTrain} intentCount={intentCount} />
+          <MessageBubble key={i} msg={msg} onApplySuggestion={applySuggestion} onTrain={handleTrain} intentCount={intentCount} debugMode={debugMode} />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -170,6 +171,18 @@ export default function RouterPage() {
           autoFocus
         />
         <button
+          type="button"
+          onClick={() => setDebugMode(d => !d)}
+          title="Toggle layer trace"
+          className={`px-3 py-2.5 rounded-lg border text-xs font-mono transition-colors ${
+            debugMode
+              ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
+              : 'bg-zinc-900 border-zinc-700 text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          trace
+        </button>
+        <button
           type="submit"
           className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-medium transition-colors text-sm"
         >
@@ -181,11 +194,12 @@ export default function RouterPage() {
   );
 }
 
-function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount }: {
+function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debugMode }: {
   msg: Message;
   onApplySuggestion: (s: ReviewAnalysis['suggestions'][0]) => void;
   onTrain: (query: string, detected: string[]) => void;
   intentCount: number | null;
+  debugMode: boolean;
 }) {
   if (msg.type === 'query') {
     return (
@@ -355,6 +369,11 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount }: {
         </div>
       )}
       {review && <ReviewCard review={review} onApply={onApplySuggestion} />}
+
+      {/* Layer trace panel */}
+      {debugMode && result.debug && result.debug !== null && (
+        <LayerTrace debug={result.debug} query={query} />
+      )}
     </div>
   );
 }
@@ -491,6 +510,83 @@ function ReviewCard({ review, onApply }: {
 
       {review.correct.length > 0 && review.false_positives.length === 0 && review.suggestions.length === 0 && (
         <div className="text-emerald-400 text-xs">All routing correct.</div>
+      )}
+    </div>
+  );
+}
+
+// --- Layer trace panel ---
+
+function LayerTrace({ debug, query }: { debug: any; query: string }) {
+  const l0 = debug.l0_corrected as string | undefined;
+  const l1 = debug.l1_normalized as string | undefined;
+  const injected = (debug.l1_injected as string[]) || [];
+  const tokens = (debug.l2_tokens as string[]) || [];
+  const scores = (debug.l2_all_scores as { id: string; score: number }[]) || [];
+  const top5 = scores.slice(0, 5);
+  const maxScore = top5[0]?.score ?? 1;
+
+  const changed = (a?: string, b?: string) => a && b && a !== b;
+
+  return (
+    <div className="mt-2 bg-zinc-950 border border-zinc-800 rounded-lg p-3 space-y-2 font-mono text-xs">
+      <div className="text-[10px] text-zinc-600 uppercase font-semibold tracking-wide">Layer trace</div>
+
+      {/* L0 */}
+      <div className="flex items-start gap-2">
+        <span className="text-zinc-600 w-6 shrink-0">L0</span>
+        <span className="text-zinc-500">typo</span>
+        {changed(query.toLowerCase(), l0)
+          ? <><span className="text-zinc-600 line-through">{query}</span><span className="text-amber-400 ml-1">{l0}</span></>
+          : <span className="text-zinc-600">no change</span>
+        }
+      </div>
+
+      {/* L1 */}
+      <div className="flex items-start gap-2">
+        <span className="text-zinc-600 w-6 shrink-0">L1</span>
+        <span className="text-zinc-500">morph</span>
+        {changed(l0 ?? query, l1)
+          ? <span className="text-amber-400">{l1}</span>
+          : <span className="text-zinc-600">no change</span>
+        }
+      </div>
+      {injected.length > 0 && (
+        <div className="flex items-start gap-2 pl-8">
+          <span className="text-zinc-500">inject</span>
+          <span className="text-violet-400">{injected.join(', ')}</span>
+        </div>
+      )}
+
+      {/* L2 tokens */}
+      <div className="flex items-start gap-2">
+        <span className="text-zinc-600 w-6 shrink-0">L2</span>
+        <span className="text-zinc-500">tokens</span>
+        <span className="text-zinc-400">{tokens.join(' · ')}</span>
+      </div>
+
+      {/* L2 scores */}
+      {top5.length > 0 && (
+        <div className="pl-8 space-y-1">
+          {top5.map(({ id, score }) => {
+            const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+            const isTop = score === maxScore;
+            return (
+              <div key={id} className="flex items-center gap-2">
+                <div className="w-24 truncate text-right text-[10px] text-zinc-500">{id.split(':').pop()}</div>
+                <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${isTop ? 'bg-emerald-500' : 'bg-zinc-600'}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className={`text-[10px] w-8 text-right ${isTop ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                  {score.toFixed(2)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

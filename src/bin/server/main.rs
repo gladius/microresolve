@@ -158,6 +158,7 @@ async fn main() {
         .merge(routes_connect::routes())
         .merge(routes_ui_settings::routes())
         .merge(routes_events::routes())
+        .merge(routes_hebbian::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 

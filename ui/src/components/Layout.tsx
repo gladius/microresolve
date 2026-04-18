@@ -84,6 +84,7 @@ export default function Layout() {
       label: 'Train',
       items: [
         { to: '/simulate', label: 'Simulate', icon: '◎', hint: 'LLM generates queries, system learns from failures' },
+        { to: '/layers',   label: 'Layers',   icon: '⧉', hint: 'Inspect and edit L0·L1·L2 routing layers' },
         { to: '/review',   label: 'Review',   icon: '✦', hint: 'Triage flagged queries from production', badge: reviewPending || undefined },
       ],
     },

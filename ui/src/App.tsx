@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import RouterPage from '@/pages/RouterPage';
 import SimulatePage from '@/pages/SimulatePage';
+import LayersPage from '@/pages/LayersPage';
 import ReviewPage from '@/pages/ReviewPage';
 import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
@@ -89,6 +90,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<RouterPage />} />
             <Route path="/simulate" element={<SimulatePage />} />
+            <Route path="/layers" element={<LayersPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/intents" element={<IntentsPage />} />
             <Route path="/import" element={<ImportLanding />} />

@@ -7,7 +7,7 @@ export function setApiNamespaceId(namespaceId: string) {
 }
 
 
-function appHeaders(): Record<string, string> {
+export function appHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   if (currentNamespaceId && currentNamespaceId !== 'default') {
     h['X-Namespace-ID'] = currentNamespaceId;
@@ -60,6 +60,15 @@ export interface MultiRouteOutput {
   candidates: MultiRouteResult[];
   relations: { type: string; [key: string]: unknown }[];
   routing_us: number;
+  ranked?: { id: string; score: number }[];
+  debug?: {
+    l0_corrected?: string;
+    l1_normalized?: string;
+    l1_injected?: string[];
+    l1_disabled?: boolean;
+    l2_tokens?: string[];
+    l2_all_scores?: { id: string; score: number }[];
+  } | null;
 }
 
 export interface NamespaceModel {
@@ -125,8 +134,8 @@ export const api = {
   health: () => get<string>('/health'),
 
   // Routing
-  routeMulti: (query: string, threshold = 0.3, log = true) =>
-    post<MultiRouteOutput>('/route_multi', { query, threshold, log }),
+  routeMulti: (query: string, threshold = 0.3, log = true, debug = false) =>
+    post<MultiRouteOutput>('/route_multi', { query, threshold, log, debug }),
 
   // Intents
   listIntents: () => get<IntentInfo[]>('/intents'),

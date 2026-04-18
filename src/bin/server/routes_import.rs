@@ -19,6 +19,10 @@ use crate::pipeline::*;
 ///
 /// Already-covered source words are skipped — safe for incremental imports.
 /// Saves to `_hebbian.json` so `load_hebbian()` picks it up automatically on restart.
+pub async fn seed_into_l1_pub(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
+    seed_into_l1(state, app_id, accepted).await;
+}
+
 async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
     eprintln!("[import/L1] seed_into_l1 called: {} accepted phrases, llm_key={}", accepted.len(), state.llm_key.is_some());
     if accepted.is_empty() || state.llm_key.is_none() { return; }
