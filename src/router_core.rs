@@ -212,9 +212,15 @@ impl Router {
     /// (namespace-specific edges take priority).
     /// Used by the server to inject global WordNet/ConceptNet at namespace creation.
     pub fn merge_l1_base(&mut self, base: &crate::scoring::LexicalGraph) {
+        use crate::scoring::EdgeKind;
         for (term, edges) in &base.edges {
             let existing = self.l1.edges.entry(term.clone()).or_default();
             for edge in edges {
+                // Only merge morphological and abbreviation edges from the global base.
+                // Synonym edges from WordNet/ConceptNet are context-free — they inject
+                // all word senses without knowing the domain, causing polysemy pollution
+                // in L2. Domain synonyms come from LLM import only (namespace-specific).
+                if matches!(edge.kind, EdgeKind::Synonym) { continue; }
                 if !existing.iter().any(|e| e.target == edge.target) {
                     existing.push(edge.clone());
                 }

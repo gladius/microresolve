@@ -84,6 +84,10 @@ pub async fn route_multi(
                         router.l2().word_intent.keys().map(|s| s.as_str()).collect();
                     router.l1().preprocess_grounded(&q0, &known)
                 } else {
+                    // Default: full pipeline (morph + abbreviations + LLM synonyms).
+                    // WordNet synonym edges are stripped from l1_base at merge time so
+                    // only domain-specific LLM-generated synonyms reach this path —
+                    // those are context-aware and safe for query-time expansion.
                     router.l1().preprocess(&q0)
                 };
                 if preprocessed.was_modified {
