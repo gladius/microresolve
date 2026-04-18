@@ -36,10 +36,13 @@ async function fetchInfo(): Promise<LayersInfo> {
   return r.json();
 }
 
-async function fetchEdges(): Promise<Edge[]> {
-  const r = await fetch(`${BASE}/layers/l1/edges`, { headers: appHeaders() });
+async function fetchEdges(filter = '', kind = 'all'): Promise<{ edges: Edge[]; total: number }> {
+  const params = new URLSearchParams({ limit: '200' });
+  if (filter) params.set('q', filter);
+  if (kind !== 'all') params.set('kind', kind);
+  const r = await fetch(`${BASE}/layers/l1/edges?${params}`, { headers: appHeaders() });
   const d = await r.json();
-  return d.edges ?? [];
+  return { edges: d.edges ?? [], total: d.total ?? 0 };
 }
 
 async function addEdge(from: string, to: string, kind: string, weight: number) {
@@ -74,8 +77,10 @@ async function probe(query: string): Promise<ProbeResult> {
 export default function LayersPage() {
   const [info, setInfo] = useState<LayersInfo | null>(null);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [edgeTotal, setEdgeTotal] = useState(0);
   const [filter, setFilter] = useState('');
   const [kindFilter, setKindFilter] = useState<string>('all');
+  const filterTimer = useState<ReturnType<typeof setTimeout> | null>(null);
   const [probeQuery, setProbeQuery] = useState('');
   const [probeResult, setProbeResult] = useState<ProbeResult | null>(null);
   const [probing, setProbing] = useState(false);
@@ -89,13 +94,30 @@ export default function LayersPage() {
   const [addWeight, setAddWeight] = useState('');
   const [adding, setAdding] = useState(false);
 
-  const reload = async () => {
-    const [i, e] = await Promise.all([fetchInfo(), fetchEdges()]);
-    setInfo(i);
+  const reloadEdges = async (f = filter, k = kindFilter) => {
+    const { edges: e, total } = await fetchEdges(f, k);
     setEdges(e);
+    setEdgeTotal(total);
+  };
+
+  const reload = async () => {
+    const i = await fetchInfo();
+    setInfo(i);
+    await reloadEdges();
   };
 
   useEffect(() => { reload(); }, []);
+
+  const onFilterChange = (val: string) => {
+    setFilter(val);
+    if (filterTimer[0]) clearTimeout(filterTimer[0]);
+    filterTimer[0] = setTimeout(() => reloadEdges(val, kindFilter), 300);
+  };
+
+  const onKindChange = (k: string) => {
+    setKindFilter(k);
+    reloadEdges(filter, k);
+  };
 
   const handleProbe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,12 +152,6 @@ export default function LayersPage() {
       await reload();
     } finally { setDistilling(false); }
   };
-
-  const filtered = edges.filter(e => {
-    if (kindFilter !== 'all' && e.kind !== kindFilter) return false;
-    if (filter && !e.from.includes(filter) && !e.to.includes(filter)) return false;
-    return true;
-  });
 
   const maxScore = probeResult?.scores[0]?.score ?? 1;
 
@@ -203,26 +219,26 @@ export default function LayersPage() {
 
           {/* Filter row */}
           <div className="flex items-center gap-2">
-            <input value={filter} onChange={e => setFilter(e.target.value)}
+            <input value={filter} onChange={e => onFilterChange(e.target.value)}
               placeholder="Search edges..."
               className="bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 flex-1 max-w-xs" />
             {(['all', 'morphological', 'abbreviation', 'synonym'] as const).map(k => (
-              <button key={k} onClick={() => setKindFilter(k)}
+              <button key={k} onClick={() => onKindChange(k)}
                 className={`px-2 py-1 text-[10px] rounded border transition-colors ${kindFilter === k ? 'border-violet-500 text-violet-400 bg-violet-500/10' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}>
                 {k}
               </button>
             ))}
-            <span className="text-xs text-zinc-600 ml-auto">{filtered.length} edges</span>
+            <span className="text-xs text-zinc-600 ml-auto">{edges.length} shown · {edgeTotal.toLocaleString()} total</span>
           </div>
 
           {/* Edge list */}
           <div className="max-h-80 overflow-y-auto space-y-1 pr-1">
-            {filtered.length === 0 && (
+            {edges.length === 0 && (
               <div className="text-xs text-zinc-600 py-4 text-center">
                 {edges.length === 0 ? 'No edges yet — add one above or run LLM distill' : 'No edges match filter'}
               </div>
             )}
-            {filtered.map((e, i) => (
+            {edges.map((e, i) => (
               <div key={i} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-zinc-800/50 group">
                 <span className="font-mono text-xs text-zinc-300 w-32 truncate">{e.from}</span>
                 <span className="text-zinc-600">→</span>

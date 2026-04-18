@@ -835,8 +835,10 @@ pub async fn apply_review(
                 }
             }
 
-            // Rebuild L0 after L2 updates
-            router.rebuild_l0();
+            // Rebuild L0 only when L2 vocabulary actually grew — skip if no new terms added
+            if added > 0 || !result.spans_to_learn.is_empty() {
+                router.rebuild_l0();
+            }
 
             if let Some(ref dir) = state.data_dir {
                 let ns_dir = std::path::Path::new(dir).join(app_id);
@@ -881,29 +883,43 @@ pub async fn apply_review(
         // Only runs when there are missed intents — that's when new vocabulary coverage matters.
         // Correct routing needs no L1 expansion; false positives are handled by L3 alone.
         if !result.missed_intents.is_empty() {
-            // Words from the query not yet in L1 edges — candidates for morphology expansion
-            let new_to_l1: Vec<String> = {
+            // Words not yet in L1 edges — candidates for morphology expansion
+            // Also skip words that are already in L2 after phrase learning (no synonym bridge needed)
+            let (new_to_l1, unknown_to_l2): (Vec<String>, Vec<String>) = {
                 let routers = state.routers.read().unwrap();
                 if let Some(r) = routers.get(app_id) {
-                    word_refs.iter()
+                    let new_l1 = word_refs.iter()
                         .filter(|&&w| !r.l1().edges.contains_key(w))
                         .map(|&w| w.to_string())
-                        .collect()
+                        .collect();
+                    let unk_l2 = word_refs.iter()
+                        .filter(|&&w| !r.l2().word_intent.contains_key(w))
+                        .map(|&w| w.to_string())
+                        .collect();
+                    (new_l1, unk_l2)
                 } else {
-                    word_refs.iter().map(|&w| w.to_string()).collect()
+                    let all: Vec<String> = word_refs.iter().map(|&w| w.to_string()).collect();
+                    (all.clone(), all)
                 }
             };
-            let do_morph = !new_to_l1.is_empty();
 
-            if do_morph {
+            let do_morph = !new_to_l1.is_empty();
+            let do_synonyms = !unknown_to_l2.is_empty(); // skip if all words now in L2
+
+            if do_morph && do_synonyms {
                 eprintln!("[auto-learn/L1] parallel: morphology({:?}) + synonym discovery", new_to_l1);
                 tokio::join!(
                     learn_l1_morphology(state, app_id, &new_to_l1, original_query),
                     learn_l1_synonyms(state, app_id, &word_refs, &result.missed_intents, original_query)
                 );
-            } else {
+            } else if do_morph {
+                eprintln!("[auto-learn/L1] morphology only (all words now in L2 after phrase learning)");
+                learn_l1_morphology(state, app_id, &new_to_l1, original_query).await;
+            } else if do_synonyms {
                 eprintln!("[auto-learn/L1] synonym discovery only (all words already in L1)");
                 learn_l1_synonyms(state, app_id, &word_refs, &result.missed_intents, original_query).await;
+            } else {
+                eprintln!("[auto-learn/L1] skipping — all words already in L1 and L2");
             }
         }
     }

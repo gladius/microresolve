@@ -132,19 +132,24 @@ def run_queries(ns: str, examples: list[dict]) -> list[dict]:
 # ── Learning ──────────────────────────────────────────────────────────────────
 
 def apply_learning(ns: str, results: list[dict]) -> int:
-    """For each miss, add the query directly as a training phrase. No LLM. Returns count."""
+    """For each missed intent, add the query as a training phrase. No LLM.
+    Works for both single-intent (top1 miss) and multi-intent (per-missed-intent).
+    Returns count of phrases added."""
     learned = 0
     for r in results:
-        if not r["top1_correct"] and r["expected"]:
-            for intent_id in r["expected"]:
-                try:
-                    _req("POST", "/api/intents/phrase", {
-                        "intent_id": intent_id,
-                        "phrase": r["text"],
-                    }, ns=ns)
+        expected = set(r["expected"])
+        predicted = set(r["predicted"])
+        missed = expected - predicted  # intents we failed to predict
+        for intent_id in missed:
+            try:
+                resp = _req("POST", "/api/intents/phrase", {
+                    "intent_id": intent_id,
+                    "phrase": r["text"],
+                }, ns=ns)
+                if resp and resp.get("added"):
                     learned += 1
-                except Exception:
-                    pass
+            except Exception:
+                pass
     return learned
 
 

@@ -82,13 +82,18 @@ async fn layers_info(
 async fn l1_list_edges(
     State(state): State<AppState>,
     headers: HeaderMap,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
     let routers = state.routers.read().unwrap();
     let Some(router) = routers.get(&app_id) else {
-        return Json(serde_json::json!({ "edges": [] }));
+        return Json(serde_json::json!({ "edges": [], "total": 0 }));
     };
-    let edges: Vec<serde_json::Value> = router.l1().edges.iter()
+    let filter = params.get("q").map(|s| s.to_lowercase()).unwrap_or_default();
+    let kind_filter = params.get("kind").map(|s| s.as_str()).unwrap_or("all").to_string();
+    let limit: usize = params.get("limit").and_then(|s| s.parse().ok()).unwrap_or(200);
+
+    let all_edges: Vec<serde_json::Value> = router.l1().edges.iter()
         .flat_map(|(from, targets)| targets.iter().map(move |e| {
             let kind = match e.kind {
                 EdgeKind::Morphological => "morphological",
@@ -96,10 +101,18 @@ async fn l1_list_edges(
                 EdgeKind::Synonym       => "synonym",
                 _                       => "semantic",
             };
-            serde_json::json!({ "from": from, "to": e.target, "kind": kind, "weight": e.weight })
+            (from.as_str(), e.target.as_str(), kind, e.weight)
         }))
+        .filter(|(from, to, kind, _)| {
+            if kind_filter != "all" && *kind != kind_filter.as_str() { return false; }
+            if !filter.is_empty() && !from.contains(filter.as_str()) && !to.contains(filter.as_str()) { return false; }
+            true
+        })
+        .take(limit)
+        .map(|(from, to, kind, weight)| serde_json::json!({ "from": from, "to": to, "kind": kind, "weight": weight }))
         .collect();
-    Json(serde_json::json!({ "edges": edges }))
+
+    Json(serde_json::json!({ "edges": all_edges, "total": router.l1().edges.len() }))
 }
 
 // ── POST /api/layers/l1/edges ─────────────────────────────────────────────────

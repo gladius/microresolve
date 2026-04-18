@@ -12,7 +12,7 @@
 use std::collections::{HashMap, HashSet};
 
 const N: usize = 3;
-const MIN_SIMILARITY: f32 = 0.5;
+const MIN_SIMILARITY: f32 = 0.35;
 const MIN_TERM_LEN: usize = 4;
 
 pub struct NgramIndex {
@@ -75,7 +75,8 @@ impl NgramIndex {
             }
         }
 
-        hits.into_iter()
+        let query_chars: Vec<char> = token.chars().collect();
+        let candidates: Vec<(usize, f32)> = hits.into_iter()
             .filter_map(|(vi, intersection)| {
                 let term = &self.vocab[vi];
                 let term_ng_count = term.chars().count().saturating_sub(N - 1).max(1);
@@ -83,7 +84,17 @@ impl NgramIndex {
                 let jaccard = intersection as f32 / union as f32;
                 if jaccard >= MIN_SIMILARITY { Some((vi, jaccard)) } else { None }
             })
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+            .collect();
+
+        // Re-rank by edit distance to avoid polysemy collisions (e.g. "creting"→"meeting" vs "creating")
+        candidates.into_iter()
+            .map(|(vi, _)| {
+                let term = &self.vocab[vi];
+                let term_chars: Vec<char> = term.chars().collect();
+                let dist = edit_distance(&query_chars, &term_chars);
+                (vi, dist)
+            })
+            .min_by_key(|(_, dist)| *dist)
             .map(|(vi, _)| self.vocab[vi].clone())
     }
 
@@ -104,6 +115,22 @@ impl NgramIndex {
     }
 }
 
+fn edit_distance(a: &[char], b: &[char]) -> usize {
+    let (m, n) = (a.len(), b.len());
+    let mut dp = vec![0usize; n + 1];
+    for j in 0..=n { dp[j] = j; }
+    for i in 1..=m {
+        let mut prev = dp[0];
+        dp[0] = i;
+        for j in 1..=n {
+            let temp = dp[j];
+            dp[j] = if a[i-1] == b[j-1] { prev } else { 1 + prev.min(dp[j]).min(dp[j-1]) };
+            prev = temp;
+        }
+    }
+    dp[n]
+}
+
 fn char_ngrams(s: &str, n: usize) -> Vec<String> {
     let chars: Vec<char> = s.chars().collect();
     if chars.len() < n {
@@ -118,16 +145,30 @@ pub fn build_for_namespace(
     intent_graph: Option<&crate::scoring::IntentGraph>,
 ) -> NgramIndex {
     let mut terms: HashSet<String> = HashSet::new();
+
+    // Always include L2 words — these are the scoring vocabulary.
+    let l2_words: HashSet<&str> = if let Some(ig) = intent_graph {
+        let w: HashSet<&str> = ig.word_intent.keys().map(|s| s.as_str()).collect();
+        terms.extend(ig.word_intent.keys().cloned());
+        w
+    } else {
+        HashSet::new()
+    };
+
+    // Include L1 "from" words only when their target is in L2.
+    // This keeps L0 focused: it only corrects to words that actually score,
+    // preventing 177K generic WordNet terms from polluting the correction space.
     if let Some(g) = lexical {
-        terms.extend(g.edges.keys().cloned());
-        // Also add edge targets (canonical forms)
-        for edges in g.edges.values() {
-            for e in edges { terms.insert(e.target.clone()); }
+        for (from, edges) in &g.edges {
+            for e in edges {
+                if l2_words.contains(e.target.as_str()) {
+                    terms.insert(from.clone());
+                    terms.insert(e.target.clone());
+                }
+            }
         }
     }
-    if let Some(ig) = intent_graph {
-        terms.extend(ig.word_intent.keys().cloned());
-    }
+
     NgramIndex::build(terms.into_iter())
 }
 

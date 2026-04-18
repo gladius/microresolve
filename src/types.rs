@@ -149,7 +149,7 @@ pub struct PhraseCheckResult {
 }
 
 /// Maximum training phrases per language per intent. Prevents overfitting.
-pub const MAX_PHRASES_PER_LANGUAGE: usize = 20;
+pub const MAX_PHRASES_PER_LANGUAGE: usize = 500;
 
 /// A conflict detected by the situation pattern guard.
 #[derive(Debug, Clone)]
