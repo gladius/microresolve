@@ -1,0 +1,448 @@
+{
+  "n": 40,
+  "top1_pct": 45.0,
+  "top3_pct": 77.5,
+  "avg_latency_us": 0.0,
+  "results": [
+    {
+      "query": "My payment keeps getting delayed, is there something going on with the way you guys process payouts?",
+      "expected": "payout_schedule",
+      "got": [
+        "account_verification",
+        "connect_split_payments",
+        "pricing_fees"
+      ],
+      "top1": false,
+      "top3": false
+    },
+    {
+      "query": "Is there a way to get my earnings out faster or more frequently than they are now?",
+      "expected": "payout_schedule",
+      "got": [
+        "payout_holds",
+        "payout_schedule",
+        "refund_window"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps getting declined and I don't know what's going on with my subscription",
+      "expected": "failed_payment_retry",
+      "got": [
+        "international_cards",
+        "saving_cards",
+        "webhook_security"
+      ],
+      "top1": false,
+      "top3": false
+    },
+    {
+      "query": "Is there a way to get my account working again if my payment method isn't going through",
+      "expected": "failed_payment_retry",
+      "got": [
+        "failed_payment_retry",
+        "refund_window",
+        "saving_cards"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "my customer is getting a refund but i'm still being charged a fee",
+      "expected": "refund_fees",
+      "got": [
+        "refund_fees",
+        "refund_window",
+        "saving_cards"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "is there a way to recoup the processing costs when i have to give a customer their money back",
+      "expected": "refund_fees",
+      "got": [
+        "refund_fees",
+        "refund_window",
+        "customer_portal"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps getting flagged and I don't know what's going on with it, can you help me figure out what's happening?",
+      "expected": "dispute_response",
+      "got": [
+        "saving_cards",
+        "fraud_radar",
+        "webhook_security"
+      ],
+      "top1": false,
+      "top3": false
+    },
+    {
+      "query": "Is there a way to deal with those pesky transactions that customers are claiming they didn't make, I need to get this sorted out ASAP",
+      "expected": "dispute_response",
+      "got": [
+        "account_verification",
+        "tax_collection",
+        "refund_window"
+      ],
+      "top1": false,
+      "top3": false
+    },
+    {
+      "query": "My payment keeps failing and I'm trying to figure out if it's because I'm using a card from another country",
+      "expected": "international_cards",
+      "got": [
+        "failed_payment_retry",
+        "pricing_fees",
+        "international_cards"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to use a credit card that's not from the US on your site",
+      "expected": "international_cards",
+      "got": [
+        "saving_cards",
+        "international_cards",
+        "pricing_fees"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "My customers keep getting charged but I don't see the payments in my account, can you help me figure out what's going on with recurring payments?",
+      "expected": "recurring_billing_setup",
+      "got": [
+        "saving_cards",
+        "invoice_email",
+        "international_cards"
+      ],
+      "top1": false,
+      "top3": false
+    },
+    {
+      "query": "Is there a way to automatically bill my users on a monthly basis without having to manually send them invoices every time?",
+      "expected": "recurring_billing_setup",
+      "got": [
+        "test_mode_keys",
+        "payout_schedule",
+        "tax_collection"
+      ],
+      "top1": false,
+      "top3": false
+    },
+    {
+      "query": "My payments keep failing during testing, is there a special key I should be using?",
+      "expected": "test_mode_keys",
+      "got": [
+        "test_mode_keys",
+        "recurring_billing_setup",
+        "international_cards"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to try out payments without actually charging my customers or myself?",
+      "expected": "test_mode_keys",
+      "got": [
+        "saving_cards",
+        "test_mode_keys",
+        "account_verification"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "My payments are going through but I'm not seeing the updates in my system, how can I trust that it's actually Stripe sending these notifications?",
+      "expected": "webhook_security",
+      "got": [
+        "refund_window",
+        "webhook_security",
+        "failed_payment_retry"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to confirm that the requests I'm getting are legit and not some random spam, I've heard about security issues with third-party services before",
+      "expected": "webhook_security",
+      "got": [
+        "webhook_security",
+        "failed_payment_retry",
+        "saving_cards"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps failing because of tax issues, can you help me figure out what's going on with that?",
+      "expected": "tax_collection",
+      "got": [
+        "tax_collection",
+        "payout_holds",
+        "account_verification"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to automatically handle tax calculations for my transactions so I don't have to manually do it every time?",
+      "expected": "tax_collection",
+      "got": [
+        "tax_collection",
+        "saving_cards",
+        "international_cards"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps failing when I try to accept payments from customers abroad, is that related to the currency they're using",
+      "expected": "multi_currency",
+      "got": [
+        "multi_currency",
+        "refund_fees",
+        "pricing_fees"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to make sure my customers in other countries can pay with their own currency without me having to do any extra work on my end",
+      "expected": "multi_currency",
+      "got": [
+        "customer_portal",
+        "multi_currency",
+        "account_verification"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps getting flagged, what's going on behind the scenes to make sure it's really me making the purchase?",
+      "expected": "fraud_radar",
+      "got": [
+        "payout_holds",
+        "fraud_radar",
+        "webhook_security"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to stop transactions from being declined due to suspected fraud, I feel like I'm getting locked out of my own account sometimes",
+      "expected": "fraud_radar",
+      "got": [
+        "fraud_radar",
+        "international_cards",
+        "payout_holds"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps failing and I don't know what's going on, can you help me figure it out?",
+      "expected": "account_verification",
+      "got": [
+        "saving_cards",
+        "failed_payment_retry",
+        "account_verification"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to get my account fully activated so I can start receiving payments already?",
+      "expected": "account_verification",
+      "got": [
+        "account_verification",
+        "payout_holds",
+        "payout_schedule"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps failing and I don't want to have to keep calling in to fix it, can I do something on my end to change my card info?",
+      "expected": "customer_portal",
+      "got": [
+        "connect_split_payments",
+        "payout_holds",
+        "account_verification"
+      ],
+      "top1": false,
+      "top3": false
+    },
+    {
+      "query": "Is there a way to get ahold of my subscription details without having to go through support every time I want to know how much I'm being charged?",
+      "expected": "customer_portal",
+      "got": [
+        "payout_holds",
+        "customer_portal",
+        "test_mode_keys"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps failing and I think I might not be getting the invoices, do you guys send those out automatically or do I need to do something?",
+      "expected": "invoice_email",
+      "got": [
+        "tax_collection",
+        "invoice_email",
+        "refund_window"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to get invoices sent directly to customers or do I have to manually attach them every time I send a payment request?",
+      "expected": "invoice_email",
+      "got": [
+        "refund_window",
+        "saving_cards",
+        "invoice_email"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps failing when I try to pay multiple sellers at once, is there something specific I need to set up to make it work?",
+      "expected": "connect_split_payments",
+      "got": [
+        "connect_split_payments",
+        "saving_cards",
+        "multi_currency"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to divide a payment among several recipients, like when a customer buys from multiple vendors in a single transaction?",
+      "expected": "connect_split_payments",
+      "got": [
+        "connect_split_payments",
+        "refund_fees",
+        "saving_cards"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "I'm trying to get a refund for a charge that didn't work out, but I'm not sure if it's still possible since it was a while ago.",
+      "expected": "refund_window",
+      "got": [
+        "refund_window",
+        "refund_fees",
+        "failed_payment_retry"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "Is there a way to reverse a transaction that's already settled, or am I out of luck at this point?",
+      "expected": "refund_window",
+      "got": [
+        "pricing_fees",
+        "refund_fees",
+        "payout_holds"
+      ],
+      "top1": false,
+      "top3": false
+    },
+    {
+      "query": "my payment keeps failing and i'm getting charged extra fees, what's going on with the charges for processing cards",
+      "expected": "pricing_fees",
+      "got": [
+        "international_cards",
+        "refund_fees",
+        "pricing_fees"
+      ],
+      "top1": false,
+      "top3": true
+    },
+    {
+      "query": "is there a way to avoid super high fees when customers pay with their credit cards on my site",
+      "expected": "pricing_fees",
+      "got": [
+        "pricing_fees",
+        "international_cards",
+        "refund_fees"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "my payment form looks wonky on my site, what's going on with the integration",
+      "expected": "checkout_vs_elements",
+      "got": [
+        "checkout_vs_elements",
+        "payout_holds",
+        "account_verification"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "is there a way to make the payment page look like it's part of my website instead of some external thing",
+      "expected": "checkout_vs_elements",
+      "got": [
+        "checkout_vs_elements",
+        "saving_cards",
+        "multi_currency"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps failing because I have to enter card details every time, is there a way to avoid this for repeat customers?",
+      "expected": "saving_cards",
+      "got": [
+        "saving_cards",
+        "pricing_fees",
+        "customer_portal"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "I'm trying to make recurring payments for my subscribers, can I store their card info so I don't have to hassle them every month?",
+      "expected": "saving_cards",
+      "got": [
+        "saving_cards",
+        "recurring_billing_setup",
+        "customer_portal"
+      ],
+      "top1": true,
+      "top3": true
+    },
+    {
+      "query": "My payment keeps getting delayed and I don't know what's going on with it",
+      "expected": "payout_holds",
+      "got": [
+        "saving_cards",
+        "webhook_security",
+        "tax_collection"
+      ],
+      "top1": false,
+      "top3": false
+    },
+    {
+      "query": "Is there a way to speed up the transfer of my earnings into my account",
+      "expected": "payout_holds",
+      "got": [
+        "account_verification",
+        "connect_split_payments",
+        "payout_holds"
+      ],
+      "top1": false,
+      "top3": true
+    }
+  ]
+}

@@ -250,6 +250,72 @@ impl LexicalGraph {
         }
     }
 
+    /// Morphology-only pipeline: normalize only, no synonym expansion.
+    /// Safe for all intent set sizes — no false positive risk.
+    pub fn preprocess_morphonly(&self, query: &str) -> PreprocessResult {
+        let normalized = self.normalize_query(query);
+        let was_modified = normalized != query.to_lowercase();
+        PreprocessResult {
+            original: query.to_string(),
+            normalized: normalized.clone(),
+            expanded: normalized,
+            injected: vec![],
+            semantic_hits: vec![],
+            was_modified,
+        }
+    }
+
+    /// Vocabulary-grounded pipeline: normalize always, expand synonyms ONLY for
+    /// tokens not already present in the L2 index (known_words).
+    ///
+    /// If a query token is already known to L2, it doesn't need synonym bridging —
+    /// L2 already has direct entries for it. Only unknown tokens benefit from expansion.
+    /// This eliminates false positives from over-expansion of common words.
+    pub fn preprocess_grounded<'a>(
+        &self,
+        query: &str,
+        known_words: &std::collections::HashSet<&'a str>,
+    ) -> PreprocessResult {
+        let normalized = self.normalize_query(query);
+        let lower = normalized.to_lowercase();
+        let words = Self::l1_tokens(&normalized);
+        let mut injected: Vec<String> = Vec::new();
+
+        for word in &words {
+            // Skip synonym expansion for words already in L2 — they don't need bridging.
+            if known_words.contains(word.as_str()) {
+                continue;
+            }
+            if let Some(edges) = self.edges.get(word.as_str()) {
+                for edge in edges {
+                    if matches!(edge.kind, EdgeKind::Synonym)
+                        && edge.weight >= self.synonym_threshold
+                        && !lower.contains(edge.target.as_str())
+                        && !injected.contains(&edge.target)
+                    {
+                        injected.push(edge.target.clone());
+                    }
+                }
+            }
+        }
+
+        let expanded = if injected.is_empty() {
+            lower.clone()
+        } else {
+            format!("{} {}", lower, injected.join(" "))
+        };
+        let was_modified = expanded != query.to_lowercase();
+
+        PreprocessResult {
+            original: query.to_string(),
+            normalized: lower,
+            expanded,
+            injected,
+            semantic_hits: vec![],
+            was_modified,
+        }
+    }
+
     // ── Persistence ───────────────────────────────────────────────────────
 
     pub fn save(&self, path: &str) -> std::io::Result<()> {
@@ -608,7 +674,7 @@ pub struct RouteResult {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
-pub struct IntentGraph {
+pub struct IntentIndex {
     /// word → [(intent_id, weight 0.0–1.0)]
     ///
     /// Pure 1-gram IDF scoring. Each word maps to intents with Hebbian weights.
@@ -637,7 +703,10 @@ pub struct IntentGraph {
     pub char_ngrams: HashMap<String, std::collections::HashSet<String>>,
 }
 
-impl IntentGraph {
+/// Backward compat alias: code still using IntentGraph compiles without change.
+pub type IntentGraph = IntentIndex;
+
+impl IntentIndex {
     pub fn new() -> Self {
         Self::default()
     }
@@ -1207,9 +1276,9 @@ impl IntentGraph {
 mod intent_graph_tests {
     use super::*;
 
-    fn mini_intent_graph() -> (LexicalGraph, IntentGraph) {
+    fn mini_intent_graph() -> (LexicalGraph, IntentIndex) {
         let layer1 = saas_test_graph();
-        let mut ig = IntentGraph::new();
+        let mut ig = IntentIndex::new();
 
         // cancel_subscription: "cancel", "subscription"
         ig.learn_phrase(&["cancel", "subscription"], "cancel_subscription");

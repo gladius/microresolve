@@ -347,26 +347,11 @@ pub async fn training_run(
     let mut results = Vec::new();
 
     for turn in &req.turns {
-        // Route via L0 (ngram) → L1 (Hebbian expand) → L2+L3 (intent scoring + inhibition)
-        // Same pipeline and thresholds as production /api/route_multi.
+        // Route via L0→L1→L2+L3 — same pipeline as production /api/route_multi.
         let scored = {
-            let ig_map   = state.intent_graph.read().unwrap();
-            let heb_map  = state.hebbian.read().unwrap();
-            let ngram_map = state.ngram.read().unwrap();
-            if let Some(ig) = ig_map.get(&app_id) {
-                let default_heb = asv_router::scoring::LexicalGraph::default();
-                let heb = heb_map.get(&app_id).unwrap_or(&default_heb);
-                // L0: n-gram typo correction
-                let corrected = if let Some(ng) = ngram_map.get(&app_id) {
-                    ng.correct_query(&turn.message)
-                } else {
-                    turn.message.clone()
-                };
-                // L1: normalize + expand
-                let pre = heb.preprocess(&corrected);
-                // L2+L3: same thresholds as production
-                let (scores, _) = ig.score_multi_normalized(&pre.expanded, 0.3, 1.5);
-                scores
+            let routers = state.routers.read().unwrap();
+            if let Some(router) = routers.get(&app_id) {
+                router.route(&turn.message, 0.3, 1.5)
             } else {
                 vec![]
             }

@@ -1,0 +1,3 @@
+My payment keeps failing when I try to pay multiple sellers at once, is there something specific I need to set up to make it work?
+
+Is there a way to divide a payment among several recipients, like when a customer buys from multiple vendors in a single transaction?

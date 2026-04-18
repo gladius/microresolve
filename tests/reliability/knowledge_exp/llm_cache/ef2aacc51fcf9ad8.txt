@@ -1,0 +1,10 @@
+how do i split payments on my marketplace
+my payment keeps failing with multiple sellers
+is there a way to pay multiple vendors at once
+what's the best way to handle payouts to different sellers
+can i use stripe connect for split payments
+how do i set up payouts for multiple accounts
+payout delay with stripe connect
+can i customize the onboarding process for sellers
+how do i pass application fee to seller
+what's the difference between standard express and custom accounts

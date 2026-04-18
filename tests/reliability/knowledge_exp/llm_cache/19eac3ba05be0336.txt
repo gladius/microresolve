@@ -1,0 +1,11 @@
+my payment keeps failing and i'm getting charged extra fees, what's going on with the charges for processing cards
+is there a way to avoid super high fees when customers pay with their credit cards on my site
+why isn't my money showing up in my account, are those stripe fees eating it all up
+i'm trying to figure out why my profit margins are so low, do you guys take a huge cut of every transaction
+can i get a breakdown of all the extra costs that come with using stripe to process payments
+do i get charged more if my customers are using international cards or something 
+is stripe going to rip me off with a bunch of hidden fees when i start getting more customers 
+are there any discounts or something if i process a ton of payments every month 
+i'm losing track of all the different fees, just tell me how much you guys take per transaction 
+does stripe charge me more if someone uses a different currency or something 
+i thought i understood the fees but now i'm all

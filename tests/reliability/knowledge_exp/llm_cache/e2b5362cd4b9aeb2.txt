@@ -1,0 +1,15 @@
+My payment keeps failing because I have to enter card details every time, is there a way to avoid this for repeat customers?
+
+I'm trying to make recurring payments for my subscribers, can I store their card info so I don't have to hassle them every month?
+
+Why isn't my money showing up from last month's subscription, and is there a way to just save the card details so this stops happening?
+
+I'm getting errors when trying to charge a customer for a second time, do I have to get them to re-enter their card info every time?
+
+Is there a way to make it so customers don't have to re-enter their payment info every time they make a purchase from me?
+
+Can I store a customer's card on file so that future charges don't get declined due to expired or changed cards?
+
+My customers are getting tired of entering their card info every time they make a purchase, can I just save it somehow?
+
+I'm having trouble with one-time payments, can I somehow save the card for future use so it's not

@@ -1,0 +1,29 @@
+{
+  "dataset": "MixSNIPS",
+  "intents": 7,
+  "test_examples": 2199,
+  "multi_intent_examples": 1749,
+  "seed_only": {
+    "n": 2199,
+    "exact_match": 33.47,
+    "partial_match": 96.77,
+    "precision": 84.41,
+    "recall": 71.33,
+    "f1": 77.32,
+    "latency_p50_us": 2849,
+    "latency_p95_us": 6372,
+    "latency_mean_us": 3234.4
+  },
+  "after_learning": {
+    "n": 2199,
+    "exact_match": 33.42,
+    "partial_match": 96.77,
+    "precision": 84.4,
+    "recall": 71.28,
+    "f1": 77.29,
+    "latency_p50_us": 2744,
+    "latency_p95_us": 6247,
+    "latency_mean_us": 3112.6
+  },
+  "f1_delta": -0.03
+}

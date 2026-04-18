@@ -1,0 +1,10 @@
+how do i add sales tax to my payments
+my payment keeps failing because of tax
+is there a way to automatically collect vat
+what's the deal with tax calculation on my site
+can you help with gst collection
+how do i set up tax in my stripe dashboard
+tax is not being collected on my transactions
+do i need to enable something for sales tax
+vat is not being calculated correctly
+how do i add tax to my price objects

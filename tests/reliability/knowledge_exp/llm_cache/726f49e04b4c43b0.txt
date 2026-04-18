@@ -1,0 +1,10 @@
+how do i test my stripe integration without losing money
+can i use stripe without actually charging cards
+what's the point of test mode in stripe
+my payment keeps failing in test mode
+is there a way to test stripe charges without real money
+how do i simulate a successful charge in stripe test mode
+what test card numbers should i use for stripe
+can i use my live api key for testing
+how long does it take to switch from test to live mode
+what's the difference between sk_live and sk_test keys

@@ -1,0 +1,10 @@
+how do i stop automatic invoice emails from going to customers
+my invoices are sending to customers automatically 
+can i turn off auto email for just one invoice 
+i dont want invoices emailed to customers 
+is there a way to delay invoice emails
+why are my invoices being emailed to customers 
+how do i disable auto invoice emails in stripe 
+my payment invoices keep getting sent to customers 
+can i prevent stripe from emailing invoices 
+how do i set auto_advance to false for an invoice

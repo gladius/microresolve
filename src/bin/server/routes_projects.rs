@@ -72,8 +72,16 @@ pub async fn create_namespace(
     }
     let mut router = Router::new();
     router.set_namespace_description(&req.description);
+
+    // Seed L1 with the global base graph (WordNet + ConceptNet) so new namespaces
+    // get synonym/morphology expansion immediately without any manual L1 training.
+    if let Some(ref base) = state.l1_base {
+        router.merge_l1_base(base);
+    }
+
     maybe_persist(&state, &req.namespace_id, &router);
     routers.insert(req.namespace_id.clone(), router);
+
     Ok(Json(serde_json::json!({"created": req.namespace_id})))
 }
 
@@ -94,10 +102,6 @@ pub async fn delete_namespace(
         return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)));
     }
     drop(routers);
-    // Clean up all in-memory state for this namespace
-    state.intent_graph.write().unwrap().remove(&req.namespace_id);
-    state.hebbian.write().unwrap().remove(&req.namespace_id);
-    state.ngram.write().unwrap().remove(&req.namespace_id);
     if let Some(ref dir) = state.data_dir {
         let _ = std::fs::remove_dir_all(format!("{}/{}", dir, req.namespace_id));
         // Also remove old flat file if it exists (migration cleanup)

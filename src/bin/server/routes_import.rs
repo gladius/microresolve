@@ -54,9 +54,9 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
 
     // Source words already in L1 — skip to avoid regenerating (incremental safety)
     let existing_from_words: std::collections::HashSet<String> = {
-        let heb_map = state.hebbian.read().unwrap();
-        heb_map.get(app_id)
-            .map(|h| h.edges.keys().cloned().collect())
+        let routers = state.routers.read().unwrap();
+        routers.get(app_id)
+            .map(|r| r.l1().edges.keys().cloned().collect())
             .unwrap_or_default()
     };
 
@@ -138,9 +138,11 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
     };
     eprintln!("[import/L1] Turn 2: {} edges after verification (removed {})", edges.len(), candidates.len().saturating_sub(edges.len()));
 
-    let mut heb_map = state.hebbian.write().unwrap();
-    let heb = heb_map.entry(app_id.to_string())
-        .or_insert_with(asv_router::scoring::LexicalGraph::new);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(app_id) {
+        Some(r) => r,
+        None => return,
+    };
 
     let mut n_abbrev = 0usize;
     let mut n_morph  = 0usize;
@@ -152,7 +154,7 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
         let weight = edge.get("weight").and_then(|v| v.as_f64()).unwrap_or(0.9) as f32;
         let kind_s = edge.get("kind").and_then(|v| v.as_str()).unwrap_or("synonym");
         if from.is_empty() || to.is_empty() || from == to { continue; }
-        if heb.edges.contains_key(from) { continue; }
+        if router.l1().edges.contains_key(from) { continue; }
 
         let kind = match kind_s {
             "abbreviation"  => { n_abbrev += 1; asv_router::scoring::EdgeKind::Abbreviation }
@@ -160,59 +162,46 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
             _               => { n_syn    += 1; asv_router::scoring::EdgeKind::Synonym }
         };
         eprintln!("[import/L1] {:>14}: {} → {} (w={:.2})", kind_s, from, to, weight);
-        heb.add(from, to, weight, kind);
+        router.l1_mut().add(from, to, weight, kind);
     }
 
-    if let Some(ref dir) = state.data_dir {
-        let path = format!("{}/{}/_hebbian.json", dir, app_id);
-        std::fs::create_dir_all(format!("{}/{}", dir, app_id)).ok();
-        heb.save(&path).ok();
-    }
     eprintln!("[import/L1] total: {} abbreviations + {} morphological + {} synonyms for '{}'",
         n_abbrev, n_morph, n_syn, app_id);
+
+    if let Some(ref dir) = state.data_dir {
+        let ns_dir = std::path::Path::new(dir).join(app_id);
+        std::fs::create_dir_all(&ns_dir).ok();
+        router.save_to_dir(&ns_dir).ok();
+    }
 }
 
-/// Feed accepted import phrases into the L2 count model (IntentGraph).
+/// Feed accepted import phrases into the router's L2 (IntentIndex).
 ///
 /// Called once after all batch phrase-generation is complete.
-/// Creates the IntentGraph if it doesn't exist yet for this app.
-/// Uses L1 preprocessing if available — same tokenisation path as routing.
+/// Uses the router's internal L1 for preprocessing — same tokenisation path as routing.
 pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
     if accepted.is_empty() { return; }
 
-    let l1 = state.hebbian.read().unwrap().get(app_id).cloned().unwrap_or_default();
-
-    let mut ig_map = state.intent_graph.write().unwrap();
-    let ig = ig_map.entry(app_id.to_string()).or_insert_with(asv_router::scoring::IntentGraph::new);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(app_id) {
+        Some(r) => r,
+        None => return,
+    };
 
     for (intent_id, phrase) in accepted {
-        let preprocessed = l1.preprocess(phrase);
-        let words = asv_router::tokenizer::tokenize(&preprocessed.expanded);
-        let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
-        if !word_refs.is_empty() {
-            ig.learn_phrase(&word_refs, intent_id);
-        }
-        // Char-ngram tiebreaker index (derived from original phrase)
-        ig.index_char_ngrams(phrase, intent_id);
+        router.index_phrase(intent_id, phrase);
     }
 
-    // Persist
-    if let Some(ref dir) = state.data_dir {
-        let path = format!("{}/{}/_intent_graph.json", dir, app_id);
-        std::fs::create_dir_all(format!("{}/{}", dir, app_id)).ok();
-        ig.save(&path).ok();
-        eprintln!("[import/L2] seeded {} phrases into count model for '{}'", accepted.len(), app_id);
-    }
+    eprintln!("[import/L2] seeded {} phrases into count model for '{}'", accepted.len(), app_id);
 
-    // Rebuild ngram index so L0 typo correction reflects new vocabulary
-    drop(ig_map);
-    let heb_map = state.hebbian.read().unwrap();
-    let lexical = heb_map.get(app_id);
-    let ig_map2 = state.intent_graph.read().unwrap();
-    let ng = asv_router::ngram::build_for_namespace(lexical, ig_map2.get(app_id));
-    drop(ig_map2);
-    drop(heb_map);
-    state.ngram.write().unwrap().insert(app_id.to_string(), ng);
+    // Persist the updated L1/L2/L0 via save_to_dir
+    drop(routers);
+    let routers = state.routers.read().unwrap();
+    if let (Some(router), Some(ref dir)) = (routers.get(app_id), &state.data_dir) {
+        let ns_dir = std::path::Path::new(dir).join(app_id);
+        std::fs::create_dir_all(&ns_dir).ok();
+        router.save_to_dir(&ns_dir).ok();
+    }
 }
 
 pub fn routes() -> axum::Router<AppState> {
@@ -634,10 +623,12 @@ pub async fn import_apply(
         serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
     }).collect();
 
-    let l2_words = state.intent_graph.read().unwrap()
-        .get(&app_id).map(|ig| ig.word_intent.len()).unwrap_or(0);
-    let l1_edges = state.hebbian.read().unwrap()
-        .get(&app_id).map(|h| h.edges.len()).unwrap_or(0);
+    let (l2_words, l1_edges) = {
+        let routers = state.routers.read().unwrap();
+        if let Some(r) = routers.get(&app_id) {
+            (r.l2().word_intent.len(), r.l1().edges.len())
+        } else { (0, 0) }
+    };
 
     Ok(Json(serde_json::json!({
         "title": parsed.title,
@@ -989,10 +980,12 @@ pub async fn mcp_apply(
         serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
     }).collect();
 
-    let l2_words = state.intent_graph.read().unwrap()
-        .get(&app_id).map(|ig| ig.word_intent.len()).unwrap_or(0);
-    let l1_edges = state.hebbian.read().unwrap()
-        .get(&app_id).map(|h| h.edges.len()).unwrap_or(0);
+    let (l2_words, l1_edges) = {
+        let routers = state.routers.read().unwrap();
+        if let Some(r) = routers.get(&app_id) {
+            (r.l2().word_intent.len(), r.l1().edges.len())
+        } else { (0, 0) }
+    };
 
     Ok(Json(serde_json::json!({
         "imported": tool_names.len(),

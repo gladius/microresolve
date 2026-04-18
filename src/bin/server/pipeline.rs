@@ -420,11 +420,10 @@ pub async fn full_review(
 
     // L2 scores for detected intents — helps Turn 1 judge confidence level
     let detected_with_scores: String = {
-        let ig_map = state.intent_graph.read().unwrap();
-        let heb_map = state.hebbian.read().unwrap();
-        if let (Some(ig), Some(heb)) = (ig_map.get(app_id), heb_map.get(app_id)) {
-            let pre = heb.preprocess(query);
-            let (all_scores, _) = ig.score_multi_normalized(&pre.expanded, 0.0, 100.0);
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(app_id) {
+            let pre = router.l1().preprocess(query);
+            let (all_scores, _) = router.l2().score_multi_normalized(&pre.expanded, 0.0, 100.0);
             let score_map: HashMap<&str, f32> = all_scores.iter().map(|(id, s)| (id.as_str(), *s)).collect();
             if detected.is_empty() {
                 "(none detected)".to_string()
@@ -443,9 +442,9 @@ pub async fn full_review(
 
     // L1 expansion context — show if the query was normalized before routing
     let l1_context: String = {
-        let heb_map = state.hebbian.read().unwrap();
-        if let Some(heb) = heb_map.get(app_id) {
-            let pre = heb.preprocess(query);
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(app_id) {
+            let pre = router.l1().preprocess(query);
             if pre.was_modified && !pre.injected.is_empty() {
                 format!("Router expanded query via synonyms: injected {:?} → processed as \"{}\"\n", pre.injected, pre.expanded)
             } else {
@@ -777,9 +776,9 @@ pub async fn apply_review(
 
     if has_l3_update {
         let normalized = {
-            let hebbian = state.hebbian.read().unwrap();
-            if let Some(g) = hebbian.get(app_id) {
-                g.preprocess(original_query).expanded
+            let routers = state.routers.read().unwrap();
+            if let Some(r) = routers.get(app_id) {
+                r.l1().preprocess(original_query).expanded
             } else {
                 original_query.to_string()
             }
@@ -791,10 +790,11 @@ pub async fn apply_review(
         eprintln!("[auto-learn/L2] tokens: {:?}", word_refs);
 
         {
-            let mut ig_map = state.intent_graph.write().unwrap();
-            // Create IntentGraph for this namespace if it doesn't exist yet (fresh namespace).
-            let ig = ig_map.entry(app_id.to_string())
-                .or_insert_with(asv_router::scoring::IntentGraph::new);
+            let mut routers = state.routers.write().unwrap();
+            let router = match routers.get_mut(app_id) {
+                Some(r) => r,
+                None => return added,
+            };
 
             // Missed intents: learn LLM-generated phrase WORDS into L2.
             // Each phrase is tokenized and its words are learned as 1-grams.
@@ -802,7 +802,7 @@ pub async fn apply_review(
                 for phrase in phrases {
                     let phrase_words: Vec<String> = asv_router::tokenizer::tokenize(phrase);
                     let phrase_refs: Vec<&str> = phrase_words.iter().map(|s| s.as_str()).collect();
-                    ig.learn_phrase(&phrase_refs, intent_id);
+                    router.l2_mut().learn_phrase(&phrase_refs, intent_id);
                     eprintln!("[auto-learn/L2] missed → learn phrase words {:?} → '{}'", phrase_refs, intent_id);
                 }
             }
@@ -812,14 +812,14 @@ pub async fn apply_review(
             for (span_intent, span_text) in &result.spans_to_learn {
                 let span_words: Vec<String> = asv_router::tokenizer::tokenize(span_text);
                 let span_refs: Vec<&str> = span_words.iter().map(|s| s.as_str()).collect();
-                ig.learn_query_words(&span_refs, span_intent);
+                router.l2_mut().learn_query_words(&span_refs, span_intent);
                 eprintln!("[auto-learn/query] span words {:?} → '{}'", span_refs, span_intent);
             }
 
             // Wrong detections: L3 inhibition — correct intent suppresses false positive.
             for wrong in &result.wrong_detections {
                 for correct in &result.correct_intents {
-                    ig.learn_inhibition(correct, wrong);
+                    router.l2_mut().learn_inhibition(correct, wrong);
                     eprintln!("[auto-learn/L3] inhibit → '{}' suppresses '{}'", correct, wrong);
                 }
             }
@@ -830,15 +830,19 @@ pub async fn apply_review(
             // "fire together, wire apart" — these query words should NOT activate these intents.
             if result.correct_intents.is_empty() && !result.wrong_detections.is_empty() {
                 for wrong in &result.wrong_detections {
-                    ig.reinforce(&word_refs, wrong, DELTA_SUPPRESS);
+                    router.l2_mut().reinforce(&word_refs, wrong, DELTA_SUPPRESS);
                     eprintln!("[auto-learn/L3] direct suppress query tokens from '{}'", wrong);
                 }
             }
 
+            // Rebuild L0 after L2 updates
+            router.rebuild_l0();
+
             if let Some(ref dir) = state.data_dir {
-                let path = format!("{}/{}/_intent_graph.json", dir, app_id);
-                ig.save(&path).ok();
-                eprintln!("[auto-learn/L2] graph persisted → {}", path);
+                let ns_dir = std::path::Path::new(dir).join(app_id);
+                std::fs::create_dir_all(&ns_dir).ok();
+                router.save_to_dir(&ns_dir).ok();
+                eprintln!("[auto-learn/L2] state persisted → {}", ns_dir.display());
             }
         }
 
@@ -847,25 +851,27 @@ pub async fn apply_review(
         // L1 only gets positive updates — synonyms are global, suppressing them
         // could hurt other intents that use the same synonym correctly.
         if !result.correct_intents.is_empty() {
-            let mut heb_map = state.hebbian.write().unwrap();
-            if let Some(heb) = heb_map.get_mut(app_id) {
-                let pre = heb.preprocess(original_query);
+            let mut routers = state.routers.write().unwrap();
+            if let Some(router) = routers.get_mut(app_id) {
+                let pre = router.l1().preprocess(original_query);
                 let orig_words = asv_router::scoring::LexicalGraph::l1_tokens_pub(original_query);
+                let injected = pre.injected.clone();
                 for word in &orig_words {
-                    if let Some(edges) = heb.edges.get(word.as_str()).cloned() {
+                    if let Some(edges) = router.l1().edges.get(word.as_str()).cloned() {
                         for edge in edges {
                             if matches!(edge.kind, asv_router::scoring::EdgeKind::Synonym)
-                                && pre.injected.contains(&edge.target)
+                                && injected.contains(&edge.target)
                             {
-                                heb.reinforce(word, &edge.target, DELTA_REINFORCE);
+                                router.l1_mut().reinforce(word, &edge.target, DELTA_REINFORCE);
                                 eprintln!("[auto-learn/L1] synonym '{}' → '{}' reinforce ({:+.2})", word, edge.target, DELTA_REINFORCE);
                             }
                         }
                     }
                 }
                 if let Some(ref dir) = state.data_dir {
-                    let path = format!("{}/{}/_hebbian.json", dir, app_id);
-                    heb.save(&path).ok();
+                    let ns_dir = std::path::Path::new(dir).join(app_id);
+                    std::fs::create_dir_all(&ns_dir).ok();
+                    router.save_to_dir(&ns_dir).ok();
                 }
             }
         }
@@ -877,10 +883,10 @@ pub async fn apply_review(
         if !result.missed_intents.is_empty() {
             // Words from the query not yet in L1 edges — candidates for morphology expansion
             let new_to_l1: Vec<String> = {
-                let heb_map = state.hebbian.read().unwrap();
-                if let Some(heb) = heb_map.get(app_id) {
+                let routers = state.routers.read().unwrap();
+                if let Some(r) = routers.get(app_id) {
                     word_refs.iter()
-                        .filter(|&&w| !heb.edges.contains_key(w))
+                        .filter(|&&w| !r.l1().edges.contains_key(w))
                         .map(|&w| w.to_string())
                         .collect()
                 } else {
@@ -920,9 +926,9 @@ async fn learn_l1_synonyms(
     // Get L2 vocabulary that already activates the missed intents — these are
     // the target words we want new synonyms to map TO.
     let graph_vocab: Vec<String> = {
-        let ig_map = state.intent_graph.read().unwrap();
-        match ig_map.get(app_id) {
-            Some(ig) => ig.word_intent.iter()
+        let routers = state.routers.read().unwrap();
+        match routers.get(app_id) {
+            Some(r) => r.l2().word_intent.iter()
                 .filter(|(_, acts)| acts.iter().any(|(id, _)| missed_intents.contains(id)))
                 .map(|(w, _)| w.clone())
                 .collect(),
@@ -934,10 +940,10 @@ async fn learn_l1_synonyms(
 
     // Only consider query words not already in L2 — words that ARE in L2 don't need a synonym path.
     let unknown_words: Vec<&str> = {
-        let ig_map = state.intent_graph.read().unwrap();
-        match ig_map.get(app_id) {
-            Some(ig) => query_words.iter()
-                .filter(|&&w| !ig.word_intent.contains_key(w))
+        let routers = state.routers.read().unwrap();
+        match routers.get(app_id) {
+            Some(r) => query_words.iter()
+                .filter(|&&w| !r.l2().word_intent.contains_key(w))
                 .copied()
                 .collect(),
             None => query_words.to_vec(),
@@ -974,8 +980,8 @@ async fn learn_l1_synonyms(
             match serde_json::from_str::<serde_json::Value>(json_str) {
                 Ok(parsed) => {
                     if let Some(syn_map) = parsed["synonyms"].as_object() {
-                        let mut heb_map = state.hebbian.write().unwrap();
-                        if let Some(graph) = heb_map.get_mut(app_id) {
+                        let mut routers = state.routers.write().unwrap();
+                        if let Some(router) = routers.get_mut(app_id) {
                             let mut learned = 0usize;
                             for (from_word, to_word) in syn_map {
                                 if let Some(target) = to_word.as_str() {
@@ -984,7 +990,7 @@ async fn learn_l1_synonyms(
                                     if !target.is_empty() && target != from
                                         && graph_vocab.contains(&target)
                                     {
-                                        graph.add(&from, &target, 0.88,
+                                        router.l1_mut().add(&from, &target, 0.88,
                                             asv_router::scoring::EdgeKind::Synonym);
                                         eprintln!("[auto-learn/L1] synonym {} → {} (semantic/cross-lingual)", from, target);
                                         learned += 1;
@@ -993,9 +999,10 @@ async fn learn_l1_synonyms(
                             }
                             if learned > 0 {
                                 if let Some(ref dir) = state.data_dir {
-                                    let path = format!("{}/{}/_hebbian.json", dir, app_id);
-                                    graph.save(&path).ok();
-                                    eprintln!("[auto-learn/L1] {} synonym edges saved → {}", learned, path);
+                                    let ns_dir = std::path::Path::new(dir).join(app_id);
+                                    std::fs::create_dir_all(&ns_dir).ok();
+                                    router.save_to_dir(&ns_dir).ok();
+                                    eprintln!("[auto-learn/L1] {} synonym edges saved", learned);
                                 }
                             } else {
                                 eprintln!("[auto-learn/L1] no synonym mappings found for {:?}", unknown_words);
@@ -1040,8 +1047,8 @@ async fn learn_l1_morphology(
             match serde_json::from_str::<serde_json::Value>(json_str) {
                 Ok(parsed) => {
                     if let Some(variants_map) = parsed["variants"].as_object() {
-                        let mut hebbian = state.hebbian.write().unwrap();
-                        if let Some(graph) = hebbian.get_mut(app_id) {
+                        let mut routers = state.routers.write().unwrap();
+                        if let Some(router) = routers.get_mut(app_id) {
                             let mut learned = 0usize;
                             for (canonical, var_list) in variants_map {
                                 if let Some(arr) = var_list.as_array() {
@@ -1049,7 +1056,7 @@ async fn learn_l1_morphology(
                                         if let Some(variant) = v.as_str() {
                                             let variant = variant.trim().to_lowercase();
                                             if !variant.is_empty() && variant != canonical.as_str() {
-                                                graph.add(&variant, canonical, 0.97,
+                                                router.l1_mut().add(&variant, canonical, 0.97,
                                                     asv_router::scoring::EdgeKind::Morphological);
                                                 eprintln!("[auto-learn/L1] {} → {} (morphological)", variant, canonical);
                                                 learned += 1;
@@ -1060,9 +1067,10 @@ async fn learn_l1_morphology(
                             }
                             if learned > 0 {
                                 if let Some(ref dir) = state.data_dir {
-                                    let path = format!("{}/{}/_hebbian.json", dir, app_id);
-                                    graph.save(&path).ok();
-                                    eprintln!("[auto-learn/L1] {} edges added, graph persisted → {}", learned, path);
+                                    let ns_dir = std::path::Path::new(dir).join(app_id);
+                                    std::fs::create_dir_all(&ns_dir).ok();
+                                    router.save_to_dir(&ns_dir).ok();
+                                    eprintln!("[auto-learn/L1] {} edges added, state persisted", learned);
                                 }
                             } else {
                                 eprintln!("[auto-learn/L1] no morphological variants found for {:?}", new_words);

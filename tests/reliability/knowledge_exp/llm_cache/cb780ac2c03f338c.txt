@@ -1,0 +1,10 @@
+what happens to the fee when i refund a customer
+my payment processing fee is still showing
+do i get charged a fee for refunding
+is there a way to get the processing fee back
+why does stripe keep the fee when i refund
+my payment keeps failing and i want a refund
+can i get a refund on the fee too
+how do processing fees work with refunds
+does stripe charge me for refunding customers
+will i get a payout delay because of fees

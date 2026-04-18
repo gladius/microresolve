@@ -1,0 +1,6458 @@
+[
+  {
+    "text": "tell me time of alarm you set",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "list all of my alarms",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "alarm settings",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "what alarms are set for today",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "please see see for me the alarms that you have set sunday morning",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "tell me when the next alarms are for",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "please tell me what alarms are on",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "please list all my alarms",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "what alarms are set right now",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "check whether i have set any alarms for tomorrow morning",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "tell me about my alarms",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "do i have any alarms set",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "is there an alarm at four am",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "show me my alarms",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "what alarm time had you set",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "can you tell me what alarms i have set",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "please let me know the morning alarm time kept for weekends",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "what time is the alarm set for tomorrow",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "may i know the about alarm you set",
+    "intents": [
+      "alarm query"
+    ]
+  },
+  {
+    "text": "disable the alarm which is set at nine thirty pm",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "delete scheduled alarm",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "turn off my first alarm",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "please cancel all alarms for tomorrow",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "please delete the wednesday evening alarm",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "please delete my morning alarm",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "remove all of my alarms",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "cancel alarm",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "delete the alarm i just set",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "could you please remove the set of alarms between eight and nine",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "please turn off the alarm",
+    "intents": [
+      "alarm remove"
+    ]
+  },
+  {
+    "text": "set an alarm for nine am",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "change alarm to start at midnight",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "alarm ten am",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "set an alarm for me for tomorrow",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "set an alarm for twelve",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "set a timer at five am seven days a week",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "i need to set an alarm for next friday at noon",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "please sound an alarm three hours before a scheduled event",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "can you set an alarm for seven am",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "alert me at ten am please",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "set the alarm to seven am for work",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "wake up time",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "change my alarms to mountain time",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "set up each day an alarm at ten time for my meal",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "please set an alarm clock for my next meeting with the team at three pm next friday",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "set my alarm for six am",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "set an alarm for this eight hundred pm this evening",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "set alarm at six thirty am",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "make me a wake up alarm for eight forty five am",
+    "intents": [
+      "alarm set"
+    ]
+  },
+  {
+    "text": "could you please lower the tone",
+    "intents": [
+      "audio volume down"
+    ]
+  },
+  {
+    "text": "please talk softer",
+    "intents": [
+      "audio volume down"
+    ]
+  },
+  {
+    "text": "lower the speak volume",
+    "intents": [
+      "audio volume down"
+    ]
+  },
+  {
+    "text": "it is too loud decrease the volume",
+    "intents": [
+      "audio volume down"
+    ]
+  },
+  {
+    "text": "turn down volume",
+    "intents": [
+      "audio volume down"
+    ]
+  },
+  {
+    "text": "reduce volume",
+    "intents": [
+      "audio volume down"
+    ]
+  },
+  {
+    "text": "lower the volume to twenty",
+    "intents": [
+      "audio volume down"
+    ]
+  },
+  {
+    "text": "lower volume by fifty percent",
+    "intents": [
+      "audio volume down"
+    ]
+  },
+  {
+    "text": "quiet please",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "mute sound from speakers",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "please mute for five minutes",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "mute my speakers for a minute here i need to make a call",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "mute speaker",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "silence volume on speakers",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "turn off media volume",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "i need you to be quiet until tomorrow",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "go to sleep",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "no notifications for five minutes",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "turn off the sound",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "mute the music",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "pause for ten seconds",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "set mute for twenty minutes",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "i need to mute the speaker",
+    "intents": [
+      "audio volume mute"
+    ]
+  },
+  {
+    "text": "could you speak a little more softly",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "turn it up",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "just increase the volume a little",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "olly turn the volume up",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "raise volume to level seven on music player",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "i want the speakers turned up high",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "rise volume",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "please increase the volume of the music hips don't lie",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "raise the volume of my music player by fifty percent",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "speak as loud as you can",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "increase volume please",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "make this a bit louder",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "increase volume to fifty percent",
+    "intents": [
+      "audio volume up"
+    ]
+  },
+  {
+    "text": "when is the school dance junction marked",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "what is my schedule for tomorrow",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "am i available at five pm on sunday",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "do i have any notifications from social media",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "what do i have scheduled for next week",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "tell me the meetings i have for the week",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "do i have any openings on my schedule for tomorrow",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "do i need to pick up the kids from anything today",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "is there anything i need to be aware of",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "do i have any undone tasks",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "what is left for today",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "list out my upcoming events",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "one thousand two hundred and thirty pm already you will have a meeting in ten mins",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "is the meeting scheduled for tomorrow",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "when the birthday will be",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "when is my next appointment and who do i contact to reschedule",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "what is the plan for tonight",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "what day of the week is my birthday this year",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "what is my schedule for june fourteenth two thousand and seventeen",
+    "intents": [
+      "calendar query"
+    ]
+  },
+  {
+    "text": "remove the next event on my calendar",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "format the calendar",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "remove the board meeting and reschedule for next wednesday",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "delete event from mine",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "cancel the event valentine's day from the calendar",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "remove my meeting today at one pm",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "i no longer need to see the doctor can that event be removed",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "please remove march nineteenth's scheduled event",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "make sure there is no events on my calendar",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "remove all the events on my calendar",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "delete my meeting event for march nineteen at one pm",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "remove upcoming task",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "remove emma's birthday from events",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "in my calendar delete all of my golf events for the current month",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "erase calendar events",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "take lunch meeting off my calendar",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "delete all my events for tomorrow",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "delete the party on june first from my calendar",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "can to please clear my calendar of all events",
+    "intents": [
+      "calendar remove"
+    ]
+  },
+  {
+    "text": "set a reminder for tomorrow evening",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "notify me when the event is going to take place",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "add jim and jerry to event",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "make a repeating reminder for my yoga practice every day at noon",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "i have a meeting with sean at four pm on wednesday can you remind me",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "create an event gym day on monday and set it to repeat",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "blot me all the phone calls planned for the morning of twenty three march",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "can you remind me about my meeting tomorrow",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "repeat reminder for my schedule for christmas",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "remind me to call my grandma this sunday",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "next week my uncle birthday",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "add running to my calendar for thursday",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "i would like to attend church every sunday at eleven am",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "see if john is available for a meeting on monday",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "remind me about the meeting",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "set the alarm in my calendar events before five mins",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "activate a one week notification before my anniversary please",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "could you please schedule a meeting with this person",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "i have a meeting with al on march twenty first at ten",
+    "intents": [
+      "calendar set"
+    ]
+  },
+  {
+    "text": "help me make brownies",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "crabmeat recipe",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "it should spices",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "tell how vegetable is cooked",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "learn to cut potatoes correctly",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "how to cook that meal",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "can i get a recipe for tuna",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "please cook me a hamburger",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "how to cook yellow rice",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "i need to know how to make stuffed peppers",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "how can i cook pasta",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "look for different recipes",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "what ingredient can be used instead of saffron",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "find apple pie recipe",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "do i have enough ingredients in my refrigerator",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "search for your favorite meal",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "tell me the preparation method for chicken sixty five",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "i would like it to be able to find recipes i have",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "why do people use avocado seeds",
+    "intents": [
+      "cooking recipe"
+    ]
+  },
+  {
+    "text": "if it's eight pm on the east coast what time is it in sacramento california",
+    "intents": [
+      "datetime convert"
+    ]
+  },
+  {
+    "text": "if it is four pm in missouri what time is it in london",
+    "intents": [
+      "datetime convert"
+    ]
+  },
+  {
+    "text": "can you please change the time zone to us",
+    "intents": [
+      "datetime convert"
+    ]
+  },
+  {
+    "text": "which time zone are we in please change to current",
+    "intents": [
+      "datetime convert"
+    ]
+  },
+  {
+    "text": "please change time zone to canada",
+    "intents": [
+      "datetime convert"
+    ]
+  },
+  {
+    "text": "what time will it be locally at nine am bangalore india time",
+    "intents": [
+      "datetime convert"
+    ]
+  },
+  {
+    "text": "it is ten am in eastern standard time what time it is now it pacific standard time",
+    "intents": [
+      "datetime convert"
+    ]
+  },
+  {
+    "text": "change mountain standard to pacific",
+    "intents": [
+      "datetime convert"
+    ]
+  },
+  {
+    "text": "please tell me the date",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "date today",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "what is today",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "what is the time in geneva",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "let me know the time",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "new york time please",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "what is the time difference between here and dakar",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "let me know the time in india",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "tell me the time in this time zone",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "which date is on next monday",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "tell me what time it is in dallas texas",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "what time is it in the other time zones",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "hey what's the current time in austin",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "hey what is the time",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "could you tell me what time it is",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "what day of the week does the next holiday fall on",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "august fifteenth is what day of the week",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "can you tell me the date today",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "hey what's today's date",
+    "intents": [
+      "datetime query"
+    ]
+  },
+  {
+    "text": "add dan's email",
+    "intents": [
+      "email addcontact"
+    ]
+  },
+  {
+    "text": "add contacts n mail",
+    "intents": [
+      "email addcontact"
+    ]
+  },
+  {
+    "text": "enter atdfd@yahoo dot com into my contact list",
+    "intents": [
+      "email addcontact"
+    ]
+  },
+  {
+    "text": "get apahelp@yahoo dot com in my contacts",
+    "intents": [
+      "email addcontact"
+    ]
+  },
+  {
+    "text": "save the email to my contact",
+    "intents": [
+      "email addcontact"
+    ]
+  },
+  {
+    "text": "please add johndoe@yahoocom to my contact list",
+    "intents": [
+      "email addcontact"
+    ]
+  },
+  {
+    "text": "add this new email",
+    "intents": [
+      "email addcontact"
+    ]
+  },
+  {
+    "text": "add work email address",
+    "intents": [
+      "email addcontact"
+    ]
+  },
+  {
+    "text": "are there any new emails from name",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "give me recent emails",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "refresh email",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "i need to know all of the emails from contact pertaining to subject",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "open email",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "who has sent me an email in the past week",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "check emails for unread emails from mom",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "did any emails come for me in the last five hours",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "report what is new in my email inbox please",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "what is the subject and who is the sender of my last email",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "what did i tell susan in my last email",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "show me all the emails received recently",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "do i have any emails from jessica",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "are there any recent unread emails",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "do i have any new email from ryan",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "carlos linux upgrade email",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "my mail",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "have i gotten any mail recently",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "check emails",
+    "intents": [
+      "email query"
+    ]
+  },
+  {
+    "text": "what is sarah's number",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "can you give me details on john",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "have you responded my phone calls",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "what is jeff's number",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "how many contacts are there named john",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "tell me the contact details of my brother",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "show mobile number of john",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "does contact mona has an email as well",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "show number and contact email of rehan",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "look up for the residential address of my team leader",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "what is my wife's email",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "select the contact",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "is this my sisters cellphone number",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "how old is mary s.",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "did mom text me",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "please let me know where david is travelling",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "is hayden still living on turnpike lane",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "add rebecca green to my list of favorite contacts",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "what is jill's home phone number",
+    "intents": [
+      "email querycontact"
+    ]
+  },
+  {
+    "text": "send a mail to whom to talk",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "pull up kate's email and write that i will let her know",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "please reply to my boss most recent email and say that the ppt will be ready in one hour maximum",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "reply the email of charles with just thank you right now",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "send new email to jana dot litt at gmail dot com",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "hey please reply to last pawel's email",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "send email to new email address",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "send an email to my friend say birthday wishes",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "send email to mom starting with the subject vacation",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "jj.nzt@yahoo dot com",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "email happy new year to john",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "tell to joe's email that come to my house in this moment i am alone",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "go to email and send message to",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "email john smith",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "start a new email to george brown",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "send a replay email",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "send reply to joe",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "email tom the date and time of tomorrow's meeting",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "add mail id subject content",
+    "intents": [
+      "email sendemail"
+    ]
+  },
+  {
+    "text": "fantastic response.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeap you've gotten my instructions perfectly.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah wonderful response.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah exact response to the command.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah perfect response to command.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah excellent.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah exactly.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "perfect response to command.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yes you have got my instructions perfectly.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah you understood command correcly.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah wonderful response to command.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "strongly agree.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeap it is confirmed.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "you got the command right.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah strongly agree.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah fantastic.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yes you've understood my instructions exactly.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeap your understanding was confirmed.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "yeah that is correct.",
+    "intents": [
+      "general affirm"
+    ]
+  },
+  {
+    "text": "i would like you just stop it.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "will you please shut down.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly that's enough, just stop it.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly can you stop it.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly please would you stop.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "please shut up.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "i like you cancel.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "will you just stop it please.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "would you cancel it please.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly can you shut down.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly that is enough, just stop it.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly will you cancel please.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "will you stop.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "that's all, cancel it.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly shut down please.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly can you just stop.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "will you cancel it.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly please can you shut up.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "olly i want you cancel.",
+    "intents": [
+      "general commandstop"
+    ]
+  },
+  {
+    "text": "would you confirm the question.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "could you check my last question.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "will you check and confirm command please.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "please will you check it.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "could you check and confirm what i last said please.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "will you please check it.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "please can you confirm the question.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "check the details please.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "can you confirm it.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "please can you confirm it.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "can you check and confirm the question please.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "i like you check question please.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "did you get what just said correctly?",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "did you get what said correctly?",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "i like you to check and confirm what i said please.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "would you please confirm the instruction.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "check and confirm my last question please.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "will you check and confirm the instruction please.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "can you check last thing said please.",
+    "intents": [
+      "general confirm"
+    ]
+  },
+  {
+    "text": "i would not mind, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "wouldn't mind for any one.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "does not matter for me, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "don't really bother, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "wouldn't really know, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "i have no idea about what to do, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "i do not mind for whatever.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "any one is good, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "it does not matter to me, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "i would not mind to select any one.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "i do not really mind for whatever.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "this is unimportant for me.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "i would not mind to select any one, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "does not matter for me.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "any one is good to me.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "this is unimportant, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "wouldn't really mind for whatever.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "have no idea regarding to what to select, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "does not matter, olly.",
+    "intents": [
+      "general dontcare"
+    ]
+  },
+  {
+    "text": "would you clarify me on your answer further please.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "s2, i can not understand that.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "your words is not so clear.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "s1, explain further please.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "s2, i am unclear about what you have just said.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "please will you clarify me more on that.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "will you rephrase me about your response once again please.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "again clarify me on your answers.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "again elaborate.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "couldn't understand what you just said now.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "can you again clarify what you've said please.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "i didn't get your response.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "s1, could you please again rephrase me about what you said now.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "what you said now was not clear.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "can you explain once again.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "do not get this.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "s1, explain me on your answer further please.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "s2, i do not catch up with you.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "didn't understand what you said now.",
+    "intents": [
+      "general explain"
+    ]
+  },
+  {
+    "text": "tell me random joke",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "find me a joke related to baseball",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "i need to be cheered up right now can you tell me a good joke",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "today's jokes",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "do you have a joke",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "what's your favorite joke",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "look for a joke",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "do you know what a joke is",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "i want a nerd joke",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "what about this joke",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "have any jokes",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "joke please",
+    "intents": [
+      "general joke"
+    ]
+  },
+  {
+    "text": "thanks but i think you don't understand this correctly.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "sorry but i think you've got that not right.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "i didn't say it.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "shit, not right.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "i think it is not correct response.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "thanks but you have understood this wrongly.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "wait, i think that's not the right answer.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "that wasn't right.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "oops, you're not correct.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "wait, you did not interpret command right.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "you have done a wrong thing.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "wait, this is not the correct answer.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "thanks but i think you do not get me.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "no, this is not what i am looking for.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "uhh no, incorrect command.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "i think you don't get answer right.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "i think you did a task all wrong.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "uh no, you did not understand what i am searching for.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "i am sorry but i think it was not the correct answer.",
+    "intents": [
+      "general negate"
+    ]
+  },
+  {
+    "text": "you are my hero, thank you very much, olly.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "you have done it correctly thanks, olly.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "ah that's nice one.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "you rock, thank you very much, olly.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "fantastic job, you did well.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "that's good, thanks.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "appreciate your answers, olly.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "you are my star, thank you so much, olly.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "that was cool, i appreciate it.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "fantastic job, you've done well, olly.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "great work, you did well, olly.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "that is cool, thanks, olly.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "thank you for the response, olly.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "you've done it right.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "well done, appreciated.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "excellent work, you have done well.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "awesome job, you did well.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "it's great one, thank you very much.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "it's helpful, appreciated.",
+    "intents": [
+      "general praise"
+    ]
+  },
+  {
+    "text": "today i had a lunch with my longtime sweetheart play me a nice song to the mood",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "what's on tv",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "is the data prefers any problems in objects",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "your salary",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "overall day",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "anything i need to know",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "is mile marker sixty five where the hanging tree is located",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "tell me what happens when we die",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "what is your country",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "do i need to spare washing my car today",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "this brings some problems to us",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "can you explain me the problems when the syria becomes more stronger than america",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "you are chatbot",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "how high is the quality of this stone",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "can you please tell me who are you",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "where did he was yesterday",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "have you come across any new recipes",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "how did your day go",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "give me the product review from gamespot about the nintendo switch",
+    "intents": [
+      "general quirky"
+    ]
+  },
+  {
+    "text": "let's start over please.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "please say one more time again.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "i would like to hear that information spoken again.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "i would like to hear the last one spoken again.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "i'd like to hear the last spoke again.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "i need to hear what you've said again.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "retry please.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "will you try what i have just said one more time please.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "would you tell me one more again please.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "would you tell me once again.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "could you tell me the last one you just said again please.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "i want to hear that again.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "i want to hear it again.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "please could you tell me once more.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "can you try again please.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "say one more time again please.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "will you speak once again please.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "please say it once again.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "please tell me it once more.",
+    "intents": [
+      "general repeat"
+    ]
+  },
+  {
+    "text": "please activate my vacuum to clean the living room",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "can you wake the roomba for the kitchen",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "please have vacuum go for one hour",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "activate the vacuum",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "clean the sofa with the vacuum cleaner",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "have the vacuum cleaner clean the room",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "hurriedly activates my robot vacuum cleaner",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "begin vacuum",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "remove dust with vacuum cleaner",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "start vacuum bot",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "start my robot vacuum cleaner by ten to eleven am daily",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "activate vacuum cleaner",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "turn on the roomba",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "begin vacuum cleaning",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "please turn on my vacuum cleaner",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "how do you activate the robot vacuum cleaner",
+    "intents": [
+      "iot cleaning"
+    ]
+  },
+  {
+    "text": "i would like some coffee now",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "please make coffee at seven am",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "make a cup of coffee",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "start coffee at six am",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "i want some coffee now",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "get me some latte please",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "prepare my morning coffee",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "prepare some cups of coffee for us",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "can you see to it that the coffee maker is ready with my filter coffee in approximately ten minutes from now",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "i'd like a coffee now",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "can you please turn on the coffee pot to make me coffee",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "prepare coffee now",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "can you get me a cup of coffee",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "make a cup of coffee for me",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "get a cup of coffee ready now",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "coffee please",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "make me a capuccino",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "make me coffee at eight am",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "put on a pot of coffee",
+    "intents": [
+      "iot coffee"
+    ]
+  },
+  {
+    "text": "please make the lights natural",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "lights to fifty percent",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "can you change the light colors in the house",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "turn the lights on party mode",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "set the mood please",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "change the light colors",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "could you change the lights colour to green please",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "make curser adjustable position",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "change light color",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "change the light color to blue",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "alter the color of the lights at home",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "change lights to blue",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "can you change the living room lights to a softer color",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "can you set the living room lights to pink",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "change the color of the lights to blue",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "let's have a warm glow in the front room",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "switch lights to red tone",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "change my light color to blue and please turn off the kitchen light",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "all lights colour to blue please",
+    "intents": [
+      "iot hue lightchange"
+    ]
+  },
+  {
+    "text": "dim the lights at the living room",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "lower the light intensity",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "hi can you please turn lower the lights",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "dim the lights please",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "please turn down the lights",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "lower the lights",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "lower the lights in bedroom two",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "i want the room to be less bright",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "hey olly make the lights a little dimmer",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "light is too much",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "reduce brightness",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "dim the overhead lights a tad",
+    "intents": [
+      "iot hue lightdim"
+    ]
+  },
+  {
+    "text": "switch off main light",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "off all the lights on the right side",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "turn off lights in bathroom",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "bedroom lights off now",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "turn off the lights in the bathroom",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "please turn off the lights in the kitchen",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "turn off the room light",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "power off the current",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "turn off lights of kitchen",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "by main power off",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "turn off the upstairs bathroom light",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "please turn off my patio lights",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "turn the lights off please",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "can you make sure the kitchen light is off",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "could you turn the light off",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "turn the living room's light off",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "switch off the lights",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "can you turn off my desk lamp",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "turn the left light off",
+    "intents": [
+      "iot hue lightoff"
+    ]
+  },
+  {
+    "text": "please turn on all lights",
+    "intents": [
+      "iot hue lighton"
+    ]
+  },
+  {
+    "text": "please turn on the lights",
+    "intents": [
+      "iot hue lighton"
+    ]
+  },
+  {
+    "text": "it's dark in the living room",
+    "intents": [
+      "iot hue lighton"
+    ]
+  },
+  {
+    "text": "light up",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "lighten the light",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "i need the lights in here to be turned up to seven",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "increase brightness by twenty percent",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "increase the light in the room",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "can you turn up the lights",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "i would like all the lights on when i enter",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "please arrange to make all lights to show brighter",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "brighten living room lights",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "raise all the lights on",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "raise the lights",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "brighten the light at seventy percent",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "increase",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "brighten the lights",
+    "intents": [
+      "iot hue lightup"
+    ]
+  },
+  {
+    "text": "deactive the socket",
+    "intents": [
+      "iot wemo off"
+    ]
+  },
+  {
+    "text": "turn off the rice cooker socket",
+    "intents": [
+      "iot wemo off"
+    ]
+  },
+  {
+    "text": "power off wemo plug socket",
+    "intents": [
+      "iot wemo off"
+    ]
+  },
+  {
+    "text": "please switch off on the wemo plug socket",
+    "intents": [
+      "iot wemo off"
+    ]
+  },
+  {
+    "text": "shut the smart socket down",
+    "intents": [
+      "iot wemo off"
+    ]
+  },
+  {
+    "text": "i do not want to use the socket anymore",
+    "intents": [
+      "iot wemo off"
+    ]
+  },
+  {
+    "text": "turn off my smart plug in thirty minutes",
+    "intents": [
+      "iot wemo off"
+    ]
+  },
+  {
+    "text": "turn off wifi when you leave home to save power",
+    "intents": [
+      "iot wemo off"
+    ]
+  },
+  {
+    "text": "please turn off my smart plug socket",
+    "intents": [
+      "iot wemo off"
+    ]
+  },
+  {
+    "text": "turn on the wemo plug socket to connect my charger to it",
+    "intents": [
+      "iot wemo on"
+    ]
+  },
+  {
+    "text": "turn on the plug",
+    "intents": [
+      "iot wemo on"
+    ]
+  },
+  {
+    "text": "on all the button on dashboard",
+    "intents": [
+      "iot wemo on"
+    ]
+  },
+  {
+    "text": "toggle wemo plug socket on",
+    "intents": [
+      "iot wemo on"
+    ]
+  },
+  {
+    "text": "wemo on",
+    "intents": [
+      "iot wemo on"
+    ]
+  },
+  {
+    "text": "start new smart socket",
+    "intents": [
+      "iot wemo on"
+    ]
+  },
+  {
+    "text": "make the wemo go on",
+    "intents": [
+      "iot wemo on"
+    ]
+  },
+  {
+    "text": "create a list of monthly groceries to be bought",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "create a list of books to be ordered",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "create a blank list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "add to list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "add these documents to the things i need to travel with",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "start a new list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "create a new to do list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "search the item",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "create a new shopping list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "start new list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "i need to set up a new list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "remind me to buy jeans on my shopping list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "add cereal to my shopping list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "i need to make a list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "please add item to list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "make a new list of dog breeds",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "add item",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "make a catalogue",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "put this on my list",
+    "intents": [
+      "lists createoradd"
+    ]
+  },
+  {
+    "text": "open google keep",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "what is the list type",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "what list did i make today",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "did i put toothpaste on my pick up list",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "please show me lists",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "groceries list",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "tell me my lists",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "how many items are on my list",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "tell me the names on the list",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "show the list that are available with numbers",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "please tell me what lists i have made",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "most viewed list",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "what did i put down already on the walmart list",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "can i see my lists for today",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "is there anything on my list today",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "what open lists do i have",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "what is on my playlist",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "what's on the list",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "whats the schedule for today",
+    "intents": [
+      "lists query"
+    ]
+  },
+  {
+    "text": "can you remove this item from the list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "delete last entry",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "remove books from list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "please remove my list of favorite albums",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "please delete what i just typed",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "take bread out from the shopping list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "change that off the list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "remove the list of apps which started with letter a",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "remove this from the list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "get rid of peas",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "remove item three from the list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "take grocery buying off of the list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "i don't have enough money to buy the nintendo switch right now can you please remove it on my amazon wishlist",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "i want to remove apples from list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "please remove this item from the list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "delete item",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "remove item four",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "get rid of mike stein from contacts list",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "delete my grocery list in my notes",
+    "intents": [
+      "lists remove"
+    ]
+  },
+  {
+    "text": "save this song in my favorites",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "please rate this song five stars please",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "i like alt rock music",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "add song to running list",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "i like to be it",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "add this channel to pandora",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "this song should be on my playlist",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "i like it",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "add this song to favorites playlist",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "i favorite singer is arijit singh find his voice on radio",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "i really enjoy this song",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "i'd like you to remember that i like this song",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "what is in my favorites music folder",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "please save the current song to favorites",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "all i ever want to hear is rap",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "the song you are playing is amazing",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "please thumbs up this song",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "remember that this song is good but too slow to exercise to",
+    "intents": [
+      "music likeness"
+    ]
+  },
+  {
+    "text": "who is the song writer",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "please give me detail of o zaalima song",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "give me the details on elton john",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "what movie is this song from",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "when did pop it like it's hot come out",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "what is the name of the singer",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "who is singing this song",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "i want to know what song has the phrase stairway to heaven in it",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "where can i find this song",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "song info",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "what list is available for my favorite music from ed sheeran",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "who is this",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "list of playback of ar rahman collections",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "what music is this",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "what music service has some soul music i can listen to",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "which songs do i listen to most",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "can you locate some gospel music for me",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "tell me the name of this music",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "music traking",
+    "intents": [
+      "music query"
+    ]
+  },
+  {
+    "text": "shuffle this playlist",
+    "intents": [
+      "music settings"
+    ]
+  },
+  {
+    "text": "repeat this song when it ends",
+    "intents": [
+      "music settings"
+    ]
+  },
+  {
+    "text": "cut the songs in this musics",
+    "intents": [
+      "music settings"
+    ]
+  },
+  {
+    "text": "repeat previous song",
+    "intents": [
+      "music settings"
+    ]
+  },
+  {
+    "text": "please repeat that music again of akon",
+    "intents": [
+      "music settings"
+    ]
+  },
+  {
+    "text": "repeat this song",
+    "intents": [
+      "music settings"
+    ]
+  },
+  {
+    "text": "repeat same song for ten times",
+    "intents": [
+      "music settings"
+    ]
+  },
+  {
+    "text": "add newscast time to daily schedule",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "what were the cities affected by the earthquake",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "head lines today from news",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "what is the seattle city council doing about homelessness",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "find me any news from so clean the last six hours",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "what is the latest headline news from this newsource",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "could you please find me the latest news from a source that i do not usually go to",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "please keep tabs on how the presidential debates are going",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "what's happening around the world",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "i want to know everything that breaks about the dam breaking in california",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "what is the latest news about obamacare",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "show news of migration",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "find new trump articles but not from fox news",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "what's the latest news from xinhua",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "find me info on cars",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "show me news from cnn",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "what is the current state of brexit negotiations",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "fast me the news of academy awards",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "i want the news about academy awards",
+    "intents": [
+      "news query"
+    ]
+  },
+  {
+    "text": "i want to hear more audiobook",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "pause resume",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "resume my audio book from karl pilkington",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "book please",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "start playing american gods where i last stopped",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "play from my last session of joes book",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "open audio book history of rome",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "start audiobook the time traveller",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "resume animal farm",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "can you play file",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "audio",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "start from my last session of joes book",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "play from this point from this audiobook",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "resume my audiobook where we paused last",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "resume the last kingdom for me",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "end pause on audio book history of rome",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "i want to finish listening to the book one thousand nine hundred and eighty four from where i left off",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "keep reading",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "can you play my favorite audio book of tarzan",
+    "intents": [
+      "play audiobook"
+    ]
+  },
+  {
+    "text": "play for me the game temple run",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "i want to play solitare with you",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "can we play twenty questions",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "give me a company for playing football",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "my games to play in my phones",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "let's play",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "play tennis for me",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "lets play poker",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "anyone for tennis",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "play pong against me",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "play solitaire",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "we should play nfs at high speed",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "can we play a game of hangman",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "do you want to play monopoly with me",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "bring up papa pear saga",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "play checkers with me",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "fight me in street fighter",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "paper scissors or stone",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "start poker game with me",
+    "intents": [
+      "play game"
+    ]
+  },
+  {
+    "text": "play music i have liked",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "i would like to hear the theme song to this is us",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play the list from my favorites",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "put poker face by lady gaga next in the play queue",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "turn on the tunes",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "rock",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play jumper by third eye blind",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play music playlist",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "please turn on my music",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play my rap playlist",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "after this song play atmosphere",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play true love next",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play hip hop songs",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "hey play crazy by britney spears",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play marvin gaye i want you",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play tonic",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play jingle bells next",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "open jazz",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play all third day",
+    "intents": [
+      "play music"
+    ]
+  },
+  {
+    "text": "play fishing podcasts that are favorited",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "play podcast for the philadelphia eagles content",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "play me the new podcast from npr",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "keep playing the episodes in order",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "play next episode",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "play my play list",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "play favorites listed in podcasts starting with first one",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "play previous episode",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "play my favourite podcasts",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "get the next episode",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "please start the next podcast episode",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "please play next episode of podcast",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "show me podcasts",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "can you play back to december",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "can you please download my podcast file available in internet and play it once",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "skip this episode",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "skip this one",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "what are my top played podcasts",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "go back to previous episode of podcast",
+    "intents": [
+      "play podcasts"
+    ]
+  },
+  {
+    "text": "play radia",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "play nine hundred and seventy one",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "play the radio",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "turn on the local radio",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "please turn on the sean hannity show on am",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "play national public radio",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "play one thousand and thirty seven fm",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "show me upcoming programmes on one hundred and five point one",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "load sirius and play a rock and roll show",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "tune into the nearest english fm station",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "please play some songs for kids",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "find joel osteen's broadcast on sirius",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "please go to the local sports talk show on the radio",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "play alex jones in radio",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "play radio javan",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "press play on the radio",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "play my rock station on pandora",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "play music radio for me",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "play me a radio channel for trance music",
+    "intents": [
+      "play radio"
+    ]
+  },
+  {
+    "text": "what is the most current exchange rate in china",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "if i have five dollars how many rupies is that",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "how much is dollars american worth in yen",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "convert euros to dollars",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "how much is ten dollars in euros",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "how much is b. p. in u. s. d.",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "what's the value of the euro relative to nzd",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "exchange rate of euro with dollar",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "how much money in us would i need to have a thousand pesos",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "u. s. d. to g. b. p.",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "i have ten us dollars how many canadian dollars do i have",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "how much is the us dollar worth in canada",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "what is the exchange rate between the us and canada",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "how much indian rupees per u. s. d. today",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "how many g. b. p. can i get for one dollar",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "give me the exchange rate for dollar in euros",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "how much australian dollars one can buy for one pound sterling",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "and the pound is doing how badly against the euro",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "what is the exchange rate between money i'm the united states and switzerland",
+    "intents": [
+      "qa currency"
+    ]
+  },
+  {
+    "text": "please define forensic",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "tell about the origin of the word evolution",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "what's the definition of diverse",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "what is love",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "what is a trebuchet",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "what do you know about the statue of liberty",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "google definition for me",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "define economics",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "what does h2o stand for",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "meaning of word",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "please tell me the definition of home",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "how would you define a car",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "look up animal and give me the definition",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "describe a rotor",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "define the moon for me",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "define flabbergasted",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "find the meaning of promise",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "define rumplestiltskin",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "what does a grapefruit look like",
+    "intents": [
+      "qa definition"
+    ]
+  },
+  {
+    "text": "what year what the eiffel tower built",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "when does the super bowl officially start",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "how many months in a year",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "how many pages long is harry potter",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "where do cows come from",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "where is italy",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "give me the birth date of mahatma gandhi",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "which continent has highest growth of cotton and what is average production",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "when is shakira's birthday",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "please tell me about the historic facts about india",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "how old is emma watson newest boyfriend",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "who assassinated lincoln",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "tell me when will indians economy touch that of americas",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "info on lisa ann please",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "calculate distance from boston to new york",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "what year did george clooney start acting",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "tell me who will win the next presidential election",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "what is the capital of new hampshire",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "name the capital of nigeria",
+    "intents": [
+      "qa factoid"
+    ]
+  },
+  {
+    "text": "two by two is",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "fifteen plus twenty",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "divide two hundred by four",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "what is one plus one",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "is one divisible by three",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "convert ten inches to centimeters",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "what is the answer to this math question",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "three times two equals six",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "how many inches make one feet",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "what is the square root of four",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "can you add up thirteen plus five plus nine for me",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "what is twenty percent of one hundred and twenty",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "what is five divided by one",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "what is the sum of 9 and 12",
+    "intents": [
+      "qa maths"
+    ]
+  },
+  {
+    "text": "what are the stock prices of target",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "fill me in on stock symbol",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "what is the price of stock for gm",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "google i. b. m. stock prices",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "how is shell s stock doing today",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "stock price for gss energy",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "list me the stock of apple right now",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "stock price for sprint",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "what is the value of apple",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "compare the stock prices for nintendo and sony and tell me which ones are better",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "how much did facebook stock increase last night",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "what is the stock information of walmart",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "what is now stock price of tata",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "what is the current price of jindel stock",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "how is coca cola stock doing today",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "for how much is hp selling for",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "what price are google stocks trading for",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "is starbucks stock up or down from last quarter",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "how much to buy stock in i. b. m.",
+    "intents": [
+      "qa stock"
+    ]
+  },
+  {
+    "text": "what events are coming up",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "let me see cultural events for this weekend in palermo neighborhood",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "what are the concerts happening nearby",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "is there any type of festival going on in town this weekend",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "show me painting exhibition in bay area",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "are there any fun things to do in seattle this weekend",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "what's going on",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "recommend an event happening in my area",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "what events are happening this weekend in my area",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "what's happening at the library this month",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "what is playing at the local theater right now",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "what do they have going on for festivals downtown",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "could you list out the information on book fairs in washington dc for next week",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "are there any events going on downtown tonight",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "when is the yearly cultural event coming up",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "what's happening around town",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "what event do you suggest for me tonight",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "what's happening in town tonight",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "give me the list of circus shows going on in the city right now",
+    "intents": [
+      "recommendation events"
+    ]
+  },
+  {
+    "text": "please tell me a shop where i can find books to buy",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "where is the closest restaurant",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "is there a sports bar near kansas city plaza area",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "where should i go eat tonight",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "i'm looking for a casual restaurant for a dinner date",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "where is the shopping mall for shirts",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "what shops are near me",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "when does the closest bar close",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "where can i find the nearest irish pub in my area",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "give me some cafes near downtown fort lauderdale",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "where is the best place to buy party supplies in town",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "where can i got to grab some drinks in west chester",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "where is the closer starbucks",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "what is the best hardware store near me",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "where is mcdo",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "can you recommend any pub in mg road",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "find grocery store with an organic section near me",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "is there any chinese places in benton ar",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "tell me where the local shopping district is",
+    "intents": [
+      "recommendation locations"
+    ]
+  },
+  {
+    "text": "play a movie i'll like",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "what time will a movie be shown tomorrow",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "what new movies available today",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "suggest a good genre movie that came out recently",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "please recommend a movie",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "what is the highest rated movie this week",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "recommend a movie for me",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "do you recommend any movies that are currently playing in me area",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "what is the highest rated movie now out",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "what is the best movie to watch this weekend",
+    "intents": [
+      "recommendation movies"
+    ]
+  },
+  {
+    "text": "send a complaint to sony about this tv that quit working",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "write complaint to wallmart",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "please tweet about the problem i m facing with the product of company",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "open gallery post video name",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "complain to amazon customer service for me",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "tell comcast i am still on hold",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "tweet that there was an insect in the chocolate packet",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "post new status",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "lets send a tweet",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "i want to tweet a complaint on apples phone issues",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "tweet to ikea costumer service the following i'm not happy with this new klm product",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "tweet at quote unquote",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "tweet customer service not good for lpg service in my twitter account",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "comcast sucks put that on their twitter account",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "tweet my complaint to @nsa",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "tweet terrible service",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "hashtag loving this weather post to twitter",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "send a tweet to apple that their batteries drain too fast",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "complain to mcdonalds twitter about my burger",
+    "intents": [
+      "social post"
+    ]
+  },
+  {
+    "text": "who is doing facebook live right now",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "tell me what's going on snap chat",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "what's the most popular story on my facebook newsfeed",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "how many notifications do i have on facebook",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "please check the trending topics on twitter",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "read me new post on my feed",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "get me updates from kenny's facebook from the weekend",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "did anyone get engaged or give birth among my online friends",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "did anyone like my photo i just posted",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "show me the posts of my friends in the last hour",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "may i know what is trending in social media",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "find updates from vicki's facebook from mardi gras day",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "open social media account",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "hi what is happening in twitter today",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "did anyone message me on facebook",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "take me to the most popular post",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "are there any interesting stuff happened today in my twitter",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "what the highest likes on facebook",
+    "intents": [
+      "social query"
+    ]
+  },
+  {
+    "text": "please call china wok and order number seven",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "place order to pizza takeout for seven pm",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "can i order out",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "order two large pizzas and pieces of hot wings from dominoes",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "order me a bowl from chipotle takeout",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "order a pizza for me",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "place order for a chicken manchow soup from wangs kitchen restaurant",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "hey order a pizza pie with extra cheese",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "i want to order food",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "call for takeout",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "is there any good chinese takeout that's open late",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "i would like to pickup a veggie sub with a cookie from subway",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "pull up the menu for the closest mexican restaurant",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "what takeout places are near me",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "place order of one pizza",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "find me the nearest chinese for delivery",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "order a pizza from pizza express",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "get me a turkey jimmy johns sub and set it to be delivered at five pm tonight",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "order a smoked meat platter from beanos",
+    "intents": [
+      "takeaway order"
+    ]
+  },
+  {
+    "text": "where can i order pizza for delivery",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "does pings do takeaway",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "i need to know if mr pizza delivers",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "what's the exact time we get food delivered once we place an order for food",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "how long until i receive my food",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "check delivery options for the restaurant",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "does louie's do take out",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "where are my takeaway order",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "is my order at domino's ready",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "hi there do you offer home delivery for orders",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "can they provide takeaway",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "restaurant order status",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "when is my takeaway arriving",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "find out if kfc delivers please",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "do they deliver home",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "please see if chili's has delivery",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "what is the status of my order no",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "please see if the restaurant chili's has delivery as an option",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "can they do delivery",
+    "intents": [
+      "takeaway query"
+    ]
+  },
+  {
+    "text": "where can i book a train ticket to oregon",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "navigation search",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "what time does the train leave philadelphia",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "please let me know the time of train northern rail",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "directions please",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "how far away is the nearest rest stop",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "what are the train times for today",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "how much long until northern rail arrives at kings cross station",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "show me the train schedules to the metropolitan opera house",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "get route for los angles from here",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "direction to local train station",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "what is the train schedule to denver",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "how long does it take to get from here to chicago by train",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "when i should leave to office",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "when is the train coming",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "how much time is a train to there",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "find nearest train station",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "train leaving",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "get me to the nearest train station",
+    "intents": [
+      "transport query"
+    ]
+  },
+  {
+    "text": "request a driver for uber in five minutes",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "order me an uber ride please",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "call yellow cab",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "find an uber that can get me to the airport now",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "book me a taxi from castle street to airport",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "call a taxi",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "book a taxi",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "book an uber to pick me up outside of long island bar right now",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "call a taxi to pick me up at work",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "find an uber driver available for tonight after ten pm",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "book me an uber",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "schedule an uber in twenty minutes to tesco on fifth street",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "get me a taxi to the airport right now",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "have a taxi pick me up",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "book me a uber for tomorrow night at six pm",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "book for me an uber taxi to carmen drive",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "uber",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "book a taxi to start from here",
+    "intents": [
+      "transport taxi"
+    ]
+  },
+  {
+    "text": "book me a train ticket to chicago for tomorrow morning before ten",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "find out the the train arrival time and book me",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "google train tickets to washington dc",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "book ticket for paris by train",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "book me a train ticket",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "book a train ticket to canada this evening",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "book me on a train leaving penn station tomorrow travelling to any city more than two hundred miles away",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "get me two train tickets from where i am now to dallas arriving before dark",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "book and pay for a train ticket to denver for saturday",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "please book a train ticket from london to manchester",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "google i need one train ticket to new york can you book that for me",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "i need to buy a train ticket",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "book a ticket in irctc website from sbc to mdu on may two for stored passenger list",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "google search booking train ticket",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "please purchase a amtrak ticket from las vegas nevada to lakeland florida leaving on the first of april",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "book the the next train ticket to chennai",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "find me a train ticket to boston",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "get me a ride on the commuter train from nj to ny",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "open irctc application and go to book ticket",
+    "intents": [
+      "transport ticket"
+    ]
+  },
+  {
+    "text": "is it possible to drive now in ohio",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "how is traffic in city",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "what is the current traffic",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "is there any traffic",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "are there are any delays on my commute",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "what the traffic condition outside my office",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "in jodhpur traffic level is very low",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "outside traffic status please",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "show me the current traffic nearby me",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "give information about the traffic near my location please",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "just how bad is traffic on my commute",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "how much traffic does atlanta georgia usually have",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "what is the traffic like right now on telegraph",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "what's the traffic this morning",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "accident or normal traffic",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "how long will it take me to get to park avenue considering current traffic",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "what are the traffic conditions on the one hundred and one",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "how's the traffic downtown",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "how is traffic on the highway",
+    "intents": [
+      "transport traffic"
+    ]
+  },
+  {
+    "text": "do i have to bring umbrella for tonight party",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "should i wear gloves tonight",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "will it rain in the noon",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "how will be the weather at night",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "will the temperature be higher than forty tomorrow",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "ask for the weather today morning",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "is summer going on",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "do you think i can wear sandals or should i wear sneakers tonight at seven pm",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "show me the weather forecast for the next three three days",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "are you sure its going to rain tomorrow",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "will i need my snow boots this afternoon",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "do i need to wear sunscreen today",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "what is the temperature today",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "what is the weather next week",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "what is the climate here today",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "let me know when the next cold front is expected",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "i am gonna need an umbrella today after sunset",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "google what is the temperature outside",
+    "intents": [
+      "weather query"
+    ]
+  },
+  {
+    "text": "are there any tornado warnings today",
+    "intents": [
+      "weather query"
+    ]
+  }
+]

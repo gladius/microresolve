@@ -1,0 +1,10 @@
+what's the diff between stripe checkout and elements
+can i use stripe checkout with my own design
+how long does it take to integrate stripe elements
+do i need to handle pci compliance with elements
+is stripe checkout a hosted payment gateway
+can i customize the payment form with checkout
+what's the benefit of using elements over checkout
+my payment page looks different from my site can i use elements
+does using stripe elements require more coding
+is there a way to use a pre-built payment page with custom design

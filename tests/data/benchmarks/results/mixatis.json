@@ -1,0 +1,29 @@
+{
+  "dataset": "MixATIS",
+  "intents": 17,
+  "test_examples": 828,
+  "multi_intent_examples": 685,
+  "seed_only": {
+    "n": 828,
+    "exact_match": 18.36,
+    "partial_match": 85.75,
+    "precision": 70.53,
+    "recall": 55.11,
+    "f1": 61.88,
+    "latency_p50_us": 2371.5,
+    "latency_p95_us": 3955,
+    "latency_mean_us": 2498.2
+  },
+  "after_learning": {
+    "n": 828,
+    "exact_match": 20.41,
+    "partial_match": 84.3,
+    "precision": 70.31,
+    "recall": 54.33,
+    "f1": 61.29,
+    "latency_p50_us": 2631.5,
+    "latency_p95_us": 5042,
+    "latency_mean_us": 3088.5
+  },
+  "f1_delta": -0.59
+}

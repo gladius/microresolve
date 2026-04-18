@@ -60,14 +60,9 @@ pub struct ServerState {
     pub event_tx: broadcast::Sender<StudioEvent>,
     /// Wakes the background auto-learn worker when new items are queued.
     pub worker_notify: Arc<Notify>,
-    /// Per-namespace LexicalGraph (morphology + synonyms + abbreviations).
-    /// Pre-processes queries before term-index: normalize variants, expand synonyms.
-    pub hebbian: RwLock<HashMap<String, asv_router::scoring::LexicalGraph>>,
-    /// Per-namespace Layer 2 intent graph (spreading activation router).
-    /// Replaces term-index as the primary router when bootstrapped.
-    pub intent_graph: RwLock<HashMap<String, asv_router::scoring::IntentGraph>>,
-    /// Per-namespace Layer 0 n-gram index for typo correction before L1.
-    pub ngram: RwLock<HashMap<String, asv_router::ngram::NgramIndex>>,
+    /// Global L1 base graph loaded from data/l1_base.json (WordNet + ConceptNet).
+    /// Merged into every namespace's Router.l1 — new namespaces get it on first access.
+    pub l1_base: Option<asv_router::scoring::LexicalGraph>,
 }
 
 pub type AppState = Arc<ServerState>;

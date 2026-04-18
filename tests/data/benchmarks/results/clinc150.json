@@ -1,0 +1,25 @@
+{
+  "dataset": "CLINC150",
+  "intents": 150,
+  "seeds_per_intent": 20.0,
+  "test_examples": 4500,
+  "seed_only": {
+    "n": 4500,
+    "top1_accuracy": 64.56,
+    "any_accuracy": 78.69,
+    "latency_p50_us": 18322.0,
+    "latency_p95_us": 32854,
+    "latency_p99_us": 41594,
+    "latency_mean_us": 22372.5
+  },
+  "after_learning": {
+    "n": 4500,
+    "top1_accuracy": 64.53,
+    "any_accuracy": 78.73,
+    "latency_p50_us": 16406.5,
+    "latency_p95_us": 27523,
+    "latency_p99_us": 354987,
+    "latency_mean_us": 21808.0
+  },
+  "learning_delta_top1": -0.03
+}

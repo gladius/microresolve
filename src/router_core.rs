@@ -7,6 +7,9 @@ impl Router {
     /// Create a new empty router.
     pub fn new() -> Self {
         Self {
+            l0: crate::ngram::NgramIndex::default(),
+            l1: crate::scoring::LexicalGraph::new(),
+            l2: crate::scoring::IntentIndex::new(),
             training: HashMap::new(),
             intent_types: HashMap::new(),
             descriptions: HashMap::new(),
@@ -164,6 +167,9 @@ impl Router {
             serde_json::from_str(json).map_err(|e| format!("invalid JSON: {}", e))?;
 
         Ok(Self {
+            l0: crate::ngram::NgramIndex::default(),
+            l1: crate::scoring::LexicalGraph::new(),
+            l2: crate::scoring::IntentIndex::new(),
             training: state.training,
             intent_types: state.intent_types,
             descriptions: state.descriptions,
@@ -184,6 +190,89 @@ impl Router {
             max_intents: state.max_intents,
             batch_mode: false,
         })
+    }
+
+    // ── L0 / L1 / L2 accessors ───────────────────────────────────────────────
+
+    /// Read access to the L1 lexical graph.
+    pub fn l1(&self) -> &crate::scoring::LexicalGraph { &self.l1 }
+    /// Mutable access to the L1 lexical graph.
+    pub fn l1_mut(&mut self) -> &mut crate::scoring::LexicalGraph { &mut self.l1 }
+
+    /// Read access to the L2 intent index.
+    pub fn l2(&self) -> &crate::scoring::IntentIndex { &self.l2 }
+    /// Mutable access to the L2 intent index.
+    pub fn l2_mut(&mut self) -> &mut crate::scoring::IntentIndex { &mut self.l2 }
+
+    /// Read access to the L0 n-gram index.
+    pub fn l0(&self) -> &crate::ngram::NgramIndex { &self.l0 }
+
+    /// Merge base L1 edges into this router's L1 graph.
+    /// Base edges are only added where the target term has no existing entry
+    /// (namespace-specific edges take priority).
+    /// Used by the server to inject global WordNet/ConceptNet at namespace creation.
+    pub fn merge_l1_base(&mut self, base: &crate::scoring::LexicalGraph) {
+        for (term, edges) in &base.edges {
+            let existing = self.l1.edges.entry(term.clone()).or_default();
+            for edge in edges {
+                if !existing.iter().any(|e| e.target == edge.target) {
+                    existing.push(edge.clone());
+                }
+            }
+        }
+    }
+
+    /// Rebuild L0 from the combined vocabulary of L1 + L2.
+    pub fn rebuild_l0(&mut self) {
+        self.l0 = crate::ngram::build_for_namespace(Some(&self.l1), Some(&self.l2));
+    }
+
+    /// Preprocess a phrase through L1, learn it into L2, and rebuild L0.
+    /// Called internally whenever a new phrase is added to this router.
+    pub fn index_phrase(&mut self, intent_id: &str, phrase: &str) {
+        self.index_phrase_no_rebuild(intent_id, phrase);
+        self.rebuild_l0();
+    }
+
+    /// Index a phrase into L2 without rebuilding L0.
+    /// Call `rebuild_l0()` once after bulk indexing.
+    pub(crate) fn index_phrase_no_rebuild(&mut self, intent_id: &str, phrase: &str) {
+        let preprocessed = self.l1.preprocess(phrase);
+        let words = crate::tokenizer::tokenize(&preprocessed.expanded);
+        let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
+        if !word_refs.is_empty() {
+            self.l2.learn_phrase(&word_refs, intent_id);
+        }
+        self.l2.index_char_ngrams(phrase, intent_id);
+    }
+
+    /// Rebuild L2 from scratch using all training phrases currently in this router.
+    /// Clears the existing L2 index and re-indexes every stored phrase.
+    /// Used after a phrase or intent is removed so stale word→intent edges are cleared.
+    pub fn rebuild_l2(&mut self) {
+        self.l2 = crate::scoring::IntentIndex::new();
+        let all: Vec<(String, String)> = self.training.iter()
+            .flat_map(|(intent_id, lang_map)| {
+                lang_map.values()
+                    .flat_map(|phrases| phrases.iter().map(|p| (intent_id.clone(), p.clone())))
+            })
+            .collect();
+        for (intent_id, phrase) in &all {
+            self.index_phrase_no_rebuild(intent_id, phrase);
+        }
+        self.rebuild_l0();
+    }
+
+    /// Run the full L0→L1→L2 pipeline on a query.
+    /// Returns sorted (intent_id, score) pairs above `threshold`.
+    pub fn route(&self, query: &str, threshold: f32, gap: f32) -> Vec<(String, f32)> {
+        // L0: typo correction
+        let q0 = self.l0.correct_query(query);
+        // L1: normalize + expand
+        let preprocessed = self.l1.preprocess(&q0);
+        // L2: score
+        let (scored, _negation) = self.l2.score_multi_normalized(&preprocessed.expanded, threshold, gap);
+        scored
     }
 }
 

@@ -130,6 +130,8 @@ pub async fn add_phrase(
     }
 
     let counts = router.seed_counts_by_lang(&req.intent_id);
+    drop(routers);
+
     Ok(Json(serde_json::json!({
         "added": result.added,
         "counts": counts,
@@ -185,11 +187,6 @@ pub async fn add_intent_multilingual(
     let app_id = app_id_from_headers(&headers);
     ensure_app(&state, &app_id);
 
-    // Collect (intent_id, phrase) pairs for L2 seeding before the borrow
-    let l2_seeds: Vec<(String, String)> = req.phrases_by_lang.values()
-        .flat_map(|phrases| phrases.iter().map(|p| (req.id.clone(), p.clone())))
-        .collect();
-
     {
         let mut routers = state.routers.write().unwrap();
         let router = routers.get_mut(&app_id).unwrap();
@@ -204,9 +201,6 @@ pub async fn add_intent_multilingual(
         }
         maybe_persist(&state, &app_id, router);
     }
-
-    // Seed L2 (IntentGraph) so routing works immediately without bootstrap
-    crate::routes_import::seed_into_l2(&state, &app_id, &l2_seeds);
 
     StatusCode::CREATED
 }

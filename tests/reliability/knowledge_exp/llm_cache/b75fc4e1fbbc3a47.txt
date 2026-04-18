@@ -1,0 +1,8 @@
+what's test mode
+test api keys
+payout schedule
+how do i test payments
+what's the test key
+can i test without real money
+when do i use test mode
+test stripe api keys

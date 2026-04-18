@@ -29,6 +29,18 @@ pub struct RouteMultiRequest {
     /// Safe default is off for backward compatibility.
     #[serde(default)]
     pub tiebreaker: bool,
+    /// Skip L1 synonym/morphology expansion entirely.
+    #[serde(default)]
+    pub disable_l1: bool,
+    /// Run L1 morphological normalization only — no synonym expansion.
+    #[serde(default)]
+    pub morphology_only: bool,
+    /// Vocabulary-grounded synonym expansion: only expand tokens NOT already in L2.
+    #[serde(default)]
+    pub grounded_l1: bool,
+    /// Return per-layer debug trace in the response under "debug".
+    #[serde(default)]
+    pub debug: bool,
 }
 
 fn default_threshold() -> f32 { 0.3 }
@@ -44,55 +56,60 @@ pub async fn route_multi(
     let app_id = app_id_from_headers(&headers);
     let t0 = std::time::Instant::now();
 
-    // ── Layer 0: N-gram typo correction ──────────────────────────────────────
-    let l0_query = {
-        let ngram_map = state.ngram.read().unwrap();
-        if let Some(ng) = ngram_map.get(&app_id) {
-            ng.correct_query(&req.query)
-        } else {
-            req.query.clone()
-        }
-    };
+    // ── Full L0→L1→L2 pipeline via Router ────────────────────────────────────
+    // Run all three layers inside a single read lock on `routers`.
+    let (intent_graph_results, raw_ranked, query_has_negation, processed_query, hebbian_injected):
+        (Option<Vec<(String, f32)>>, Vec<(String, f32)>, bool, String, Vec<String>) =
+    {
+        let routers = state.routers.read().unwrap();
+        match routers.get(&app_id) {
+            Some(router) => {
+                // L0: typo correction
+                let q0 = router.l0().correct_query(&req.query);
 
-    // ── Layer 1: Hebbian normalize + expand ──────────────────────────────────
-    let (processed_query, hebbian_injected) = {
-        let hebbian = state.hebbian.read().unwrap();
-        if let Some(graph) = hebbian.get(&app_id) {
-            let r = graph.preprocess(&l0_query);
-            if r.was_modified {
-                eprintln!("[hebbian/L1] {} | {:?} → {:?} (injected: {:?})",
-                    app_id, r.original, r.normalized, r.injected);
-            }
-            (r.expanded, r.injected)
-        } else {
-            (l0_query, vec![])
-        }
-    };
+                // L1: normalize + expand (mode selected by request flags)
+                let preprocessed = if req.disable_l1 {
+                    asv_router::scoring::PreprocessResult {
+                        original: q0.clone(),
+                        normalized: q0.clone(),
+                        expanded: q0.clone(),
+                        injected: vec![],
+                        semantic_hits: vec![],
+                        was_modified: false,
+                    }
+                } else if req.morphology_only {
+                    router.l1().preprocess_morphonly(&q0)
+                } else if req.grounded_l1 {
+                    let known: std::collections::HashSet<&str> =
+                        router.l2().word_intent.keys().map(|s| s.as_str()).collect();
+                    router.l1().preprocess_grounded(&q0, &known)
+                } else {
+                    router.l1().preprocess(&q0)
+                };
+                if preprocessed.was_modified {
+                    eprintln!("[hebbian/L1] {} | {:?} → {:?} (injected: {:?})",
+                        app_id, preprocessed.original, preprocessed.normalized, preprocessed.injected);
+                }
+                let processed = preprocessed.expanded.clone();
+                let injected = preprocessed.injected.clone();
 
-    // ── Layer 2: Intent graph (IDF scoring + token consumption) ─────────────
-    // Two passes: raw scores (for top-N ranking) and token-consumed (for confirmed).
-    let (intent_graph_results, raw_ranked, query_has_negation): (Option<Vec<(String, f32)>>, Vec<(String, f32)>, bool) = {
-        let ig_map = state.intent_graph.read().unwrap();
-        match ig_map.get(&app_id) {
-            Some(ig) => {
-                // Raw single-pass scores (no token consumption) — for top-N ranking
-                let (raw, neg) = ig.score_normalized(&processed_query);
-                // Optional tiebreaker on the RANKED list (not the consumed list)
+                // L2: raw single-pass scores (no token consumption) — for top-N ranking
+                let (raw, neg) = router.l2().score_normalized(&processed);
                 let raw = if req.tiebreaker {
-                    ig.apply_char_ngram_tiebreaker(&processed_query, raw, 0.65, 0.5)
+                    router.l2().apply_char_ngram_tiebreaker(&processed, raw, 0.65, 0.5)
                 } else {
                     raw
                 };
-                // Token-consumed scores — for confirmed intents
-                let (consumed, _) = ig.score_multi_normalized(&processed_query, req.threshold, req.gap);
+                // L2: token-consumed scores — for confirmed intents
+                let (consumed, _) = router.l2().score_multi_normalized(&processed, req.threshold, req.gap);
                 let consumed = if req.tiebreaker {
-                    ig.apply_char_ngram_tiebreaker(&processed_query, consumed, 0.65, 0.5)
+                    router.l2().apply_char_ngram_tiebreaker(&processed, consumed, 0.65, 0.5)
                 } else {
                     consumed
                 };
-                (Some(consumed), raw, neg)
+                (Some(consumed), raw, neg, processed, injected)
             }
-            None => (None, vec![], false),
+            None => (None, vec![], false, req.query.clone(), vec![]),
         }
     };
 
@@ -176,6 +193,25 @@ pub async fn route_multi(
             serde_json::json!({"id": id, "score": (*score * 100.0).round() / 100.0})
         }).collect();
 
+        let debug_info = if req.debug {
+            // Per-layer trace for diagnostics
+            let l0_corrected = {
+                let routers = state.routers.read().unwrap();
+                routers.get(&app_id).map(|r| r.l0().correct_query(&req.query)).unwrap_or_else(|| req.query.clone())
+            };
+            let tokens: Vec<String> = asv_router::tokenizer::tokenize(&processed_query);
+            serde_json::json!({
+                "l0_corrected": l0_corrected,
+                "l1_normalized": processed_query,
+                "l1_injected": hebbian_injected,
+                "l1_disabled": req.disable_l1,
+                "l2_tokens": tokens,
+                "l2_all_scores": raw_ranked.iter().map(|(id, s)| serde_json::json!({"id": id, "score": (*s * 100.0).round() / 100.0})).collect::<Vec<_>>(),
+            })
+        } else {
+            serde_json::json!(null)
+        };
+
         return Json(serde_json::json!({
             "confirmed": confirmed,
             "candidates": candidates,
@@ -186,6 +222,7 @@ pub async fn route_multi(
             "source": "hebbian_l2",
             "hebbian": if hebbian_injected.is_empty() { serde_json::json!(null) }
                        else { serde_json::json!({"injected": hebbian_injected, "processed_query": processed_query}) },
+            "debug": debug_info,
         }));
     }
 
@@ -253,9 +290,9 @@ fn disambiguate_cross_provider(
     let tokens = asv_router::tokenizer::tokenize(query);
 
     // For each token, find which intents it maps to
-    let ig_map = state.intent_graph.read().unwrap();
-    let ig = match ig_map.get(app_id) {
-        Some(ig) => ig,
+    let routers = state.routers.read().unwrap();
+    let router = match routers.get(app_id) {
+        Some(r) => r,
         None => return,
     };
 
@@ -265,7 +302,7 @@ fn disambiguate_cross_provider(
     let mut unique_count: HashMap<&str, usize> = HashMap::new();
     for token in &tokens {
         let base = token.strip_prefix("not_").unwrap_or(token.as_str());
-        if let Some(activations) = ig.word_intent.get(base) {
+        if let Some(activations) = router.l2().word_intent.get(base) {
             let matching: Vec<&str> = activations.iter()
                 .filter(|(id, _)| scored_ids.contains(id.as_str()))
                 .map(|(id, _)| id.as_str())

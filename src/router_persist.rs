@@ -59,9 +59,8 @@ impl Router {
 
 /// Load a router from a namespace directory.
     ///
-    /// Reads `_ns.json`, per-domain `_domain.json`, and per-intent `*.json` files.
-    /// Phrases are re-ingested so the phrase vector is always fresh.
-    /// Learned weights are restored from the saved `"learned"` field.
+    /// Reads `_ns.json`, `_l1.json`, `_l2.json`, per-domain `_domain.json`, and per-intent `*.json` files.
+    /// L0 is rebuilt from L1+L2 vocabulary after load.
     pub fn load_from_dir(path: &Path) -> Result<Self, String> {
         let mut router = Self::new();
 
@@ -82,6 +81,22 @@ impl Router {
             }
         }
 
+        // L1 (LexicalGraph) — optional, backward compat: start empty if missing.
+        if let Ok(json) = std::fs::read_to_string(path.join("_l1.json")) {
+            if let Ok(g) = serde_json::from_str::<crate::scoring::LexicalGraph>(&json) {
+                router.l1 = g;
+            }
+        }
+
+        // L2 (IntentIndex) — optional, backward compat: start empty if missing.
+        // Track whether L2 was pre-loaded so we can skip re-indexing below.
+        let l2_preloaded = if let Ok(json) = std::fs::read_to_string(path.join("_l2.json")) {
+            if let Ok(ig) = serde_json::from_str::<crate::scoring::IntentIndex>(&json) {
+                router.l2 = ig;
+                true
+            } else { false }
+        } else { false };
+
         let entries = std::fs::read_dir(path)
             .map_err(|e| format!("cannot read {}: {}", path.display(), e))?;
 
@@ -99,7 +114,7 @@ impl Router {
                 domain_dirs.push((name, p));
             } else if p.extension().map(|e| e == "json").unwrap_or(false) {
                 let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
-                load_intent_file(&mut router, &p, &stem);
+                load_intent_file(&mut router, &p, &stem, l2_preloaded);
             }
         }
 
@@ -124,11 +139,14 @@ impl Router {
                     if p.extension().map(|e| e == "json").unwrap_or(false) {
                         let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
                         let intent_id = format!("{}:{}", domain, stem);
-                        load_intent_file(&mut router, &p, &intent_id);
+                        load_intent_file(&mut router, &p, &intent_id, l2_preloaded);
                     }
                 }
             }
         }
+
+        // L0 is always rebuilt once from L1+L2 vocabulary — no separate file needed.
+        router.rebuild_l0();
 
         Ok(router)
     }
@@ -205,6 +223,22 @@ impl Router {
             written.insert(file_path);
         }
 
+        // Save L1 (LexicalGraph)
+        if let Ok(json) = serde_json::to_string_pretty(&self.l1) {
+            let l1_path = path.join("_l1.json");
+            std::fs::write(&l1_path, json)
+                .map_err(|e| format!("cannot write _l1.json: {}", e))?;
+            written.insert(l1_path);
+        }
+
+        // Save L2 (IntentIndex)
+        if let Ok(json) = serde_json::to_string_pretty(&self.l2) {
+            let l2_path = path.join("_l2.json");
+            std::fs::write(&l2_path, json)
+                .map_err(|e| format!("cannot write _l2.json: {}", e))?;
+            written.insert(l2_path);
+        }
+
         // Remove stale intent files
         cleanup_stale(path, &written);
 
@@ -222,8 +256,10 @@ fn split_intent_id(id: &str) -> (Option<&str>, &str) {
 }
 
 /// Deserialize and register one intent file into the router.
+/// When `skip_indexing` is true (L2 was pre-loaded from _l2.json), only store
+/// training data without re-indexing — avoids O(n²) rebuild on startup.
 /// Errors are logged but do not abort the load.
-fn load_intent_file(router: &mut Router, path: &Path, intent_id: &str) {
+fn load_intent_file(router: &mut Router, path: &Path, intent_id: &str, skip_indexing: bool) {
     let json = match std::fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) => { eprintln!("cannot read {}: {}", path.display(), e); return; }
@@ -238,8 +274,15 @@ fn load_intent_file(router: &mut Router, path: &Path, intent_id: &str) {
         .unwrap_or_default();
 
     if phrases_by_lang.is_empty() {
-        router.add_intent(intent_id, &[]);
+        // Just register the intent with no phrases — no indexing needed.
+        router.training.insert(intent_id.to_string(), HashMap::new());
+        router.version += 1;
+    } else if skip_indexing {
+        // L2 pre-loaded: store training data only, skip re-indexing.
+        router.training.insert(intent_id.to_string(), phrases_by_lang);
+        router.version += 1;
     } else {
+        // No _l2.json: index all phrases now (migration path for old namespaces).
         router.add_intent_multilingual(intent_id, phrases_by_lang);
     }
 

@@ -1,0 +1,3 @@
+My customers keep getting charged but I don't see the payments in my account, can you help me figure out what's going on with recurring payments?
+
+Is there a way to automatically bill my users on a monthly basis without having to manually send them invoices every time?

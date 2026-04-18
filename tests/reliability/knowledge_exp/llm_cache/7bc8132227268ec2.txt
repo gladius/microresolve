@@ -1,0 +1,17 @@
+My payments keep failing during testing, is there a special key I should be using?
+Is there a way to try out payments without actually charging my customers or myself?
+ 
+Why isn't my test payment going through, I've tried using my real card and it's not working?
+Can I use Stripe without actually moving real money, I just want to make sure it works?
+
+ 
+I don't want to mess up my live account, how do I test Stripe without affecting my real transactions?
+Is there a test mode or sandbox environment where I can try Stripe out without worrying about real money?
+
+ 
+My test charges aren't showing up, did I do something wrong or is there a special setup for testing?
+Can I simulate a successful payment without actually taking payment from a customer?
+
+ 
+I'm getting errors when testing payments, what's the deal with test mode and API keys?
+How do I know if I'm in test mode or live mode, I don't want to accidentally charge someone.

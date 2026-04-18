@@ -1,0 +1,10 @@
+how do i secure my webhook 
+my payments are failing with stripe 
+is there a way to verify webhook requests 
+what's the stripe-signature header for 
+how do i validate webhook events 
+my webhook keeps getting hacked 
+can i trust webhook requests from stripe 
+how to set up webhook security 
+why does stripe need a signing secret 
+what's the point of verifying webhook signatures

@@ -49,9 +49,15 @@ use std::collections::HashMap;
 /// Intent registry with incremental phrase learning.
 ///
 /// Stores intent definitions, training phrases, types, descriptions, and metadata.
-/// Routing is handled externally by the Hebbian L1+L2 system.
-/// This struct is the training-data store that feeds Hebbian bootstrap.
+/// L0/L1/L2 routing layers are embedded directly — call `index_phrase` to update all
+/// layers atomically, and `route` to run the full pipeline.
 pub struct Router {
+    /// L0: character n-gram index for typo correction before L1.
+    pub(crate) l0: crate::ngram::NgramIndex,
+    /// L1: lexical normalization graph (morphology, synonyms, abbreviations).
+    pub(crate) l1: crate::scoring::LexicalGraph,
+    /// L2: IDF-weighted intent index (Hebbian scoring + L3 anti-Hebbian inhibition).
+    pub(crate) l2: crate::scoring::IntentIndex,
     /// Raw training phrases per intent, grouped by language code.
     /// Structure: { intent_id: { lang_code: [phrases] } }
     /// This is the canonical intent list — `intent_ids()` reads from here.

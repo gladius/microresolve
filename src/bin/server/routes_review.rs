@@ -190,11 +190,9 @@ pub async fn review_fix(
         });
         for record in &unresolved.records {
             let passes = {
-                let ig_map = state.intent_graph.read().unwrap();
-                let heb_map = state.hebbian.read().unwrap();
-                if let (Some(ig), Some(heb)) = (ig_map.get(&app_id), heb_map.get(&app_id)) {
-                    let pre = heb.preprocess(&record.query);
-                    let (scores, _) = ig.score_multi_normalized(&pre.expanded, 0.3, 1.5);
+                let routers = state.routers.read().unwrap();
+                if let Some(router) = routers.get(&app_id) {
+                    let scores = router.route(&record.query, 0.3, 1.5);
                     !scores.is_empty()
                 } else {
                     false
@@ -427,18 +425,19 @@ pub async fn learn_words(
     let count = word_refs.len();
 
     {
-        let mut ig_map = state.intent_graph.write().unwrap();
-        let ig = ig_map.entry(app_id.to_string())
-            .or_insert_with(asv_router::scoring::IntentGraph::new);
-        ig.learn_query_words(&word_refs, &req.intent_id);
+        let mut routers = state.routers.write().unwrap();
+        if let Some(router) = routers.get_mut(&app_id) {
+            router.l2_mut().learn_query_words(&word_refs, &req.intent_id);
+        }
     }
 
-    // Persist
+    // Persist via save_to_dir
     if let Some(ref dir) = state.data_dir {
-        let ig_map = state.intent_graph.read().unwrap();
-        if let Some(ig) = ig_map.get(&app_id) {
-            let path = format!("{}/{}/_intent_graph.json", dir, app_id);
-            ig.save(&path).ok();
+        let routers = state.routers.read().unwrap();
+        if let Some(router) = routers.get(&app_id) {
+            let ns_dir = std::path::Path::new(dir).join(&app_id);
+            std::fs::create_dir_all(&ns_dir).ok();
+            router.save_to_dir(&ns_dir).ok();
         }
     }
 

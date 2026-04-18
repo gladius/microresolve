@@ -1,0 +1,3 @@
+My payments are going through but I'm not seeing the updates in my system, how can I trust that it's actually Stripe sending these notifications?
+
+Is there a way to confirm that the requests I'm getting are legit and not some random spam, I've heard about security issues with third-party services before

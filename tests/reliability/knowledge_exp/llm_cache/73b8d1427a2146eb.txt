@@ -1,0 +1,10 @@
+how do i make a payment in my local currency
+my payment keeps failing because of currency mismatch
+is there a way to charge customers in their local currency
+what currencies does stripe support for charging
+can i change the currency for an existing payment
+how do i know what currency my customers will be charged in
+i want to accept payments in multiple currencies
+does stripe support my local currency for payouts
+can i set the currency for each transaction separately
+why is my payout showing up in a different currency than i expected

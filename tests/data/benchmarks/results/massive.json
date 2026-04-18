@@ -1,0 +1,127 @@
+{
+  "en_us": {
+    "dataset": "MASSIVE (English)",
+    "intents": 60,
+    "seeds_per_intent": 19.6,
+    "test_examples": 2974,
+    "seed_only": {
+      "n": 2974,
+      "top1_accuracy": 55.65,
+      "any_accuracy": 69.1,
+      "latency_p50_us": 1686.5,
+      "latency_p95_us": 2461,
+      "latency_p99_us": 2787,
+      "latency_mean_us": 1735.5
+    },
+    "after_learning": {
+      "n": 2974,
+      "top1_accuracy": 55.62,
+      "any_accuracy": 69.07,
+      "latency_p50_us": 1657.0,
+      "latency_p95_us": 2409,
+      "latency_p99_us": 5218,
+      "latency_mean_us": 1766.9
+    },
+    "learning_delta_top1": -0.03
+  },
+  "es_es": {
+    "dataset": "MASSIVE (Spanish)",
+    "intents": 60,
+    "seeds_per_intent": 19.6,
+    "test_examples": 2974,
+    "seed_only": {
+      "n": 2974,
+      "top1_accuracy": 53.4,
+      "any_accuracy": 66.41,
+      "latency_p50_us": 2160.0,
+      "latency_p95_us": 3017,
+      "latency_p99_us": 3422,
+      "latency_mean_us": 2192.6
+    },
+    "after_learning": {
+      "n": 2974,
+      "top1_accuracy": 53.43,
+      "any_accuracy": 66.38,
+      "latency_p50_us": 2166.0,
+      "latency_p95_us": 3142,
+      "latency_p99_us": 5203,
+      "latency_mean_us": 2286.1
+    },
+    "learning_delta_top1": 0.03
+  },
+  "fr_fr": {
+    "dataset": "MASSIVE (French)",
+    "intents": 60,
+    "seeds_per_intent": 19.6,
+    "test_examples": 2974,
+    "seed_only": {
+      "n": 2974,
+      "top1_accuracy": 53.23,
+      "any_accuracy": 66.68,
+      "latency_p50_us": 2244.0,
+      "latency_p95_us": 3351,
+      "latency_p99_us": 3993,
+      "latency_mean_us": 2314.9
+    },
+    "after_learning": {
+      "n": 2974,
+      "top1_accuracy": 53.23,
+      "any_accuracy": 66.71,
+      "latency_p50_us": 2332.0,
+      "latency_p95_us": 3487,
+      "latency_p99_us": 5439,
+      "latency_mean_us": 2475.3
+    },
+    "learning_delta_top1": 0.0
+  },
+  "ja_jp": {
+    "dataset": "MASSIVE (Japanese)",
+    "intents": 60,
+    "seeds_per_intent": 19.6,
+    "test_examples": 2974,
+    "seed_only": {
+      "n": 2974,
+      "top1_accuracy": 57.36,
+      "any_accuracy": 68.66,
+      "latency_p50_us": 2211.0,
+      "latency_p95_us": 3120,
+      "latency_p99_us": 3531,
+      "latency_mean_us": 2251.5
+    },
+    "after_learning": {
+      "n": 2974,
+      "top1_accuracy": 57.16,
+      "any_accuracy": 68.7,
+      "latency_p50_us": 2279.5,
+      "latency_p95_us": 3441,
+      "latency_p99_us": 5414,
+      "latency_mean_us": 2440.4
+    },
+    "learning_delta_top1": -0.2
+  },
+  "ar_sa": {
+    "dataset": "MASSIVE (Arabic)",
+    "intents": 60,
+    "seeds_per_intent": 19.6,
+    "test_examples": 2974,
+    "seed_only": {
+      "n": 2974,
+      "top1_accuracy": 50.94,
+      "any_accuracy": 63.18,
+      "latency_p50_us": 2036.5,
+      "latency_p95_us": 3280,
+      "latency_p99_us": 3907,
+      "latency_mean_us": 2156.6
+    },
+    "after_learning": {
+      "n": 2974,
+      "top1_accuracy": 51.08,
+      "any_accuracy": 63.42,
+      "latency_p50_us": 2153.5,
+      "latency_p95_us": 11899,
+      "latency_p99_us": 24602,
+      "latency_mean_us": 3536.6
+    },
+    "learning_delta_top1": 0.14
+  }
+}

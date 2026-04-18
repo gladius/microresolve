@@ -1,0 +1,9 @@
+my customer is getting a refund but i'm still being charged a fee 
+is there a way to recoup the processing costs when i have to give a customer their money back 
+
+why does stripe keep the fee when i refund someone 
+does stripe take a cut even when i'm giving a customer a refund 
+can i avoid paying the processing fee if i have to refund a customer 
+why isn't my refunded money showing up in my account 
+if i refund a customer do i still have to pay the transaction fee 
+what happens to the processing fee when a customer gets a refund

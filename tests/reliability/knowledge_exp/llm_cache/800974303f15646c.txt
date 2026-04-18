@@ -1,0 +1,6 @@
+My payment keeps failing when I try to accept payments from customers abroad, is that related to the currency they're using 
+Is there a way to make sure my customers in other countries can pay with their own currency without me having to do any extra work on my end 
+Why isn't my money showing up in my account when I'm trying to get paid by customers in different countries, does it have something to do with currency conversion 
+Can I make my checkout process work seamlessly for customers who are used to paying in different currencies than I do 
+I'm getting a lot of errors when customers try to pay in their local currency, can I change something on my side to make it work 
+Is it possible to accept payments in multiple currencies without having to create separate accounts or do a bunch of manual conversions

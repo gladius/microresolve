@@ -1,0 +1,5 @@
+my payment form looks wonky on my site, what's going on with the integration 
+is there a way to make the payment page look like it's part of my website instead of some external thing 
+
+why isn't my money showing up on my site when people try to pay, did I do something wrong with the payment setup 
+can I make the payment form look super customized but still be secure and not have to handle all the pci stuff myself

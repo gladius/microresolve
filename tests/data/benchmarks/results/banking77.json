@@ -1,0 +1,25 @@
+{
+  "dataset": "BANKING77",
+  "intents": 77,
+  "seeds_per_intent": 20.0,
+  "test_examples": 3080,
+  "seed_only": {
+    "n": 3080,
+    "top1_accuracy": 64.06,
+    "any_accuracy": 81.59,
+    "latency_p50_us": 15020.0,
+    "latency_p95_us": 21968,
+    "latency_p99_us": 27742,
+    "latency_mean_us": 15618.2
+  },
+  "after_learning": {
+    "n": 3080,
+    "top1_accuracy": 64.12,
+    "any_accuracy": 81.59,
+    "latency_p50_us": 12838.5,
+    "latency_p95_us": 17715,
+    "latency_p99_us": 347988,
+    "latency_mean_us": 18047.1
+  },
+  "learning_delta_top1": 0.06
+}

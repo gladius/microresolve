@@ -1,0 +1,9 @@
+My payment keeps failing because of tax issues, can you help me figure out what's going on with that?
+
+Is there a way to automatically handle tax calculations for my transactions so I don't have to manually do it every time?
+
+Why isn't my money showing up in my account, is it getting held up by some kind of tax thing I don't know about?
+
+I'm trying to set up my payment system and I don't want to have to deal with a bunch of tax headaches, can you tell me if there's an easy way to handle it?
+
+My customers are complaining about extra charges on their invoices, how can I make sure I'm handling taxes correctly?

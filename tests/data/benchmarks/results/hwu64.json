@@ -1,0 +1,25 @@
+{
+  "dataset": "HWU64",
+  "intents": 64,
+  "seeds_per_intent": 20.0,
+  "test_examples": 1076,
+  "seed_only": {
+    "n": 1076,
+    "top1_accuracy": 64.22,
+    "any_accuracy": 75.28,
+    "latency_p50_us": 8410.5,
+    "latency_p95_us": 12730,
+    "latency_p99_us": 15519,
+    "latency_mean_us": 8812.4
+  },
+  "after_learning": {
+    "n": 1076,
+    "top1_accuracy": 64.03,
+    "any_accuracy": 75.28,
+    "latency_p50_us": 11155.5,
+    "latency_p95_us": 17035,
+    "latency_p99_us": 19100,
+    "latency_mean_us": 11899.0
+  },
+  "learning_delta_top1": -0.19
+}

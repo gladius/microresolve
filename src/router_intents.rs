@@ -14,6 +14,11 @@ impl Router {
         lang_map.insert("en".to_string(), accepted.clone());
         self.training.insert(id.to_string(), lang_map);
 
+        // Index each phrase into L2 atomically.
+        for phrase in &accepted {
+            self.index_phrase(id, phrase);
+        }
+
         self.version += 1;
 
         accepted.iter().map(|_| PhraseCheckResult {
@@ -34,7 +39,14 @@ impl Router {
                 (lang, limited)
             })
             .collect();
+        // Index all phrases into L2 before storing — rebuild L0 once at end.
+        for (_lang, phrases) in &truncated {
+            for phrase in phrases {
+                self.index_phrase_no_rebuild(id, phrase);
+            }
+        }
         self.training.insert(id.to_string(), truncated);
+        self.rebuild_l0();
         self.version += 1;
     }
 
@@ -61,7 +73,9 @@ impl Router {
         // Remove empty language entries
         training.retain(|_, phrases| !phrases.is_empty());
 
-        // If no phrases remain, keep the intent entry but empty
+        // Rebuild L2 from remaining phrases so stale word→intent edges are cleared.
+        self.rebuild_l2();
+
         self.version += 1;
         true
     }
@@ -78,6 +92,8 @@ impl Router {
         self.targets.remove(id);
         self.schemas.remove(id);
         self.guardrails.remove(id);
+        // Rebuild L2 from remaining phrases so stale word→intent edges are cleared.
+        self.rebuild_l2();
         self.version += 1;
     }
 
@@ -148,6 +164,8 @@ impl Router {
             return true;
         }
         seeds.push(seed.to_string());
+        // Index phrase into L2 atomically.
+        self.index_phrase(intent_id, seed);
         self.version += 1;
         true
     }
