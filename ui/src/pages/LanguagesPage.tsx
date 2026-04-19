@@ -3,17 +3,27 @@ import { useAppStore } from '@/store';
 import { api } from '@/api/client';
 import Page from '@/components/Page';
 
+type StopWordStatus = { count: number; source: 'built-in' | 'generated' };
+
 export default function LanguagesPage() {
   const { settings, setLanguages } = useAppStore();
   const ns = settings.selectedNamespaceId;
-  const [allLanguages, setAllLanguages] = useState<Record<string, string>>({});
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [allLanguages,  setAllLanguages]  = useState<Record<string, string>>({});
+  const [pickerOpen,    setPickerOpen]    = useState(false);
+  const [search,        setSearch]        = useState('');
+  const [stopWords,     setStopWords]     = useState<Record<string, StopWordStatus>>({});
+  const [promptLang,    setPromptLang]    = useState<string | null>(null);
+  const [generating,    setGenerating]    = useState<string | null>(null);
   const enabledLangs = settings.languages.length > 0 ? settings.languages : ['en'];
 
   useEffect(() => {
     api.getLanguages().then(setAllLanguages).catch(() => {});
+    refreshStopWords();
   }, []);
+
+  const refreshStopWords = () => {
+    api.getStopWords().then(setStopWords).catch(() => {});
+  };
 
   const removeLang = (code: string) => {
     if (code === 'en') return;
@@ -25,6 +35,20 @@ export default function LanguagesPage() {
     setLanguages([...enabledLangs, code]);
     setSearch('');
     setPickerOpen(false);
+    if (code !== 'en' && !stopWords[code]) {
+      setPromptLang(code);
+    }
+  };
+
+  const generateStopWords = async (lang: string) => {
+    setGenerating(lang);
+    setPromptLang(null);
+    try {
+      await api.generateStopWords(lang);
+      refreshStopWords();
+    } catch { /* */ } finally {
+      setGenerating(null);
+    }
   };
 
   const commonLangs = ['en', 'es', 'fr', 'de', 'pt', 'it', 'nl', 'ja', 'ko', 'zh', 'ar', 'hi'];
@@ -129,6 +153,76 @@ export default function LanguagesPage() {
               </div>
             </div>
           )}
+
+          {/* Inline stop words prompt — fires when a new non-English language is added */}
+          {promptLang && (
+            <div className="bg-zinc-800/60 border border-zinc-700 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-xs text-white font-medium mb-0.5">
+                  Generate stop words for {allLanguages[promptLang] || promptLang}?
+                </div>
+                <div className="text-[11px] text-zinc-500">
+                  Common function words will be excluded from phrase matching.
+                </div>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button onClick={() => setPromptLang(null)}
+                  className="text-[11px] text-zinc-500 hover:text-zinc-300 px-2 py-1 transition-colors">
+                  Skip
+                </button>
+                <button onClick={() => generateStopWords(promptLang)}
+                  className="text-[11px] bg-violet-600 hover:bg-violet-500 text-white px-3 py-1 rounded transition-colors">
+                  Generate
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Stop words section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">Stop words</div>
+            <span className="text-[10px] text-zinc-600">global — shared across all namespaces</span>
+          </div>
+          <div className="divide-y divide-zinc-800/50 border border-zinc-800 rounded-lg overflow-hidden">
+            {enabledLangs.map(code => {
+              const sw = stopWords[code];
+              const isGenerating = generating === code;
+              return (
+                <div key={code} className="flex items-center gap-3 px-3 py-2.5 bg-zinc-900/40">
+                  <span className="text-[9px] text-zinc-500 uppercase font-bold w-6">{code}</span>
+                  {sw ? (
+                    <>
+                      <span className={`text-[10px] ${sw.source === 'built-in' ? 'text-zinc-500' : 'text-emerald-500'}`}>
+                        {sw.source}
+                      </span>
+                      <span className="text-[10px] text-zinc-600">· {sw.count} words</span>
+                      {sw.source !== 'built-in' && (
+                        <button onClick={() => generateStopWords(code)} disabled={!!generating}
+                          className="ml-auto text-[10px] text-zinc-600 hover:text-violet-400 disabled:opacity-40 transition-colors">
+                          regenerate
+                        </button>
+                      )}
+                    </>
+                  ) : isGenerating ? (
+                    <div className="flex items-center gap-1.5 text-[10px] text-violet-400">
+                      <div className="w-2.5 h-2.5 border border-violet-400 border-t-transparent rounded-full animate-spin" />
+                      generating…
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-[10px] text-amber-500/70">missing</span>
+                      <button onClick={() => generateStopWords(code)} disabled={!!generating}
+                        className="ml-auto text-[10px] text-zinc-500 hover:text-violet-400 disabled:opacity-40 transition-colors">
+                        Generate
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
       </div>

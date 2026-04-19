@@ -126,7 +126,7 @@ export default function LangChainImport() {
           <code className="text-zinc-300 bg-zinc-800 px-1 py-0.5 rounded">name</code>,{' '}
           <code className="text-zinc-300 bg-zinc-800 px-1 py-0.5 rounded">description</code>, and{' '}
           <code className="text-zinc-300 bg-zinc-800 px-1 py-0.5 rounded">args_schema</code>.
-          ASV pre-selects the right tool before your agent's reasoning loop — cutting tool context tokens significantly.
+          MicroResolve pre-selects the right tool before your agent's reasoning loop — cutting tool context tokens significantly.
         </p>
 
         <div className="space-y-2">

@@ -309,7 +309,8 @@ export default function McpImport() {
       )}
 
       {/* Step 3: Result */}
-      {result && <ImportReport result={result} onViewIntents={() => navigate('/intents')} onImportMore={reset} />}
+      {result && <ImportReport result={result} onViewIntents={() => navigate('/intents')} onImportMore={reset}
+        onFixCollisions={() => navigate(`/collisions${currentDomain ? `?domain=${currentDomain}` : ''}`)} />}
       </div>
     </Page>
   );

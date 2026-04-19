@@ -116,7 +116,7 @@ export default function OpenAIFunctionsImport() {
         <p className="text-xs text-zinc-500 leading-relaxed">
           Paste your OpenAI <code className="text-zinc-300 bg-zinc-800 px-1 py-0.5 rounded">functions</code> or{' '}
           <code className="text-zinc-300 bg-zinc-800 px-1 py-0.5 rounded">tools</code> array.
-          Each function becomes a routable intent — ASV pre-selects the right function before your LLM call,
+          Each function becomes a routable intent — MicroResolve pre-selects the right function before your LLM call,
           reducing context tokens by up to 90%.
         </p>
 

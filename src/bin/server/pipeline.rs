@@ -19,7 +19,7 @@
 
 use axum::http::StatusCode;
 use std::collections::HashMap;
-use asv_router::Router;
+use microresolve::Router;
 use crate::state::*;
 
 /// Turn 1 (Judge): id + description only. No phrases — descriptions are the interface contract.
@@ -411,6 +411,36 @@ pub async fn full_review(
         ).await;
     }
 
+    // ── Confidence short-circuit (UI setting: review_skip_threshold) ──────────
+    // If top detected intent scores above threshold, trust routing — skip Turn 1 LLM.
+    let skip_threshold = state.ui_settings.read().unwrap().review_skip_threshold;
+    if skip_threshold > 0.0 && !detected.is_empty() {
+        let top_score = {
+            let routers = state.routers.read().unwrap();
+            routers.get(app_id).map(|router| {
+                let pre = router.l1().preprocess(query);
+                let (all_scores, _) = router.l2().score_multi_normalized(&pre.expanded, 0.0, 100.0);
+                detected.iter()
+                    .filter_map(|id| all_scores.iter().find(|(s, _)| s == id).map(|(_, sc)| *sc))
+                    .fold(0.0f32, f32::max)
+            }).unwrap_or(0.0)
+        };
+        if top_score >= skip_threshold {
+            eprintln!("[full_review] confidence short-circuit: top score {:.2} >= threshold {:.2} — skipping Turn 1", top_score, skip_threshold);
+            return Ok(FullReviewResult {
+                correct_intents: detected.to_vec(),
+                wrong_detections: vec![],
+                missed_intents: vec![],
+                languages: vec!["en".to_string()],
+                detection_perfect: true,
+                phrases_to_add: HashMap::new(),
+                phrases_blocked: Vec::new(),
+                summary: format!("High confidence ({:.0}%) — routing trusted, Turn 1 skipped.", top_score * 100.0),
+                spans_to_learn: vec![],
+            });
+        }
+    }
+
     // ── Turn 1 LLM judge (auto worker — ground truth unknown) ─────────────────
     // Turn 1 context: intent labels (id + description only — no phrases)
     let intent_labels = {
@@ -603,8 +633,8 @@ async fn full_review_from_sets(
          For each intent, respond with a phrase AND the key words from the customer query.\n\
          Respond with ONLY JSON:\n\
          {{\"phrases_by_intent\": {{\"intent_id\": \"new phrase\"}}, \"key_words\": {{\"intent_id\": [\"word1\", \"word2\"]}}}}\n",
-        guidelines = asv_router::phrase::REVIEW_FIX_GUIDELINES,
-        quality = asv_router::phrase::PHRASE_QUALITY_RULES,
+        guidelines = microresolve::phrase::REVIEW_FIX_GUIDELINES,
+        quality = microresolve::phrase::PHRASE_QUALITY_RULES,
         query = query,
     );
 
@@ -668,7 +698,7 @@ async fn full_review_from_sets(
                  {}\n\n\
                  Respond with ONLY JSON:\n\
                  {{\"phrases_by_intent\": {{\"intent_name\": \"alternative phrase\"}}}}\n",
-                blocked_desc, asv_router::phrase::PHRASE_QUALITY_RULES
+                blocked_desc, microresolve::phrase::PHRASE_QUALITY_RULES
             );
 
             if let Ok(retry_resp) = call_llm(state, &retry_prompt, 150).await {
@@ -783,7 +813,7 @@ pub async fn apply_review(
                 original_query.to_string()
             }
         };
-        let words: Vec<String> = asv_router::tokenizer::tokenize(&normalized);
+        let words: Vec<String> = microresolve::tokenizer::tokenize(&normalized);
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
 
         eprintln!("[auto-learn/L2] query='{}' | expanded='{}'", original_query, normalized);
@@ -800,7 +830,7 @@ pub async fn apply_review(
             // Each phrase is tokenized and its words are learned as 1-grams.
             for (intent_id, phrases) in &result.phrases_to_add {
                 for phrase in phrases {
-                    let phrase_words: Vec<String> = asv_router::tokenizer::tokenize(phrase);
+                    let phrase_words: Vec<String> = microresolve::tokenizer::tokenize(phrase);
                     let phrase_refs: Vec<&str> = phrase_words.iter().map(|s| s.as_str()).collect();
                     router.l2_mut().learn_phrase(&phrase_refs, intent_id);
                     eprintln!("[auto-learn/L2] missed → learn phrase words {:?} → '{}'", phrase_refs, intent_id);
@@ -810,7 +840,7 @@ pub async fn apply_review(
             // These are the ACTUAL user words the LLM confirmed as intent-relevant.
             // Critical for vocabulary growth: teaches the exact words users use.
             for (span_intent, span_text) in &result.spans_to_learn {
-                let span_words: Vec<String> = asv_router::tokenizer::tokenize(span_text);
+                let span_words: Vec<String> = microresolve::tokenizer::tokenize(span_text);
                 let span_refs: Vec<&str> = span_words.iter().map(|s| s.as_str()).collect();
                 router.l2_mut().learn_query_words(&span_refs, span_intent);
                 eprintln!("[auto-learn/query] span words {:?} → '{}'", span_refs, span_intent);
@@ -856,12 +886,12 @@ pub async fn apply_review(
             let mut routers = state.routers.write().unwrap();
             if let Some(router) = routers.get_mut(app_id) {
                 let pre = router.l1().preprocess(original_query);
-                let orig_words = asv_router::scoring::LexicalGraph::l1_tokens_pub(original_query);
+                let orig_words = microresolve::scoring::LexicalGraph::l1_tokens_pub(original_query);
                 let injected = pre.injected.clone();
                 for word in &orig_words {
                     if let Some(edges) = router.l1().edges.get(word.as_str()).cloned() {
                         for edge in edges {
-                            if matches!(edge.kind, asv_router::scoring::EdgeKind::Synonym)
+                            if matches!(edge.kind, microresolve::scoring::EdgeKind::Synonym)
                                 && injected.contains(&edge.target)
                             {
                                 router.l1_mut().reinforce(word, &edge.target, DELTA_REINFORCE);
@@ -1007,7 +1037,7 @@ async fn learn_l1_synonyms(
                                         && graph_vocab.contains(&target)
                                     {
                                         router.l1_mut().add(&from, &target, 0.88,
-                                            asv_router::scoring::EdgeKind::Synonym);
+                                            microresolve::scoring::EdgeKind::Synonym);
                                         eprintln!("[auto-learn/L1] synonym {} → {} (semantic/cross-lingual)", from, target);
                                         learned += 1;
                                     }
@@ -1073,7 +1103,7 @@ async fn learn_l1_morphology(
                                             let variant = variant.trim().to_lowercase();
                                             if !variant.is_empty() && variant != canonical.as_str() {
                                                 router.l1_mut().add(&variant, canonical, 0.97,
-                                                    asv_router::scoring::EdgeKind::Morphological);
+                                                    microresolve::scoring::EdgeKind::Morphological);
                                                 eprintln!("[auto-learn/L1] {} → {} (morphological)", variant, canonical);
                                                 learned += 1;
                                             }

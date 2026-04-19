@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { api } from '@/api/client';
 import SidebarLayout, { type SidebarItem } from '@/components/SidebarLayout';
 import Page from '@/components/Page';
+import { useAppStore } from '@/store';
 
 export default function SettingsPage() {
   const [section, setSection] = useState('llm');
 
   const items: SidebarItem[] = [
     { id: 'llm', label: 'LLM / AI' },
+    { id: 'routing', label: 'Routing' },
     { id: 'data', label: 'Data' },
   ];
 
@@ -21,6 +23,7 @@ export default function SettingsPage() {
       >
         <div className="p-5 max-w-2xl">
           {section === 'llm' && <LLMSection />}
+          {section === 'routing' && <RoutingSection />}
           {section === 'data' && <DataSection />}
         </div>
       </SidebarLayout>
@@ -103,6 +106,51 @@ function LLMSection() {
   );
 }
 
+function RoutingSection() {
+  const { settings, setReviewSkipThreshold } = useAppStore();
+  const val = settings.reviewSkipThreshold ?? 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Routing</h2>
+        <p className="text-xs text-zinc-500 mt-1">Controls how routing decisions trigger LLM review.</p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-white">Auto-review confidence threshold</h3>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              When routing confidence exceeds this, Turn 1 LLM judge is skipped — routing is trusted as correct.
+              Set to 0 to always run the judge (default, safest). Higher values reduce LLM cost but skip review on confident-but-wrong routings.
+            </p>
+          </div>
+          <span className="text-sm font-mono text-violet-400 ml-4 shrink-0">
+            {val === 0 ? 'off' : `${Math.round(val * 100)}%`}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0} max={1} step={0.05}
+          value={val}
+          onChange={e => setReviewSkipThreshold(parseFloat(e.target.value))}
+          className="w-full accent-violet-500"
+        />
+        <div className="flex justify-between text-xs text-zinc-600">
+          <span>0% — always judge (max LLM cost)</span>
+          <span>100% — never judge (zero LLM cost)</span>
+        </div>
+        {val > 0 && (
+          <div className="text-xs text-amber-400/80 bg-amber-400/5 border border-amber-400/20 rounded p-2">
+            Queries where top intent scores &ge; {Math.round(val * 100)}% will skip Turn 1 and be treated as correctly routed. Misrouted high-confidence queries will not be auto-corrected.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DataSection() {
   const [showClearModal, setShowClearModal] = useState(false);
   const [clearInput, setClearInput] = useState('');
@@ -121,7 +169,7 @@ function DataSection() {
             const blob = new Blob([data], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = 'asv-export.json'; a.click();
+            a.href = url; a.download = 'microresolve-export.json'; a.click();
             URL.revokeObjectURL(url);
           }}
           className="text-xs text-violet-400 hover:text-violet-300 px-3 py-1.5 border border-violet-400/30 rounded"

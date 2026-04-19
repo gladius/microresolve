@@ -14,7 +14,6 @@ export default function ReviewPage() {
   const [items,        setItems]        = useState<ReviewItem[]>([]);
   const [selected,     setSelected]     = useState<ReviewItem | null>(null);
   const [intents,      setIntents]      = useState<string[]>([]);
-  const [filter,       setFilter]       = useState<'all' | 'miss' | 'low_confidence'>('all');
   const [autoLearn,    setAutoLearn]    = useState<boolean | null>(null);
   const [toggling,     setToggling]     = useState(false);
   const [toggleError,  setToggleError]  = useState<string | null>(null);
@@ -80,30 +79,26 @@ export default function ReviewPage() {
     refresh();
   }, [refresh]);
 
-  const visible = items.filter(i => filter === 'all' || i.flag === filter);
-
-  const missCount = items.filter(i => i.flag === 'miss').length;
-  const lowCount  = items.filter(i => i.flag === 'low_confidence').length;
+  const visible = items;
 
   return (
-    <Page title="Review" subtitle="Flagged queries from production traffic" fullscreen
+    <Page title="Review" subtitle="All routed queries — reviewed by LLM judge" fullscreen
       actions={
         <div className="flex items-center gap-3">
           {stats && stats.pending > 0 && (
             <span className="text-xs text-amber-400 font-mono">{stats.pending} pending</span>
           )}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500">Auto-learn</span>
-            {toggleError && <span className="text-[10px] text-red-400">{toggleError}</span>}
-            {autoLearn === null ? (
-              <span className="text-[10px] text-zinc-600">...</span>
-            ) : (
-              <button onClick={toggle} disabled={toggling}
-                className={`relative w-8 h-5 rounded-full transition-colors ${autoLearn ? 'bg-emerald-500' : 'bg-zinc-600'} ${toggling ? 'opacity-50' : ''}`}>
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${autoLearn ? 'translate-x-3' : 'translate-x-0'}`} />
-              </button>
-            )}
-          </div>
+          <button onClick={toggle} disabled={toggling || autoLearn === null}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+              autoLearn
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25'
+                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500'
+            } ${toggling ? 'opacity-50' : ''}`}
+          >
+            <span className={`w-2 h-2 rounded-full ${autoLearn ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+            Auto-learn {autoLearn === null ? '…' : autoLearn ? 'On' : 'Off'}
+          </button>
+          {toggleError && <span className="text-[10px] text-red-400">{toggleError}</span>}
         </div>
       }
     >
@@ -112,19 +107,8 @@ export default function ReviewPage() {
         {/* Left — queue list */}
         <div className="w-72 shrink-0 border-r border-zinc-800 flex flex-col">
           {/* Filter bar */}
-          <div className="px-3 py-2.5 border-b border-zinc-800 flex items-center gap-1.5 flex-shrink-0">
-            {([
-              { key: 'all',            label: `All (${items.length})` },
-              { key: 'miss',           label: `Miss (${missCount})` },
-              { key: 'low_confidence', label: `Low (${lowCount})` },
-            ] as const).map(f => (
-              <button key={f.key} onClick={() => setFilter(f.key)}
-                className={`text-[10px] px-2 py-0.5 rounded uppercase font-semibold transition-colors ${
-                  filter === f.key ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}>
-                {f.label}
-              </button>
-            ))}
+          <div className="px-3 py-2.5 border-b border-zinc-800 flex items-center flex-shrink-0">
+            <span className="text-[10px] text-zinc-500">{items.length} queued for review</span>
             <button onClick={refresh} className="ml-auto text-[10px] text-zinc-600 hover:text-zinc-400">↺</button>
           </div>
 
@@ -133,18 +117,17 @@ export default function ReviewPage() {
             {visible.length === 0 ? (
               <div className="text-center py-12 px-4 text-zinc-600 text-xs leading-relaxed">
                 {items.length === 0
-                  ? 'No flagged items yet.\nItems appear when production queries miss or score low.'
+                  ? 'Queue is empty.\nRouted queries appear here for LLM review.'
                   : 'No items match this filter.'}
               </div>
             ) : visible.map(item => (
               <button key={item.id} onClick={() => setSelected(item)}
                 className={`w-full text-left px-3 py-3 hover:bg-zinc-800/50 transition-colors ${selected?.id === item.id ? 'bg-zinc-800/70' : ''}`}>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0 ${
-                    item.flag === 'miss' ? 'bg-red-900/30 text-red-400' : 'bg-amber-900/30 text-amber-400'
-                  }`}>{item.flag === 'low_confidence' ? 'LOW' : item.flag}</span>
-                  {item.detected.length > 0 && (
-                    <span className="text-[10px] text-zinc-600 truncate">{item.detected.join(', ')}</span>
+                  {item.detected.length > 0 ? (
+                    <span className="text-[10px] text-zinc-400 truncate">{item.detected.join(', ')}</span>
+                  ) : (
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0 bg-zinc-800 text-zinc-500">no match</span>
                   )}
                   <span className="ml-auto text-[9px] text-zinc-700 flex-shrink-0">
                     {new Date(item.timestamp).toLocaleTimeString()}
@@ -169,10 +152,8 @@ export default function ReviewPage() {
               <div className="text-zinc-600 text-3xl mb-1">✓</div>
               <div className="text-zinc-300 text-sm font-medium">Queue is clear</div>
               <div className="text-zinc-600 text-xs max-w-sm leading-relaxed">
-                When the router can't confidently match a query in production, it appears here flagged as
-                <span className="text-red-400 font-mono mx-1">miss</span> or
-                <span className="text-amber-400 font-mono mx-1">low confidence</span>.
-                You can fix them manually or enable <span className="text-emerald-400">Auto-learn</span> to let the LLM process them automatically.
+                Every routed query is reviewed by the LLM judge. Enable <span className="text-emerald-400">Auto-learn</span> to apply corrections automatically,
+                or review and fix them manually here.
               </div>
             </div>
           )}
@@ -273,10 +254,9 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
   return (
     <div className="p-5 space-y-4 max-w-2xl">
       <div className="flex items-center gap-2">
-        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-          item.flag === 'miss' ? 'bg-red-900/30 text-red-400' :
-          item.flag === 'low_confidence' ? 'bg-amber-900/30 text-amber-400' : 'bg-blue-900/30 text-blue-400'
-        }`}>{item.flag.replace('_', ' ')}</span>
+        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
+          {item.detected.length === 0 ? 'no match' : 'review'}
+        </span>
         {item.detected.length > 0 && <span className="text-xs text-zinc-500">detected: {item.detected.join(', ')}</span>}
       </div>
 

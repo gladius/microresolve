@@ -405,8 +405,10 @@ impl LogStore {
         }
     }
 
-    /// Return (app_id, id) for all alive flagged records not yet reviewed by LLM.
+    /// Return (app_id, id) for all alive unreviewed records.
     /// Used by the background worker to find pending work.
+    /// Every routed request is a candidate — the confidence threshold inside
+    /// full_review gates whether LLM is actually called.
     pub fn pending_worker_ids(&self, app_id_filter: Option<&str>) -> Vec<(String, u64)> {
         let mut pending = Vec::new();
         for (app_id, al) in &self.apps {
@@ -415,8 +417,6 @@ impl LogStore {
             }
             for meta in &al.index {
                 if !meta.alive { continue; }
-                // Only process flagged entries (miss / low_confidence)
-                if meta.flag.is_none() { continue; }
                 let already_done = al.review_status.get(&meta.id)
                     .map(|s| s.status == "done" || s.status == "escalated" || s.status == "processing")
                     .unwrap_or(false);

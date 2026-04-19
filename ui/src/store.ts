@@ -5,6 +5,7 @@ export interface AppSettings {
   selectedNamespaceId: string;
   selectedDomain: string;
   languages: string[];
+  reviewSkipThreshold: number;
 }
 
 export interface AppStore {
@@ -13,6 +14,7 @@ export interface AppStore {
   setSelectedNamespaceId: (namespaceId: string) => void;
   setSelectedDomain: (domain: string) => void;
   setLanguages: (languages: string[]) => void;
+  setReviewSkipThreshold: (t: number) => void;
 }
 
 export const defaults: AppSettings = {
@@ -20,6 +22,7 @@ export const defaults: AppSettings = {
   selectedNamespaceId: 'default',
   selectedDomain: '',
   languages: ['en'],
+  reviewSkipThreshold: 0.0,
 };
 
 export const AppContext = createContext<AppStore>({
@@ -28,6 +31,7 @@ export const AppContext = createContext<AppStore>({
   setSelectedNamespaceId: () => {},
   setSelectedDomain: () => {},
   setLanguages: () => {},
+  setReviewSkipThreshold: () => {},
 });
 
 export function useAppStore() {

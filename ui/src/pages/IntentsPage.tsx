@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
 import { api, type IntentInfo, type IntentType, type NamespaceModel } from '@/api/client';
 import { useAppStore } from '@/store';
@@ -60,7 +60,14 @@ export default function IntentsPage() {
   const allIntentIds = useMemo(() => intents.map(i => i.id), [intents]);
 
   return (
-    <Page title="Intents" subtitle={`${intents.length} intents`} fullscreen>
+    <Page title="Intents" subtitle={`${intents.length} intents`} fullscreen
+      actions={
+        <Link to="/collisions"
+          className="text-[11px] px-3 py-1 rounded border border-zinc-600 text-zinc-400 hover:border-violet-500 hover:text-violet-400 transition-colors">
+          Fix Collisions
+        </Link>
+      }
+    >
     <div className="flex gap-0 h-full">
       {/* Left: Intent list */}
       <div className="w-72 min-w-[18rem] border-r border-zinc-800 flex flex-col">

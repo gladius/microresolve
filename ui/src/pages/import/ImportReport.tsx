@@ -17,9 +17,10 @@ interface ImportReportProps {
   result: ImportResult;
   onViewIntents: () => void;
   onImportMore: () => void;
+  onFixCollisions?: () => void;
 }
 
-export function ImportReport({ result, onViewIntents, onImportMore }: ImportReportProps) {
+export function ImportReport({ result, onViewIntents, onImportMore, onFixCollisions }: ImportReportProps) {
   const totalRecovered = result.per_intent?.reduce((s, i) => s + (i.recovered ?? 0), 0) ?? 0;
   const emptyIntents = result.per_intent?.filter(i => i.phrases_added === 0) ?? [];
   const guardFired = result.phrases_blocked > 0 || totalRecovered > 0;
@@ -108,6 +109,11 @@ export function ImportReport({ result, onViewIntents, onImportMore }: ImportRepo
 
       <div className="flex gap-3 pt-1 border-t border-zinc-800">
         <button onClick={onViewIntents} className="px-4 py-2 text-sm bg-violet-600 text-white rounded hover:bg-violet-500">View Intents →</button>
+        {onFixCollisions && (
+          <button onClick={onFixCollisions} className="px-4 py-2 text-sm border border-amber-600/50 text-amber-400 rounded hover:bg-amber-500/10 transition-colors">
+            Fix Collisions →
+          </button>
+        )}
         <button onClick={onImportMore} className="px-4 py-2 text-sm border border-zinc-700 text-zinc-400 rounded hover:text-white">Import more</button>
       </div>
     </div>

@@ -1,6 +1,6 @@
 //! Server state, shared types, and helper functions.
 
-use asv_router::Router;
+use microresolve::Router;
 use axum::http::HeaderMap;
 use std::collections::HashMap;
 use std::path::Path;
@@ -19,6 +19,10 @@ pub struct UiSettings {
     pub threshold: f32,
     #[serde(default = "default_languages")]
     pub languages: Vec<String>,
+    /// L2 score above which Turn 1 LLM judge is skipped (0 = always judge, 1 = never judge).
+    /// When the top detected intent scores above this, routing is trusted without LLM review.
+    #[serde(default = "default_review_skip_threshold")]
+    pub review_skip_threshold: f32,
 }
 
 impl Default for UiSettings {
@@ -28,6 +32,7 @@ impl Default for UiSettings {
             selected_domain: String::new(),
             threshold: 0.3,
             languages: vec!["en".to_string()],
+            review_skip_threshold: 0.0,
         }
     }
 }
@@ -35,6 +40,7 @@ impl Default for UiSettings {
 fn default_namespace() -> String { "default".to_string() }
 fn default_threshold() -> f32 { 0.3 }
 fn default_languages() -> Vec<String> { vec!["en".to_string()] }
+fn default_review_skip_threshold() -> f32 { 0.0 }
 
 /// Events broadcast to SSE subscribers (Studio page live feed).
 #[derive(Clone, serde::Serialize, Debug)]
@@ -62,7 +68,7 @@ pub struct ServerState {
     pub worker_notify: Arc<Notify>,
     /// Global L1 base graph loaded from data/l1_base.json (WordNet + ConceptNet).
     /// Merged into every namespace's Router.l1 — new namespaces get it on first access.
-    pub l1_base: Option<asv_router::scoring::LexicalGraph>,
+    pub l1_base: Option<microresolve::scoring::LexicalGraph>,
 }
 
 pub type AppState = Arc<ServerState>;

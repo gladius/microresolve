@@ -73,19 +73,20 @@ export default function Layout() {
   type NavGroup = { label: string; items: NavItem[] };
   const NAV_GROUPS: NavGroup[] = [
     {
-      label: 'Use',
+      label: 'Build',
       items: [
-        { to: '/',        label: 'Route',    icon: '▸', hint: 'Test queries, train on weak results' },
-        { to: '/intents', label: 'Intents',  icon: '◆', hint: 'Manage intents and training data' },
-        { to: '/import',  label: 'Import',   icon: '↓', hint: 'Import from OpenAPI, MCP, and more' },
+        { to: '/',           label: 'Route',          icon: '▸', hint: 'Test queries, train on weak results' },
+        { to: '/intents',    label: 'Intents',        icon: '◆', hint: 'Manage intents and training data' },
+        { to: '/import',     label: 'Import',         icon: '↓', hint: 'Import from OpenAPI, MCP, and more' },
+        { to: '/collisions', label: 'Fix Collisions', icon: '⚡', hint: 'Find and fix intents with overlapping phrases' },
       ],
     },
     {
       label: 'Train',
       items: [
         { to: '/simulate', label: 'Simulate', icon: '◎', hint: 'LLM generates queries, system learns from failures' },
-        { to: '/layers',   label: 'Layers',   icon: '⧉', hint: 'Inspect and edit L0·L1·L2 routing layers' },
         { to: '/review',   label: 'Review',   icon: '✦', hint: 'Triage flagged queries from production', badge: reviewPending || undefined },
+        { to: '/layers',   label: 'Layers',   icon: '⧉', hint: 'Inspect and edit L0·L1·L2 routing layers' },
       ],
     },
     {
@@ -108,7 +109,10 @@ export default function Layout() {
         {/* Brand + collapse */}
         <div className="h-12 flex items-center px-3 border-b border-zinc-800">
           {!collapsed && (
-            <span className="text-sm font-semibold text-white tracking-tight">ASV</span>
+            <span className="flex items-baseline gap-1">
+              <span className="text-violet-400 font-bold text-xl leading-none">μ</span>
+              <span className="text-white font-bold text-sm tracking-tight">Resolve</span>
+            </span>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}

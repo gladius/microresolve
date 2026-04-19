@@ -15,13 +15,25 @@ export function appHeaders(): Record<string, string> {
   return h;
 }
 
+function friendlyError(status: number, body: string): string {
+  if (status === 429) return 'LLM rate limit reached — wait a moment and try again.';
+  if (status === 401 || status === 403) return 'LLM API key missing or invalid — check Settings.';
+  if (status === 404) return 'Not found.';
+  if (status >= 500) {
+    // Strip raw HTTP stack traces; keep the last meaningful sentence
+    const clean = body.replace(/^HTTP \d+: /i, '').split('\n')[0].trim();
+    return clean.length > 0 && clean.length < 200 ? clean : 'Server error — check the server logs.';
+  }
+  return body || `Request failed (${status}).`;
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
     headers: appHeaders(),
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(friendlyError(res.status, await res.text()));
   const text = await res.text();
   if (!text) return undefined as T;
   return JSON.parse(text);
@@ -29,7 +41,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: appHeaders() });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(friendlyError(res.status, await res.text()));
   const data = await res.json();
   // Server returns {"error": "..."} for missing apps — treat as empty
   if (data && typeof data === 'object' && 'error' in data && !Array.isArray(data)) {
@@ -139,6 +151,13 @@ export const api = {
 
   // Intents
   listIntents: () => get<IntentInfo[]>('/intents'),
+  discriminateIntents: (opts: { domain?: string; threshold?: number; phrases_per_pair?: number; dry_run?: boolean }) =>
+    post<{
+      pairs_analyzed: number;
+      phrases_added: number;
+      dry_run?: boolean;
+      pairs: { intent_a: string; intent_b: string; overlap: number; phrases_added_a: number; phrases_added_b: number }[];
+    }>('/intents/discriminate', opts),
   addIntent: (id: string, phrases: string[], intent_type?: IntentType) =>
     post<void>('/intents', { id, phrases, intent_type }),
   addIntentMultilingual: (id: string, phrases_by_lang: Record<string, string[]>, intent_type?: IntentType) =>
@@ -203,6 +222,8 @@ export const api = {
 
   // Languages
   getLanguages: () => get<Record<string, string>>('/languages'),
+  getStopWords: () => get<Record<string, { count: number; source: 'built-in' | 'generated' }>>('/stopwords'),
+  generateStopWords: (lang: string) => post<{ lang: string; count: number; source: string }>('/stopwords/generate', { lang }),
 
   // Logs
   getLogs: (limit = 100, offset = 0) =>

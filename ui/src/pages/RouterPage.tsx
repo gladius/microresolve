@@ -56,6 +56,10 @@ export default function RouterPage() {
 
     if (raw === '/reset') {
       push({ type: 'query', text: raw });
+      if (!window.confirm('Reset router to defaults? This clears all learned state for this namespace.')) {
+        push({ type: 'system', html: 'Reset cancelled.' });
+        return;
+      }
       try {
         await api.reset();
         await api.loadDefaults();

@@ -69,7 +69,7 @@ pub async fn route_multi(
 
                 // L1: normalize + expand (mode selected by request flags)
                 let preprocessed = if req.disable_l1 {
-                    asv_router::scoring::PreprocessResult {
+                    microresolve::scoring::PreprocessResult {
                         original: q0.clone(),
                         normalized: q0.clone(),
                         expanded: q0.clone(),
@@ -203,7 +203,7 @@ pub async fn route_multi(
                 let routers = state.routers.read().unwrap();
                 routers.get(&app_id).map(|r| r.l0().correct_query(&req.query)).unwrap_or_else(|| req.query.clone())
             };
-            let tokens: Vec<String> = asv_router::tokenizer::tokenize(&processed_query);
+            let tokens: Vec<String> = microresolve::tokenizer::tokenize(&processed_query);
             serde_json::json!({
                 "l0_corrected": l0_corrected,
                 "l1_normalized": processed_query,
@@ -291,7 +291,7 @@ fn disambiguate_cross_provider(
     if duplicate_groups.is_empty() { return; }
 
     // Get query tokens
-    let tokens = asv_router::tokenizer::tokenize(query);
+    let tokens = microresolve::tokenizer::tokenize(query);
 
     // For each token, find which intents it maps to
     let routers = state.routers.read().unwrap();
