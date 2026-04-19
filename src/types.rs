@@ -1,4 +1,4 @@
-//! Public types for the ASV Router.
+//! Public types for the MicroResolve.
 
 /// Router configuration. Pass to `Router::with_config()`.
 ///

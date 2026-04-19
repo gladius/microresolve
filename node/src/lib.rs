@@ -1,4 +1,4 @@
-//! Node.js bindings for ASV Router via napi-rs (intent registry only).
+//! Node.js bindings for MicroResolve via napi-rs (intent registry only).
 //!
 //! Routing is handled server-side by the Hebbian L1+L3 system.
 //!
@@ -31,14 +31,14 @@ pub struct SeedResult {
 
 #[napi]
 pub struct Router {
-    inner: asv_router_core::Router,
+    inner: microresolve_core::Router,
 }
 
 #[napi]
 impl Router {
     #[napi(constructor)]
     pub fn new() -> Self {
-        Router { inner: asv_router_core::Router::new() }
+        Router { inner: microresolve_core::Router::new() }
     }
 
     /// Add an intent with seed phrases.
@@ -64,8 +64,8 @@ impl Router {
     #[napi]
     pub fn set_intent_type(&mut self, intent_id: String, intent_type: String) {
         let t = match intent_type.as_str() {
-            "context" => asv_router_core::IntentType::Context,
-            _ => asv_router_core::IntentType::Action,
+            "context" => microresolve_core::IntentType::Context,
+            _ => microresolve_core::IntentType::Action,
         };
         self.inner.set_intent_type(&intent_id, t);
     }
@@ -79,7 +79,7 @@ impl Router {
     /// Import router state from JSON string.
     #[napi(factory)]
     pub fn import_json(json: String) -> Result<Router> {
-        match asv_router_core::Router::import_json(&json) {
+        match microresolve_core::Router::import_json(&json) {
             Ok(r) => Ok(Router { inner: r }),
             Err(e) => Err(Error::from_reason(e)),
         }
@@ -142,11 +142,11 @@ impl Router {
     /// Discover intent clusters from unlabeled queries.
     #[napi]
     pub fn discover(queries: Vec<String>, expected_intents: Option<u32>) -> Vec<DiscoveredCluster> {
-        let config = asv_router_core::discovery::DiscoveryConfig {
+        let config = microresolve_core::discovery::DiscoveryConfig {
             expected_intents: expected_intents.unwrap_or(0) as usize,
             ..Default::default()
         };
-        let clusters = asv_router_core::discovery::discover_intents(&queries, &config);
+        let clusters = microresolve_core::discovery::discover_intents(&queries, &config);
         clusters.iter().map(|c| DiscoveredCluster {
             name: c.suggested_name.clone(),
             size: c.size as u32,

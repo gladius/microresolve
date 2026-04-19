@@ -1,6 +1,6 @@
 //! Hebbian graph persistence utilities + L1 CRUD API endpoints.
 
-use asv_router::scoring::{LexicalGraph, EdgeKind};
+use microresolve::scoring::{LexicalGraph, EdgeKind};
 use axum::{extract::State, http::HeaderMap, routing::{get, post, delete}, Json};
 use crate::state::*;
 
@@ -243,7 +243,7 @@ async fn l2_probe(
     };
     let q0 = router.l0().correct_query(&req.query);
     let preprocessed = router.l1().preprocess(&q0);
-    let tokens: Vec<String> = asv_router::tokenizer::tokenize(&preprocessed.expanded);
+    let tokens: Vec<String> = microresolve::tokenizer::tokenize(&preprocessed.expanded);
     let (scores, _) = router.l2().score_normalized(&preprocessed.expanded);
     Json(serde_json::json!({
         "l0_corrected": q0,

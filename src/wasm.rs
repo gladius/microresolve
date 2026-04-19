@@ -1,4 +1,4 @@
-//! WebAssembly bindings for ASV Router (intent registry only).
+//! WebAssembly bindings for MicroResolve (intent registry only).
 //!
 //! Routing is handled server-side by the Hebbian L1+L3 system.
 //! This WASM module exposes the intent registry for browser-based management.

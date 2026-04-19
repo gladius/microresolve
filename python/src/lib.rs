@@ -1,4 +1,4 @@
-//! Python bindings for ASV Router via PyO3 (intent registry only).
+//! Python bindings for MicroResolve via PyO3 (intent registry only).
 //!
 //! Routing is handled server-side by the Hebbian L1+L3 system.
 //!
@@ -16,14 +16,14 @@ use std::collections::HashMap;
 /// Routing is handled by the Hebbian L1+L3 server.
 #[pyclass]
 struct Router {
-    inner: asv_router_core::Router,
+    inner: microresolve_core::Router,
 }
 
 #[pymethods]
 impl Router {
     #[new]
     fn new() -> Self {
-        Router { inner: asv_router_core::Router::new() }
+        Router { inner: microresolve_core::Router::new() }
     }
 
     /// Add an intent with seed phrases.
@@ -50,8 +50,8 @@ impl Router {
     /// Set intent type: "action" or "context".
     fn set_intent_type(&mut self, intent_id: &str, intent_type: &str) {
         let t = match intent_type {
-            "context" => asv_router_core::IntentType::Context,
-            _ => asv_router_core::IntentType::Action,
+            "context" => microresolve_core::IntentType::Context,
+            _ => microresolve_core::IntentType::Action,
         };
         self.inner.set_intent_type(intent_id, t);
     }
@@ -69,7 +69,7 @@ impl Router {
     /// Import router state from JSON string.
     #[staticmethod]
     fn import_json(json: &str) -> PyResult<Router> {
-        match asv_router_core::Router::import_json(json) {
+        match microresolve_core::Router::import_json(json) {
             Ok(r) => Ok(Router { inner: r }),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(e)),
         }
@@ -138,11 +138,11 @@ impl Router {
     #[staticmethod]
     #[pyo3(signature = (queries, expected_intents=None))]
     fn discover<'py>(py: Python<'py>, queries: Vec<String>, expected_intents: Option<usize>) -> PyResult<Vec<Bound<'py, PyDict>>> {
-        let config = asv_router_core::discovery::DiscoveryConfig {
+        let config = microresolve_core::discovery::DiscoveryConfig {
             expected_intents: expected_intents.unwrap_or(0),
             ..Default::default()
         };
-        let clusters = asv_router_core::discovery::discover_intents(&queries, &config);
+        let clusters = microresolve_core::discovery::discover_intents(&queries, &config);
 
         clusters.iter().map(|c| {
             let d = PyDict::new(py);
@@ -156,9 +156,9 @@ impl Router {
     }
 }
 
-/// ASV Router Python module.
+/// MicroResolve Python module.
 #[pymodule]
-fn asv_router(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn microresolve(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Router>()?;
     Ok(())
 }

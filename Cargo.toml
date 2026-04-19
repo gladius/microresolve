@@ -1,11 +1,11 @@
 [package]
-name = "asv-router"
+name = "microresolve"
 version = "0.1.0"
 edition = "2021"
 authors = ["Gladius Thayalarajan"]
-description = "Sub-millisecond multilingual intent routing with LLM-assisted online learning. No embeddings, no GPU, no retraining."
+description = "Sub-microsecond multilingual intent routing with online Hebbian learning. No embeddings, no GPU, no retraining."
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/gladius/asv-router"
+repository = "https://github.com/gladius2/microresolve"
 keywords = ["intent", "routing", "nlp", "chatbot", "sparse-vectors"]
 categories = ["text-processing", "algorithms"]
 

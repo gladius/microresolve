@@ -7,7 +7,7 @@ use axum::{
     Json,
 };
 use std::collections::HashMap;
-use asv_router::{Router, IntentType};
+use microresolve::{Router, IntentType};
 use crate::state::*;
 
 pub fn routes() -> axum::Router<AppState> {
@@ -424,7 +424,7 @@ pub async fn import_state(
 // --- Languages ---
 
 pub async fn get_languages() -> Json<serde_json::Value> {
-    let json_str = asv_router::phrase::supported_languages_json();
+    let json_str = microresolve::phrase::supported_languages_json();
     let val: serde_json::Value = serde_json::from_str(&json_str).unwrap_or_default();
     Json(val)
 }

@@ -3,13 +3,13 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "asv-router"
+name = "microresolve"
 version = "0.1.0"
-description = "Sub-millisecond intent routing. No embeddings, no GPU, no neural network."
+description = "Sub-microsecond intent routing with Hebbian learning. No embeddings, no GPU, no retraining."
 requires-python = ">=3.8"
 license = "MIT OR Apache-2.0"
 keywords = ["intent", "routing", "nlp", "chatbot"]
 
 [tool.maturin]
 features = []
-module-name = "asv_router"
+module-name = "microresolve"

@@ -5,7 +5,7 @@
 //!   Domain:    logical intent group derived from "domain:intent_id" prefix
 //!   Intent:    leaf routing target
 
-use asv_router::Router;
+use microresolve::Router;
 use axum::{
     extract::State,
     http::{StatusCode, HeaderMap},

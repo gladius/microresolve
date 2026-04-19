@@ -1,5 +1,5 @@
 [package]
-name = "asv-router-node"
+name = "microresolve-node"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 napi = { version = "3", features = ["napi8"] }
 napi-derive = "3"
-asv-router-core = { package = "asv-router", path = ".." }
+microresolve-core = { package = "microresolve", path = ".." }
 
 [build-dependencies]
 napi-build = "2"

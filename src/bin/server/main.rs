@@ -1,4 +1,4 @@
-//! ASV Router HTTP API server.
+//! MicroResolve HTTP API server.
 //!
 //! Run with: cargo run --bin server --features server --release
 //!
@@ -21,11 +21,12 @@ mod routes_connect;
 mod routes_ui_settings;
 mod routes_events;
 mod routes_hebbian;
+mod routes_stopwords;
 mod worker;
 
 use state::*;
 use log_store::LogStore;
-use asv_router::Router;
+use microresolve::Router;
 use axum::{
     extract::State,
     http::HeaderMap,
@@ -159,6 +160,7 @@ async fn main() {
         .merge(routes_ui_settings::routes())
         .merge(routes_events::routes())
         .merge(routes_hebbian::routes())
+        .merge(routes_stopwords::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
@@ -186,7 +188,7 @@ async fn main() {
         app
     };
 
-    println!("ASV Router server listening on {}", addr);
+    println!("MicroResolve server listening on {}", addr);
     if let Some(ref dir) = state.data_dir {
         println!("Data directory: {}", dir);
     }

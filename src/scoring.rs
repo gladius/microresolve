@@ -16,7 +16,7 @@
 //!
 //! ## Example
 //! ```no_run
-//! use asv_router::hebbian::{LexicalGraph, EdgeKind};
+//! use microresolve::hebbian::{LexicalGraph, EdgeKind};
 //! let mut g = LexicalGraph::new();
 //! g.add("canceling", "cancel", 0.99, EdgeKind::Morphological);
 //! g.add("terminate", "cancel", 0.92, EdgeKind::Synonym);

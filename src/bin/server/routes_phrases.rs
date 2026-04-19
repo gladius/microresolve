@@ -28,7 +28,7 @@ pub struct BuildPromptRequest {
 }
 
 pub async fn build_phrase_prompt(Json(req): Json<BuildPromptRequest>) -> Json<serde_json::Value> {
-    let prompt = asv_router::phrase::build_prompt(&req.intent_id, &req.description, &req.languages);
+    let prompt = microresolve::phrase::build_prompt(&req.intent_id, &req.description, &req.languages);
     Json(serde_json::json!({ "prompt": prompt }))
 }
 
@@ -41,7 +41,7 @@ pub struct ParseResponseRequest {
 pub async fn parse_phrase_response(
     Json(req): Json<ParseResponseRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let result = asv_router::phrase::parse_response(&req.response_text, &req.languages)
+    let result = microresolve::phrase::parse_response(&req.response_text, &req.languages)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     let val: serde_json::Value =
         serde_json::from_str(&result).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -60,9 +60,9 @@ pub async fn generate_phrases(
     State(state): State<AppState>,
     Json(req): Json<GeneratePhrasesRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let prompt = asv_router::phrase::build_prompt(&req.intent_id, &req.description, &req.languages);
+    let prompt = microresolve::phrase::build_prompt(&req.intent_id, &req.description, &req.languages);
     let text = call_llm(&state, &prompt, 2048).await?;
-    let result = asv_router::phrase::parse_response(&text, &req.languages)
+    let result = microresolve::phrase::parse_response(&text, &req.languages)
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to parse phrases: {}", e)))?;
     let val: serde_json::Value = serde_json::from_str(&result)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;

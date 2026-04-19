@@ -7,7 +7,7 @@ use axum::{
     Json,
 };
 use std::collections::HashMap;
-use asv_router::{Router, IntentType};
+use microresolve::{Router, IntentType};
 use crate::state::*;
 use crate::pipeline::*;
 
@@ -161,9 +161,9 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
         if router.l1().edges.contains_key(from) { continue; }
 
         let kind = match kind_s {
-            "abbreviation"  => { n_abbrev += 1; asv_router::scoring::EdgeKind::Abbreviation }
-            "morphological" => { n_morph  += 1; asv_router::scoring::EdgeKind::Morphological }
-            _               => { n_syn    += 1; asv_router::scoring::EdgeKind::Synonym }
+            "abbreviation"  => { n_abbrev += 1; microresolve::scoring::EdgeKind::Abbreviation }
+            "morphological" => { n_morph  += 1; microresolve::scoring::EdgeKind::Morphological }
+            _               => { n_syn    += 1; microresolve::scoring::EdgeKind::Synonym }
         };
         eprintln!("[import/L1] {:>14}: {} → {} (w={:.2})", kind_s, from, to, weight);
         router.l1_mut().add(from, to, weight, kind);
@@ -354,7 +354,7 @@ pub struct ImportParseRequest {
 pub async fn import_parse(
     Json(req): Json<ImportParseRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let parsed = asv_router::import::parse_spec(&req.spec)
+    let parsed = microresolve::import::parse_spec(&req.spec)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     let operations: Vec<serde_json::Value> = parsed.operations.iter().map(|op| {
@@ -416,12 +416,12 @@ pub async fn import_apply(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    let parsed = asv_router::import::parse_spec(&req.spec)
+    let parsed = microresolve::import::parse_spec(&req.spec)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     // Filter to selected operations only
     let selected_set: std::collections::HashSet<&str> = req.selected.iter().map(|s| s.as_str()).collect();
-    let selected_ops: Vec<&asv_router::import::openapi::ParsedOperation> = parsed.operations.iter()
+    let selected_ops: Vec<&microresolve::import::openapi::ParsedOperation> = parsed.operations.iter()
         .filter(|op| selected_set.contains(op.id.as_str()))
         .collect();
 
@@ -435,7 +435,7 @@ pub async fn import_apply(
         let router = routers.entry(app_id.clone()).or_insert_with(Router::new);
 
         for op in &selected_ops {
-            let base_name = asv_router::import::to_snake_case(
+            let base_name = microresolve::import::to_snake_case(
                 op.operation_id.as_deref().unwrap_or(&op.id)
             );
             let intent_name = if req.domain.is_empty() {
@@ -460,13 +460,13 @@ pub async fn import_apply(
 
             // Set type based on method
             let intent_type = match op.method.as_str() {
-                "GET" | "HEAD" => asv_router::IntentType::Context,
-                _ => asv_router::IntentType::Action,
+                "GET" | "HEAD" => microresolve::IntentType::Context,
+                _ => microresolve::IntentType::Action,
             };
             router.set_intent_type(&intent_name, intent_type);
 
             // Source — openapi
-            router.set_source(&intent_name, asv_router::IntentSource::new("openapi")
+            router.set_source(&intent_name, microresolve::IntentSource::new("openapi")
                 .with_label(parsed.title.clone()));
 
             // Schema — full operation as structured value
@@ -487,7 +487,7 @@ pub async fn import_apply(
             router.set_schema(&intent_name, schema);
 
             // Target — API endpoint
-            router.set_target(&intent_name, asv_router::IntentTarget::new("api_endpoint")
+            router.set_target(&intent_name, microresolve::IntentTarget::new("api_endpoint")
                 .with_handler(endpoint.clone()));
 
         }
@@ -510,7 +510,7 @@ pub async fn import_apply(
 
         for batch in selected_ops.chunks(batch_size) {
             let ops_desc: Vec<String> = batch.iter().map(|op| {
-                let base = asv_router::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
+                let base = microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
                 let intent_name = if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) };
                 format!("- {} ({}): {} — {}",
                     intent_name, op.method,
@@ -522,7 +522,7 @@ pub async fn import_apply(
                 let routers = state.routers.read().unwrap();
                 if let Some(router) = routers.get(&app_id) {
                     batch.iter().map(|op| {
-                        let base = asv_router::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
+                        let base = microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
                         let name = if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) };
                         let seeds = router.get_training(&name).unwrap_or_default();
                         format!("  {}: {:?}", name, seeds.iter().take(3).collect::<Vec<_>>())
@@ -536,7 +536,7 @@ pub async fn import_apply(
             // Build an example using the first real intent name from this batch
             let example_intent = {
                 let op = &batch[0];
-                let base = asv_router::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
+                let base = microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
                 if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) }
             };
 
@@ -562,7 +562,7 @@ pub async fn import_apply(
                  For each operation, generate phrases a developer or user would say when they want this action.\n\
                  Mix: short commands, questions, and situational phrases.\n\n\
                  {}",
-                lang_instruction, ops_desc.join("\n"), existing_seeds, asv_router::phrase::PHRASE_QUALITY_RULES, response_format
+                lang_instruction, ops_desc.join("\n"), existing_seeds, microresolve::phrase::PHRASE_QUALITY_RULES, response_format
             );
 
             if let Ok(response) = call_llm(&state, &prompt, max_tokens).await {
@@ -616,7 +616,7 @@ pub async fn import_apply(
     seed_into_l1(&state, &app_id, &all_accepted).await;
 
     let intent_names: Vec<String> = selected_ops.iter().map(|op| {
-        let base = asv_router::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
+        let base = microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
         if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) }
     }).collect();
 
@@ -840,13 +840,13 @@ pub async fn mcp_apply(
             router.set_intent_type(&name, if read_only { IntentType::Context } else { IntentType::Action });
 
             // Source — track origin format
-            router.set_source(&name, asv_router::IntentSource::new(*source_type));
+            router.set_source(&name, microresolve::IntentSource::new(*source_type));
 
             // Schema — store full normalized tool definition
             router.set_schema(&name, (*tool).clone());
 
             // Target — execution destination (same server for MCP)
-            router.set_target(&name, asv_router::IntentTarget::new(
+            router.set_target(&name, microresolve::IntentTarget::new(
                 if *source_type == "mcp" { "mcp_server" } else { "handler" }
             ));
 
@@ -918,7 +918,7 @@ pub async fn mcp_apply(
                  For each tool, generate phrases a user would say when they want this action.\n\
                  Mix: short commands, questions, and situational phrases.\n\n\
                  {}",
-                lang_instruction, tools_desc.join("\n"), existing_seeds, asv_router::phrase::PHRASE_QUALITY_RULES, response_format
+                lang_instruction, tools_desc.join("\n"), existing_seeds, microresolve::phrase::PHRASE_QUALITY_RULES, response_format
             );
 
             if let Ok(response) = call_llm(&state, &prompt, max_tokens).await {

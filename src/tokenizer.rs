@@ -196,7 +196,7 @@ pub fn generate_skip_bigrams(tokens: &[String], max_gap: usize) -> Vec<String> {
 /// Tokenize a query into searchable terms (unigrams + bigrams).
 ///
 /// ```
-/// use asv_router::tokenizer::tokenize;
+/// use microresolve::tokenizer::tokenize;
 ///
 /// let terms = tokenize("charge my credit card");
 /// assert!(terms.contains(&"charge".to_string()));
@@ -372,7 +372,7 @@ fn expand_cjk_run(
 /// Terms appearing in more training phrases get higher weights.
 ///
 /// ```
-/// use asv_router::tokenizer::training_to_terms;
+/// use microresolve::tokenizer::training_to_terms;
 ///
 /// let terms = training_to_terms(&[
 ///     "cancel my order".to_string(),

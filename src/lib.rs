@@ -1,4 +1,4 @@
-//! # ASV Router
+//! # MicroResolve
 //!
 //! Intent registry and IDF-based scoring.
 //! Training phrases and intent metadata are stored here; scoring layers
@@ -7,7 +7,7 @@
 //! ## Quick Start (server mode)
 //!
 //! ```
-//! use asv_router::Router;
+//! use microresolve::Router;
 //!
 //! let mut router = Router::new();
 //!
