@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { api } from '@/api/client';
 import SidebarLayout, { type SidebarItem } from '@/components/SidebarLayout';
 import Page from '@/components/Page';
-import { useAppStore } from '@/store';
+import { useEffect } from 'react';
 
 export default function SettingsPage() {
   const [section, setSection] = useState('llm');
 
   const items: SidebarItem[] = [
     { id: 'llm', label: 'LLM / AI' },
-    { id: 'routing', label: 'Routing' },
     { id: 'data', label: 'Data' },
   ];
 
@@ -23,7 +22,6 @@ export default function SettingsPage() {
       >
         <div className="p-5 max-w-2xl">
           {section === 'llm' && <LLMSection />}
-          {section === 'routing' && <RoutingSection />}
           {section === 'data' && <DataSection />}
         </div>
       </SidebarLayout>
@@ -39,11 +37,11 @@ function LLMSection() {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-white">LLM / AI Configuration</h2>
         <p className="text-xs text-zinc-500 mt-1">
-          Powers: phrase generation, auto-review, auto-learn.
+          Powers phrase generation, auto-review, and auto-learn.
         </p>
       </div>
 
@@ -63,89 +61,22 @@ function LLMSection() {
         )}
       </div>
 
-      {/* Instructions */}
+      {/* .env instructions */}
       <div className="space-y-3">
         <h3 className="text-xs text-zinc-500 font-semibold uppercase">Configuration</h3>
         <p className="text-xs text-zinc-500">
-          LLM configuration is managed via the server's <code className="text-violet-400">.env</code> file.
-          Edit the file and restart the server to apply changes.
+          Set these in the server's <code className="text-violet-400">.env</code> file and restart the server to apply.
+          Any OpenAI-compatible provider works — Anthropic, OpenAI, Gemini, Groq, or local Ollama.
         </p>
-        <div className="bg-zinc-800 rounded-lg p-4 font-mono text-xs space-y-2">
-          <div className="text-zinc-500"># Anthropic (default)</div>
-          <div><span className="text-cyan-400">LLM_API_URL</span><span className="text-zinc-500">=</span><span className="text-amber-300">https://api.anthropic.com/v1/messages</span></div>
-          <div><span className="text-cyan-400">LLM_API_KEY</span><span className="text-zinc-500">=</span><span className="text-amber-300">sk-ant-...</span></div>
-          <div><span className="text-cyan-400">LLM_MODEL</span><span className="text-zinc-500">=</span><span className="text-amber-300">claude-haiku-4-5-20251001</span></div>
-          <div className="text-zinc-500 mt-3"># OpenAI</div>
-          <div><span className="text-zinc-600">LLM_API_URL=https://api.openai.com/v1/chat/completions</span></div>
-          <div><span className="text-zinc-600">LLM_API_KEY=sk-...</span></div>
-          <div><span className="text-zinc-600">LLM_MODEL=gpt-4o-mini</span></div>
-          <div className="text-zinc-500 mt-3"># Local (Ollama)</div>
-          <div><span className="text-zinc-600">LLM_API_URL=http://localhost:11434/v1/chat/completions</span></div>
-          <div><span className="text-zinc-600">LLM_API_KEY=unused</span></div>
-          <div><span className="text-zinc-600">LLM_MODEL=llama3</span></div>
-        </div>
-      </div>
-
-      {/* What LLM is used for */}
-      <div className="space-y-2">
-        <h3 className="text-xs text-zinc-500 font-semibold uppercase">Features using LLM</h3>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {[
-            { feature: 'Phrase generation', desc: 'Generate diverse training phrases for intents' },
-            { feature: 'Auto-review', desc: 'LLM suggests fixes for failed queries' },
-            { feature: 'Auto-learn', desc: 'LLM fixes failures automatically' },
-          ].map(f => (
-            <div key={f.feature} className="bg-zinc-800 rounded p-2">
-              <div className={`font-medium ${status?.configured ? 'text-white' : 'text-zinc-500'}`}>{f.feature}</div>
-              <div className="text-zinc-500 mt-0.5">{f.desc}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RoutingSection() {
-  const { settings, setReviewSkipThreshold } = useAppStore();
-  const val = settings.reviewSkipThreshold ?? 0;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-white">Routing</h2>
-        <p className="text-xs text-zinc-500 mt-1">Controls how routing decisions trigger LLM review.</p>
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-white">Auto-review confidence threshold</h3>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              When routing confidence exceeds this, Turn 1 LLM judge is skipped — routing is trusted as correct.
-              Set to 0 to always run the judge (default, safest). Higher values reduce LLM cost but skip review on confident-but-wrong routings.
-            </p>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 font-mono text-xs space-y-1.5">
+          <div><span className="text-cyan-400">LLM_API_KEY</span><span className="text-zinc-600">=</span><span className="text-amber-300">sk-ant-...</span></div>
+          <div><span className="text-cyan-400">LLM_MODEL</span><span className="text-zinc-600">=</span><span className="text-amber-300">claude-haiku-4-5-20251001</span></div>
+          <div className="text-zinc-600 text-[10px] pt-1">
+            # Optional — defaults to Anthropic if omitted<br />
+            # LLM_API_URL=https://api.openai.com/v1/chat/completions<br />
+            # LLM_PROVIDER=openai
           </div>
-          <span className="text-sm font-mono text-violet-400 ml-4 shrink-0">
-            {val === 0 ? 'off' : `${Math.round(val * 100)}%`}
-          </span>
         </div>
-        <input
-          type="range"
-          min={0} max={1} step={0.05}
-          value={val}
-          onChange={e => setReviewSkipThreshold(parseFloat(e.target.value))}
-          className="w-full accent-violet-500"
-        />
-        <div className="flex justify-between text-xs text-zinc-600">
-          <span>0% — always judge (max LLM cost)</span>
-          <span>100% — never judge (zero LLM cost)</span>
-        </div>
-        {val > 0 && (
-          <div className="text-xs text-amber-400/80 bg-amber-400/5 border border-amber-400/20 rounded p-2">
-            Queries where top intent scores &ge; {Math.round(val * 100)}% will skip Turn 1 and be treated as correctly routed. Misrouted high-confidence queries will not be auto-corrected.
-          </div>
-        )}
       </div>
     </div>
   );
@@ -159,9 +90,12 @@ function DataSection() {
   const confirmText = 'delete all';
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-white">Data</h2>
-      <p className="text-xs text-zinc-500">Export, import, or reset router state.</p>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Data</h2>
+        <p className="text-xs text-zinc-500 mt-1">Export, import, or reset router state.</p>
+      </div>
+
       <div className="flex gap-3 flex-wrap">
         <button
           onClick={async () => {
@@ -172,11 +106,11 @@ function DataSection() {
             a.href = url; a.download = 'microresolve-export.json'; a.click();
             URL.revokeObjectURL(url);
           }}
-          className="text-xs text-violet-400 hover:text-violet-300 px-3 py-1.5 border border-violet-400/30 rounded"
+          className="text-xs text-violet-400 hover:text-violet-300 px-3 py-1.5 border border-violet-400/30 rounded transition-colors"
         >
           Export State
         </button>
-        <label className="text-xs text-violet-400 hover:text-violet-300 px-3 py-1.5 border border-violet-400/30 rounded cursor-pointer">
+        <label className="text-xs text-violet-400 hover:text-violet-300 px-3 py-1.5 border border-violet-400/30 rounded cursor-pointer transition-colors">
           Import State
           <input type="file" accept=".json" className="hidden" onChange={async (e) => {
             const file = e.target.files?.[0];
@@ -186,27 +120,34 @@ function DataSection() {
               await api.importState(text);
               alert('Imported successfully');
               window.location.reload();
-            } catch { alert('Import failed'); }
+            } catch { alert('Import failed — select a valid .json export file'); }
           }} />
         </label>
-        <button
-          onClick={async () => {
-            if (!confirm('Reset all intents to demo defaults?')) return;
-            await api.reset();
-            await api.loadDefaults();
-            alert('Reset to defaults');
-            window.location.reload();
-          }}
-          className="text-xs text-red-400/70 hover:text-red-400 px-3 py-1.5 border border-red-400/20 rounded"
-        >
-          Reset to Defaults
-        </button>
-        <button
-          onClick={() => { setShowClearModal(true); setClearInput(''); }}
-          className="text-xs text-red-500/70 hover:text-red-400 px-3 py-1.5 border border-red-500/20 rounded"
-        >
-          Clear All Data
-        </button>
+      </div>
+
+      {/* Danger zone */}
+      <div className="border border-red-500/20 rounded-xl p-4 space-y-3">
+        <div className="text-xs text-red-400/70 font-semibold uppercase tracking-wide">Danger zone</div>
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={async () => {
+              if (!confirm('Reset all intents to demo defaults?')) return;
+              await api.reset();
+              await api.loadDefaults();
+              alert('Reset to defaults');
+              window.location.reload();
+            }}
+            className="text-xs text-red-400/70 hover:text-red-400 px-3 py-1.5 border border-red-400/20 rounded transition-colors"
+          >
+            Reset to Defaults
+          </button>
+          <button
+            onClick={() => { setShowClearModal(true); setClearInput(''); }}
+            className="text-xs text-red-500/80 hover:text-red-400 px-3 py-1.5 border border-red-500/30 rounded transition-colors"
+          >
+            Clear All Data
+          </button>
+        </div>
       </div>
 
       {showClearModal && (
@@ -219,7 +160,7 @@ function DataSection() {
               <h3 className="text-base font-semibold text-white">Clear All Data</h3>
             </div>
             <p className="text-sm text-zinc-400">
-              This will permanently delete <strong className="text-white">all namespaces, intents, training data, and query logs</strong>. The server will be reset to a clean state with only the default namespace.
+              This will permanently delete <strong className="text-white">all workspaces, intents, training data, and query logs</strong>. The server resets to a clean state with only the default workspace.
             </p>
             <p className="text-xs text-zinc-500">This action cannot be undone.</p>
             <div>
@@ -241,10 +182,7 @@ function DataSection() {
               />
             </div>
             <div className="flex gap-2 justify-end pt-1">
-              <button
-                onClick={() => setShowClearModal(false)}
-                className="px-4 py-2 text-sm text-zinc-400 hover:text-white"
-              >
+              <button onClick={() => setShowClearModal(false)} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">
                 Cancel
               </button>
               <button
@@ -264,4 +202,3 @@ function DataSection() {
     </div>
   );
 }
-

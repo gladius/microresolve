@@ -55,7 +55,7 @@ async fn main() {
         }
     }
 
-    // Data directory: --data flag > ASV_DATA_DIR env > ~/.local/share/asv (default)
+    // Data directory: --data flag > ASV_DATA_DIR env > ~/.local/share/microresolve (default)
     let mut data_dir: Option<String> = None;
     let args: Vec<String> = std::env::args().collect();
     for i in 0..args.len() {
@@ -68,7 +68,7 @@ async fn main() {
     if data_dir.is_none() {
         let dir = std::env::var("ASV_DATA_DIR").unwrap_or_else(|_| {
             let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            format!("{}/.local/share/asv", home)
+            format!("{}/.local/share/microresolve", home)
         });
         std::fs::create_dir_all(&dir).ok();
         data_dir = Some(dir);

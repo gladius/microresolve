@@ -97,7 +97,7 @@ export default function DomainsPage() {
       actions={
         <>
           <button onClick={() => navigate('/namespaces')} className="text-xs text-zinc-500 hover:text-zinc-300">
-            ← Namespaces
+            ← Workspaces
           </button>
           <button
             onClick={openModal}

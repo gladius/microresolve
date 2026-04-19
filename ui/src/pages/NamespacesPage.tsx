@@ -63,7 +63,7 @@ export default function NamespacesPage() {
 
   const deleteNs = async (id: string) => {
     if (id === 'default') return;
-    if (!confirm(`Delete namespace "${id}" and all its intents? This cannot be undone.`)) return;
+    if (!confirm(`Delete workspace "${id}" and all its intents? This cannot be undone.`)) return;
     try {
       await api.deleteNamespace(id);
       if (settings.selectedNamespaceId === id) setSelectedNamespaceId('default');
@@ -97,8 +97,8 @@ export default function NamespacesPage() {
     <Page
       size="sm"
       className="space-y-6"
-      title="Namespaces"
-      subtitle="Isolated routing namespaces"
+      title="Workspaces"
+      subtitle="Isolated routing workspaces"
       actions={
         <button
           onClick={openModal}
@@ -172,7 +172,7 @@ export default function NamespacesPage() {
                         autoFocus
                         value={draft.description}
                         onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, description: e.target.value } }))}
-                        placeholder="What does this namespace handle?"
+                        placeholder="What does this workspace handle?"
                         className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
                       />
                     </div>
@@ -226,12 +226,12 @@ export default function NamespacesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-white">New Namespace</h3>
+              <h3 className="text-base font-semibold text-white">New Workspace</h3>
               <button onClick={closeModal} className="text-zinc-500 hover:text-zinc-300 text-xl leading-none">×</button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-zinc-400 block mb-1">Namespace ID <span className="text-zinc-600">(immutable)</span></label>
+                <label className="text-xs text-zinc-400 block mb-1">Workspace ID <span className="text-zinc-600">(immutable)</span></label>
                 <input
                   autoFocus
                   value={modalId}
@@ -246,7 +246,7 @@ export default function NamespacesPage() {
                 <input
                   value={modalDesc}
                   onChange={e => setModalDesc(e.target.value)}
-                  placeholder="What does this namespace handle?"
+                  placeholder="What does this workspace handle?"
                   className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 />
               </div>

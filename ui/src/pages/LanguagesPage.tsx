@@ -77,9 +77,9 @@ export default function LanguagesPage() {
       <div className="space-y-6">
 
         <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 text-xs text-zinc-500 leading-relaxed space-y-1">
-          <div className="text-zinc-300 font-medium text-sm">Per-namespace language config</div>
+          <div className="text-zinc-300 font-medium text-sm">Per-workspace language config</div>
           <p>
-            Select which languages are used when generating training phrases for intents in this namespace.
+            Select which languages are used when generating training phrases for intents in this workspace.
             Phrases in each selected language are generated on import and via the phrase builder.
           </p>
           <p className="text-zinc-600">
@@ -183,7 +183,7 @@ export default function LanguagesPage() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">Stop words</div>
-            <span className="text-[10px] text-zinc-600">global — shared across all namespaces</span>
+            <span className="text-[10px] text-zinc-600">global — shared across all workspaces</span>
           </div>
           <div className="divide-y divide-zinc-800/50 border border-zinc-800 rounded-lg overflow-hidden">
             {enabledLangs.map(code => {

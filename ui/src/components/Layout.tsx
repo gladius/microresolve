@@ -78,7 +78,7 @@ export default function Layout() {
         { to: '/',           label: 'Route',          icon: '▸', hint: 'Test queries, train on weak results' },
         { to: '/intents',    label: 'Intents',        icon: '◆', hint: 'Manage intents and training data' },
         { to: '/import',     label: 'Import',         icon: '↓', hint: 'Import from OpenAPI, MCP, and more' },
-        { to: '/collisions', label: 'Fix Collisions', icon: '⚡', hint: 'Find and fix intents with overlapping phrases' },
+        { to: '/collisions', label: 'Collisions',     icon: '↯', hint: 'Find and fix intents with overlapping phrases' },
       ],
     },
     {
@@ -92,9 +92,9 @@ export default function Layout() {
     {
       label: 'Config',
       items: [
-        { to: '/namespaces', label: 'Namespaces', icon: '▦', hint: 'Manage isolated namespaces' },
-        { to: '/models',     label: 'Models',     icon: '⬡', hint: 'Routing model registry for this namespace' },
-        { to: '/languages',  label: 'Languages',  icon: '◌', hint: 'Phrase generation languages for this namespace' },
+        { to: '/namespaces', label: 'Workspaces',  icon: '▦', hint: 'Manage isolated workspaces' },
+        { to: '/models',     label: 'Models',     icon: '⬡', hint: 'Routing model registry for this workspace' },
+        { to: '/languages',  label: 'Languages',  icon: '◌', hint: 'Phrase generation languages for this workspace' },
         { to: '/settings',   label: 'Settings',   icon: '⚙', hint: 'LLM config and data management' },
       ],
     },
@@ -110,8 +110,8 @@ export default function Layout() {
         <div className="h-12 flex items-center px-3 border-b border-zinc-800">
           {!collapsed && (
             <span className="flex items-baseline gap-1">
-              <span className="text-violet-400 font-bold text-xl leading-none">μ</span>
-              <span className="text-white font-bold text-sm tracking-tight">Resolve</span>
+              <span className="text-violet-400 font-bold text-lg leading-none">μ</span>
+              <span className="text-white font-bold text-base tracking-tight">Resolve</span>
             </span>
           )}
           <button
@@ -129,7 +129,7 @@ export default function Layout() {
           <button
             onClick={() => setShowNsMenu(!showNsMenu)}
             className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-zinc-300 hover:bg-zinc-800/70 border border-zinc-800 transition-colors"
-            title={`Namespace: ${activeNs}`}
+            title={`Workspace: ${activeNs}`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
             {!collapsed && (
@@ -149,7 +149,7 @@ export default function Layout() {
                   autoFocus
                   value={nsFilter}
                   onChange={e => setNsFilter(e.target.value)}
-                  placeholder="Filter namespaces..."
+                  placeholder="Filter workspaces..."
                   className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
                 />
               </div>
@@ -174,7 +174,7 @@ export default function Layout() {
                   onClick={() => { setShowNsMenu(false); navigate('/namespaces'); }}
                   className="w-full text-left text-xs text-zinc-400 hover:text-violet-400 px-1 py-1"
                 >
-                  + Manage namespaces
+                  + Manage workspaces
                 </button>
               </div>
             </div>
