@@ -166,6 +166,8 @@ impl Router {
 
         // L0 is always rebuilt once from L1+L2 vocabulary — no separate file needed.
         router.rebuild_l0();
+        // Rebuild IDF cache from the loaded posting lists — O(words) once on load.
+        router.l2.rebuild_idf();
 
         Ok(router)
     }

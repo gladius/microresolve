@@ -678,15 +678,6 @@ pub struct MultiIntentTrace {
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct IntentIndex {
     /// word → [(intent_id, weight 0.0–1.0)]
-    ///
-    /// Pure 1-gram IDF scoring. Each word maps to intents with Hebbian weights.
-    /// IDF at query time: score += weight * ln(N/df).
-    /// CJK: character bigrams from the tokenizer are treated as "words."
-    ///
-    /// Learning: asymptotic w' = w + rate*(1-w). Never exceeds 1.0.
-    /// IDF stays healthy when learning QUERY WORDS directly (each word
-    /// maps to 1-2 intents). Degrades when learning LLM paraphrases
-    /// (generic words spread across many intents).
     #[serde(default)]
     pub word_intent: HashMap<String, Vec<(String, f32)>>,
 
@@ -695,10 +686,20 @@ pub struct IntentIndex {
     pub conjunctions: Vec<ConjunctionRule>,
 
     /// Char-ngram tiebreaker index: intent_id → set of char 4-grams from seed phrases.
-    /// Used when top-1/top-2 scores are close (ambiguous). Derived from phrases
-    /// at seed/learn time — no separate training needed.
     #[serde(default)]
     pub char_ngrams: HashMap<String, std::collections::HashSet<String>>,
+
+    /// Cached count of distinct intents in the index.
+    /// Maintained incrementally by index_phrase/learn_word/remove_intent.
+    /// Serialized so it survives save/load without a recount.
+    #[serde(default)]
+    pub intent_count: usize,
+
+    /// Per-word IDF cache: ln(intent_count / posting_list_len).
+    /// Recomputed when a word's posting list changes length (add/remove intent).
+    /// NOT serialized — rebuilt in one O(words) pass on load via rebuild_idf().
+    #[serde(skip)]
+    idf_cache: HashMap<String, f32>,
 }
 
 
@@ -710,14 +711,59 @@ impl IntentIndex {
     const PHRASE_RATE: f32 = 0.4;
     const LEARN_RATE: f32 = 0.3;
 
+    /// Recompute intent_count and idf_cache from word_intent in one pass.
+    /// Called after deserialization (load from disk) since idf_cache is not serialized.
+    pub fn rebuild_idf(&mut self) {
+        let n = {
+            let mut intents: std::collections::HashSet<&str> = std::collections::HashSet::new();
+            for entries in self.word_intent.values() {
+                for (id, _) in entries { intents.insert(id.as_str()); }
+            }
+            intents.len()
+        };
+        self.intent_count = n;
+        let n_f = n.max(1) as f32;
+        self.idf_cache.clear();
+        for (word, entries) in &self.word_intent {
+            let idf = (n_f / entries.len() as f32).ln().max(0.0);
+            self.idf_cache.insert(word.clone(), idf);
+        }
+    }
+
+    /// Update idf_cache for a single word after its posting list changed length.
+    fn refresh_idf_for(&mut self, word: &str) {
+        if let Some(entries) = self.word_intent.get(word) {
+            let n_f = self.intent_count.max(1) as f32;
+            let idf = (n_f / entries.len() as f32).ln().max(0.0);
+            self.idf_cache.insert(word.to_string(), idf);
+        } else {
+            self.idf_cache.remove(word);
+        }
+    }
+
+    /// Look up cached IDF for a word, or compute on the fly if missing.
+    #[inline]
+    fn idf(&self, word: &str) -> f32 {
+        self.idf_cache.get(word).copied().unwrap_or_else(|| {
+            self.word_intent.get(word)
+                .map(|e| (self.intent_count.max(1) as f32 / e.len() as f32).ln().max(0.0))
+                .unwrap_or(0.0)
+        })
+    }
+
     /// Learn a single word → intent association with asymptotic Hebbian update.
     pub fn learn_word(&mut self, word: &str, intent: &str, rate: f32) {
         if word.is_empty() { return; }
         let entries = self.word_intent.entry(word.to_string()).or_default();
         if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
+            // Weight update only — posting list length unchanged, IDF unchanged.
             e.1 = (e.1 + rate * (1.0 - e.1)).min(1.0);
         } else {
+            // New (word, intent) pair — posting list grows, refresh this word's IDF.
+            // intent_count stays correct because intents are registered at router level
+            // before phrases are indexed; rebuild_idf() is called after bulk operations.
             entries.push((intent.to_string(), rate));
+            self.refresh_idf_for(word);
         }
     }
 
@@ -829,16 +875,15 @@ impl IntentIndex {
             let entries = self.word_intent.entry(word.to_string()).or_default();
             if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
                 if delta >= 0.0 {
-                    // Asymptotic approach to 1.0
                     e.1 = (e.1 + delta * (1.0 - e.1)).min(1.0);
                 } else {
-                    // Asymptotic decay toward 0.0
                     e.1 = (e.1 * (1.0 + delta)).max(0.0);
                 }
+                // Weight-only change — posting list length unchanged, IDF unchanged.
             } else if delta > 0.0 {
-                // New word seen in context of this intent — create edge for positive learning only.
-                // For suppression (delta < 0): no edge to suppress, skip.
+                // New (word, intent) pair — posting list grows, refresh IDF for this word.
                 entries.push((intent.to_string(), delta.min(1.0)));
+                self.refresh_idf_for(word);
             }
         }
     }
@@ -883,15 +928,6 @@ impl IntentIndex {
             std::borrow::Cow::Borrowed(normalized)
         };
 
-        // Total distinct intents for IDF
-        let total_intents: f32 = {
-            let mut all: std::collections::HashSet<&str> = std::collections::HashSet::new();
-            for entries in self.word_intent.values() {
-                for (id, _) in entries { all.insert(id.as_str()); }
-            }
-            all.len().max(1) as f32
-        };
-
         let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
         let mut scores: HashMap<String, f32> = HashMap::new();
         let mut has_negation = cjk_negated;
@@ -905,7 +941,7 @@ impl IntentIndex {
             let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
             if is_negated { has_negation = true; }
             if let Some(activations) = self.word_intent.get(base) {
-                let idf = (total_intents / activations.len() as f32).ln().max(0.0);
+                let idf = self.idf(base);
                 for (intent, weight) in activations {
                     let delta = weight * idf;
                     *scores.entry(intent.clone()).or_insert(0.0) +=
@@ -986,14 +1022,6 @@ impl IntentIndex {
         let all_tokens: Vec<String> = crate::tokenizer::tokenize(&query_for_tokenize);
         let has_negation = cjk_negated || all_tokens.iter().any(|t| t.starts_with("not_"));
 
-        let total_intents: f32 = {
-            let mut all: std::collections::HashSet<&str> = std::collections::HashSet::new();
-            for entries in self.word_intent.values() {
-                for (id, _) in entries { all.insert(id.as_str()); }
-            }
-            all.len().max(1) as f32
-        };
-
         let mut remaining: Vec<String> = all_tokens;
         let mut confirmed: Vec<(String, f32)> = Vec::new();
         let mut confirmed_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -1002,8 +1030,7 @@ impl IntentIndex {
         let mut stop_reason: Option<String> = None;
 
         for round in 0..MAX_ROUNDS {
-            // Score using remaining tokens only
-            let scored = self.score_tokens(&remaining, total_intents, &confirmed_ids);
+            let scored = self.score_tokens(&remaining, &confirmed_ids);
             if scored.is_empty() {
                 if with_trace { stop_reason = Some("no scores".into()); }
                 break;
@@ -1100,7 +1127,7 @@ impl IntentIndex {
     }
 
     /// Score a specific set of tokens (not a full query string).
-    fn score_tokens(&self, tokens: &[String], total_intents: f32,
+    fn score_tokens(&self, tokens: &[String],
                     exclude_intents: &std::collections::HashSet<String>) -> Vec<(String, f32)> {
         let mut scores: HashMap<String, f32> = HashMap::new();
 
@@ -1108,7 +1135,7 @@ impl IntentIndex {
             let is_negated = token.starts_with("not_");
             let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
             if let Some(activations) = self.word_intent.get(base) {
-                let idf = (total_intents / activations.len() as f32).ln().max(0.0);
+                let idf = self.idf(base);
                 for (intent, weight) in activations {
                     if exclude_intents.contains(intent) { continue; }
                     let delta = weight * idf;

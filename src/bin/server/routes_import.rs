@@ -196,6 +196,9 @@ pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)
         router.index_phrase(intent_id, phrase);
     }
 
+    // Rebuild IDF cache after bulk phrase ingestion — O(words) once per import.
+    router.l2_mut().rebuild_idf();
+
     eprintln!("[import/L2] seeded {} phrases into count model for '{}'", accepted.len(), app_id);
 
     // Persist the updated L1/L2/L0 via save_to_dir
