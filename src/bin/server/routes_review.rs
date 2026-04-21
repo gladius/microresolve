@@ -44,8 +44,6 @@ pub struct ReviewQueueParams {
     limit: usize,
     #[serde(default)]
     offset: usize,
-    /// Filter by flag: "miss", "low_confidence", "false_positive"
-    flag: Option<String>,
 }
 fn default_limit() -> usize { 50 }
 
@@ -55,10 +53,13 @@ pub async fn review_queue(
     Query(params): Query<ReviewQueueParams>,
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
+    // Review-everything model: queue shows ALL unresolved entries. When auto-learn is
+    // on, the worker resolves them automatically; when off, they stay here for manual
+    // triage. No flag filter — the sidebar badge must match what the user sees.
     let result = state.log_store.lock().unwrap().query(&LogQuery {
         app_id: Some(app_id),
-        flag: params.flag,
-        flagged_only: true,  // review queue = flagged entries only
+        flag: None,
+        flagged_only: false,
         resolved: Some(false),
         since_ms: None,
         limit: params.limit,
@@ -192,7 +193,7 @@ pub async fn review_fix(
             let passes = {
                 let routers = state.routers.read().unwrap();
                 if let Some(router) = routers.get(&app_id) {
-                    let scores = router.route(&record.query, 0.3, 1.5);
+                    let scores = router.resolve(&record.query, 0.3, 1.5);
                     !scores.is_empty()
                 } else {
                     false

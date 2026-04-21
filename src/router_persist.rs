@@ -81,10 +81,29 @@ impl Router {
             }
         }
 
-        // L1 (LexicalGraph) — optional, backward compat: start empty if missing.
+        // L1 (LexicalGraph) — seed with global English morphology base, then overlay namespace-specific edges.
+        let base = crate::scoring::english_morphology_base();
+        for (from, edges) in base.edges {
+            for edge in edges {
+                let existing = router.l1.edges.entry(from.clone()).or_default();
+                if !existing.iter().any(|e| e.target == edge.target) {
+                    existing.push(edge);
+                }
+            }
+        }
         if let Ok(json) = std::fs::read_to_string(path.join("_l1.json")) {
             if let Ok(g) = serde_json::from_str::<crate::scoring::LexicalGraph>(&json) {
-                router.l1 = g;
+                // Merge namespace-specific edges on top of global base (namespace wins on conflict)
+                for (from, edges) in g.edges {
+                    let existing = router.l1.edges.entry(from).or_default();
+                    for edge in edges {
+                        if let Some(e) = existing.iter_mut().find(|e| e.target == edge.target) {
+                            *e = edge; // namespace overrides global
+                        } else {
+                            existing.push(edge);
+                        }
+                    }
+                }
             }
         }
 

@@ -198,10 +198,8 @@ paths:
         let list_phrases = router.get_training("list_orders").unwrap_or_default();
         assert!(!list_phrases.is_empty());
 
-        // Check metadata
-        let meta = router.get_metadata("cancel_order").unwrap();
-        assert!(meta.contains_key("endpoint"));
-        assert!(meta.contains_key("parameters"));
+        // Check that import source was recorded
+        assert!(router.get_source("cancel_order").is_some());
     }
 
     #[test]

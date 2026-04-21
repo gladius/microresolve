@@ -173,7 +173,7 @@ export default function NamespacesPage() {
                         value={draft.description}
                         onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, description: e.target.value } }))}
                         placeholder="What does this workspace handle?"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500"
                       />
                     </div>
 
@@ -226,7 +226,7 @@ export default function NamespacesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-white">New Workspace</h3>
+              <h3 className="text-base font-semibold text-zinc-100">New Workspace</h3>
               <button onClick={closeModal} className="text-zinc-500 hover:text-zinc-300 text-xl leading-none">×</button>
             </div>
             <div className="space-y-3">
@@ -238,7 +238,7 @@ export default function NamespacesPage() {
                   onChange={e => { setModalId(e.target.value); setModalError(''); }}
                   onKeyDown={e => e.key === 'Enter' && submitModal()}
                   placeholder="billing-bot"
-                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 />
               </div>
               <div>
@@ -247,14 +247,14 @@ export default function NamespacesPage() {
                   value={modalDesc}
                   onChange={e => setModalDesc(e.target.value)}
                   placeholder="What does this workspace handle?"
-                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 />
               </div>
             </div>
             {modalError && <p className="text-xs text-red-400">{modalError}</p>}
             <p className="text-[11px] text-zinc-600">Lowercase letters, digits, hyphens, underscores · max 40 chars.</p>
             <div className="flex gap-2 justify-end pt-1">
-              <button onClick={closeModal} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
+              <button onClick={closeModal} className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-100">Cancel</button>
               <button
                 onClick={submitModal}
                 disabled={modalBusy || !modalId.trim()}

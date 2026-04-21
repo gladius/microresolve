@@ -37,7 +37,7 @@ export default function SidebarLayout({
               }`}
             >
               <span className={`text-sm ${
-                selected === item.id ? 'text-white font-medium' : 'text-zinc-400'
+                selected === item.id ? 'text-zinc-100 font-medium' : 'text-zinc-400'
               }`}>
                 {item.label}
               </span>

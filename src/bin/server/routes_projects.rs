@@ -1,7 +1,7 @@
 //! Namespace and domain management endpoints.
 //!
 //! Hierarchy: Namespace → Domain → Intent
-//!   Namespace: isolated Router workspace, selected via X-Namespace-ID header
+//!   Namespace: isolated Router workspace, selected via X-Workspace-ID header
 //!   Domain:    logical intent group derived from "domain:intent_id" prefix
 //!   Intent:    leaf routing target
 
@@ -72,12 +72,6 @@ pub async fn create_namespace(
     }
     let mut router = Router::new();
     router.set_namespace_description(&req.description);
-
-    // Seed L1 with the global base graph (WordNet + ConceptNet) so new namespaces
-    // get synonym/morphology expansion immediately without any manual L1 training.
-    if let Some(ref base) = state.l1_base {
-        router.merge_l1_base(base);
-    }
 
     maybe_persist(&state, &req.namespace_id, &router);
     routers.insert(req.namespace_id.clone(), router);

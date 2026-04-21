@@ -12,8 +12,21 @@
 use std::collections::{HashMap, HashSet};
 
 const N: usize = 3;
-const MIN_SIMILARITY: f32 = 0.35;
 const MIN_TERM_LEN: usize = 4;
+
+// Two-pass Jaccard: strict first (fast path for well-spelled queries), loose
+// fallback only when strict finds nothing (catches transpositions like "cahnge"
+// which share only "nge" with "change" → Jaccard 0.14). This keeps the normal-case
+// latency at the original ~10µs level; only typo queries pay the extra pass.
+const JACCARD_STRICT: f32 = 0.35;
+// Loose pass Jaccard is length-tiered: short words need stricter filter to avoid
+// real-word errors (e.g. "loose"/"close" are edit-dist 1 but unrelated).
+const JACCARD_LOOSE_SHORT: f32 = 0.30;  // length 4-5
+const JACCARD_LOOSE_LONG:  f32 = 0.10;  // length ≥ 6
+
+// Max Damerau-Levenshtein edit distance between query and correction.
+const MAX_EDIT_DIST_SHORT: usize = 1;   // length == 4
+const MAX_EDIT_DIST_LONG:  usize = 2;   // length ≥ 5
 
 pub struct NgramIndex {
     /// trigram → vocab term indices that contain it
@@ -76,23 +89,40 @@ impl NgramIndex {
         }
 
         let query_chars: Vec<char> = token.chars().collect();
-        let candidates: Vec<(usize, f32)> = hits.into_iter()
-            .filter_map(|(vi, intersection)| {
+        let query_len = query_chars.len();
+        let max_dist    = if query_len >= 5 { MAX_EDIT_DIST_LONG }  else { MAX_EDIT_DIST_SHORT };
+        let loose_jacc  = if query_len >= 6 { JACCARD_LOOSE_LONG }  else { JACCARD_LOOSE_SHORT };
+
+        // Compute Jaccard for each hit once; reuse across passes.
+        let scored: Vec<(usize, f32)> = hits.into_iter()
+            .map(|(vi, intersection)| {
                 let term = &self.vocab[vi];
                 let term_ng_count = term.chars().count().saturating_sub(N - 1).max(1);
                 let union = query_ngs.len() + term_ng_count - intersection;
                 let jaccard = intersection as f32 / union as f32;
-                if jaccard >= MIN_SIMILARITY { Some((vi, jaccard)) } else { None }
+                (vi, jaccard)
             })
             .collect();
 
-        // Re-rank by edit distance to avoid polysemy collisions (e.g. "creting"→"meeting" vs "creating")
+        // Fast path: strict Jaccard ≥ 0.35 catches well-spelled queries quickly.
+        let strict: Vec<(usize, f32)> = scored.iter()
+            .filter(|(_, j)| *j >= JACCARD_STRICT)
+            .cloned()
+            .collect();
+        let candidates = if !strict.is_empty() {
+            strict
+        } else {
+            // Slow path: loose Jaccard fallback. Only runs when no strict candidate
+            // exists — typically means a transposition typo.
+            scored.into_iter().filter(|(_, j)| *j >= loose_jacc).collect()
+        };
+
         candidates.into_iter()
-            .map(|(vi, _)| {
+            .filter_map(|(vi, _)| {
                 let term = &self.vocab[vi];
                 let term_chars: Vec<char> = term.chars().collect();
                 let dist = edit_distance(&query_chars, &term_chars);
-                (vi, dist)
+                if dist <= max_dist { Some((vi, dist)) } else { None }
             })
             .min_by_key(|(_, dist)| *dist)
             .map(|(vi, _)| self.vocab[vi].clone())
@@ -115,20 +145,35 @@ impl NgramIndex {
     }
 }
 
+/// Damerau-Levenshtein edit distance (Damerau, 1964).
+/// Treats adjacent character transposition ("cahnge" ↔ "change") as a single edit.
+/// This is the "Optimal String Alignment" variant — sufficient for typo correction
+/// and O(mn) time. Language-agnostic; operates on Unicode codepoints.
 fn edit_distance(a: &[char], b: &[char]) -> usize {
     let (m, n) = (a.len(), b.len());
-    let mut dp = vec![0usize; n + 1];
-    for j in 0..=n { dp[j] = j; }
+    if m == 0 { return n; }
+    if n == 0 { return m; }
+
+    // Full 2D matrix required so we can peek at dp[i-2][j-2] for the transposition rule.
+    let mut dp = vec![vec![0usize; n + 1]; m + 1];
+    for i in 0..=m { dp[i][0] = i; }
+    for j in 0..=n { dp[0][j] = j; }
+
     for i in 1..=m {
-        let mut prev = dp[0];
-        dp[0] = i;
         for j in 1..=n {
-            let temp = dp[j];
-            dp[j] = if a[i-1] == b[j-1] { prev } else { 1 + prev.min(dp[j]).min(dp[j-1]) };
-            prev = temp;
+            let cost = if a[i-1] == b[j-1] { 0 } else { 1 };
+            let mut best = dp[i-1][j-1] + cost;                 // substitute / match
+            if dp[i-1][j] + 1 < best { best = dp[i-1][j] + 1; } // delete
+            if dp[i][j-1] + 1 < best { best = dp[i][j-1] + 1; } // insert
+            // Transposition: swapping a[i-1] with a[i-2] matches b[j-2..j]
+            if i >= 2 && j >= 2 && a[i-1] == b[j-2] && a[i-2] == b[j-1]
+                && dp[i-2][j-2] + 1 < best {
+                best = dp[i-2][j-2] + 1;
+            }
+            dp[i][j] = best;
         }
     }
-    dp[n]
+    dp[m][n]
 }
 
 fn char_ngrams(s: &str, n: usize) -> Vec<String> {
@@ -139,10 +184,10 @@ fn char_ngrams(s: &str, n: usize) -> Vec<String> {
     chars.windows(n).map(|w| w.iter().collect()).collect()
 }
 
-/// Build a combined vocabulary from L1 (LexicalGraph) + L2 (IntentGraph) for a namespace.
+/// Build a combined vocabulary from the morphology graph + scoring index for a namespace.
 pub fn build_for_namespace(
     lexical: Option<&crate::scoring::LexicalGraph>,
-    intent_graph: Option<&crate::scoring::IntentGraph>,
+    intent_graph: Option<&crate::scoring::IntentIndex>,
 ) -> NgramIndex {
     let mut terms: HashSet<String> = HashSet::new();
 

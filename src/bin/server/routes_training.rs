@@ -351,7 +351,7 @@ pub async fn training_run(
         let scored = {
             let routers = state.routers.read().unwrap();
             if let Some(router) = routers.get(&app_id) {
-                router.route(&turn.message, 0.3, 1.5)
+                router.resolve(&turn.message, 0.3, 1.5)
             } else {
                 vec![]
             }

@@ -154,7 +154,7 @@ export default function DomainsPage() {
                           if (e.key === 'Escape') setEditingDomain(null);
                         }}
                         placeholder="What does this domain handle?"
-                        className="flex-1 bg-zinc-900 border border-violet-500/50 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none"
+                        className="flex-1 bg-zinc-900 border border-violet-500/50 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none"
                       />
                       <button onClick={() => saveDesc(domain.name)} className="text-xs text-violet-400 hover:text-violet-300">Save</button>
                       <button onClick={() => setEditingDomain(null)} className="text-xs text-zinc-500 hover:text-zinc-300">Cancel</button>
@@ -176,7 +176,7 @@ export default function DomainsPage() {
                       if (!isActive) { setSelectedNamespaceId(namespaceId); setApiNamespaceId(namespaceId); }
                       navigate('/import');
                     }}
-                    className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:text-white hover:border-zinc-500 transition-colors"
+                    className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:text-zinc-100 hover:border-zinc-500 transition-colors"
                   >
                     Import
                   </button>
@@ -197,7 +197,7 @@ export default function DomainsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-white">
+              <h3 className="text-base font-semibold text-zinc-100">
                 New Domain <span className="text-zinc-500 font-normal">in {namespaceId}</span>
               </h3>
               <button onClick={closeModal} className="text-zinc-500 hover:text-zinc-300 text-xl leading-none">×</button>
@@ -211,7 +211,7 @@ export default function DomainsPage() {
                   onChange={e => { setModalName(e.target.value); setModalError(''); }}
                   onKeyDown={e => e.key === 'Enter' && submitModal()}
                   placeholder="billing"
-                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 />
               </div>
               <div>
@@ -221,7 +221,7 @@ export default function DomainsPage() {
                   onChange={e => setModalDesc(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && submitModal()}
                   placeholder="What does this domain cover?"
-                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 />
               </div>
             </div>
@@ -230,7 +230,7 @@ export default function DomainsPage() {
               Intents in this domain use <span className="font-mono">{modalName || 'name'}:intent_id</span> format.
             </p>
             <div className="flex gap-2 justify-end pt-1">
-              <button onClick={closeModal} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
+              <button onClick={closeModal} className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-100">Cancel</button>
               <button
                 onClick={submitModal}
                 disabled={modalBusy || !modalName.trim()}

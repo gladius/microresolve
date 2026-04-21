@@ -29,7 +29,7 @@ export function ImportReport({ result, onViewIntents, onImportMore, onFixCollisi
     <div className="border border-zinc-700 rounded-lg p-5 space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-white font-semibold">Import Complete</div>
+          <div className="text-zinc-100 font-semibold">Import Complete</div>
           <div className="text-xs text-zinc-500 mt-0.5">{result.imported} intents created</div>
         </div>
         <div className="text-right">
@@ -114,7 +114,7 @@ export function ImportReport({ result, onViewIntents, onImportMore, onFixCollisi
             Fix Collisions →
           </button>
         )}
-        <button onClick={onImportMore} className="px-4 py-2 text-sm border border-zinc-700 text-zinc-400 rounded hover:text-white">Import more</button>
+        <button onClick={onImportMore} className="px-4 py-2 text-sm border border-zinc-700 text-zinc-400 rounded hover:text-zinc-100">Import more</button>
       </div>
     </div>
   );

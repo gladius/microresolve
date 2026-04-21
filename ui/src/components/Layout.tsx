@@ -75,7 +75,7 @@ export default function Layout() {
     {
       label: 'Build',
       items: [
-        { to: '/',           label: 'Route',          icon: '▸', hint: 'Test queries, train on weak results' },
+        { to: '/resolve',    label: 'Resolve',        icon: '▸', hint: 'Resolve queries to intents, train on weak results' },
         { to: '/intents',    label: 'Intents',        icon: '◆', hint: 'Manage intents and training data' },
         { to: '/import',     label: 'Import',         icon: '↓', hint: 'Import from OpenAPI, MCP, and more' },
         { to: '/collisions', label: 'Collisions',     icon: '↯', hint: 'Find and fix intents with overlapping phrases' },
@@ -86,7 +86,7 @@ export default function Layout() {
       items: [
         { to: '/simulate', label: 'Simulate', icon: '◎', hint: 'LLM generates queries, system learns from failures' },
         { to: '/review',   label: 'Review',   icon: '✦', hint: 'Triage flagged queries from production', badge: reviewPending || undefined },
-        { to: '/layers',   label: 'Layers',   icon: '⧉', hint: 'Inspect and edit L0·L1·L2 routing layers' },
+        { to: '/layers',   label: 'Lexical Graph', icon: '⧉', hint: 'Tune L1 synonym, morphology, and abbreviation edges' },
       ],
     },
     {
@@ -108,10 +108,12 @@ export default function Layout() {
       <aside className={`${sidebarWidth} shrink-0 flex flex-col border-r border-zinc-800 bg-zinc-950 transition-all duration-150`}>
         {/* Brand + collapse */}
         <div className="h-12 flex items-center px-3 border-b border-zinc-800">
-          {!collapsed && (
+          {collapsed ? (
+            <span className="text-violet-400 font-bold text-xl leading-none" title="μResolve">μ</span>
+          ) : (
             <span className="flex items-baseline gap-1">
               <span className="text-violet-400 font-bold text-lg leading-none">μ</span>
-              <span className="text-white font-bold text-base tracking-tight">Resolve</span>
+              <span className="text-zinc-100 font-bold text-base tracking-tight">Resolve</span>
             </span>
           )}
           <button
@@ -150,7 +152,7 @@ export default function Layout() {
                   value={nsFilter}
                   onChange={e => setNsFilter(e.target.value)}
                   placeholder="Filter workspaces..."
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500"
                 />
               </div>
               <div className="overflow-y-auto flex-1 py-1">
@@ -197,11 +199,11 @@ export default function Layout() {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={item.to === '/'}
+                  end={item.to === '/resolve'}
                   className={({ isActive }) =>
                     `relative mx-2 my-0.5 px-2 py-1.5 rounded flex items-center gap-2.5 text-sm transition-colors ${
                       isActive
-                        ? 'bg-zinc-800 text-white'
+                        ? 'bg-zinc-800 text-zinc-100'
                         : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                     }`
                   }

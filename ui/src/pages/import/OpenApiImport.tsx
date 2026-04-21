@@ -37,7 +37,7 @@ export default function OpenApiImport() {
   const currentDomain = settings.selectedDomain;
   const languages = settings.languages;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (currentApp && currentApp !== 'default') headers['X-Namespace-ID'] = currentApp;
+  if (currentApp && currentApp !== 'default') headers['X-Workspace-ID'] = currentApp;
 
   const handleParse = async (content: string) => {
     setLoading(true); setError(''); setParsed(null); setResult(null); setRawSpec(content);
@@ -78,7 +78,7 @@ export default function OpenApiImport() {
     </>
   );
   const backAction = (
-    <button onClick={() => navigate('/import')} className="text-xs text-zinc-500 hover:text-white transition-colors">← Back</button>
+    <button onClick={() => navigate('/import')} className="text-xs text-zinc-500 hover:text-zinc-100 transition-colors">← Back</button>
   );
 
   return (
@@ -87,7 +87,7 @@ export default function OpenApiImport() {
       {error && (
         <div className="bg-red-900/20 border border-red-800 rounded px-4 py-3 text-sm text-red-400">
           {error}
-          <button onClick={() => { setError(''); setParsed(null); setResult(null); }} className="ml-3 text-zinc-500 hover:text-white">Try again</button>
+          <button onClick={() => { setError(''); setParsed(null); setResult(null); }} className="ml-3 text-zinc-500 hover:text-zinc-100">Try again</button>
         </div>
       )}
 
@@ -95,7 +95,7 @@ export default function OpenApiImport() {
         <>
           <div className="flex gap-2">
             <input value={specUrl} onChange={e => setSpecUrl(e.target.value)} placeholder="https://api.example.com/openapi.json"
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none"
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:border-violet-500 focus:outline-none"
               onKeyDown={e => { if (e.key === 'Enter') { fetch(specUrl.trim()).then(r => r.text()).then(handleParse).catch(e => setError(String(e))); }}}
               disabled={loading} />
             <button onClick={() => { fetch(specUrl.trim()).then(r => r.text()).then(handleParse).catch(e => setError(String(e))); }}
@@ -114,10 +114,10 @@ export default function OpenApiImport() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-white font-semibold">{parsed.title} <span className="text-zinc-500 text-xs">v{parsed.version}</span></div>
+              <div className="text-zinc-100 font-semibold">{parsed.title} <span className="text-zinc-500 text-xs">v{parsed.version}</span></div>
               {parsed.description && <div className="text-xs text-zinc-500 mt-0.5">{parsed.description.slice(0, 120)}</div>}
             </div>
-            <button onClick={() => { setParsed(null); setRawSpec(''); }} className="text-xs text-zinc-500 hover:text-white">Change spec</button>
+            <button onClick={() => { setParsed(null); setRawSpec(''); }} className="text-xs text-zinc-500 hover:text-zinc-100">Change spec</button>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {parsed.tags.length > 0 && (
@@ -151,7 +151,7 @@ export default function OpenApiImport() {
           <div className="flex items-center justify-between pt-2">
             {!importing && <div className="text-xs text-zinc-500">Collision guard active</div>}
             <button onClick={handleImport} disabled={importing || selected.size === 0}
-              className="px-5 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30 shrink-0">
+              className="px-5 py-2 text-sm bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30 shrink-0">
               {importing ? 'Importing...' : `Import ${selected.size} Operations`}
             </button>
           </div>

@@ -69,7 +69,7 @@ export default function CollisionsPage() {
           <div className="flex-1">
             <label className="text-[10px] text-zinc-500 uppercase font-semibold block mb-1">Domain</label>
             <select value={domain} onChange={e => { setDomain(e.target.value); setResult(null); }}
-              className="w-full bg-zinc-900 border border-zinc-700 text-white text-xs rounded px-2 py-1.5 focus:border-violet-500 focus:outline-none">
+              className="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:border-violet-500 focus:outline-none">
               <option value="">All domains</option>
               {domains.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
@@ -86,7 +86,7 @@ export default function CollisionsPage() {
             <label className="text-[10px] text-zinc-500 uppercase font-semibold block mb-1">Phrases / pair</label>
             <input type="number" min={2} max={10} value={phrasesN}
               onChange={e => setPhrasesN(Number(e.target.value))}
-              className="w-14 bg-zinc-900 border border-zinc-700 text-white text-xs rounded px-2 py-1.5 text-center focus:border-violet-500 focus:outline-none" />
+              className="w-14 bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 text-center focus:border-violet-500 focus:outline-none" />
           </div>
           <button onClick={repreview} disabled={running}
             className="text-xs px-3 py-1.5 border border-zinc-600 text-zinc-400 rounded hover:border-violet-500/50 hover:text-violet-400 disabled:opacity-40 transition-colors">

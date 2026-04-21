@@ -55,7 +55,7 @@ export default function Page({
     <div className="h-full flex flex-col">
       {/* Top bar — 48px, aligned with sidebar brand header */}
       <div className="h-12 flex items-center gap-3 px-6 border-b border-zinc-800 shrink-0 bg-zinc-950/40">
-        {title && <h1 className="text-sm font-semibold text-white">{title}</h1>}
+        {title && <h1 className="text-sm font-semibold text-zinc-100">{title}</h1>}
         {subtitle && <span className="text-xs text-zinc-500">{subtitle}</span>}
         {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
       </div>

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { api, type MultiRouteOutput, type ReviewAnalysis } from '@/api/client';
 import Page from '@/components/Page';
+import LayerCards from '@/components/LayerCards';
 
 const INTENT_COLORS = [
   'text-emerald-400', 'text-blue-400', 'text-amber-400', 'text-pink-400',
@@ -14,20 +15,25 @@ const INTENT_BG_COLORS = [
 type Message =
   | { type: 'query'; text: string }
   | { type: 'result'; result: MultiRouteOutput; latency: number; query: string; review?: ReviewAnalysis; reviewing?: boolean }
-  | { type: 'learn'; text: string }
   | { type: 'training'; query: string }
   | { type: 'trained'; query: string; phrases_added: number; summary: string }
-  | { type: 'system'; html: string }
-  | { type: 'error'; text: string }
-  | { type: 'help' };
+  | { type: 'error'; text: string };
+
+const DEBUG_KEY = 'resolve.debug';
 
 export default function RouterPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [intentCount, setIntentCount] = useState<number | null>(null);
-  const [debugMode, setDebugMode] = useState(false);
+  const [debug, setDebug] = useState<boolean>(() => localStorage.getItem(DEBUG_KEY) === 'true');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const toggleDebug = () => setDebug(prev => {
+    const next = !prev;
+    localStorage.setItem(DEBUG_KEY, String(next));
+    return next;
+  });
 
   useEffect(() => {
     api.listIntents().then(list => setIntentCount(list.length)).catch(() => setIntentCount(0));
@@ -49,58 +55,11 @@ export default function RouterPage() {
   };
 
   const handleInput = async (raw: string) => {
-    if (raw === '/help') {
-      push({ type: 'query', text: raw }, { type: 'help' });
-      return;
-    }
-
-    if (raw === '/reset') {
-      push({ type: 'query', text: raw });
-      if (!window.confirm('Reset router to defaults? This clears all learned state for this workspace.')) {
-        push({ type: 'system', html: 'Reset cancelled.' });
-        return;
-      }
-      try {
-        await api.reset();
-        await api.loadDefaults();
-        push({ type: 'learn', text: 'Router reset to defaults.' });
-      } catch (err) {
-        push({ type: 'error', text: String(err) });
-      }
-      return;
-    }
-
-    const learnMatch = raw.match(/^\/learn\s+(.+?)\s*(?:->|→)\s*(\S+)$/i);
-    if (learnMatch) {
-      const [, query, intent] = learnMatch;
-      push({ type: 'query', text: raw });
-      try {
-        await api.learn(query, intent);
-        push({ type: 'learn', text: `Learned: "${query}" → ${intent}` });
-      } catch (err) {
-        push({ type: 'error', text: String(err) });
-      }
-      return;
-    }
-
-    const correctMatch = raw.match(/^\/correct\s+(.+?)\s*(?:->|→)\s*(\S+)\s*(?:->|→)\s*(\S+)$/i);
-    if (correctMatch) {
-      const [, query, wrong, right] = correctMatch;
-      push({ type: 'query', text: raw });
-      try {
-        await api.correct(query, wrong, right);
-        push({ type: 'learn', text: `Corrected: "${query}" moved from ${wrong} → ${right}` });
-      } catch (err) {
-        push({ type: 'error', text: String(err) });
-      }
-      return;
-    }
-
     // Regular query
     push({ type: 'query', text: raw });
     const t0 = performance.now();
     try {
-      const result = await api.routeMulti(raw, 0.3, true, debugMode);
+      const result = await api.routeMulti(raw, 0.3, true);
       const latency = performance.now() - t0;
       push({ type: 'result', result, latency, query: raw });
     } catch (err) {
@@ -124,15 +83,32 @@ export default function RouterPage() {
 
   const applySuggestion = async (suggestion: ReviewAnalysis['suggestions'][0]) => {
     try {
-      await api.learn(suggestion.phrase, suggestion.intent_id);
-      push({ type: 'learn', text: `Applied: phrase "${suggestion.phrase}" → ${suggestion.intent_id}` });
+      await api.learnNow(suggestion.phrase, [suggestion.intent_id]);
     } catch (err) {
       push({ type: 'error', text: `Failed: ${err}` });
     }
   };
 
   return (
-    <Page title="Route" subtitle="Test queries against the router" fullscreen>
+    <Page
+      title="Resolve"
+      subtitle="Resolve queries to intents"
+      fullscreen
+      actions={
+        <button
+          onClick={toggleDebug}
+          title={debug ? 'Hide layer trace' : 'Show layer trace (L0/L1/L2/L3)'}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors ${
+            debug
+              ? 'bg-violet-500/15 border border-violet-500/40 text-violet-400'
+              : 'border border-zinc-700 text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${debug ? 'bg-violet-400' : 'bg-zinc-600'}`} />
+          debug
+        </button>
+      }
+    >
     <div className="flex flex-col h-full px-6 py-4">
       <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
         {messages.length === 0 && (
@@ -160,7 +136,14 @@ export default function RouterPage() {
           </div>
         )}
         {messages.map((msg, i) => (
-          <MessageBubble key={i} msg={msg} onApplySuggestion={applySuggestion} onTrain={handleTrain} intentCount={intentCount} debugMode={debugMode} />
+          <MessageBubble
+            key={i}
+            msg={msg}
+            onApplySuggestion={applySuggestion}
+            onTrain={handleTrain}
+            intentCount={intentCount}
+            debug={debug}
+          />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -170,27 +153,15 @@ export default function RouterPage() {
           ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Type a query... or /help for commands"
-          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-white font-mono text-sm placeholder-zinc-500 focus:outline-none focus:border-violet-500 transition-colors"
+          placeholder="Type a natural language query…"
+          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 font-mono text-sm placeholder-zinc-500 focus:outline-none focus:border-violet-500 transition-colors"
           autoFocus
         />
-        <button
-          type="button"
-          onClick={() => setDebugMode(d => !d)}
-          title="Toggle layer trace"
-          className={`px-3 py-2.5 rounded-lg border text-xs font-mono transition-colors ${
-            debugMode
-              ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
-              : 'bg-zinc-900 border-zinc-700 text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          trace
-        </button>
         <button
           type="submit"
           className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-medium transition-colors text-sm"
         >
-          Route
+          Resolve
         </button>
       </form>
     </div>
@@ -198,16 +169,16 @@ export default function RouterPage() {
   );
 }
 
-function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debugMode }: {
+function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: {
   msg: Message;
   onApplySuggestion: (s: ReviewAnalysis['suggestions'][0]) => void;
   onTrain: (query: string, detected: string[]) => void;
   intentCount: number | null;
-  debugMode: boolean;
+  debug: boolean;
 }) {
   if (msg.type === 'query') {
     return (
-      <div className="font-mono text-sm text-white mb-1">
+      <div className="font-mono text-sm text-zinc-100 mb-1">
         <span className="text-violet-400">{'> '}</span>
         {msg.text}
       </div>
@@ -216,10 +187,6 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debugMode
 
   if (msg.type === 'error') {
     return <div className="text-red-400 text-sm pl-5">{msg.text}</div>;
-  }
-
-  if (msg.type === 'learn') {
-    return <div className="text-emerald-400 text-sm pl-5">{msg.text}</div>;
   }
 
   if (msg.type === 'training') {
@@ -238,23 +205,6 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debugMode
           ? <span className="text-emerald-400">✓ +{msg.phrases_added} phrases learned{msg.summary ? ` — ${msg.summary.slice(0, 80)}` : ''}</span>
           : <span className="text-zinc-500">No new phrases (already well-trained or no clear fix)</span>
         }
-      </div>
-    );
-  }
-
-  if (msg.type === 'system') {
-    return <div className="text-zinc-500 text-sm pl-5" dangerouslySetInnerHTML={{ __html: msg.html }} />;
-  }
-
-  if (msg.type === 'help') {
-    return (
-      <div className="text-zinc-400 text-sm pl-5 leading-relaxed">
-        <strong>Commands:</strong><br />
-        <code className="text-violet-400">any text</code> — route query (auto-detects multi-intent)<br />
-        <code className="text-violet-400">/learn &lt;query&gt; -&gt; &lt;intent&gt;</code> — teach the router<br />
-        <code className="text-violet-400">/correct &lt;query&gt; -&gt; &lt;wrong&gt; -&gt; &lt;right&gt;</code> — fix misroute<br />
-        <code className="text-violet-400">/reset</code> — reset to default demo intents<br />
-        <code className="text-violet-400">/help</code> — show this message
       </div>
     );
   }
@@ -323,7 +273,7 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debugMode
         <div className="text-zinc-600 text-xs">
           {confirmed.length} confirmed{candidates.length > 0 ? `, ${candidates.length} candidates` : ''}{' '}
           <span className="text-zinc-700">·</span>{' '}
-          <span className="text-emerald-700" title="library routing time">router {result.routing_us != null ? (result.routing_us < 1000 ? `${result.routing_us}µs` : `${(result.routing_us / 1000).toFixed(1)}ms`) : '—'}</span>
+          <span className="text-emerald-400 font-semibold" title="library routing time">resolved in {result.routing_us != null ? (result.routing_us < 1000 ? `${result.routing_us}µs` : `${(result.routing_us / 1000).toFixed(1)}ms`) : '—'}</span>
           <span className="text-zinc-700"> · </span>
           <span title="HTTP round trip">http {latency.toFixed(0)}ms</span>
         </div>
@@ -374,9 +324,11 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debugMode
       )}
       {review && <ReviewCard review={review} onApply={onApplySuggestion} />}
 
-      {/* Layer trace panel */}
-      {debugMode && result.debug && result.debug !== null && (
-        <LayerTrace debug={result.debug} query={query} />
+      {/* Layer trace — opt-in via header debug toggle (persisted in localStorage) */}
+      {debug && result.trace && (
+        <div className="mt-3">
+          <LayerCards original={query} trace={result.trace} />
+        </div>
       )}
     </div>
   );
@@ -390,14 +342,8 @@ const CONFIDENCE_STYLES: Record<string, string> = {
   low: 'text-zinc-400 border-zinc-500/40 bg-zinc-500/10',
 };
 
-const SOURCE_LABELS: Record<string, string> = {
-  dual: 'dual',
-  paraphrase: 'phrase',
-  routing: 'route',
-};
-
 function IntentRow({ intent, index, bestScore, isMulti }: {
-  intent: { id: string; score: number; intent_type: string; span: [number, number]; confidence?: string; source?: string };
+  intent: { id: string; score: number; intent_type: string; span: [number, number]; confidence?: string };
   index: number;
   bestScore: number;
   isMulti: boolean;
@@ -407,7 +353,6 @@ function IntentRow({ intent, index, bestScore, isMulti }: {
   const color = INTENT_COLORS[index % INTENT_COLORS.length];
   const bgColor = INTENT_BG_COLORS[index % INTENT_BG_COLORS.length];
   const confidence = intent.confidence || 'low';
-  const source = intent.source || 'routing';
   const confStyle = CONFIDENCE_STYLES[confidence] || CONFIDENCE_STYLES.low;
 
   return (
@@ -424,7 +369,6 @@ function IntentRow({ intent, index, bestScore, isMulti }: {
       }`}>
         {intent.intent_type}
       </span>
-      <span className="text-zinc-500 text-[10px]">{SOURCE_LABELS[source] || source}</span>
       {isMulti && (
         <span className="text-zinc-600 text-xs">[{intent.span[0]},{intent.span[1]}]</span>
       )}
@@ -519,82 +463,6 @@ function ReviewCard({ review, onApply }: {
   );
 }
 
-// --- Layer trace panel ---
-
-function LayerTrace({ debug, query }: { debug: any; query: string }) {
-  const l0 = debug.l0_corrected as string | undefined;
-  const l1 = debug.l1_normalized as string | undefined;
-  const injected = (debug.l1_injected as string[]) || [];
-  const tokens = (debug.l2_tokens as string[]) || [];
-  const scores = (debug.l2_all_scores as { id: string; score: number }[]) || [];
-  const top5 = scores.slice(0, 5);
-  const maxScore = top5[0]?.score ?? 1;
-
-  const changed = (a?: string, b?: string) => a && b && a !== b;
-
-  return (
-    <div className="mt-2 bg-zinc-950 border border-zinc-800 rounded-lg p-3 space-y-2 font-mono text-xs">
-      <div className="text-[10px] text-zinc-600 uppercase font-semibold tracking-wide">Layer trace</div>
-
-      {/* L0 */}
-      <div className="flex items-start gap-2">
-        <span className="text-zinc-600 w-6 shrink-0">L0</span>
-        <span className="text-zinc-500">typo</span>
-        {changed(query.toLowerCase(), l0)
-          ? <><span className="text-zinc-600 line-through">{query}</span><span className="text-amber-400 ml-1">{l0}</span></>
-          : <span className="text-zinc-600">no change</span>
-        }
-      </div>
-
-      {/* L1 */}
-      <div className="flex items-start gap-2">
-        <span className="text-zinc-600 w-6 shrink-0">L1</span>
-        <span className="text-zinc-500">morph</span>
-        {changed(l0 ?? query, l1)
-          ? <span className="text-amber-400">{l1}</span>
-          : <span className="text-zinc-600">no change</span>
-        }
-      </div>
-      {injected.length > 0 && (
-        <div className="flex items-start gap-2 pl-8">
-          <span className="text-zinc-500">inject</span>
-          <span className="text-violet-400">{injected.join(', ')}</span>
-        </div>
-      )}
-
-      {/* L2 tokens */}
-      <div className="flex items-start gap-2">
-        <span className="text-zinc-600 w-6 shrink-0">L2</span>
-        <span className="text-zinc-500">tokens</span>
-        <span className="text-zinc-400">{tokens.join(' · ')}</span>
-      </div>
-
-      {/* L2 scores */}
-      {top5.length > 0 && (
-        <div className="pl-8 space-y-1">
-          {top5.map(({ id, score }) => {
-            const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
-            const isTop = score === maxScore;
-            return (
-              <div key={id} className="flex items-center gap-2">
-                <div className="w-24 truncate text-right text-[10px] text-zinc-500">{id.split(':').pop()}</div>
-                <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${isTop ? 'bg-emerald-500' : 'bg-zinc-600'}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <span className={`text-[10px] w-8 text-right ${isTop ? 'text-emerald-400' : 'text-zinc-600'}`}>
-                  {score.toFixed(2)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // --- Highlighted query with colored spans ---
 

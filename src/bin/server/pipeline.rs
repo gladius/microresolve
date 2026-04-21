@@ -629,12 +629,9 @@ async fn full_review_from_sets(
          Intents that need more training coverage:\n{missed_labels}\n\n\
          Phrases already in the system for these intents (do not duplicate):\n{existing_phrases}\n\
          {lang_instruction}\
-         {quality}\n\n\
-         For each intent, respond with a phrase AND the key words from the customer query.\n\
          Respond with ONLY JSON:\n\
-         {{\"phrases_by_intent\": {{\"intent_id\": \"new phrase\"}}, \"key_words\": {{\"intent_id\": [\"word1\", \"word2\"]}}}}\n",
+         {{\"phrases_by_intent\": {{\"intent_id\": \"extracted span\"}}}}\n",
         guidelines = microresolve::phrase::REVIEW_FIX_GUIDELINES,
-        quality = microresolve::phrase::PHRASE_QUALITY_RULES,
         query = query,
     );
 
@@ -649,7 +646,7 @@ async fn full_review_from_sets(
     // Pre-validate phrases through guard (read-only check + retry)
     let mut phrases_to_add: HashMap<String, Vec<String>> = HashMap::new();
     let mut phrases_blocked = Vec::new();
-    let mut spans_to_learn: Vec<(String, String)> = Vec::new(); // (intent_id, span from query)
+    let spans_to_learn: Vec<(String, String)> = Vec::new();
 
     if let Some(sbi) = t2_parsed.get("phrases_by_intent").and_then(|v| v.as_object()) {
         let mut blocked_for_retry: Vec<(String, String, String)> = Vec::new();
@@ -730,35 +727,9 @@ async fn full_review_from_sets(
         }
     }
 
-    // Extract key_words from LLM response — intent-bearing words from the query.
-    // Format: {"key_words": {"intent_id": ["word1", "word2"]}}
-    if let Some(kw_obj) = t2_parsed.get("key_words").and_then(|v| v.as_object()) {
-        for (intent_id, words_val) in kw_obj {
-            if let Some(words_arr) = words_val.as_array() {
-                let words: Vec<String> = words_arr.iter()
-                    .filter_map(|v| v.as_str())
-                    .map(|s| s.trim().to_lowercase())
-                    .filter(|s| !s.is_empty())
-                    .collect();
-                if !words.is_empty() {
-                    // Join words into a single string for span-style learning
-                    spans_to_learn.push((intent_id.clone(), words.join(" ")));
-                }
-            }
-        }
-        eprintln!("[full_review] Turn 2: extracted {} key_word sets", spans_to_learn.len());
-    }
-    // Also check legacy "spans" key for backward compatibility
-    if let Some(spans_obj) = t2_parsed.get("spans").and_then(|v| v.as_object()) {
-        for (intent_id, span_val) in spans_obj {
-            if let Some(span) = span_val.as_str() {
-                let span = span.trim();
-                if !span.is_empty() {
-                    spans_to_learn.push((intent_id.clone(), span.to_string()));
-                }
-            }
-        }
-    }
+    // spans_to_learn is now empty — span extraction was merged into phrases_by_intent.
+    // The LLM extracts the intent-bearing span from the user's query and returns it
+    // as the phrase directly, so it is stored in the phrase registry and survives rebuilds.
 
     eprintln!("[full_review] Turn 2: phrases_to_add={:?}, blocked={}", phrases_to_add, phrases_blocked.len());
 
@@ -797,14 +768,11 @@ pub async fn apply_review(
 
     // ── L2 update ────────────────────────────────────────────────────────────
     // L2 learns all phrases + LLM-confirmed query words into word_intent.
-    const DELTA_REINFORCE: f32 =  0.05;
-    const DELTA_SUPPRESS:  f32 = -0.05;
-
-    let has_l3_update = !result.correct_intents.is_empty()
+    let has_learning = !result.correct_intents.is_empty()
         || !result.missed_intents.is_empty()
         || !result.wrong_detections.is_empty();
 
-    if has_l3_update {
+    if has_learning {
         let normalized = {
             let routers = state.routers.read().unwrap();
             if let Some(r) = routers.get(app_id) {
@@ -846,25 +814,6 @@ pub async fn apply_review(
                 eprintln!("[auto-learn/query] span words {:?} → '{}'", span_refs, span_intent);
             }
 
-            // Wrong detections: L3 inhibition — correct intent suppresses false positive.
-            for wrong in &result.wrong_detections {
-                for correct in &result.correct_intents {
-                    router.l2_mut().learn_inhibition(correct, wrong);
-                    eprintln!("[auto-learn/L3] inhibit → '{}' suppresses '{}'", correct, wrong);
-                }
-            }
-
-            // Direct L3 suppression: when GT confirms a detection is wrong AND the correct
-            // intents weren't detected (correct_intents is empty), normal inhibition can't fire.
-            // Instead, directly suppress the query's vocabulary from activating the wrong intents.
-            // "fire together, wire apart" — these query words should NOT activate these intents.
-            if result.correct_intents.is_empty() && !result.wrong_detections.is_empty() {
-                for wrong in &result.wrong_detections {
-                    router.l2_mut().reinforce(&word_refs, wrong, DELTA_SUPPRESS);
-                    eprintln!("[auto-learn/L3] direct suppress query tokens from '{}'", wrong);
-                }
-            }
-
             // Rebuild L0 only when L2 vocabulary actually grew — skip if no new terms added
             if added > 0 || !result.spans_to_learn.is_empty() {
                 router.rebuild_l0();
@@ -878,78 +827,29 @@ pub async fn apply_review(
             }
         }
 
-        // ── L1 synonym reinforcement ─────────────────────────────────────────
-        // Reinforce L1 synonym edges that fired and contributed to correct routing.
-        // L1 only gets positive updates — synonyms are global, suppressing them
-        // could hurt other intents that use the same synonym correctly.
-        if !result.correct_intents.is_empty() {
-            let mut routers = state.routers.write().unwrap();
-            if let Some(router) = routers.get_mut(app_id) {
-                let pre = router.l1().preprocess(original_query);
-                let orig_words = microresolve::scoring::LexicalGraph::l1_tokens_pub(original_query);
-                let injected = pre.injected.clone();
-                for word in &orig_words {
-                    if let Some(edges) = router.l1().edges.get(word.as_str()).cloned() {
-                        for edge in edges {
-                            if matches!(edge.kind, microresolve::scoring::EdgeKind::Synonym)
-                                && injected.contains(&edge.target)
-                            {
-                                router.l1_mut().reinforce(word, &edge.target, DELTA_REINFORCE);
-                                eprintln!("[auto-learn/L1] synonym '{}' → '{}' reinforce ({:+.2})", word, edge.target, DELTA_REINFORCE);
-                            }
-                        }
-                    }
-                }
-                if let Some(ref dir) = state.data_dir {
-                    let ns_dir = std::path::Path::new(dir).join(app_id);
-                    std::fs::create_dir_all(&ns_dir).ok();
-                    router.save_to_dir(&ns_dir).ok();
-                }
-            }
-        }
+        // Synonym reinforcement + discovery removed — query-time synonym expansion
+        // is off, so reinforcing or auto-generating synonym edges has no effect.
+        // See scoring.rs::preprocess(). Morphology discovery stays useful.
 
-        // ── L1 learning: morphology + synonym discovery, only on misses ─────
-        // Both are independent LLM calls — no shared state, safe to join.
-        // Only runs when there are missed intents — that's when new vocabulary coverage matters.
-        // Correct routing needs no L1 expansion; false positives are handled by L3 alone.
+        // ── L1 morphology discovery, only on misses ──────────────────────────
         if !result.missed_intents.is_empty() {
-            // Words not yet in L1 edges — candidates for morphology expansion
-            // Also skip words that are already in L2 after phrase learning (no synonym bridge needed)
-            let (new_to_l1, unknown_to_l2): (Vec<String>, Vec<String>) = {
+            let new_to_l1: Vec<String> = {
                 let routers = state.routers.read().unwrap();
                 if let Some(r) = routers.get(app_id) {
-                    let new_l1 = word_refs.iter()
+                    word_refs.iter()
                         .filter(|&&w| !r.l1().edges.contains_key(w))
                         .map(|&w| w.to_string())
-                        .collect();
-                    let unk_l2 = word_refs.iter()
-                        .filter(|&&w| !r.l2().word_intent.contains_key(w))
-                        .map(|&w| w.to_string())
-                        .collect();
-                    (new_l1, unk_l2)
+                        .collect()
                 } else {
-                    let all: Vec<String> = word_refs.iter().map(|&w| w.to_string()).collect();
-                    (all.clone(), all)
+                    word_refs.iter().map(|&w| w.to_string()).collect()
                 }
             };
 
-            let do_morph = !new_to_l1.is_empty();
-            let do_synonyms = !unknown_to_l2.is_empty(); // skip if all words now in L2
-
-            if do_morph && do_synonyms {
-                eprintln!("[auto-learn/L1] parallel: morphology({:?}) + synonym discovery", new_to_l1);
-                tokio::join!(
-                    learn_l1_morphology(state, app_id, &new_to_l1, original_query),
-                    learn_l1_synonyms(state, app_id, &word_refs, &result.missed_intents, original_query)
-                );
-            } else if do_morph {
-                eprintln!("[auto-learn/L1] morphology only (all words now in L2 after phrase learning)");
+            if !new_to_l1.is_empty() {
+                eprintln!("[auto-learn/L1] morphology discovery: {:?}", new_to_l1);
                 learn_l1_morphology(state, app_id, &new_to_l1, original_query).await;
-            } else if do_synonyms {
-                eprintln!("[auto-learn/L1] synonym discovery only (all words already in L1)");
-                learn_l1_synonyms(state, app_id, &word_refs, &result.missed_intents, original_query).await;
             } else {
-                eprintln!("[auto-learn/L1] skipping — all words already in L1 and L2");
+                eprintln!("[auto-learn/L1] skipping — all words already in L1");
             }
         }
     }
@@ -960,6 +860,10 @@ pub async fn apply_review(
 /// For missed intents, map query words → existing L2 vocabulary words as new L1 synonym edges.
 /// Handles cross-lingual and paraphrase cases: "suscripción"→"subscription" routes via the
 /// already-strong "subscription"→cancel_subscription L2 edge instead of starting a weak new one.
+///
+/// Currently unused — synonym query-time expansion was removed (see scoring.rs::preprocess).
+/// Kept in case we revisit phrase-generation flows.
+#[allow(dead_code)]
 async fn learn_l1_synonyms(
     state: &AppState,
     app_id: &str,

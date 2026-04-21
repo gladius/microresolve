@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '@/api/client';
 import SidebarLayout, { type SidebarItem } from '@/components/SidebarLayout';
 import Page from '@/components/Page';
-import { useEffect } from 'react';
+import { useAppStore, type ThemeMode } from '@/store';
 
 export default function SettingsPage() {
-  const [section, setSection] = useState('llm');
+  const [section, setSection] = useState('appearance');
 
   const items: SidebarItem[] = [
+    { id: 'appearance', label: 'Appearance' },
     { id: 'llm', label: 'LLM / AI' },
     { id: 'data', label: 'Data' },
   ];
@@ -21,11 +22,53 @@ export default function SettingsPage() {
         onSelect={setSection}
       >
         <div className="p-5 max-w-2xl">
+          {section === 'appearance' && <AppearanceSection />}
           {section === 'llm' && <LLMSection />}
           {section === 'data' && <DataSection />}
         </div>
       </SidebarLayout>
     </Page>
+  );
+}
+
+function AppearanceSection() {
+  const { settings, setTheme } = useAppStore();
+  const current = settings.theme;
+
+  const options: { id: ThemeMode; label: string; desc: string; icon: string }[] = [
+    { id: 'dark',   label: 'Dark',   desc: 'Always dark',             icon: '◑' },
+    { id: 'light',  label: 'Light',  desc: 'Always light',            icon: '○' },
+    { id: 'system', label: 'System', desc: 'Follows OS preference',   icon: '◎' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-zinc-100">Appearance</h2>
+        <p className="text-xs text-zinc-500 mt-1">Choose how μResolve looks.</p>
+      </div>
+
+      <div>
+        <div className="text-xs text-zinc-500 font-semibold uppercase tracking-wide mb-3">Theme</div>
+        <div className="flex gap-3">
+          {options.map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => setTheme(opt.id)}
+              className={`flex-1 flex flex-col items-center gap-2 px-4 py-4 rounded-xl border text-sm transition-colors ${
+                current === opt.id
+                  ? 'border-violet-500 bg-violet-500/10 text-zinc-100'
+                  : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+              }`}
+            >
+              <span className="text-2xl leading-none">{opt.icon}</span>
+              <span className="font-medium text-sm">{opt.label}</span>
+              <span className="text-[10px] text-zinc-500 text-center leading-tight">{opt.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -39,7 +82,7 @@ function LLMSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">LLM / AI Configuration</h2>
+        <h2 className="text-lg font-semibold text-zinc-100">LLM / AI Configuration</h2>
         <p className="text-xs text-zinc-500 mt-1">
           Powers phrase generation, auto-review, and auto-learn.
         </p>
@@ -55,8 +98,8 @@ function LLMSection() {
         </div>
         {status?.configured && (
           <div className="space-y-1 text-xs text-zinc-400">
-            <div>Model: <span className="text-white font-mono">{status.model}</span></div>
-            <div>URL: <span className="text-white font-mono">{status.url}</span></div>
+            <div>Model: <span className="text-zinc-100 font-mono">{status.model}</span></div>
+            <div>URL: <span className="text-zinc-100 font-mono">{status.url}</span></div>
           </div>
         )}
       </div>
@@ -92,7 +135,7 @@ function DataSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">Data</h2>
+        <h2 className="text-lg font-semibold text-zinc-100">Data</h2>
         <p className="text-xs text-zinc-500 mt-1">Export, import, or reset router state.</p>
       </div>
 
@@ -157,10 +200,10 @@ function DataSection() {
               <svg className="w-5 h-5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
-              <h3 className="text-base font-semibold text-white">Clear All Data</h3>
+              <h3 className="text-base font-semibold text-zinc-100">Clear All Data</h3>
             </div>
             <p className="text-sm text-zinc-400">
-              This will permanently delete <strong className="text-white">all workspaces, intents, training data, and query logs</strong>. The server resets to a clean state with only the default workspace.
+              This will permanently delete <strong className="text-zinc-100">all workspaces, intents, training data, and query logs</strong>. The server resets to a clean state with only the default workspace.
             </p>
             <p className="text-xs text-zinc-500">This action cannot be undone.</p>
             <div>
@@ -178,11 +221,11 @@ function DataSection() {
                   }
                 }}
                 placeholder="delete all"
-                className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-zinc-600 focus:outline-none focus:border-red-500"
+                className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-red-500"
               />
             </div>
             <div className="flex gap-2 justify-end pt-1">
-              <button onClick={() => setShowClearModal(false)} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">
+              <button onClick={() => setShowClearModal(false)} className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-100">
                 Cancel
               </button>
               <button

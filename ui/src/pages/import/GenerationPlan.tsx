@@ -48,7 +48,7 @@ export default function GenerationPlan({ numTools, languages, importing }: Props
       <p className="text-xs text-zinc-400 leading-relaxed">
         {numTools} intent{numTools !== 1 ? 's' : ''} × {plan.phrases_per_tool} phrases
         <span className="text-zinc-600"> ({languages.length} lang{languages.length !== 1 ? 's' : ''} × 10)</span>
-        {' '}= <span className="text-white font-medium">{numTools * plan.phrases_per_tool} total phrases</span>,
+        {' '}= <span className="text-zinc-100 font-medium">{numTools * plan.phrases_per_tool} total phrases</span>,
         sent in <span className="text-violet-400">{plan.total_batches} LLM call{plan.total_batches !== 1 ? 's' : ''}</span>
         {' '}of <span className="text-violet-400">{plan.batch_size} intent{plan.batch_size !== 1 ? 's' : ''} each</span>.
       </p>
@@ -108,7 +108,7 @@ export default function GenerationPlan({ numTools, languages, importing }: Props
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="text-center">
-      <div className="text-sm font-semibold text-white">{value}</div>
+      <div className="text-sm font-semibold text-zinc-100">{value}</div>
       <div className="text-[10px] text-zinc-600">{label}</div>
       {sub && <div className="text-[9px] text-zinc-700">{sub}</div>}
     </div>

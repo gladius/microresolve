@@ -70,7 +70,7 @@ export default function ImportLanding() {
           value={filter}
           onChange={e => setFilter(e.target.value)}
           placeholder="Filter import sources..."
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors"
+          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors"
         />
 
         <div className="grid grid-cols-2 gap-4">
@@ -85,7 +85,7 @@ export default function ImportLanding() {
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="text-sm font-semibold text-white">{card.label}</div>
+                <div className="text-sm font-semibold text-zinc-100">{card.label}</div>
                 {card.soon && (
                   <span className="text-[9px] text-zinc-500 bg-zinc-700/60 px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0">
                     soon

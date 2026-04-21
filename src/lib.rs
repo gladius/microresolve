@@ -1,36 +1,30 @@
 //! # MicroResolve
 //!
-//! Intent registry and IDF-based scoring.
-//! Training phrases and intent metadata are stored here; scoring layers
-//! (L1 LexicalGraph + L2 IntentGraph) are in `src/scoring.rs`.
+//! Sub-millisecond intent resolution. No embeddings, no GPU, no retraining.
+//! Scoring layers (morphology graph + scoring index) are in `src/scoring.rs`.
 //!
-//! ## Quick Start (server mode)
+//! ## Quick Start
 //!
 //! ```
 //! use microresolve::Router;
 //!
 //! let mut router = Router::new();
+//! router.add_intent("cancel_order", &["cancel my order", "stop my order"]);
+//! router.add_intent("track_order",  &["where is my package", "track my order"]);
 //!
-//! // Register intents with training phrases (used for Hebbian bootstrap)
-//! router.add_intent("cancel_order", &[
-//!     "cancel my order",
-//!     "I want to cancel",
-//!     "stop my order",
-//! ]);
-//! router.add_intent("track_order", &[
-//!     "where is my package",
-//!     "track my order",
-//!     "shipping status",
-//! ]);
+//! let matches = router.resolve("I want to cancel", 0.3, 1.5);
+//! assert_eq!(matches[0].0, "cancel_order");
 //! ```
 
 pub mod scoring;
 pub mod import;
-pub mod connect;
 pub mod ngram;
 pub mod phrase;
 pub mod tokenizer;
 pub mod types;
+
+#[cfg(feature = "connect")]
+pub mod connect;
 
 // Router method modules (each contains `impl Router { ... }`)
 mod router_core;
@@ -52,11 +46,11 @@ use std::collections::HashMap;
 /// L0/L1/L2 routing layers are embedded directly — call `index_phrase` to update all
 /// layers atomically, and `route` to run the full pipeline.
 pub struct Router {
-    /// L0: character n-gram index for typo correction before L1.
+    /// Typo corrector: character n-gram index built from all known vocabulary.
     pub(crate) l0: crate::ngram::NgramIndex,
-    /// L1: lexical normalization graph (morphology, synonyms, abbreviations).
+    /// Morphology graph: normalizes inflections, abbreviations, and synonyms before scoring.
     pub(crate) l1: crate::scoring::LexicalGraph,
-    /// L2: IDF-weighted intent index (Hebbian scoring + L3 anti-Hebbian inhibition).
+    /// Scoring index: IDF-weighted word→intent associations with anti-Hebbian inhibition.
     pub(crate) l2: crate::scoring::IntentIndex,
     /// Raw training phrases per intent, grouped by language code.
     /// Structure: { intent_id: { lang_code: [phrases] } }
@@ -107,10 +101,8 @@ impl Default for Router {
 }
 
 // Router methods split across modules:
-// router_core.rs      — constructor, config, persistence, accessors
-// router_intents.rs   — intent CRUD, phrase guard
-// router_learning.rs  — learn, correct (phrase storage only)
-// router_metadata.rs  — intent types, descriptions, metadata
-// router_similarity.rs — distributional similarity
+// router_core.rs      — constructor, config, persistence, accessors, route()
+// router_intents.rs   — intent CRUD, phrase management
+// router_learning.rs  — add_phrase_auto, correct
+// router_metadata.rs  — intent types, descriptions, instructions, persona, sources, targets
 // router_persist.rs   — directory-based persistence
-// router_situation.rs — situation pattern storage

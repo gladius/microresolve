@@ -116,7 +116,7 @@ export default function LanguagesPage() {
 
             <button
               onClick={() => setPickerOpen(v => !v)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-dashed border-zinc-600 text-zinc-500 hover:text-white hover:border-zinc-400 transition-colors"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-dashed border-zinc-600 text-zinc-500 hover:text-zinc-100 hover:border-zinc-400 transition-colors"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -133,7 +133,7 @@ export default function LanguagesPage() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Search languages…"
-                  className="w-full bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none px-1"
+                  className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none px-1"
                 />
               </div>
               <div className="max-h-48 overflow-y-auto">
@@ -141,7 +141,7 @@ export default function LanguagesPage() {
                   <button
                     key={code}
                     onClick={() => addLang(code)}
-                    className="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 flex items-center gap-2"
                   >
                     <span className="text-[9px] text-zinc-500 uppercase w-6">{code}</span>
                     {allLanguages[code] || code}
@@ -158,7 +158,7 @@ export default function LanguagesPage() {
           {promptLang && (
             <div className="bg-zinc-800/60 border border-zinc-700 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
               <div>
-                <div className="text-xs text-white font-medium mb-0.5">
+                <div className="text-xs text-zinc-100 font-medium mb-0.5">
                   Generate stop words for {allLanguages[promptLang] || promptLang}?
                 </div>
                 <div className="text-[11px] text-zinc-500">

@@ -1,12 +1,10 @@
-//! Python bindings for MicroResolve via PyO3 (intent registry only).
-//!
-//! Routing is handled server-side by the Hebbian L1+L3 system.
+//! Python bindings for MicroResolve via PyO3.
 //!
 //! Usage:
-//!   from asv_router import Router
+//!   from microresolve import Router
 //!   r = Router()
 //!   r.add_intent("cancel_order", ["cancel my order", "stop my order"])
-//!   r.learn("I want to cancel", "cancel_order")  # stores phrase for bootstrap
+//!   result = r.resolve("I want to cancel")  # returns [{"id": "cancel_order", "score": 0.9}]
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -37,12 +35,7 @@ impl Router {
         self.inner.add_intent_multilingual(id, seeds_by_lang);
     }
 
-    /// Store that query maps to intent_id (phrase stored for bootstrap).
-    fn learn(&mut self, query: &str, intent_id: &str) {
-        self.inner.learn(query, intent_id);
-    }
-
-    /// Move query from wrong_intent to correct_intent.
+    /// Correct a routing mistake: move query from wrong_intent to correct_intent.
     fn correct(&mut self, query: &str, wrong_intent: &str, correct_intent: &str) {
         self.inner.correct(query, wrong_intent, correct_intent);
     }
@@ -56,9 +49,15 @@ impl Router {
         self.inner.set_intent_type(intent_id, t);
     }
 
-    /// Set metadata for an intent.
-    fn set_metadata(&mut self, intent_id: &str, key: &str, values: Vec<String>) {
-        self.inner.set_metadata(intent_id, key, values);
+    /// Resolve a natural language query to matching intents. Returns list of dicts with 'id' and 'score'.
+    fn resolve<'py>(&self, py: Python<'py>, query: &str, threshold: Option<f32>, gap: Option<f32>) -> PyResult<Vec<Bound<'py, PyDict>>> {
+        let results = self.inner.resolve(query, threshold.unwrap_or(0.3), gap.unwrap_or(1.5));
+        results.iter().map(|(id, score)| {
+            let d = PyDict::new(py);
+            d.set_item("id", id)?;
+            d.set_item("score", score)?;
+            Ok(d)
+        }).collect()
     }
 
     /// Export router state as JSON string.
@@ -75,33 +74,29 @@ impl Router {
         }
     }
 
-    /// Add a seed with duplicate checking. Returns dict with added, redundant, warning.
-    fn add_seed<'py>(&mut self, py: Python<'py>, intent_id: &str, seed: &str, lang: Option<&str>) -> PyResult<Bound<'py, PyDict>> {
-        let result = self.inner.add_seed_checked(intent_id, seed, lang.unwrap_or("en"));
+    /// Add a phrase with duplicate checking. Returns dict with added, redundant, warning.
+    fn add_phrase<'py>(&mut self, py: Python<'py>, intent_id: &str, phrase: &str, lang: Option<&str>) -> PyResult<Bound<'py, PyDict>> {
+        let result = self.inner.add_phrase_checked(intent_id, phrase, lang.unwrap_or("en"));
         let d = PyDict::new(py);
         d.set_item("added", result.added)?;
         d.set_item("new_terms", &result.new_terms)?;
         d.set_item("redundant", result.redundant)?;
-        d.set_item("conflicts", Vec::<String>::new())?;
         d.set_item("warning", result.warning)?;
         Ok(d)
     }
 
-    /// Check a seed without adding.
-    fn check_seed<'py>(&self, py: Python<'py>, intent_id: &str, seed: &str) -> PyResult<Bound<'py, PyDict>> {
-        let result = self.inner.check_seed(intent_id, seed);
+    /// Check a phrase without adding. Returns dict with redundant, warning.
+    fn check_phrase<'py>(&self, py: Python<'py>, intent_id: &str, phrase: &str) -> PyResult<Bound<'py, PyDict>> {
+        let result = self.inner.check_phrase(intent_id, phrase);
         let d = PyDict::new(py);
-        d.set_item("added", false)?;
-        d.set_item("new_terms", &result.new_terms)?;
         d.set_item("redundant", result.redundant)?;
-        d.set_item("conflicts", Vec::<String>::new())?;
         d.set_item("warning", result.warning)?;
         Ok(d)
     }
 
-    /// Remove a seed phrase from an intent.
-    fn remove_seed(&mut self, intent_id: &str, seed: &str) -> bool {
-        self.inner.remove_seed(intent_id, seed)
+    /// Remove a phrase from an intent.
+    fn remove_phrase(&mut self, intent_id: &str, phrase: &str) -> bool {
+        self.inner.remove_phrase(intent_id, phrase)
     }
 
     /// Set intent description.
@@ -124,36 +119,6 @@ impl Router {
         self.inner.intent_ids()
     }
 
-    /// Begin batch mode (no-op, kept for API compat).
-    fn begin_batch(&mut self) {
-        self.inner.begin_batch();
-    }
-
-    /// End batch mode (no-op, kept for API compat).
-    fn end_batch(&mut self) {
-        self.inner.end_batch();
-    }
-
-    /// Discover intent clusters from unlabeled queries.
-    #[staticmethod]
-    #[pyo3(signature = (queries, expected_intents=None))]
-    fn discover<'py>(py: Python<'py>, queries: Vec<String>, expected_intents: Option<usize>) -> PyResult<Vec<Bound<'py, PyDict>>> {
-        let config = microresolve_core::discovery::DiscoveryConfig {
-            expected_intents: expected_intents.unwrap_or(0),
-            ..Default::default()
-        };
-        let clusters = microresolve_core::discovery::discover_intents(&queries, &config);
-
-        clusters.iter().map(|c| {
-            let d = PyDict::new(py);
-            d.set_item("name", &c.suggested_name)?;
-            d.set_item("size", c.size)?;
-            d.set_item("confidence", c.confidence)?;
-            d.set_item("top_terms", &c.top_terms)?;
-            d.set_item("representative_queries", &c.representative_queries)?;
-            Ok(d)
-        }).collect()
-    }
 }
 
 /// MicroResolve Python module.

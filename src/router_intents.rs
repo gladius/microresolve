@@ -149,7 +149,6 @@ impl Router {
         result
     }
 
-    /// Internal: add a phrase without collision checking.
     pub(crate) fn add_phrase(&mut self, intent_id: &str, seed: &str, lang: &str) -> bool {
         self.require_local();
         let lang_map = match self.training.get_mut(intent_id) {
@@ -168,20 +167,6 @@ impl Router {
         self.index_phrase(intent_id, seed);
         self.version += 1;
         true
-    }
-
-    // Seed API aliases (used by Python/Node bindings)
-
-    pub fn add_seed_checked(&mut self, intent_id: &str, seed: &str, lang: &str) -> PhraseCheckResult {
-        self.add_phrase_checked(intent_id, seed, lang)
-    }
-
-    pub fn check_seed(&self, intent_id: &str, seed: &str) -> PhraseCheckResult {
-        self.check_phrase(intent_id, seed)
-    }
-
-    pub fn remove_seed(&mut self, intent_id: &str, seed: &str) -> bool {
-        self.remove_phrase(intent_id, seed)
     }
 
     /// Extract the namespace prefix from a namespaced intent ID.

@@ -8,7 +8,7 @@ impl Router {
     pub fn new() -> Self {
         Self {
             l0: crate::ngram::NgramIndex::default(),
-            l1: crate::scoring::LexicalGraph::new(),
+            l1: crate::scoring::english_morphology_base(),
             l2: crate::scoring::IntentIndex::new(),
             training: HashMap::new(),
             intent_types: HashMap::new(),
@@ -192,20 +192,28 @@ impl Router {
         })
     }
 
-    // ── L0 / L1 / L2 accessors ───────────────────────────────────────────────
+    // ── Scoring layer accessors ───────────────────────────────────────────────
 
-    /// Read access to the L1 lexical graph.
-    pub fn l1(&self) -> &crate::scoring::LexicalGraph { &self.l1 }
-    /// Mutable access to the L1 lexical graph.
-    pub fn l1_mut(&mut self) -> &mut crate::scoring::LexicalGraph { &mut self.l1 }
+    /// Read access to the morphology graph (normalizes inflections, abbreviations, synonyms).
+    pub fn morphology(&self) -> &crate::scoring::LexicalGraph { &self.l1 }
+    /// Mutable access to the morphology graph.
+    pub fn morphology_mut(&mut self) -> &mut crate::scoring::LexicalGraph { &mut self.l1 }
 
-    /// Read access to the L2 intent index.
-    pub fn l2(&self) -> &crate::scoring::IntentIndex { &self.l2 }
-    /// Mutable access to the L2 intent index.
-    pub fn l2_mut(&mut self) -> &mut crate::scoring::IntentIndex { &mut self.l2 }
+    /// Read access to the scoring index (word→intent weights).
+    pub fn scoring(&self) -> &crate::scoring::IntentIndex { &self.l2 }
+    /// Mutable access to the scoring index.
+    pub fn scoring_mut(&mut self) -> &mut crate::scoring::IntentIndex { &mut self.l2 }
 
-    /// Read access to the L0 n-gram index.
-    pub fn l0(&self) -> &crate::ngram::NgramIndex { &self.l0 }
+    /// Read access to the typo corrector (character n-gram index).
+    pub fn typo_index(&self) -> &crate::ngram::NgramIndex { &self.l0 }
+
+    // Undocumented layer accessors kept for server binary compatibility.
+    // Prefer morphology()/scoring()/typo_index() in new code.
+    #[doc(hidden)] pub fn l1(&self) -> &crate::scoring::LexicalGraph { &self.l1 }
+    #[doc(hidden)] pub fn l1_mut(&mut self) -> &mut crate::scoring::LexicalGraph { &mut self.l1 }
+    #[doc(hidden)] pub fn l2(&self) -> &crate::scoring::IntentIndex { &self.l2 }
+    #[doc(hidden)] pub fn l2_mut(&mut self) -> &mut crate::scoring::IntentIndex { &mut self.l2 }
+    #[doc(hidden)] pub fn l0(&self) -> &crate::ngram::NgramIndex { &self.l0 }
 
     /// Merge base L1 edges into this router's L1 graph.
     /// Base edges are only added where the target term has no existing entry
@@ -269,9 +277,9 @@ impl Router {
         self.rebuild_l0();
     }
 
-    /// Run the full L0→L1→L2 pipeline on a query.
+    /// Resolve a natural language query to matching intents.
     /// Returns sorted (intent_id, score) pairs above `threshold`.
-    pub fn route(&self, query: &str, threshold: f32, gap: f32) -> Vec<(String, f32)> {
+    pub fn resolve(&self, query: &str, threshold: f32, gap: f32) -> Vec<(String, f32)> {
         // L0: typo correction
         let q0 = self.l0.correct_query(query);
         // L1: normalize + expand

@@ -1,28 +1,23 @@
-//! Node.js bindings for MicroResolve via napi-rs (intent registry only).
-//!
-//! Routing is handled server-side by the Hebbian L1+L3 system.
+//! Node.js bindings for MicroResolve via napi-rs.
 //!
 //! Usage:
-//!   const { Router } = require('asv-router');
+//!   const { Router } = require('microresolve');
 //!   const r = new Router();
 //!   r.addIntent("cancel_order", ["cancel my order", "stop my order"]);
-//!   r.learn("I want to cancel", "cancel_order");  // store phrase for bootstrap
+//!   const results = r.resolve("I want to cancel");  // [{ id: "cancel_order", score: 0.9 }]
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
 
 #[napi(object)]
-pub struct DiscoveredCluster {
-    pub name: String,
-    pub size: u32,
-    pub confidence: f64,
-    pub top_terms: Vec<String>,
-    pub representative_queries: Vec<String>,
+pub struct ResolveMatch {
+    pub id: String,
+    pub score: f64,
 }
 
 #[napi(object)]
-pub struct SeedResult {
+pub struct PhraseResult {
     pub added: bool,
     pub new_terms: Vec<String>,
     pub redundant: bool,
@@ -48,13 +43,14 @@ impl Router {
         self.inner.add_intent(&id, &refs);
     }
 
-    /// Store that query maps to intent_id (phrase stored for bootstrap).
+    /// Resolve a natural language query to matching intents. Returns matches sorted by score descending.
     #[napi]
-    pub fn learn(&mut self, query: String, intent_id: String) {
-        self.inner.learn(&query, &intent_id);
+    pub fn resolve(&self, query: String, threshold: Option<f64>, gap: Option<f64>) -> Vec<ResolveMatch> {
+        let results = self.inner.resolve(&query, threshold.unwrap_or(0.3) as f32, gap.unwrap_or(1.5) as f32);
+        results.into_iter().map(|(id, score)| ResolveMatch { id, score: score as f64 }).collect()
     }
 
-    /// Move query from wrong_intent to correct_intent.
+    /// Correct a routing mistake: move query from wrong_intent to correct_intent.
     #[napi]
     pub fn correct(&mut self, query: String, wrong_intent: String, correct_intent: String) {
         self.inner.correct(&query, &wrong_intent, &correct_intent);
@@ -85,11 +81,11 @@ impl Router {
         }
     }
 
-    /// Add a seed with duplicate checking.
+    /// Add a phrase with duplicate checking.
     #[napi]
-    pub fn add_seed(&mut self, intent_id: String, seed: String, lang: Option<String>) -> SeedResult {
-        let result = self.inner.add_seed_checked(&intent_id, &seed, lang.as_deref().unwrap_or("en"));
-        SeedResult {
+    pub fn add_phrase(&mut self, intent_id: String, phrase: String, lang: Option<String>) -> PhraseResult {
+        let result = self.inner.add_phrase_checked(&intent_id, &phrase, lang.as_deref().unwrap_or("en"));
+        PhraseResult {
             added: result.added,
             new_terms: result.new_terms,
             redundant: result.redundant,
@@ -97,10 +93,10 @@ impl Router {
         }
     }
 
-    /// Remove a seed from an intent.
+    /// Remove a phrase from an intent.
     #[napi]
-    pub fn remove_seed(&mut self, intent_id: String, seed: String) -> bool {
-        self.inner.remove_seed(&intent_id, &seed)
+    pub fn remove_phrase(&mut self, intent_id: String, phrase: String) -> bool {
+        self.inner.remove_phrase(&intent_id, &phrase)
     }
 
     /// Set intent description.
@@ -127,32 +123,4 @@ impl Router {
         self.inner.intent_ids()
     }
 
-    /// Begin batch mode (no-op, kept for API compat).
-    #[napi]
-    pub fn begin_batch(&mut self) {
-        self.inner.begin_batch();
-    }
-
-    /// End batch mode (no-op, kept for API compat).
-    #[napi]
-    pub fn end_batch(&mut self) {
-        self.inner.end_batch();
-    }
-
-    /// Discover intent clusters from unlabeled queries.
-    #[napi]
-    pub fn discover(queries: Vec<String>, expected_intents: Option<u32>) -> Vec<DiscoveredCluster> {
-        let config = microresolve_core::discovery::DiscoveryConfig {
-            expected_intents: expected_intents.unwrap_or(0) as usize,
-            ..Default::default()
-        };
-        let clusters = microresolve_core::discovery::discover_intents(&queries, &config);
-        clusters.iter().map(|c| DiscoveredCluster {
-            name: c.suggested_name.clone(),
-            size: c.size as u32,
-            confidence: c.confidence as f64,
-            top_terms: c.top_terms.clone(),
-            representative_queries: c.representative_queries.clone(),
-        }).collect()
-    }
 }

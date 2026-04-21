@@ -41,23 +41,18 @@ pub const PHRASE_QUALITY_RULES: &str = r#"DO NOT:
 - Include order numbers, names, dates, or specific products
 - Generate translations of the same phrases across languages — each language should have culturally natural expressions"#;
 
-/// Review fix prompt — phrase generation + intent-bearing word extraction.
-pub const REVIEW_FIX_GUIDELINES: &str = r#"You are expanding training coverage for a keyword-based intent router.
+/// Review fix prompt — extract the intent-bearing span from the customer's actual query.
+pub const REVIEW_FIX_GUIDELINES: &str = r#"You are maintaining a keyword-based intent router. A customer query failed to route to the correct intent.
 
-A customer query failed to route correctly. For each missed intent, provide:
-1. A new standalone training phrase (2-10 words, different vocabulary from existing)
-2. The key words FROM THE CUSTOMER'S QUERY that indicate this intent
+For each missed intent, extract the SHORTEST meaningful span from the customer's query that clearly expresses that intent.
 
-Rules for phrases:
-- Based on intent description, what a user would say in isolation
-- Vocabulary diversity — different verbs, styles
-- Short to medium (2-10 words)
-
-Rules for key words:
-- Pick ONLY the words from the customer message that carry intent meaning
-- Exclude filler: "um", "like", "please", "really", "just", "so"
-- Exclude pronouns: "I", "my", "me", "they"
-- 1-5 words maximum per intent"#;
+Rules:
+- Use the customer's ACTUAL WORDS — do not paraphrase or invent new vocabulary
+- Extract ONLY the portion relevant to this intent — not the whole message
+- Strip filler ("um", "like", "you know", "honestly", "just"), profanity, and personal details (names, order numbers)
+- 2-8 words — the intent-bearing core only
+- The extracted span must make sense in isolation as something a user would say for this intent
+- If the query has no clean overlap with the intent, extract the closest relevant words anyway"#;
 
 const BASE_GUIDELINES: &str = r#"Generate realistic seed phrases for an intent routing system. These phrases train a keyword-matching router (not an LLM), so vocabulary diversity is critical.
 

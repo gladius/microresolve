@@ -1,17 +1,12 @@
-//! Router: learning from corrections (phrase storage only).
-//!
-//! `learn()` and `correct()` store phrase associations in the training map.
-//! Routing-weight updates are handled by the Hebbian L2 auto-learn system.
+//! Router: phrase storage and corrections.
 
 use crate::*;
 use crate::tokenizer::is_cjk;
 
 impl Router {
-    /// Store that `query` maps to `intent_id`.
-    ///
-    /// Adds the query as a training phrase. Language is auto-detected (CJK → "zh", else "en").
-    /// This data feeds into Hebbian bootstrap when the graph is regenerated.
-    pub fn learn(&mut self, query: &str, intent_id: &str) {
+    /// Add a phrase to an intent. Language is auto-detected (CJK → "zh", else "en").
+    /// Indexes immediately so routing improves without a full rebuild.
+    pub fn add_phrase_auto(&mut self, query: &str, intent_id: &str) {
         self.require_local();
         if query.trim().is_empty() { return; }
 
@@ -21,6 +16,7 @@ impl Router {
         let phrases = lang_map.entry(lang.to_string()).or_default();
         if !phrases.contains(&query.to_string()) {
             phrases.push(query.to_string());
+            self.index_phrase(intent_id, query);
         }
 
         self.version += 1;
@@ -31,22 +27,12 @@ impl Router {
         self.require_local();
         if query.trim().is_empty() { return; }
 
-        // Remove phrase from wrong intent
         if let Some(lang_map) = self.training.get_mut(wrong_intent) {
             for phrases in lang_map.values_mut() {
                 phrases.retain(|p| p != query);
             }
         }
 
-        // Add to correct intent
-        self.learn(query, correct_intent);
+        self.add_phrase_auto(query, correct_intent);
     }
-
-    /// Reinforce a correct detection. No-op in Hebbian system (reinforcement handled by L3).
-    pub fn reinforce(&mut self, _query: &str, _intent_id: &str) {
-        // Reinforcement is handled by Hebbian L3 auto-learn (llm.rs apply_review).
-    }
-
-    /// Decay is a no-op. Remove phrases explicitly to reduce influence.
-    pub fn decay(&mut self, _factor: f32) {}
 }

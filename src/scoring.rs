@@ -233,18 +233,26 @@ impl LexicalGraph {
         hits
     }
 
-    /// Full pipeline: normalize → expand → collect semantic signals.
+    /// Full pipeline: normalize → collect semantic signals.
+    ///
+    /// Synonym *edges* stay in the graph for inspection, semantic confidence boosts,
+    /// and future phrase-generation flows. They are NOT used for query-time token
+    /// injection — that path was removed because expanding "cancel" → "cancel
+    /// terminate end" inflates L2 scores (token stuffing) rather than behaving like
+    /// index-time expansion in standard IR systems.
+    ///
+    /// For semantic coverage, add training phrases (e.g. via "Generate phrases")
+    /// instead of relying on synonym edges.
     pub fn preprocess(&self, query: &str) -> PreprocessResult {
         let normalized    = self.normalize_query(query);
-        let (expanded, injected) = self.expand_query(&normalized);
         let semantic_hits = self.semantic_hits(&normalized);
-        let was_modified  = expanded != query.to_lowercase();
+        let was_modified  = normalized != query.to_lowercase();
 
         PreprocessResult {
             original:  query.to_string(),
-            normalized,
-            expanded,
-            injected,
+            normalized: normalized.clone(),
+            expanded:  normalized,
+            injected:  vec![],
             semantic_hits,
             was_modified,
         }
@@ -274,41 +282,19 @@ impl LexicalGraph {
     pub fn preprocess_grounded<'a>(
         &self,
         query: &str,
-        known_words: &std::collections::HashSet<&'a str>,
+        _known_words: &std::collections::HashSet<&'a str>,
     ) -> PreprocessResult {
+        // Synonym expansion removed. This variant used to only expand unknown tokens
+        // to reduce false positives, but all query-time synonym injection is now off.
+        // Behavior is identical to preprocess() — retained for API compatibility.
         let normalized = self.normalize_query(query);
-        let lower = normalized.to_lowercase();
-        let words = Self::l1_tokens(&normalized);
-        let mut injected: Vec<String> = Vec::new();
-
-        for word in &words {
-            // Skip synonym expansion for words already in L2 — they don't need bridging.
-            if known_words.contains(word.as_str()) {
-                continue;
-            }
-            if let Some(edges) = self.edges.get(word.as_str()) {
-                for edge in edges {
-                    if matches!(edge.kind, EdgeKind::Synonym)
-                        && edge.weight >= self.synonym_threshold
-                        && !lower.contains(edge.target.as_str())
-                        && !injected.contains(&edge.target)
-                    {
-                        injected.push(edge.target.clone());
-                    }
-                }
-            }
-        }
-
-        let expanded = if injected.is_empty() {
-            lower.clone()
-        } else {
-            format!("{} {}", lower, injected.join(" "))
-        };
+        let injected: Vec<String> = vec![];
+        let expanded = normalized.clone();
         let was_modified = expanded != query.to_lowercase();
 
         PreprocessResult {
             original: query.to_string(),
-            normalized: lower,
+            normalized: normalized.clone(),
             expanded,
             injected,
             semantic_hits: vec![],
@@ -673,6 +659,22 @@ pub struct RouteResult {
     pub has_negation: bool,
 }
 
+/// One round of multi-intent resolution captured for debug/inspection.
+#[derive(serde::Serialize, Clone, Debug)]
+pub struct RoundTrace {
+    pub tokens_in: Vec<String>,
+    pub scored: Vec<(String, f32)>,
+    pub confirmed: Vec<String>,
+    pub consumed: Vec<String>,
+}
+
+/// Full multi-intent resolution trace returned by `score_multi_normalized_traced`.
+#[derive(serde::Serialize, Clone, Debug)]
+pub struct MultiIntentTrace {
+    pub rounds: Vec<RoundTrace>,
+    pub stop_reason: String,
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct IntentIndex {
     /// word → [(intent_id, weight 0.0–1.0)]
@@ -691,10 +693,6 @@ pub struct IntentIndex {
     /// Conjunction bonuses — word pairs that together strongly indicate an intent.
     #[serde(default)]
     pub conjunctions: Vec<ConjunctionRule>,
-    /// L3 Inhibition: correct_intent → false_positive_intent → suppression strength.
-    /// Anti-Hebbian: when A fires and B is wrong, A learns to suppress B.
-    #[serde(default)]
-    pub inhibit: HashMap<String, HashMap<String, f32>>,
 
     /// Char-ngram tiebreaker index: intent_id → set of char 4-grams from seed phrases.
     /// Used when top-1/top-2 scores are close (ambiguous). Derived from phrases
@@ -703,8 +701,6 @@ pub struct IntentIndex {
     pub char_ngrams: HashMap<String, std::collections::HashSet<String>>,
 }
 
-/// Backward compat alias: code still using IntentGraph compiles without change.
-pub type IntentGraph = IntentIndex;
 
 impl IntentIndex {
     pub fn new() -> Self {
@@ -959,7 +955,20 @@ impl IntentIndex {
     ///
     /// Token consumption: after confirming an intent, remove tokens that
     /// are primarily associated with it. Remaining tokens indicate additional intents.
-    pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, _gap: f32) -> (Vec<(String, f32)>, bool) {
+    pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, gap: f32) -> (Vec<(String, f32)>, bool) {
+        let (results, neg, _trace) = self.score_multi_normalized_traced(normalized, threshold, gap, false);
+        (results, neg)
+    }
+
+    /// Same as `score_multi_normalized` but optionally captures per-round trace data
+    /// for debugging/inspection. Used by the Layers probe endpoint.
+    pub fn score_multi_normalized_traced(
+        &self,
+        normalized: &str,
+        threshold: f32,
+        _gap: f32,
+        with_trace: bool,
+    ) -> (Vec<(String, f32)>, bool, Option<MultiIntentTrace>) {
         const GATE_RATIO: f32 = 0.55;
         const MAX_ROUNDS: usize = 3;
 
@@ -989,16 +998,43 @@ impl IntentIndex {
         let mut confirmed: Vec<(String, f32)> = Vec::new();
         let mut confirmed_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut original_top: f32 = 0.0;
+        let mut trace_rounds: Vec<RoundTrace> = Vec::new();
+        let mut stop_reason: Option<String> = None;
 
         for round in 0..MAX_ROUNDS {
             // Score using remaining tokens only
             let scored = self.score_tokens(&remaining, total_intents, &confirmed_ids);
-            if scored.is_empty() { break; }
+            if scored.is_empty() {
+                if with_trace { stop_reason = Some("no scores".into()); }
+                break;
+            }
 
             let round_top = scored[0].1;
             if round == 0 { original_top = round_top; }
-            if round_top < threshold { break; }
-            if round > 0 && round_top < original_top * GATE_RATIO { break; }
+            if round_top < threshold {
+                if with_trace {
+                    stop_reason = Some(format!("top {:.2} < threshold {:.2}", round_top, threshold));
+                    trace_rounds.push(RoundTrace {
+                        tokens_in: remaining.clone(),
+                        scored: scored.iter().take(5).cloned().collect(),
+                        confirmed: vec![],
+                        consumed: vec![],
+                    });
+                }
+                break;
+            }
+            if round > 0 && round_top < original_top * GATE_RATIO {
+                if with_trace {
+                    stop_reason = Some(format!("top {:.2} < gate {:.2}", round_top, original_top * GATE_RATIO));
+                    trace_rounds.push(RoundTrace {
+                        tokens_in: remaining.clone(),
+                        scored: scored.iter().take(5).cloned().collect(),
+                        confirmed: vec![],
+                        consumed: vec![],
+                    });
+                }
+                break;
+            }
 
             // Confirm only intents very close to this round's top (within 10%).
             // Looser multi-intent detection comes from multiple rounds after token consumption.
@@ -1010,9 +1046,13 @@ impl IntentIndex {
                 }
             }
 
-            if round_confirmed.is_empty() { break; }
+            if round_confirmed.is_empty() {
+                if with_trace { stop_reason = Some("no confirmed".into()); }
+                break;
+            }
             confirmed.extend(round_confirmed.iter().cloned());
 
+            let tokens_before: Vec<String> = remaining.clone();
             // Consume tokens: remove tokens primarily associated with confirmed intents
             remaining.retain(|token| {
                 let base = token.strip_prefix("not_").unwrap_or(token.as_str());
@@ -1029,11 +1069,34 @@ impl IntentIndex {
                 }
             });
 
-            if remaining.is_empty() { break; }
+            if with_trace {
+                let remaining_set: std::collections::HashSet<&String> = remaining.iter().collect();
+                let consumed: Vec<String> = tokens_before.iter()
+                    .filter(|t| !remaining_set.contains(t))
+                    .cloned()
+                    .collect();
+                trace_rounds.push(RoundTrace {
+                    tokens_in: tokens_before,
+                    scored: scored.iter().take(5).cloned().collect(),
+                    confirmed: round_confirmed.iter().map(|(id, _)| id.clone()).collect(),
+                    consumed,
+                });
+            }
+
+            if remaining.is_empty() {
+                if with_trace { stop_reason = Some("all tokens consumed".into()); }
+                break;
+            }
         }
 
-        let inhibited = self.apply_inhibition(confirmed);
-        (inhibited, has_negation)
+        let trace = if with_trace {
+            Some(MultiIntentTrace {
+                rounds: trace_rounds,
+                stop_reason: stop_reason.unwrap_or_else(|| "max rounds reached".into()),
+            })
+        } else { None };
+
+        (confirmed, has_negation, trace)
     }
 
     /// Score a specific set of tokens (not a full query string).
@@ -1086,13 +1149,13 @@ impl IntentIndex {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 
-    // ── Library-level route API ─────────────────────────────────────────────
+    // ── Library-level resolve API ───────────────────────────────────────────
 
-    /// Route a query through the full pipeline: L1 preprocessing → IDF scoring →
+    /// Resolve a query through the full pipeline: L1 preprocessing → IDF scoring →
     /// token consumption → cross-provider disambiguation → disposition.
     ///
     /// `top_n`: how many ranked candidates to return (default 5).
-    pub fn route(
+    pub fn resolve(
         &self,
         layer1: Option<&LexicalGraph>,
         query: &str,
@@ -1206,70 +1269,177 @@ impl IntentIndex {
         (self.word_intent.len(), activation_edges, self.conjunctions.len())
     }
 
-    // ── L3 Inhibition layer ────────────────────────────────────────────────────
+}
 
-    /// Learn that `false_positive` should be suppressed when `correct` fires.
-    ///
-    /// Each correction increments suppression strength by DELTA (capped at 1.0).
-    /// After ~3 corrections the suppression is strong enough to reliably fire.
-    pub fn learn_inhibition(&mut self, correct: &str, false_positive: &str) {
-        // DELTA=0.4: suppression fires after the first confirmed correction (0.4 ≥ 0.35 threshold).
-        // Ground truth is authoritative — trust it immediately.
-        const DELTA: f32 = 0.4;
-        let v = self.inhibit
-            .entry(correct.to_string())
-            .or_default()
-            .entry(false_positive.to_string())
-            .or_insert(0.0);
-        *v = (*v + DELTA).min(1.0);
-        eprintln!("[inhibit] learn: when '{}' fires → suppress '{}' (strength={:.2})",
-            correct, false_positive, *v);
+/// Global English morphological base — shared across all namespaces.
+/// Contains only morphological (inflection) edges. No synonyms, no abbreviations.
+/// Synonyms and abbreviations are domain-specific and belong per-namespace.
+pub fn english_morphology_base() -> LexicalGraph {
+    let mut g = LexicalGraph::new();
+    let morph = EdgeKind::Morphological;
+
+    // cancel family
+    for v in &["canceling","cancelling","cancelled","canceled","cancellation","cancels"] {
+        g.add(v, "cancel", 0.99, morph.clone());
+    }
+    // refund family
+    for v in &["refunding","refunded","refunds","reimbursing","reimbursed"] {
+        g.add(v, "refund", 0.99, morph.clone());
+    }
+    // charge family
+    for v in &["charging","charged","charges"] {
+        g.add(v, "charge", 0.99, morph.clone());
+    }
+    // update family
+    for v in &["updating","updated","updates"] {
+        g.add(v, "update", 0.99, morph.clone());
+    }
+    // create family
+    for v in &["creating","created","creates","creation"] {
+        g.add(v, "create", 0.99, morph.clone());
+    }
+    // delete family
+    for v in &["deleting","deleted","deletes","deletion"] {
+        g.add(v, "delete", 0.99, morph.clone());
+    }
+    // send family
+    for v in &["sending","sent","sends"] {
+        g.add(v, "send", 0.99, morph.clone());
+    }
+    // receive family
+    for v in &["receiving","received","receives"] {
+        g.add(v, "receive", 0.99, morph.clone());
+    }
+    // reset family
+    for v in &["resetting","resetted","resets"] {
+        g.add(v, "reset", 0.99, morph.clone());
+    }
+    // change family
+    for v in &["changing","changed","changes"] {
+        g.add(v, "change", 0.99, morph.clone());
+    }
+    // upgrade family
+    for v in &["upgrading","upgraded","upgrades"] {
+        g.add(v, "upgrade", 0.99, morph.clone());
+    }
+    // downgrade family
+    for v in &["downgrading","downgraded","downgrades"] {
+        g.add(v, "downgrade", 0.99, morph.clone());
+    }
+    // connect family
+    for v in &["connecting","connected","connects","connection"] {
+        g.add(v, "connect", 0.99, morph.clone());
+    }
+    // disconnect family
+    for v in &["disconnecting","disconnected","disconnects"] {
+        g.add(v, "disconnect", 0.99, morph.clone());
+    }
+    // install family
+    for v in &["installing","installed","installs","installation"] {
+        g.add(v, "install", 0.99, morph.clone());
+    }
+    // remove family
+    for v in &["removing","removed","removes","removal"] {
+        g.add(v, "remove", 0.99, morph.clone());
+    }
+    // enable family
+    for v in &["enabling","enabled","enables"] {
+        g.add(v, "enable", 0.99, morph.clone());
+    }
+    // disable family
+    for v in &["disabling","disabled","disables"] {
+        g.add(v, "disable", 0.99, morph.clone());
+    }
+    // block family
+    for v in &["blocking","blocked","blocks"] {
+        g.add(v, "block", 0.99, morph.clone());
+    }
+    // report family
+    for v in &["reporting","reported","reports"] {
+        g.add(v, "report", 0.99, morph.clone());
+    }
+    // transfer family
+    for v in &["transferring","transferred","transfers"] {
+        g.add(v, "transfer", 0.99, morph.clone());
+    }
+    // schedule family
+    for v in &["scheduling","scheduled","schedules"] {
+        g.add(v, "schedule", 0.99, morph.clone());
+    }
+    // merge family
+    for v in &["merging","merged","merges"] {
+        g.add(v, "merge", 0.99, morph.clone());
+    }
+    // ship family
+    for v in &["shipping","shipped","shipment","shipments"] {
+        g.add(v, "ship", 0.99, morph.clone());
+    }
+    // pay family
+    for v in &["paying","paid","pays","payment","payments"] {
+        g.add(v, "pay", 0.99, morph.clone());
+    }
+    // subscribe family
+    for v in &["subscribing","subscribed","subscribes","subscription","subscriptions"] {
+        g.add(v, "subscribe", 0.99, morph.clone());
+    }
+    // list family
+    for v in &["listing","listed","lists"] {
+        g.add(v, "list", 0.99, morph.clone());
+    }
+    // invite family
+    for v in &["inviting","invited","invites","invitation"] {
+        g.add(v, "invite", 0.99, morph.clone());
+    }
+    // verify family
+    for v in &["verifying","verified","verifies","verification"] {
+        g.add(v, "verify", 0.99, morph.clone());
+    }
+    // access family
+    for v in &["accessing","accessed","accesses"] {
+        g.add(v, "access", 0.99, morph.clone());
+    }
+    // close family
+    for v in &["closing","closed","closes","closure"] {
+        g.add(v, "close", 0.99, morph.clone());
+    }
+    // open family
+    for v in &["opening","opened","opens"] {
+        g.add(v, "open", 0.99, morph.clone());
+    }
+    // configure family
+    for v in &["configuring","configured","configures","configuration"] {
+        g.add(v, "configure", 0.99, morph.clone());
+    }
+    // deploy family
+    for v in &["deploying","deployed","deploys","deployment"] {
+        g.add(v, "deploy", 0.99, morph.clone());
+    }
+    // detect family
+    for v in &["detecting","detected","detects","detection"] {
+        g.add(v, "detect", 0.99, morph.clone());
+    }
+    // fail family
+    for v in &["failing","failed","fails","failure"] {
+        g.add(v, "fail", 0.99, morph.clone());
+    }
+    // expire family
+    for v in &["expiring","expired","expires","expiration"] {
+        g.add(v, "expire", 0.99, morph.clone());
+    }
+    // renew family
+    for v in &["renewing","renewed","renews","renewal"] {
+        g.add(v, "renew", 0.99, morph.clone());
+    }
+    // approve family
+    for v in &["approving","approved","approves","approval"] {
+        g.add(v, "approve", 0.99, morph.clone());
+    }
+    // reject family
+    for v in &["rejecting","rejected","rejects","rejection"] {
+        g.add(v, "reject", 0.99, morph.clone());
     }
 
-    /// Apply L3 lateral inhibition to a scored result set.
-    ///
-    /// For each pair (A, B) in `results` where inhibit[A][B] >= threshold AND
-    /// A scores meaningfully higher than B: remove B.
-    ///
-    /// `score_ratio_min` — B is only suppressed if A's score is at least this
-    /// fraction above B (prevents suppression when both fire equally strongly,
-    /// which would indicate a genuine multi-intent query).
-    pub fn apply_inhibition(&self, mut results: Vec<(String, f32)>) -> Vec<(String, f32)> {
-        // Fires after one authoritative ground-truth correction (strength 0.4 ≥ 0.35).
-        const INHIBIT_THRESHOLD: f32 = 0.35;
-
-        if self.inhibit.is_empty() || results.len() < 2 {
-            return results;
-        }
-
-        let mut to_remove: std::collections::HashSet<String> = std::collections::HashSet::new();
-
-        // A suppresses B if inhibit[A][B] >= threshold.
-        // No score-ratio check: ground truth is authoritative. If we've seen this pair
-        // corrected at least once, suppress unconditionally when A is present.
-        let snapshot = results.clone();
-        for (a_id, _a_score) in &snapshot {
-            if let Some(suppressed) = self.inhibit.get(a_id.as_str()) {
-                for (b_id, _b_score) in &snapshot {
-                    if a_id == b_id { continue; }
-                    let strength = suppressed.get(b_id.as_str()).copied().unwrap_or(0.0);
-                    if strength >= INHIBIT_THRESHOLD {
-                        eprintln!("[inhibit] suppress '{}' (strength={:.2}) because '{}' fires",
-                            b_id, strength, a_id);
-                        to_remove.insert(b_id.clone());
-                    }
-                }
-            }
-        }
-
-        results.retain(|(id, _)| !to_remove.contains(id));
-        results
-    }
-
-    /// Inhibition layer stats: total pairs learned.
-    pub fn inhibit_stats(&self) -> usize {
-        self.inhibit.values().map(|m| m.len()).sum()
-    }
+    g
 }
 
 #[cfg(test)]

@@ -1,26 +1,8 @@
 //! Hebbian graph persistence utilities + L1 CRUD API endpoints.
 
-use microresolve::scoring::{LexicalGraph, EdgeKind};
+use microresolve::scoring::EdgeKind;
 use axum::{extract::State, http::HeaderMap, routing::{get, post, delete}, Json};
 use crate::state::*;
-
-// ── Startup utility ───────────────────────────────────────────────────────────
-
-/// Load the global L1 base graph (data/l1_base.json).
-pub fn load_l1_base(data_dir: &str) -> Option<LexicalGraph> {
-    let path = format!("{}/l1_base.json", data_dir);
-    match LexicalGraph::load(&path) {
-        Ok(g) => {
-            let edge_count: usize = g.edges.values().map(|v| v.len()).sum();
-            println!("Loaded L1 base graph: {} terms, {} edges", g.edges.len(), edge_count);
-            Some(g)
-        }
-        Err(e) => {
-            println!("L1 base graph not found at {} — run scripts/generate_l1_base.py", path);
-            None
-        }
-    }
-}
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -245,6 +227,16 @@ async fn l2_probe(
     let preprocessed = router.l1().preprocess(&q0);
     let tokens: Vec<String> = microresolve::tokenizer::tokenize(&preprocessed.expanded);
     let (scores, _) = router.l2().score_normalized(&preprocessed.expanded);
+
+    // Multi-intent trace with per-round token consumption
+    const DEFAULT_THRESHOLD: f32 = 0.3;
+    let (final_intents, has_negation, trace) = router.l2().score_multi_normalized_traced(
+        &preprocessed.expanded,
+        DEFAULT_THRESHOLD,
+        0.0,
+        true,
+    );
+
     Json(serde_json::json!({
         "l0_corrected": q0,
         "l1_normalized": preprocessed.normalized,
@@ -252,5 +244,11 @@ async fn l2_probe(
         "l1_injected": preprocessed.injected,
         "tokens": tokens,
         "scores": scores.iter().take(10).map(|(id, s)| serde_json::json!({"id": id, "score": s})).collect::<Vec<_>>(),
+        "multi": {
+            "rounds": trace.as_ref().map(|t| &t.rounds),
+            "stop_reason": trace.as_ref().map(|t| t.stop_reason.clone()),
+            "final_intents": final_intents,
+            "has_negation": has_negation,
+        },
     }))
 }

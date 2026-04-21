@@ -2,7 +2,7 @@
 name = "microresolve-node"
 version = "0.1.0"
 edition = "2021"
-publish = false
+publish = true
 
 [lib]
 crate-type = ["cdylib"]

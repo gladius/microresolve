@@ -262,7 +262,7 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
 
       <div className="bg-zinc-800 rounded-lg p-3">
         <div className="text-[10px] text-zinc-500 mb-1">Query</div>
-        <div className="text-white font-mono text-sm">"{item.query}"</div>
+        <div className="text-zinc-100 font-mono text-sm">"{item.query}"</div>
       </div>
 
       {analysis && (
@@ -315,7 +315,7 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
           <div key={bi} className="bg-zinc-800 border border-zinc-700 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
               <select value={block.intentId} onChange={e => setBlockIntent(bi, e.target.value)}
-                className="flex-1 bg-zinc-900 border border-zinc-700 text-white text-xs rounded px-2 py-1 font-mono focus:border-violet-500 focus:outline-none">
+                className="flex-1 bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1 font-mono focus:border-violet-500 focus:outline-none">
                 <option value="">Select intent...</option>
                 {intents.filter(id => !usedIntents.has(id) || id === block.intentId).map(id => (
                   <option key={id} value={id}>{id}</option>
@@ -335,7 +335,7 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
                 </select>
                 <input value={entry.phrase} onChange={e => setBlockPhrase(bi, si, e.target.value)}
                   placeholder="example phrase"
-                  className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white font-mono focus:border-violet-500 focus:outline-none" />
+                  className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-mono focus:border-violet-500 focus:outline-none" />
                 {block.phrases.length > 1 && (
                   <button onClick={() => removePhraseFromBlock(bi, si)} className="text-zinc-600 hover:text-red-400 text-xs">×</button>
                 )}
@@ -368,11 +368,11 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
             if (!confirm('Dismiss this item? It will be removed from the queue without training.')) return;
             await api.reviewReject(item.id); onDismiss();
           }}
-          className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-500 rounded hover:text-white transition-colors">
+          className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-500 rounded hover:text-zinc-100 transition-colors">
           Dismiss
         </button>
         <button onClick={handleApply} disabled={totalPhrases === 0 || !!applyResult}
-          className="text-xs px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded disabled:opacity-30 transition-colors">
+          className="text-xs px-4 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded disabled:opacity-30 transition-colors">
           Apply ({totalPhrases})
         </button>
       </div>

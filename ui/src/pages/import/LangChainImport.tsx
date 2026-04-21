@@ -57,7 +57,7 @@ export default function LangChainImport() {
 
   const headers = () => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (ns && ns !== 'default') h['X-Namespace-ID'] = ns;
+    if (ns && ns !== 'default') h['X-Workspace-ID'] = ns;
     return h;
   };
 
@@ -143,7 +143,7 @@ export default function LangChainImport() {
               {loading ? 'Parsing...' : 'Parse'}
             </button>
             <button onClick={() => { setJson(EXAMPLE); }}
-              className="px-3 py-1.5 text-xs border border-zinc-700 text-zinc-400 rounded hover:text-white hover:border-zinc-500 transition-colors">
+              className="px-3 py-1.5 text-xs border border-zinc-700 text-zinc-400 rounded hover:text-zinc-100 hover:border-zinc-500 transition-colors">
               Load example
             </button>
           </div>
@@ -171,7 +171,7 @@ export default function LangChainImport() {
                     }}
                     className="mt-0.5 accent-violet-500 shrink-0" />
                   <div className="min-w-0">
-                    <div className="text-xs font-mono text-white">{tool.name}</div>
+                    <div className="text-xs font-mono text-zinc-100">{tool.name}</div>
                     {tool.description && <div className="text-xs text-zinc-500 mt-0.5 line-clamp-2">{tool.description}</div>}
                     {tool.params.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1.5">

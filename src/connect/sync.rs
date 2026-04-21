@@ -55,7 +55,7 @@ fn check_and_apply(
     versions: &Arc<RwLock<HashMap<String, u64>>>,
 ) -> Result<bool, String> {
     let url = format!("{}/api/sync?version={}", config.server_url, local_version);
-    let mut req = client.get(&url).header("X-Namespace-ID", app_id);
+    let mut req = client.get(&url).header("X-Workspace-ID", app_id);
     if let Some(ref key) = config.api_key {
         req = req.header("X-Api-Key", key);
     }
@@ -91,7 +91,7 @@ fn flush_logs(
     let mut failed: Vec<LogEntry> = Vec::new();
     for (app_id, batch) in by_app {
         let url = format!("{}/api/ingest", config.server_url);
-        let mut req = client.post(&url).header("X-Namespace-ID", &app_id).json(&batch);
+        let mut req = client.post(&url).header("X-Workspace-ID", &app_id).json(&batch);
         if let Some(ref key) = config.api_key { req = req.header("X-Api-Key", key); }
         if let Err(e) = req.send() {
             eprintln!("[asv-connect] log flush error app={}: {}", app_id, e);

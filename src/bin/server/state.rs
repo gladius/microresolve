@@ -66,9 +66,6 @@ pub struct ServerState {
     pub event_tx: broadcast::Sender<StudioEvent>,
     /// Wakes the background auto-learn worker when new items are queued.
     pub worker_notify: Arc<Notify>,
-    /// Global L1 base graph loaded from data/l1_base.json (WordNet + ConceptNet).
-    /// Merged into every namespace's Router.l1 — new namespaces get it on first access.
-    pub l1_base: Option<microresolve::scoring::LexicalGraph>,
 }
 
 pub type AppState = Arc<ServerState>;
@@ -80,11 +77,11 @@ pub fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
-/// Extract the active namespace ID from the `X-Namespace-ID` request header.
+/// Extract the active namespace ID from the `X-Workspace-ID` request header.
 /// Defaults to `"default"` when the header is absent.
 pub fn app_id_from_headers(headers: &HeaderMap) -> String {
     headers
-        .get("X-Namespace-ID")
+        .get("X-Workspace-ID")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("default")
         .to_string()

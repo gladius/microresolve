@@ -57,10 +57,21 @@ pub async fn route_multi(
     let t0 = std::time::Instant::now();
 
     // ── Full L0→L1→L2 pipeline via Router ────────────────────────────────────
-    // Run all three layers inside a single read lock on `routers`.
-    let (intent_graph_results, raw_ranked, query_has_negation, processed_query, hebbian_injected):
-        (Option<Vec<(String, f32)>>, Vec<(String, f32)>, bool, String, Vec<String>) =
-    {
+    // Run all three layers inside a single read lock on `routers`. Multi-intent
+    // scoring captures a trace of rounds so the UI can render per-layer cards
+    // without a second API call.
+    type PipelineOut = (
+        Option<Vec<(String, f32)>>,              // confirmed (token-consumed)
+        Vec<(String, f32)>,                      // raw_ranked (single-pass)
+        bool,                                    // has_negation
+        String,                                  // l0_corrected
+        String,                                  // l1_normalized
+        String,                                  // l1_expanded (= processed)
+        Vec<String>,                             // l1_injected
+        Vec<String>,                             // l2_tokens
+        Option<microresolve::scoring::MultiIntentTrace>,
+    );
+    let pipeline: PipelineOut = {
         let routers = state.routers.read().unwrap();
         match routers.get(&app_id) {
             Some(router) => {
@@ -84,10 +95,6 @@ pub async fn route_multi(
                         router.l2().word_intent.keys().map(|s| s.as_str()).collect();
                     router.l1().preprocess_grounded(&q0, &known)
                 } else {
-                    // Default: full pipeline (morph + abbreviations + LLM synonyms).
-                    // WordNet synonym edges are stripped from l1_base at merge time so
-                    // only domain-specific LLM-generated synonyms reach this path —
-                    // those are context-aware and safe for query-time expansion.
                     router.l1().preprocess(&q0)
                 };
                 if preprocessed.was_modified {
@@ -96,26 +103,31 @@ pub async fn route_multi(
                 }
                 let processed = preprocessed.expanded.clone();
                 let injected = preprocessed.injected.clone();
+                let normalized = preprocessed.normalized.clone();
+                let tokens: Vec<String> = microresolve::tokenizer::tokenize(&processed);
 
-                // L2: raw single-pass scores (no token consumption) — for top-N ranking
+                // L2 raw scores (single-pass, pre-token-consumption) for top-N ranking
                 let (raw, neg) = router.l2().score_normalized(&processed);
                 let raw = if req.tiebreaker {
                     router.l2().apply_char_ngram_tiebreaker(&processed, raw, 0.65, 0.5)
-                } else {
-                    raw
-                };
-                // L2: token-consumed scores — for confirmed intents
-                let (consumed, _) = router.l2().score_multi_normalized(&processed, req.threshold, req.gap);
+                } else { raw };
+
+                // L2 multi-intent with trace (rounds)
+                let (consumed, _neg2, trace) = router.l2().score_multi_normalized_traced(
+                    &processed, req.threshold, req.gap, true,
+                );
                 let consumed = if req.tiebreaker {
                     router.l2().apply_char_ngram_tiebreaker(&processed, consumed, 0.65, 0.5)
-                } else {
-                    consumed
-                };
-                (Some(consumed), raw, neg, processed, injected)
+                } else { consumed };
+
+                (Some(consumed), raw, neg, q0, normalized, processed, injected, tokens, trace)
             }
-            None => (None, vec![], false, req.query.clone(), vec![]),
+            None => (None, vec![], false, req.query.clone(), req.query.clone(),
+                    req.query.clone(), vec![], vec![], None),
         }
     };
+    let (intent_graph_results, raw_ranked, query_has_negation,
+         l0_corrected, l1_normalized, processed_query, hebbian_injected, l2_tokens, multi_trace) = pipeline;
 
     let latency_us = t0.elapsed().as_micros() as u64;
 
@@ -197,24 +209,21 @@ pub async fn route_multi(
             serde_json::json!({"id": id, "score": (*score * 100.0).round() / 100.0})
         }).collect();
 
-        let debug_info = if req.debug {
-            // Per-layer trace for diagnostics
-            let l0_corrected = {
-                let routers = state.routers.read().unwrap();
-                routers.get(&app_id).map(|r| r.l0().correct_query(&req.query)).unwrap_or_else(|| req.query.clone())
-            };
-            let tokens: Vec<String> = microresolve::tokenizer::tokenize(&processed_query);
-            serde_json::json!({
-                "l0_corrected": l0_corrected,
-                "l1_normalized": processed_query,
-                "l1_injected": hebbian_injected,
-                "l1_disabled": req.disable_l1,
-                "l2_tokens": tokens,
-                "l2_all_scores": raw_ranked.iter().map(|(id, s)| serde_json::json!({"id": id, "score": (*s * 100.0).round() / 100.0})).collect::<Vec<_>>(),
-            })
-        } else {
-            serde_json::json!(null)
-        };
+        let trace = serde_json::json!({
+            "l0_corrected": l0_corrected,
+            "l1_normalized": l1_normalized,
+            "l1_expanded": processed_query,
+            "l1_injected": hebbian_injected,
+            "l1_disabled": req.disable_l1,
+            "tokens": l2_tokens,
+            "all_scores": raw_ranked.iter().take(10).map(|(id, s)|
+                serde_json::json!({"id": id, "score": (*s * 100.0).round() / 100.0})).collect::<Vec<_>>(),
+            "multi": multi_trace.as_ref().map(|t| serde_json::json!({
+                "rounds": t.rounds,
+                "stop_reason": t.stop_reason,
+                "has_negation": query_has_negation,
+            })),
+        });
 
         return Json(serde_json::json!({
             "confirmed": confirmed,
@@ -226,7 +235,7 @@ pub async fn route_multi(
             "source": "hebbian_l2",
             "hebbian": if hebbian_injected.is_empty() { serde_json::json!(null) }
                        else { serde_json::json!({"injected": hebbian_injected, "processed_query": processed_query}) },
-            "debug": debug_info,
+            "trace": trace,
         }));
     }
 
@@ -250,6 +259,21 @@ pub async fn route_multi(
         emit_queued(&state, log_id, &req.query, &app_id, flag);
     }
 
+    let trace = serde_json::json!({
+        "l0_corrected": l0_corrected,
+        "l1_normalized": l1_normalized,
+        "l1_expanded": processed_query,
+        "l1_injected": hebbian_injected,
+        "l1_disabled": req.disable_l1,
+        "tokens": l2_tokens,
+        "all_scores": [],
+        "multi": multi_trace.as_ref().map(|t| serde_json::json!({
+            "rounds": t.rounds,
+            "stop_reason": t.stop_reason,
+            "has_negation": query_has_negation,
+        })),
+    });
+
     Json(serde_json::json!({
         "confirmed": [],
         "candidates": [],
@@ -259,6 +283,7 @@ pub async fn route_multi(
         "source": "none",
         "hebbian": if hebbian_injected.is_empty() { serde_json::json!(null) }
                    else { serde_json::json!({"injected": hebbian_injected, "processed_query": processed_query}) },
+        "trace": trace,
     }))
 }
 

@@ -596,6 +596,10 @@ pub enum ConvertError {
 mod tests {
     use super::*;
 
+    fn parse_postman(json: &str) -> Result<PostmanCollection, ConvertError> {
+        serde_json::from_str(json).map_err(|e| ConvertError::InvalidCollection(e.to_string()))
+    }
+
     const SAMPLE_COLLECTION: &str = r#"
 {
     "info": {

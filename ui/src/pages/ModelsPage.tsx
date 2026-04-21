@@ -68,7 +68,7 @@ export default function ModelsPage() {
             {models.map((m, i) => (
               <div key={i} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3">
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm text-white font-medium">{m.label}</span>
+                  <span className="text-sm text-zinc-100 font-medium">{m.label}</span>
                   <span className="text-zinc-600 mx-2">—</span>
                   <span className="text-sm text-zinc-400 font-mono">{m.model_id}</span>
                 </div>
@@ -92,14 +92,14 @@ export default function ModelsPage() {
               value={newLabel}
               onChange={e => setNewLabel(e.target.value)}
               placeholder="Label — e.g. Fast"
-              className="w-32 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+              className="w-32 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
             />
             <input
               value={newModelId}
               onChange={e => setNewModelId(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && add()}
               placeholder="Model ID — e.g. claude-haiku-4-5-20251001"
-              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
             />
             <button
               onClick={add}

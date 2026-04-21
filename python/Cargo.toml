@@ -2,7 +2,7 @@
 name = "microresolve-python"
 version = "0.1.0"
 edition = "2021"
-publish = false
+publish = true
 
 [lib]
 name = "microresolve_py"

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import RouterPage from '@/pages/RouterPage';
 import SimulatePage from '@/pages/SimulatePage';
@@ -17,10 +17,25 @@ import McpImport from '@/pages/import/McpImport';
 import OpenAIFunctionsImport from '@/pages/import/OpenAIFunctionsImport';
 import LangChainImport from '@/pages/import/LangChainImport';
 import CollisionsPage from '@/pages/CollisionsPage';
-import { AppContext, defaults, type AppSettings } from '@/store';
+import { AppContext, defaults, type AppSettings, type ThemeMode } from '@/store';
 import { setApiNamespaceId } from '@/api/client';
 
 const BASE = '/api';
+
+function applyTheme(theme: ThemeMode) {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const isDark = theme === 'dark' || (theme === 'system' && mq.matches);
+  document.documentElement.classList.toggle('light', !isDark);
+  localStorage.setItem('theme', theme);
+}
+
+// Re-apply when OS preference changes (only relevant in system mode)
+if (typeof window !== 'undefined') {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const theme = (localStorage.getItem('theme') as ThemeMode) || 'dark';
+    if (theme === 'system') applyTheme('system');
+  });
+}
 
 async function fetchSettings(): Promise<AppSettings> {
   try {
@@ -33,6 +48,7 @@ async function fetchSettings(): Promise<AppSettings> {
       selectedDomain: d.selected_domain ?? defaults.selectedDomain,
       languages: d.languages ?? defaults.languages,
       reviewSkipThreshold: d.review_skip_threshold ?? defaults.reviewSkipThreshold,
+      theme: (localStorage.getItem('theme') as ThemeMode) || 'dark',
     };
   } catch { return defaults; }
 }
@@ -58,6 +74,7 @@ export default function App() {
     fetchSettings().then(s => {
       setSettings(s);
       setApiNamespaceId(s.selectedNamespaceId);
+      applyTheme(s.theme);
       setLoaded(true);
     });
   }, []);
@@ -83,6 +100,7 @@ export default function App() {
     setSelectedDomain: (selectedDomain: string) => update({ selectedDomain }),
     setLanguages: (languages: string[]) => update({ languages }),
     setReviewSkipThreshold: (reviewSkipThreshold: number) => update({ reviewSkipThreshold }),
+    setTheme: (theme: ThemeMode) => { update({ theme }); applyTheme(theme); },
   };
 
   if (!loaded) return null;
@@ -92,7 +110,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route path="/" element={<RouterPage />} />
+            <Route path="/" element={<Navigate to="/resolve" replace />} />
+            <Route path="/resolve" element={<RouterPage />} />
             <Route path="/simulate" element={<SimulatePage />} />
             <Route path="/layers" element={<LayersPage />} />
             <Route path="/review" element={<ReviewPage />} />

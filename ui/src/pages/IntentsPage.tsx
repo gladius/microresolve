@@ -106,7 +106,7 @@ export default function IntentsPage() {
               onChange={e => setFilter(e.target.value)}
               placeholder="Search intents..."
               autoFocus
-              className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+              className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
             />
           </div>
         )}
@@ -312,7 +312,7 @@ function IntentDetailPanel({
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.id
-                    ? 'text-white border-violet-500'
+                    ? 'text-zinc-100 border-violet-500'
                     : 'text-zinc-500 border-transparent hover:text-zinc-300'
                 }`}
               >
@@ -330,10 +330,10 @@ function IntentDetailPanel({
                 onChange={e => setPhraseSearch(e.target.value)}
                 placeholder="Search..."
                 autoComplete="off"
-                className="w-40 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white focus:border-violet-500 focus:outline-none"
+                className="w-40 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-violet-500 focus:outline-none"
               />
               {phraseSearch && (
-                <button onClick={() => setPhraseSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs">×</button>
+                <button onClick={() => setPhraseSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-100 text-xs">×</button>
               )}
             </div>
           )}
@@ -506,7 +506,7 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
               placeholder="Paste multiple phrases, one per line..."
               rows={4}
               autoFocus
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white font-mono resize-y focus:border-violet-500 focus:outline-none"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 font-mono resize-y focus:border-violet-500 focus:outline-none"
             />
             <div className="flex items-center gap-2">
               <button
@@ -516,7 +516,7 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
               >
                 Add {bulkText.split('\n').filter(s => s.trim()).length} phrases
               </button>
-              <button onClick={() => setShowBulk(false)} className="text-xs text-zinc-500 hover:text-white">Cancel</button>
+              <button onClick={() => setShowBulk(false)} className="text-xs text-zinc-500 hover:text-zinc-100">Cancel</button>
             </div>
           </>
         ) : (
@@ -526,7 +526,7 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
               onChange={e => setNewPhrase(e.target.value)}
               placeholder="Type a phrase and press Enter..."
               autoComplete="off"
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white font-mono focus:border-violet-500 focus:outline-none"
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-100 font-mono focus:border-violet-500 focus:outline-none"
               onKeyDown={e => { if (e.key === 'Enter') handleAddPhrase(); }}
             />
             <button
@@ -538,7 +538,7 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
             </button>
             <button
               onClick={() => setShowBulk(true)}
-              className="px-2 py-1.5 text-xs text-zinc-500 hover:text-white border border-zinc-700 rounded transition-colors"
+              className="px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-100 border border-zinc-700 rounded transition-colors"
               title="Bulk paste"
             >
               Bulk
@@ -550,7 +550,7 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
           <div className="bg-amber-900/20 border border-amber-800/50 rounded px-3 py-2 text-xs text-amber-400 flex items-start gap-2">
             <span className="shrink-0">⚠</span>
             <span className="whitespace-pre-wrap">{phraseWarning}</span>
-            <button onClick={() => setPhraseWarning('')} className="shrink-0 text-zinc-500 hover:text-white ml-auto">×</button>
+            <button onClick={() => setPhraseWarning('')} className="shrink-0 text-zinc-500 hover:text-zinc-100 ml-auto">×</button>
           </div>
         )}
         {/* AI Generate */}
@@ -572,7 +572,7 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
                 onChange={e => setAIDescription(e.target.value)}
                 placeholder="Describe the intent: e.g. Customer wants to cancel their order"
                 rows={2}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm resize-y focus:border-violet-500 focus:outline-none"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-100 text-sm resize-y focus:border-violet-500 focus:outline-none"
               />
               <div className="flex flex-wrap gap-2">
                 {Object.entries(languages).filter(([code]) => enabledLangs.has(code)).map(([code, name]) => (
@@ -752,7 +752,7 @@ function DetailsTab({
         <select
           value={model}
           onChange={e => { setModel(e.target.value); setDirty(true); }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:border-violet-500 focus:outline-none"
         >
           <option value="">Default</option>
           {nsModels.map(m => (
@@ -785,25 +785,25 @@ function DetailsTab({
               onChange={e => setNewGuardrail(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addGuardrail()}
               placeholder="Add a guardrail..."
-              className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-3 py-1.5 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+              className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
             />
             <button onClick={addGuardrail} disabled={!newGuardrail.trim()} className="px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded disabled:opacity-40">Add</button>
           </div>
         </div>
       </div>
 
-      {/* Instructions */}
+      {/* Prompt */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Instructions</div>
-          <span className="text-[10px] text-zinc-600">What the LLM should do when this intent fires</span>
+          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Prompt</div>
+          <span className="text-[10px] text-zinc-600">Sent to the LLM when this intent fires</span>
         </div>
         <textarea
           value={instructions}
           onChange={e => { setInstructions(e.target.value); setDirty(true); }}
           rows={6}
-          placeholder="Step-by-step flow logic, conditions, handoffs..."
-          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none font-mono leading-relaxed"
+          placeholder="You are helping the user cancel their subscription. Confirm their identity, check for an active plan, then call the cancel endpoint and reply with the refund timeline."
+          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none font-mono leading-relaxed"
         />
       </div>
 
@@ -817,7 +817,7 @@ function DetailsTab({
           value={persona}
           onChange={e => { setPersona(e.target.value); setDirty(true); }}
           placeholder="e.g. professional but warm"
-          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
         />
       </div>
 
@@ -843,16 +843,16 @@ function StatsTab({ intent }: { intent: IntentInfo }) {
       <div className="grid grid-cols-3 gap-6">
         <div>
           <div className="text-zinc-500 text-xs mb-1">Total Phrases</div>
-          <div className="text-white font-mono text-2xl">{intent.phrases.length}</div>
+          <div className="text-zinc-100 font-mono text-2xl">{intent.phrases.length}</div>
         </div>
         <div>
           <div className="text-zinc-500 text-xs mb-1">Languages</div>
-          <div className="text-white font-mono text-2xl">{langKeys.length}</div>
+          <div className="text-zinc-100 font-mono text-2xl">{langKeys.length}</div>
           <div className="text-zinc-600 text-xs mt-1">{langKeys.join(', ')}</div>
         </div>
         <div>
           <div className="text-zinc-500 text-xs mb-1">Learned Terms</div>
-          <div className="text-white font-mono text-2xl">{intent.learned_count}</div>
+          <div className="text-zinc-100 font-mono text-2xl">{intent.learned_count}</div>
           <div className="text-zinc-600 text-xs mt-1">from corrections</div>
         </div>
       </div>
@@ -941,8 +941,8 @@ function AddIntentPanel({
   return (
     <div className="space-y-5 max-w-2xl">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">New Intent</h2>
-        <button onClick={onCancel} className="text-sm text-zinc-500 hover:text-white">Cancel</button>
+        <h2 className="text-lg font-semibold text-zinc-100">New Intent</h2>
+        <button onClick={onCancel} className="text-sm text-zinc-500 hover:text-zinc-100">Cancel</button>
       </div>
 
       {/* Name + Type */}
@@ -954,7 +954,7 @@ function AddIntentPanel({
             onChange={e => setId(e.target.value)}
             placeholder="e.g. cancel_order"
             autoComplete="off"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm font-mono focus:border-violet-500 focus:outline-none"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-100 text-sm font-mono focus:border-violet-500 focus:outline-none"
             autoFocus
           />
         </div>
@@ -988,7 +988,7 @@ function AddIntentPanel({
           onChange={e => setPhraseText(e.target.value)}
           placeholder={"One phrase per line:\ncancel my order\nI want to cancel\nstop my order"}
           rows={6}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white font-mono resize-y focus:border-violet-500 focus:outline-none"
+          className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 font-mono resize-y focus:border-violet-500 focus:outline-none"
         />
       </div>
 
@@ -1011,7 +1011,7 @@ function AddIntentPanel({
               onChange={e => setDescription(e.target.value)}
               placeholder="Describe the intent: e.g. Customer wants to cancel their order or subscription"
               rows={2}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm resize-y focus:border-violet-500 focus:outline-none"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-100 text-sm resize-y focus:border-violet-500 focus:outline-none"
             />
             <div className="flex flex-wrap gap-2">
               {Object.entries(languages).filter(([code]) => enabledLangs.has(code)).map(([code, name]) => (

@@ -3,8 +3,6 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #0a0a0f;
-  color: #e5e7eb;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
@@ -18,4 +16,43 @@ button:disabled, [role="button"][aria-disabled="true"] {
 
 #root {
   min-height: 100vh;
+}
+
+/* ─── Light theme ────────────────────────────────────────────────────────────
+   Remaps Tailwind v4 color variables. Every bg-zinc-*, text-zinc-*,
+   text-emerald-400, text-red-400, etc. automatically flips without touching
+   component code — except `text-white`, which is reserved for button text
+   on coloured backgrounds and must stay white. Content/heading text uses
+   `text-zinc-100` and flips via the zinc remap below.
+   ──────────────────────────────────────────────────────────────────────────── */
+html.light {
+  /* Zinc: invert lightness so dark surfaces become light */
+  --color-zinc-950: oklch(97%   .004 286);
+  --color-zinc-900: oklch(94%   .004 286);
+  --color-zinc-800: oklch(90%   .004 286);
+  --color-zinc-700: oklch(85%   .005 286);
+  --color-zinc-600: oklch(72%   .010 286);
+  --color-zinc-500: oklch(55.2% .016 285.938);
+  --color-zinc-400: oklch(40%   .015 286);
+  --color-zinc-300: oklch(30%   .010 286);
+  --color-zinc-200: oklch(22%   .007 286);
+  --color-zinc-100: oklch(16%   .006 286);
+
+  /* Chromatic accents: shift -400 weights to -600 equivalents for contrast
+     on now-light surfaces. Base -500/-600 backgrounds stay the same — they
+     keep `text-white` readable on coloured buttons. */
+  --color-violet-400:  oklch(54.1% .281 293);
+  --color-violet-500:  oklch(49%   .275 293);
+  --color-emerald-400: oklch(59.6% .145 163);
+  --color-emerald-500: oklch(53%   .135 163);
+  --color-red-400:     oklch(57.7% .245 27);
+  --color-red-500:     oklch(52%   .24  27);
+  --color-blue-400:    oklch(54.6% .232 264);
+  --color-blue-500:    oklch(49%   .224 264);
+  --color-amber-400:   oklch(55%   .16  58);
+  --color-amber-500:   oklch(50%   .15  58);
+  --color-cyan-400:    oklch(60.5% .162 214);
+  --color-pink-400:    oklch(57.2% .247 3);
+  --color-orange-400:  oklch(58%   .19  41);
+  --color-lime-400:    oklch(56%   .19  132);
 }

@@ -86,8 +86,8 @@ impl WasmRouter {
         self.inner.get_persona(intent_id).to_string()
     }
 
-    pub fn learn(&mut self, query: &str, intent_id: &str) {
-        self.inner.learn(query, intent_id);
+    pub fn add_phrase_auto(&mut self, query: &str, intent_id: &str) {
+        self.inner.add_phrase_auto(query, intent_id);
     }
 
     pub fn correct(&mut self, query: &str, wrong: &str, right: &str) {
