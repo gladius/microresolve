@@ -307,7 +307,7 @@ export const api = {
   }) => post<{ message: string }>('/simulate/respond', config),
 
   // Namespaces (isolated routing workspaces)
-  listNamespaces: () => get<{ id: string; name: string; description: string; auto_learn: boolean }[]>('/namespaces'),
+  listNamespaces: () => get<{ id: string; name: string; description: string; auto_learn: boolean; default_threshold: number | null }[]>('/namespaces'),
   createNamespace: (namespace_id: string, name = '', description = '') =>
     post<{ created: string }>('/namespaces', { namespace_id, name, description }),
   deleteNamespace: (namespace_id: string) =>
@@ -416,6 +416,86 @@ export const api = {
       skipped: number;
       intents: { intent_id: string; seeds: number; endpoint: string; method: string; type: string }[];
     }>('/import/spec', { spec }),
+
+  // ── Entity layer ────────────────────────────────────────────────────────────
+  listBuiltinEntities: () => get<{
+    total: number;
+    categories: {
+      category: string;
+      patterns: {
+        label: string;
+        display_name: string;
+        description: string;
+        recommended: boolean;
+        regex_patterns: string[];
+        context_phrases: string[];
+      }[];
+    }[];
+  }>('/entities/builtin'),
+
+  getEntityConfig: () => get<{
+    enabled: boolean;
+    config: {
+      enabled_builtins: string[];
+      custom: {
+        label: string;
+        display_name: string;
+        description: string;
+        regex_patterns: string[];
+        context_phrases: string[];
+        examples: string[];
+        source: string;
+      }[];
+    } | null;
+  }>('/entities'),
+
+  updateEntityConfig: (patch: { enabled?: boolean; enabled_builtins?: string[]; use_recommended?: boolean }) =>
+    fetch(`${BASE}/entities`, {
+      method: 'PATCH',
+      headers: appHeaders(),
+      body: JSON.stringify(patch),
+    }).then(r => { if (!r.ok) throw new Error('Update failed'); return r.json(); }),
+
+  detectEntities: (text: string) =>
+    post<{ text: string; labels: string[]; latency_us: number }>('/entities/detect', { text }),
+
+  extractEntities: (text: string) =>
+    post<{ text: string; entities: Record<string, string[]>; latency_us: number }>('/entities/extract', { text }),
+
+  maskEntities: (text: string, placeholder = '<{label}>') =>
+    post<{ original: string; masked: string; latency_us: number }>('/entities/mask', { text, placeholder }),
+
+  distillEntity: (req: { name: string; description: string; examples?: string[] }) =>
+    post<{
+      proposed: {
+        label: string;
+        regex_patterns: string[];
+        context_phrases: string[];
+        examples: string[];
+        notes?: string;
+      };
+      repairs: string[];
+      usable: boolean;
+      next_step: string;
+    }>('/entities/distill', req),
+
+  saveCustomEntity: (req: {
+    label: string;
+    display_name?: string;
+    description?: string;
+    regex_patterns: string[];
+    context_phrases?: string[];
+    examples?: string[];
+    source?: string;
+  }) =>
+    post<{ added: string; entity: any }>('/entities/custom', req),
+
+  deleteCustomEntity: (label: string) =>
+    fetch(`${BASE}/entities/custom`, {
+      method: 'DELETE',
+      headers: appHeaders(),
+      body: JSON.stringify({ label }),
+    }).then(r => { if (!r.ok) throw new Error('Delete failed'); return r.json(); }),
 };
 
 /// Single data contract between review and apply — used by all learning flows.

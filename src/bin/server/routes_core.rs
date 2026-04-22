@@ -88,13 +88,13 @@ pub async fn route_multi(
                 // Logic centralized in Router so all bindings (Node/Python/WASM) stay in sync.
                 let effective_threshold = router.resolve_threshold(req.threshold, default_threshold());
 
-                // Optional entity layer (PoC, off by default).
-                // Runs BEFORE L0 so detected entity tokens flow through the rest
-                // of the pipeline normally. Built-in PII detector for now;
-                // future work distills patterns per namespace via LLM.
-                let query_for_l0 = if req.enable_entity_layer {
-                    let entity = microresolve::entity::EntityLayer::default_pii();
-                    entity.augment(&req.query)
+                // Entity layer (optional): augments query with mr_pii_<label>
+                // tokens for any detected entities. Cached per-namespace —
+                // typical cost ~3µs, p99 ~20µs (CPU-limited).
+                let query_for_l0 = if let Some(layer) = router.entity_layer() {
+                    layer.augment(&req.query)
+                } else if req.enable_entity_layer {
+                    microresolve::entity::EntityLayer::recommended().augment(&req.query)
                 } else {
                     req.query.clone()
                 };

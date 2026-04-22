@@ -21,6 +21,7 @@ mod routes_ui_settings;
 mod routes_events;
 mod routes_hebbian;
 mod routes_stopwords;
+mod routes_entities;
 mod worker;
 
 use state::*;
@@ -149,6 +150,7 @@ async fn main() {
         .merge(routes_events::routes())
         .merge(routes_hebbian::routes())
         .merge(routes_stopwords::routes())
+        .merge(routes_entities::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 

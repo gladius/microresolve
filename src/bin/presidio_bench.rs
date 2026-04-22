@@ -32,15 +32,36 @@ struct Span {
 /// Anything unmapped is a coverage gap (we have no detector for it yet).
 fn map_presidio_label(presidio: &str) -> Option<&'static str> {
     match presidio {
-        "CREDIT_CARD"   => Some("CC"),
-        "US_SSN"        => Some("SSN"),
-        "EMAIL_ADDRESS" => Some("EMAIL"),
-        "PHONE_NUMBER"  => Some("PHONE"),
-        "IP_ADDRESS"    => Some("IPV4"),
-        // Out-of-scope for current built-in patterns:
-        //   PERSON, ORGANIZATION, GPE, STREET_ADDRESS, DATE_TIME, TITLE,
-        //   AGE, NRP, ZIP_CODE, DOMAIN_NAME, IBAN_CODE, US_DRIVER_LICENSE
-        // These will count as "not covered" in the report.
+        "CREDIT_CARD"        => Some("CC"),
+        "US_SSN"             => Some("SSN"),
+        "EMAIL_ADDRESS"      => Some("EMAIL"),
+        "PHONE_NUMBER"       => Some("PHONE"),
+        "IP_ADDRESS"         => Some("IPV4"),
+        "IBAN_CODE"          => Some("IBAN"),
+        "ZIP_CODE"           => Some("ZIP_CODE"),
+        "US_DRIVER_LICENSE"  => Some("US_DRIVERS_LICENSE"),
+        "DOMAIN_NAME"        => Some("URL"),
+        "DATE_TIME"          => Some("DOB"),
+        // Out of scope: PERSON, ORGANIZATION, GPE, STREET_ADDRESS, TITLE,
+        // AGE, NRP — these are NER territory.
+        _ => None,
+    }
+}
+
+/// Round-trip helper: when our detector emits a label, find its &'static str
+/// constant for HashMap keying.
+fn map_presidio_label_back(our_label: &str) -> Option<&'static str> {
+    match our_label {
+        "CC" => Some("CC"),
+        "SSN" => Some("SSN"),
+        "EMAIL" => Some("EMAIL"),
+        "PHONE" => Some("PHONE"),
+        "IPV4" => Some("IPV4"),
+        "IBAN" => Some("IBAN"),
+        "ZIP_CODE" => Some("ZIP_CODE"),
+        "US_DRIVERS_LICENSE" => Some("US_DRIVERS_LICENSE"),
+        "URL" => Some("URL"),
+        "DOB" => Some("DOB"),
         _ => None,
     }
 }
@@ -67,7 +88,12 @@ fn main() {
     println!("Source: github.com/microsoft/presidio-research");
     println!("Examples: {}\n", examples.len());
 
-    let entity = EntityLayer::default_pii();
+    // Enable ALL built-in patterns for benchmarking (recommended preset is
+    // narrower; here we want the full coverage picture).
+    let all_labels: Vec<String> = microresolve::entity::BUILTIN_PATTERNS.iter()
+        .map(|p| p.label.to_string())
+        .collect();
+    let entity = EntityLayer::with_labels(&all_labels);
 
     // Per-label stats and overall.
     let mut per_label: HashMap<&'static str, PerLabelStats> = HashMap::new();
@@ -100,9 +126,8 @@ fn main() {
 
         // Run detector and time it.
         let t0 = Instant::now();
-        let detected: HashSet<&'static str> = entity.detect(&ex.full_text)
-            .into_iter()
-            .collect();
+        let detected_strings = entity.detect(&ex.full_text);
+        let detected: HashSet<&str> = detected_strings.iter().map(|s| s.as_str()).collect();
         let elapsed = t0.elapsed().as_micros();
         total_micros += elapsed;
         latencies.push(elapsed);
@@ -113,8 +138,15 @@ fn main() {
             if detected.contains(label) { s.tp += 1; } else { s.fn_ += 1; }
         }
         for label in &detected {
-            if !expected.contains(label) {
-                let s = per_label.entry(*label).or_default();
+            // Only count FPs for labels Presidio knows about — otherwise
+            // every benign URL/IP detection looks like an FP because Presidio
+            // didn't tag it.
+            let label_static: &'static str = match map_presidio_label_back(label) {
+                Some(s) => s,
+                None => continue,
+            };
+            if !expected.contains(label_static) {
+                let s = per_label.entry(label_static).or_default();
                 s.fp += 1;
             }
         }

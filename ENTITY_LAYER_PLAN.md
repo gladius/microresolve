@@ -8,7 +8,7 @@
 
 ## Why this matters
 
-LLM-based and ML-based detection (Lakera Guard, Microsoft Prompt Shields, Microsoft Presidio, OpenAI Moderation) costs $0.0001–$0.001 per call and adds 50–500 ms of latency. They are excellent. They are also priced and scaled for cases where the alternative is "no detection at all."
+Existing ML-based and LLM-based detection tools cost $0.0001–$0.001 per call and add 50–500 ms of latency. They are excellent. They are also priced and scaled for cases where the alternative is "no detection at all."
 
 A microsecond, $0-per-call lexical layer that **matches** those numbers on their own evaluation sets does two things:
 
@@ -59,7 +59,7 @@ The architectural philosophy stays intact: microsecond resolve, multipurpose, co
 |--------|-----------|--------|------|---------------------------|
 | PII | Microsoft Presidio test suite | open source, in their repo | ~500 examples, 30+ entity types | F1 within 5pp of Presidio's published baseline |
 | PII | spaCy NER test sets | spaCy GitHub | varies | competitive with `en_core_web_sm` on PERSON/ORG/GPE |
-| Jailbreak | JailbreakBench | open, academic | ~250 attacks | detection rate within 5pp of Lakera Guard's public numbers |
+| Jailbreak | JailbreakBench | open, academic | ~250 attacks | competitive detection rate vs published commercial baselines |
 | Jailbreak | HarmBench | open | ~400 attacks | detection rate >85% |
 | General NER | CoNLL-2003 | classic benchmark | ~14K sentences | F1 >70% on PERSON, ORG, LOC, MISC |
 | General NER | OntoNotes 5.0 | LDC | ~75K sentences | F1 >65% on the four major types |

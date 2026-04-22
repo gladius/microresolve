@@ -92,6 +92,15 @@ pub struct Router {
     /// `None` means "no override, use the compile-time default."
     /// `Some(0.0)` is a valid (degenerate) setting — accept all matches.
     namespace_default_threshold: Option<f32>,
+    /// Per-namespace entity-detection configuration: which built-in patterns
+    /// are enabled and any custom entities defined for this namespace.
+    /// `None` means "entity layer disabled for this namespace."
+    /// Persisted in `_entities.json`.
+    namespace_entity_config: Option<crate::entity::EntityConfig>,
+    /// Cached, pre-built EntityLayer for this namespace's config.
+    /// Rebuilt only when set_entity_config is called or namespace is loaded.
+    /// Avoids the ~2.5ms regex-compile cost on every routing call.
+    cached_entity_layer: Option<crate::entity::EntityLayer>,
     /// Descriptions for domain prefixes (e.g., "billing" in "billing:cancel_order").
     domain_descriptions: HashMap<String, String>,
     // Legacy config fields kept for API compatibility.

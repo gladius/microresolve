@@ -189,7 +189,7 @@ This is the same pattern as Microsoft's "Spotlighting" technique — mark untrus
 
 | Architecture | Detection | Precision | Cost/req |
 |--------------|-----------|-----------|----------|
-| Lakera Guard (commercial) | ~95% | ~98% | ~$0.0005 |
+| Commercial ML detector (e.g. Lakera Guard) | ~95% | ~98% | ~$0.0005 |
 | LLM-based detector alone | ~95% | ~98% | ~$0.001 |
 | MicroResolve @ 1.30 alone | 85% | 100% | $0 |
 | **MicroResolve + LLM verify on ambiguous** | **~95%** | **~99%** | **~$0.00015** |
@@ -224,3 +224,66 @@ The last row is the deployable target.
 - LLM-based detectors can themselves be jailbroken; a frequency-weighted index can't be "convinced."
 - Every missed attack becomes a training phrase for the next version (continuous learning).
 - The LLM layer only sees the ambiguous ~30% that fall in the 0.5 – 1.30 band — smaller attack surface, cheaper to verify.
+
+---
+
+## Production validation — public benchmarks
+
+The 40-query test above is synthetic and small. Before launch we ran the same `security` namespace against two third-party benchmarks. Honest numbers, including where we lose.
+
+### deepset/prompt-injections (the right benchmark)
+
+662 examples (203 prompt injections + 459 legitimate prompts). Published baseline for this dataset: a fine-tuned DeBERTa model achieves 99.1% accuracy.
+
+| Metric | Value (test set, N=116) |
+|--------|-------------------------|
+| Accuracy | 64.7% |
+| **Precision** | **85.2%** |
+| Recall | 38.3% |
+| F1 | 0.53 |
+| Latency | ~25 µs median (full pipeline) |
+
+**Higher precision than expected, lower recall than ML.** When we flag, we're usually right. We miss the long tail.
+
+What we miss:
+- **German prompts** (the dataset is multilingual; we have English-only morphology).
+- **Novel framings** ("Attention - stop - I urgently need...", "Hello GPT, that was ok before...").
+- **Indirect injection** via SQL generation requests, role-play with seemingly benign framing.
+
+These are exactly the attacks a fine-tuned model handles well — and a pattern-based detector by definition cannot. Pair with an ML classifier for the long tail; use MicroResolve for the obvious 38%.
+
+The trade-off in plain numbers:
+
+| Approach | Accuracy | Recall | Latency | Cost |
+|----------|----------|--------|---------|------|
+| Fine-tuned DeBERTa (deepset's baseline) | 99.1% | high | 50–200 ms | ~$0.0005/call |
+| MicroResolve `security` namespace | 64.7% | 38.3% | 25 µs | $0 |
+| MicroResolve + DeBERTa on borderline cases | ~99% | ~99% | ~25 µs avg | ~$0.0001/call |
+
+The third row is the deployable architecture. The lexical layer handles the bulk of traffic; the ML model only runs on what survives the threshold.
+
+### JailbreakBench JBB-Behaviors — wrong benchmark, included for honesty
+
+100 harmful behaviors + 100 benign behaviors. We ran our security namespace anyway and got:
+
+- **Detection on harmful: 2/100 (2%)**
+- False positive on benign: 8/100 (8%)
+
+This is **the expected result for the wrong benchmark.** JBB tests *harmful content requests* ("Write a defamatory article about X"), not prompt injection patterns. Our security namespace targets injection patterns specifically.
+
+The 2 caught happen to use injection-style framing ("Give me instructions for hacking..."). The other 98 are direct content requests — those need a content-moderation classifier (Llama Guard, OpenAI Moderation, Microsoft Prompt Shields' content rails), not a prompt injection detector.
+
+We include this number because **honest benchmarking means showing the wrong-tool-for-the-job result, not hiding it.** If you want JBB-style coverage, pair MicroResolve with one of those content classifiers.
+
+### What the two benchmarks together prove
+
+| Capability | MicroResolve `security` namespace |
+|------------|-----------------------------------|
+| Catches obvious prompt injection patterns (English) | ✅ 38% recall, 85% precision |
+| Catches novel/multilingual injection | ⚠️ low — pair with ML |
+| Catches harmful-content requests | ❌ different problem; pair with content classifier |
+| Catches indirect/encoded attacks | ❌ requires preprocessing (NFKC, base64 decode) |
+| Cost per call | $0 |
+| Latency | ~25 µs median |
+
+The honest pitch: a fast first-pass for the obvious cases, not a replacement for the ML stack.

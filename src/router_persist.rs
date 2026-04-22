@@ -49,6 +49,35 @@ impl Router {
         self.namespace_default_threshold = threshold.map(|t| t.max(0.0));
     }
 
+    /// Per-namespace entity-detection configuration, if set.
+    /// `None` means the entity layer is disabled for this namespace.
+    pub fn entity_config(&self) -> Option<&crate::entity::EntityConfig> {
+        self.namespace_entity_config.as_ref()
+    }
+
+    /// Cached EntityLayer for this namespace, pre-built from the config.
+    /// Use this in hot paths (route_multi) to avoid the per-request regex
+    /// compile cost of `entity_config().build_layer()`.
+    pub fn entity_layer(&self) -> Option<&crate::entity::EntityLayer> {
+        self.cached_entity_layer.as_ref()
+    }
+
+    /// Set (or replace) the namespace's entity-detection configuration.
+    /// Rebuilds the cached EntityLayer in lockstep so subsequent
+    /// `entity_layer()` calls reflect the new config.
+    pub fn set_entity_config(&mut self, config: Option<crate::entity::EntityConfig>) {
+        self.cached_entity_layer = config.as_ref().map(|c| c.build_layer());
+        self.namespace_entity_config = config;
+    }
+
+    /// Rebuild the cached EntityLayer from the current config.
+    /// Called by load_from_dir after deserializing the config from disk.
+    pub fn rebuild_entity_cache(&mut self) {
+        self.cached_entity_layer = self.namespace_entity_config
+            .as_ref()
+            .map(|c| c.build_layer());
+    }
+
     /// Resolve the effective routing threshold using the standard cascade:
     ///   per-request override (if any) → namespace default (if set) → fallback.
     ///
@@ -106,6 +135,15 @@ impl Router {
                 }
             }
         }
+
+        // Per-namespace entity-detection config (optional).
+        if let Ok(json) = std::fs::read_to_string(path.join("_entities.json")) {
+            if let Ok(cfg) = serde_json::from_str::<crate::entity::EntityConfig>(&json) {
+                router.namespace_entity_config = Some(cfg);
+            }
+        }
+        // Build the EntityLayer cache from the loaded config (if any).
+        router.rebuild_entity_cache();
 
         // L1 (LexicalGraph) — seed with global English morphology base, then overlay namespace-specific edges.
         let base = crate::scoring::english_morphology_base();
@@ -222,6 +260,16 @@ impl Router {
 
         let mut written: HashSet<PathBuf> = HashSet::new();
         written.insert(path.join("_ns.json"));
+
+        // Per-namespace entity config (only written when set).
+        if let Some(ref cfg) = self.namespace_entity_config {
+            let entities_path = path.join("_entities.json");
+            std::fs::write(
+                &entities_path,
+                serde_json::to_string_pretty(cfg).unwrap_or_default(),
+            ).map_err(|e| format!("cannot write _entities.json: {}", e))?;
+            written.insert(entities_path);
+        }
 
         // Write domain descriptions (including explicitly-created domains with no intents)
         for (domain, desc) in &self.domain_descriptions {

@@ -79,6 +79,7 @@ export default function Layout() {
         { to: '/intents',    label: 'Intents',        icon: '◆', hint: 'Manage intents and training data' },
         { to: '/import',     label: 'Import',         icon: '↓', hint: 'Import from OpenAPI, MCP, and more' },
         { to: '/collisions', label: 'Collisions',     icon: '↯', hint: 'Find and fix intents with overlapping phrases' },
+        { to: '/entities',   label: 'Entities',       icon: '◈', hint: 'Built-in PII / credential / identifier detection + custom entities' },
       ],
     },
     {

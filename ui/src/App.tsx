@@ -17,6 +17,7 @@ import McpImport from '@/pages/import/McpImport';
 import OpenAIFunctionsImport from '@/pages/import/OpenAIFunctionsImport';
 import LangChainImport from '@/pages/import/LangChainImport';
 import CollisionsPage from '@/pages/CollisionsPage';
+import EntitiesPage from '@/pages/EntitiesPage';
 import { AppContext, defaults, type AppSettings, type ThemeMode } from '@/store';
 import { setApiNamespaceId } from '@/api/client';
 
@@ -122,6 +123,7 @@ export default function App() {
             <Route path="/import/openai-functions" element={<OpenAIFunctionsImport />} />
             <Route path="/import/langchain" element={<LangChainImport />} />
             <Route path="/collisions" element={<CollisionsPage />} />
+            <Route path="/entities" element={<EntitiesPage />} />
             <Route path="/namespaces" element={<NamespacesPage />} />
             <Route path="/namespaces/:nsId" element={<DomainsPage />} />
             <Route path="/models" element={<ModelsPage />} />

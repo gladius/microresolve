@@ -1,12 +1,50 @@
-# ASV Router
+# MicroResolve
 
-Model-free intent routing. Sub-millisecond latency, no embeddings, no GPU.
+A tiny, embeddable lexical engine for AI applications. Intent routing,
+PII / entity detection, jailbreak filtering, content classification —
+all in one library, microseconds per call, with no LLM in the hot path.
 
-Route natural language queries to intents in 30µs. Gets smarter from every production query — no retraining, no pipeline, no model.
+Drop into any Python, Node, Rust, or browser application as a single
+embedded library. Same engine handles all four jobs.
 
-## Why ASV?
+## Design Principles
 
-| | ASV | Embedding models | LLM classification |
+These constraints shape every decision in the project. Anything that
+violates one is, by definition, out of scope.
+
+1. **Microsecond at runtime.** Every routing call resolves in single- to
+   double-digit microseconds. No exceptions. This is what makes the library
+   usable on the hot path of an agent loop or as a per-request safety filter.
+2. **No LLM at inference.** The LLM teaches the system at training/setup
+   time — generating seed phrases, distilling entity patterns, identifying
+   collisions. At query time, only the lexical engine runs. Inference is
+   $0 per call and works offline.
+3. **Embedded library, not a binary or sidecar.** MicroResolve is built
+   to be linked into your application — as a Rust crate, a Python package,
+   a Node module, or a WASM bundle in the browser. No external service,
+   no Python runtime requirement when used from Rust/Node, no separate
+   process to run. Your code calls a function; the library returns a result.
+4. **One library, many jobs.** The same engine — character n-grams,
+   morphology graph, IDF-weighted intent index, optional entity layer —
+   serves intent routing, safety filtering, PII detection / extraction /
+   masking, and content classification. Every new feature reuses the
+   existing primitives instead of adding parallel infrastructure.
+5. **Continuous learning from real traffic.** Static rules and frozen
+   models go stale. MicroResolve reinforces patterns that get confirmed
+   in production and surfaces patterns that get corrected. Bootstrap
+   from LLM-generated seeds; improve from deployment-specific usage.
+   No retraining pipeline; the data updates in place.
+
+## Quick Pitch
+
+Route natural language queries to intents in ~30µs. Detect PII, mask it,
+extract structured values. Filter prompt injection at zero per-call cost.
+Gets smarter from every production query — no retraining, no GPU, no model
+registry, no external service.
+
+## Why MicroResolve?
+
+| | MicroResolve | Embedding models | LLM classification |
 |---|---|---|---|
 | Latency | **30µs** | 10–50ms | 200–2000ms |
 | Cost at inference | **$0** | GPU / API | Per-token |
