@@ -1,0 +1,139 @@
+---
+title: Node.js / TypeScript Quickstart
+description: Get started with MicroResolve in Node.js and TypeScript.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Install
+
+```bash
+npm install microresolve
+# or
+yarn add microresolve
+# or
+pnpm add microresolve
+```
+
+Pre-built native binaries for Linux, macOS, and Windows (x86_64 and arm64). No build step required.
+
+## Basic usage
+
+```typescript
+import { Router } from 'microresolve';
+
+const router = new Router();
+
+// Register intents with seed phrases
+router.addIntent('cancel_order', [
+  'cancel my order',
+  'I want to cancel',
+  'stop my order',
+]);
+router.addIntent('track_order', [
+  'where is my package',
+  'track my order',
+  'shipping status',
+]);
+
+// Resolve a query
+const matches = router.resolve('I need to cancel');
+for (const { id, score } of matches) {
+  console.log(`${id}: ${score.toFixed(2)}`);
+}
+// cancel_order: 0.91
+```
+
+## CommonJS
+
+```javascript
+const { Router } = require('microresolve');
+const router = new Router();
+```
+
+## Optional threshold and gap
+
+```typescript
+const matches = router.resolve('cancel my order and get a refund', {
+  threshold: 0.3, // minimum score (default 0.3)
+  gap: 1.5,       // score ratio to stop multi-intent extraction (default 1.5)
+});
+```
+
+## Save and load state
+
+```typescript
+import { writeFileSync, readFileSync } from 'fs';
+
+// Export
+const state = router.exportJson();
+writeFileSync('router.json', state);
+
+// Import
+const router2 = Router.importJson(readFileSync('router.json', 'utf8'));
+```
+
+## Add phrases at runtime
+
+```typescript
+const result = router.addPhrase('cancel_order', 'abort my order');
+console.log(result.added);     // true
+console.log(result.redundant); // false if new
+
+// Specify language
+router.addPhrase('cancel_order', '取消我的订单', 'zh');
+```
+
+## Correct a wrong routing
+
+```typescript
+// "stop shipment" was routed to cancel_order but should be track_order
+router.correct('stop shipment', 'cancel_order', 'track_order');
+```
+
+## Intent metadata
+
+```typescript
+router.setDescription('cancel_order', 'User wants to cancel an existing order');
+router.setIntentType('cancel_order', 'action'); // 'action' | 'context'
+
+console.log(router.getDescription('cancel_order'));
+console.log(router.intentIds());
+```
+
+## TypeScript types
+
+```typescript
+import type { ResolveMatch, PhraseResult } from 'microresolve';
+
+const matches: ResolveMatch[] = router.resolve('cancel my order');
+// ResolveMatch = { id: string; score: number }
+
+const result: PhraseResult = router.addPhrase('cancel_order', 'abort order');
+// PhraseResult = { added: boolean; newTerms: string[]; redundant: boolean; warning?: string }
+```
+
+## Vercel AI SDK integration
+
+```typescript
+import { Router } from 'microresolve';
+import { generateText } from 'ai';
+
+const router = Router.importJson(/* loaded state */);
+
+async function handleMessage(message: string) {
+  const matches = router.resolve(message);
+
+  if (matches.length > 0 && matches[0].score > 0.7) {
+    // High confidence — handle directly without LLM
+    return handleIntent(matches[0].id, message);
+  }
+
+  // Low confidence — fall back to LLM
+  return generateText({ model: /* ... */, prompt: message });
+}
+```
+
+<Aside type="tip">
+  For production use with the self-improving pipeline, run the MicroResolve HTTP server and call it via the REST API. The Node library is best for local processing, CLI tools, and embedding directly into your server.
+</Aside>

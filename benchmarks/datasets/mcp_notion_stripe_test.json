@@ -1,0 +1,66 @@
+[
+  {"text": "find the project roadmap page in our workspace", "intents": ["notion:notion-search"]},
+  {"text": "search notion for the Q2 planning doc", "intents": ["notion:notion-search"]},
+  {"text": "look up the onboarding database in notion", "intents": ["notion:notion-search"]},
+
+  {"text": "get the details of this notion page https://notion.so/abc123", "intents": ["notion:notion-fetch"]},
+  {"text": "fetch the content of our product spec database", "intents": ["notion:notion-fetch"]},
+
+  {"text": "create a new page in the Engineering wiki for the API design doc", "intents": ["notion:notion-create-pages"]},
+  {"text": "add a new meeting notes page under the team workspace", "intents": ["notion:notion-create-pages"]},
+  {"text": "I need to create several onboarding pages for the new hires starting Monday", "intents": ["notion:notion-create-pages"]},
+
+  {"text": "update the status field on the launch checklist page to Done", "intents": ["notion:notion-update-page"]},
+  {"text": "change the due date on the sprint planning page", "intents": ["notion:notion-update-page"]},
+  {"text": "the project brief needs its title updated and the owner reassigned", "intents": ["notion:notion-update-page"]},
+
+  {"text": "move the product specs pages into the Engineering section", "intents": ["notion:notion-move-pages"]},
+  {"text": "create a new database to track customer feedback with status and priority columns", "intents": ["notion:notion-create-database"]},
+  {"text": "add a comment to the design review page saying the mockups are approved", "intents": ["notion:notion-create-comment"]},
+  {"text": "show me all comments and discussions on the roadmap page", "intents": ["notion:notion-get-comments"]},
+  {"text": "list all the teams in our notion workspace", "intents": ["notion:notion-get-teams"]},
+  {"text": "who are the members of our notion workspace", "intents": ["notion:notion-get-users"]},
+
+  {"text": "create a new customer account for Acme Corp with email billing@acme.com", "intents": ["stripe:create_customer"]},
+  {"text": "look up all our customers in stripe", "intents": ["stripe:list_customers"]},
+  {"text": "find the customer record for john@example.com", "intents": ["stripe:list_customers"]},
+
+  {"text": "create a new product called Pro Plan in stripe", "intents": ["stripe:create_product"]},
+  {"text": "show me all products we have in our stripe catalog", "intents": ["stripe:list_products"]},
+
+  {"text": "set up a $49 per month price for the Pro Plan", "intents": ["stripe:create_price"]},
+  {"text": "list all the pricing options we have for our products", "intents": ["stripe:list_prices"]},
+
+  {"text": "create a payment link for the annual subscription plan", "intents": ["stripe:create_payment_link"]},
+
+  {"text": "generate an invoice for customer cus_abc123", "intents": ["stripe:create_invoice"]},
+  {"text": "show me all unpaid invoices from this month", "intents": ["stripe:list_invoices"]},
+  {"text": "finalize the draft invoice inv_xyz789 and send it", "intents": ["stripe:finalize_invoice"]},
+
+  {"text": "what is our current stripe account balance", "intents": ["stripe:retrieve_balance"]},
+  {"text": "how much money do we have available in stripe right now", "intents": ["stripe:retrieve_balance"]},
+
+  {"text": "refund the payment for the customer who complained about the wrong charge", "intents": ["stripe:create_refund"]},
+  {"text": "issue a full refund on payment intent pi_abc123", "intents": ["stripe:create_refund"]},
+
+  {"text": "show me all recent payment intents", "intents": ["stripe:list_payment_intents"]},
+  {"text": "list all active subscriptions", "intents": ["stripe:list_subscriptions"]},
+
+  {"text": "cancel the subscription for customer cus_abc123", "intents": ["stripe:cancel_subscription"]},
+  {"text": "the customer wants to downgrade their plan next billing cycle", "intents": ["stripe:update_subscription"]},
+  {"text": "upgrade this subscription to the enterprise tier immediately", "intents": ["stripe:update_subscription"]},
+
+  {"text": "create a 20% discount coupon valid for 3 months", "intents": ["stripe:create_coupon"]},
+  {"text": "list all our active discount coupons", "intents": ["stripe:list_coupons"]},
+
+  {"text": "we got a chargeback on payment pi_xyz — respond to the dispute", "intents": ["stripe:update_dispute"]},
+  {"text": "show me all open disputes in stripe", "intents": ["stripe:list_disputes"]},
+
+  {"text": "search stripe docs for how webhook retries work", "intents": ["stripe:search_stripe_documentation"]},
+  {"text": "look up stripe customer object cus_abc123", "intents": ["stripe:fetch_stripe_resources"]},
+
+  {"text": "create a notion page for the new feature spec and then set up a stripe product for it", "intents": ["notion:notion-create-pages", "stripe:create_product"]},
+  {"text": "check our stripe balance and list this month's invoices", "intents": ["stripe:retrieve_balance", "stripe:list_invoices"]},
+  {"text": "find the pricing doc in notion and list our current stripe prices", "intents": ["notion:notion-search", "stripe:list_prices"]},
+  {"text": "cancel the subscription and issue a prorated refund", "intents": ["stripe:cancel_subscription", "stripe:create_refund"]}
+]

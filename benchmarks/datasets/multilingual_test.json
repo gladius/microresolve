@@ -1,0 +1,40 @@
+[
+  {"text": "please cancel my subscription, I've been trying to reach support for two weeks and nobody responded", "intents": ["cancel_subscription"], "lang": "en"},
+  {"text": "I need to track my order — it was supposed to arrive last Thursday and there's been no update on the tracking page", "intents": ["check_order_status"], "lang": "en"},
+  {"text": "you charged me for a plan I never signed up for, I want a full refund immediately", "intents": ["request_refund"], "lang": "en"},
+  {"text": "the dashboard keeps crashing every time I try to open a report, it's been happening since your update yesterday", "intents": ["technical_support"], "lang": "en"},
+  {"text": "I forgot my password and the reset email isn't arriving even after five attempts", "intents": ["account_access"], "lang": "en"},
+  {"text": "this service is completely broken and I want to cancel my plan and get a refund for this month", "intents": ["cancel_subscription", "request_refund"], "lang": "en"},
+  {"text": "I can't log in to my account at all, and when I use a different browser the whole app just shows a blank screen", "intents": ["account_access", "technical_support"], "lang": "en"},
+  {"text": "my order was marked delivered but nothing showed up at my door, I want to know where it is and if it's lost I expect a full refund", "intents": ["check_order_status", "request_refund"], "lang": "en"},
+
+  {"text": "先月から何度試してもサブスクリプションがキャンセルできず、カスタマーサポートにメールしても返信がありません", "intents": ["cancel_subscription"], "lang": "ja"},
+  {"text": "注文してから10日経ちますが、追跡サイトを見ても「処理中」のままで全く更新されていません", "intents": ["check_order_status"], "lang": "ja"},
+  {"text": "先月解約したはずなのにまた引き落とされており、至急返金をお願いしたいです", "intents": ["request_refund"], "lang": "ja"},
+  {"text": "アプリを開くたびにクラッシュしてしまい、業務に支障が出ています。昨日のアップデート以降に始まりました", "intents": ["technical_support"], "lang": "ja"},
+  {"text": "パスワードを忘れてしまい、リセットのメールが何度申請しても届きません。アカウントにアクセスできない状態です", "intents": ["account_access"], "lang": "ja"},
+  {"text": "サービスが全く使えないので解約して今月分を返金してください。もう待てません", "intents": ["cancel_subscription", "request_refund"], "lang": "ja"},
+  {"text": "ログインしようとすると二段階認証コードが届かず、アプリ自体も真っ白な画面になって何も表示されません", "intents": ["account_access", "technical_support"], "lang": "ja"},
+
+  {"text": "몇 번이나 시도해도 구독 취소가 안 되고 있어요. 고객센터에 문의했는데 아무 답변도 오지 않고 있습니다", "intents": ["cancel_subscription"], "lang": "ko"},
+  {"text": "주문한 지 2주가 넘었는데 배송 상태가 여전히 처리 중이에요. 언제 오는지 전혀 알 수가 없어요", "intents": ["check_order_status"], "lang": "ko"},
+  {"text": "지난달에 해지했는데 또 결제가 됐어요. 이건 말이 안 되는 상황이고 즉시 환불받고 싶습니다", "intents": ["request_refund"], "lang": "ko"},
+  {"text": "앱이 계속 오류가 나서 아무것도 할 수가 없어요. 업데이트 이후부터 이 문제가 생겼고 업무에 큰 지장이 있습니다", "intents": ["technical_support"], "lang": "ko"},
+  {"text": "비밀번호를 잊어버려서 재설정 이메일을 여러 번 요청했는데 한 번도 안 왔어요. 로그인을 전혀 못 하고 있어요", "intents": ["account_access"], "lang": "ko"},
+  {"text": "구독을 취소하고 싶은데 사이트가 계속 오류나서 취소 자체가 안 되고, 이번 달 결제도 환불받고 싶어요", "intents": ["cancel_subscription", "request_refund", "technical_support"], "lang": "ko"},
+
+  {"text": "பல முறை முயற்சித்தும் சந்தாவை ரத்து செய்ய முடியவில்லை, வாடிக்கையாளர் சேவையிலும் யாரும் பதில் சொல்லவில்லை", "intents": ["cancel_subscription"], "lang": "ta"},
+  {"text": "இரண்டு வாரங்களாக ஆர்டர் ட்ராக்கிங் தகவல் புதுப்பிக்கப்படவில்லை, என் பொருள் எங்கே என்று தெரியவில்லை", "intents": ["check_order_status"], "lang": "ta"},
+  {"text": "கடந்த மாதம் ரத்து செய்தேன் ஆனால் மீண்டும் பணம் எடுக்கப்பட்டுள்ளது, இது ஏற்றுக்கொள்ள முடியாது, உடனடியாக திரும்ப தாருங்கள்", "intents": ["request_refund"], "lang": "ta"},
+  {"text": "ஆப் திறக்கும்போதெல்லாம் உடைந்துவிடுகிறது, நேற்றிலிருந்து இந்த பிரச்சனை தொடர்கிறது மேலும் வேலை செய்ய முடியவில்லை", "intents": ["technical_support"], "lang": "ta"},
+  {"text": "கடவுச்சொல் மறந்துவிட்டது, ரீசெட் மின்னஞ்சல் பல முறை கேட்டும் வரவில்லை, கணக்கில் உள்நுழைய முடியவில்லை", "intents": ["account_access"], "lang": "ta"},
+  {"text": "சேவை சரியாக வேலை செய்யவில்லை என்பதால் சந்தாவை ரத்து செய்ய விரும்புகிறேன் மேலும் என் அனைத்து தரவையும் ஏற்றுமதி செய்ய வேண்டும்", "intents": ["cancel_subscription"], "lang": "ta"},
+
+  {"text": "我已经试了好几次，订阅就是取消不了，客服也没有任何回复，这太让人失望了", "intents": ["cancel_subscription"], "lang": "zh"},
+  {"text": "我的订单已经两周了，物流信息从来没有更新过，完全不知道包裹在哪里", "intents": ["check_order_status"], "lang": "zh"},
+  {"text": "上个月明明取消了订阅，这个月又被扣款了，这是不合理的，请立即退款", "intents": ["request_refund"], "lang": "zh"},
+  {"text": "每次打开应用程序都会崩溃，昨天更新之后就开始出现这个问题，严重影响工作", "intents": ["technical_support"], "lang": "zh"},
+  {"text": "我忘记密码了，申请了好几次重置邮件都没有收到，现在根本登不进去账户", "intents": ["account_access"], "lang": "zh"},
+  {"text": "登录不了账户而且应用一直报错，我要取消订阅并退还本月费用", "intents": ["account_access", "technical_support", "cancel_subscription", "request_refund"], "lang": "zh"},
+  {"text": "取消订阅之后发现还在扣款，我需要退款，另外订单也迟迟没有发货，能帮我查一下吗", "intents": ["request_refund", "check_order_status"], "lang": "zh"}
+]

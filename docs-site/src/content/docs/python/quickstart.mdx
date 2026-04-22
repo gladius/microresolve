@@ -1,0 +1,125 @@
+---
+title: Python Quickstart
+description: Get started with MicroResolve in Python.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Install
+
+```bash
+pip install microresolve
+```
+
+Requires Python 3.8+. Pre-built wheels for Linux, macOS, and Windows (x86_64 and arm64).
+
+## Basic usage
+
+```python
+from microresolve import Router
+
+router = Router()
+
+# Register intents with seed phrases
+router.add_intent("cancel_order", [
+    "cancel my order",
+    "I want to cancel",
+    "stop my order",
+])
+router.add_intent("track_order", [
+    "where is my package",
+    "track my order",
+    "shipping status",
+])
+
+# Resolve a query
+matches = router.resolve("I need to cancel")
+for m in matches:
+    print(f"{m['id']}: {m['score']:.2f}")
+# cancel_order: 0.91
+```
+
+## Optional threshold and gap
+
+```python
+# threshold: minimum score (default 0.3)
+# gap: score ratio to stop multi-intent extraction (default 1.5)
+matches = router.resolve("cancel my order and get a refund", threshold=0.3, gap=1.5)
+```
+
+## Save and load state
+
+```python
+# Export to JSON string
+state = router.export_json()
+with open("router.json", "w") as f:
+    f.write(state)
+
+# Import from JSON string
+with open("router.json") as f:
+    router = Router.import_json(f.read())
+```
+
+## Add phrases at runtime
+
+```python
+result = router.add_phrase("cancel_order", "abort my order")
+print(result["added"])     # True
+print(result["redundant"]) # False if new
+
+# Specify language explicitly
+result = router.add_phrase("cancel_order", "取消我的订单", lang="zh")
+```
+
+## Check before adding
+
+```python
+result = router.check_phrase("cancel_order", "cancel my order")
+if result["redundant"]:
+    print("already exists")
+```
+
+## Correct a wrong routing
+
+```python
+# "stop shipment" was routed to cancel_order but should be track_order
+router.correct("stop shipment", wrong_intent="cancel_order", correct_intent="track_order")
+```
+
+## Multi-language intents
+
+```python
+router.add_intent_multilingual("cancel_order", {
+    "en": ["cancel my order", "stop my order"],
+    "zh": ["取消我的订单"],
+    "ja": ["注文をキャンセルする"],
+})
+```
+
+## Intent metadata
+
+```python
+router.set_description("cancel_order", "User wants to cancel an existing order")
+router.set_intent_type("cancel_order", "action")  # "action" or "context"
+
+print(router.get_description("cancel_order"))
+print(router.intent_ids())
+```
+
+## LangChain integration
+
+```python
+from microresolve import Router
+
+router = Router.import_json(open("router.json").read())
+
+def route_tool(query: str) -> str:
+    matches = router.resolve(query)
+    if not matches:
+        return "unknown"
+    return matches[0]["id"]
+```
+
+<Aside type="tip">
+  For production use with the self-improving pipeline, run the MicroResolve HTTP server and use it as a sidecar. The Python library is best for offline processing, batch training, and embedding into your own server.
+</Aside>

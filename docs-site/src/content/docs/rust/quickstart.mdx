@@ -1,0 +1,121 @@
+---
+title: Rust Quickstart
+description: Get started with MicroResolve in Rust.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Install
+
+```toml title="Cargo.toml"
+[dependencies]
+microresolve = "0.1"
+```
+
+## Basic usage
+
+```rust
+use microresolve::Router;
+
+fn main() {
+    let mut router = Router::new();
+
+    // Register intents with seed phrases
+    router.add_intent("cancel_order", &[
+        "cancel my order",
+        "I want to cancel",
+        "stop my order",
+    ]);
+    router.add_intent("track_order", &[
+        "where is my package",
+        "track my order",
+        "shipping status",
+    ]);
+
+    // Resolve a query
+    let matches = router.resolve("I need to cancel", 0.3, 1.5);
+    for (intent_id, score) in &matches {
+        println!("{intent_id}: {score:.2}");
+    }
+    // cancel_order: 0.91
+}
+```
+
+## Save and load state
+
+```rust
+// Save to file
+router.save("router.json")?;
+
+// Load from file
+let router = Router::load("router.json")?;
+```
+
+## Add phrases at runtime
+
+```rust
+// Add a phrase with duplicate checking
+let result = router.add_phrase_checked("cancel_order", "abort my order", "en");
+println!("added: {}", result.added);
+```
+
+## Correct a wrong routing
+
+```rust
+// A query was routed to the wrong intent — move it to the right one
+router.correct("stop shipment", "cancel_order", "track_order");
+```
+
+## Multi-language intents
+
+```rust
+use std::collections::HashMap;
+
+let mut phrases = HashMap::new();
+phrases.insert("en".to_string(), vec!["cancel my order".to_string()]);
+phrases.insert("zh".to_string(), vec!["取消我的订单".to_string()]);
+phrases.insert("ja".to_string(), vec!["注文をキャンセルする".to_string()]);
+
+router.add_intent_multilingual("cancel_order", phrases);
+```
+
+## Accessing the scoring layers
+
+<Aside type="note">
+Layer access is for advanced use cases — building custom tooling or integrating with a server pipeline. Most users only need `resolve()`.
+</Aside>
+
+```rust
+// Read the morphology graph (normalizes inflections, abbreviations, synonyms)
+let graph = router.morphology();
+
+// Read the scoring index (word→intent weights)
+let index = router.scoring();
+
+// Read the typo corrector
+let corrector = router.typo_index();
+```
+
+## Persist to a directory (server mode)
+
+The HTTP server stores each namespace as a directory. You can load/save the same format directly:
+
+```rust
+use std::path::Path;
+
+// Load from directory
+let router = Router::load_from_dir(Path::new("~/.local/share/asv/default"))?;
+
+// Save back
+router.save_to_dir(Path::new("~/.local/share/asv/default"))?;
+```
+
+## `resolve()` parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query` | `&str` | — | The natural language query |
+| `threshold` | `f32` | `0.3` | Minimum score to include an intent |
+| `gap` | `f32` | `1.5` | Score ratio gap to stop multi-intent extraction |
+
+Lower threshold → more results, more noise. Higher gap → fewer multi-intent splits.

@@ -1,0 +1,81 @@
+---
+title: MicroResolve
+description: Sub-millisecond intent resolution. No embeddings, no GPU, no retraining.
+template: splash
+hero:
+  tagline: Resolve natural language to intents in under 1ms. No embeddings, no GPU, no retraining.
+  actions:
+    - text: Rust quickstart
+      link: /rust/quickstart
+      icon: right-arrow
+      variant: primary
+    - text: Python quickstart
+      link: /python/quickstart
+      icon: right-arrow
+    - text: Node.js quickstart
+      link: /node/quickstart
+      icon: right-arrow
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What is MicroResolve?
+
+MicroResolve maps natural language queries to your defined intents using a fast lexical pipeline — no neural network, no embeddings, no cold inference latency.
+
+```
+"I want to cancel my order"  →  cancel_order  (score: 0.91)  ~30µs
+"where is my package?"       →  track_order   (score: 0.87)  ~28µs
+```
+
+It learns from corrections. The more queries it sees, the better it gets — without any retraining step.
+
+## Benchmark results
+
+| Dataset | Cold start | After learning | Latency |
+|---------|-----------|----------------|---------|
+| CLINC150 (150 intents) | 74.8% exact | **90.3% exact** | ~2.8ms HTTP |
+| SaaS support (10 intents) | 58% exact / 70.7% F1 | **71% exact / 88.6% F1** | ~640µs |
+| MCP tool routing (100 tools) | 44.7% exact / 89.4% recall | **48.9% exact / 94.7% recall** | ~870µs |
+| Multilingual (5 languages) | 68% exact / 86% recall | cold only | ~950µs |
+
+## Install
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+<Tabs>
+  <TabItem label="Rust">
+    ```toml
+    # Cargo.toml
+    [dependencies]
+    microresolve = "0.1"
+    ```
+  </TabItem>
+  <TabItem label="Python">
+    ```bash
+    pip install microresolve
+    ```
+  </TabItem>
+  <TabItem label="Node.js">
+    ```bash
+    npm install microresolve
+    ```
+  </TabItem>
+</Tabs>
+
+## Why MicroResolve?
+
+<CardGrid>
+  <Card title="No GPU required" icon="rocket">
+    Pure Rust with a weighted lexical index. Runs on any machine, including edge and embedded.
+  </Card>
+  <Card title="Learns from corrections" icon="pencil">
+    Every corrected routing improves future accuracy. No retraining step, no batch jobs.
+  </Card>
+  <Card title="Multilingual" icon="translate">
+    English, Chinese, Japanese, Korean, Tamil — and more via morphology edges.
+  </Card>
+  <Card title="Multi-intent" icon="list-format">
+    Detects multiple intents in a single query. "Cancel my order and issue a refund" → two intents.
+  </Card>
+</CardGrid>

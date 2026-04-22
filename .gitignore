@@ -42,3 +42,8 @@ asv_queries.jsonl
 data/*.json
 !data/ecommerce-demo.json
 !data/ecommerce-demo-seeds.json
+
+# Internal launch / planning notes (private to the maintainer's working copy)
+TONIGHT.md
+LAUNCH_CHECKLIST.md
+USECASE_PLAN.md

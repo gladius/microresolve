@@ -1,0 +1,77 @@
+---
+title: How It Works
+description: The three-layer pipeline inside MicroResolve.
+---
+
+MicroResolve resolves queries through three layers applied in sequence. Each layer adds accuracy without adding latency.
+
+## The pipeline
+
+```
+query
+  │
+  ▼
+┌─────────────────────────────┐
+│  Typo corrector              │  "cancell" → "cancel"
+│  Character n-gram index      │  ~2µs
+└─────────────┬───────────────┘
+              │
+              ▼
+┌─────────────────────────────┐
+│  Morphology graph            │  "canceling" → "cancel"
+│  Inflections, abbreviations, │  "sub" → "subscription"
+│  synonyms                    │  "terminate" → "cancel" (synonym)
+└─────────────┬───────────────┘
+              │
+              ▼
+┌─────────────────────────────┐
+│  Scoring index               │  word → intent weights
+│  IDF-weighted, Hebbian       │  multi-intent token consumption
+│  Anti-Hebbian inhibition     │
+└─────────────┬───────────────┘
+              │
+              ▼
+[(intent_id, score), ...]
+```
+
+## Layer 1 — Typo corrector
+
+Before any scoring, each token is checked against the known vocabulary using character trigram similarity. Unknown tokens are corrected to the closest known term (Jaccard ≥ 0.35, edit distance as tiebreaker).
+
+CJK tokens pass through unchanged — character-level misspellings don't apply to logographic scripts.
+
+## Layer 2 — Morphology graph
+
+A weighted term association graph distilled from domain knowledge. Each edge maps a source term to a canonical target:
+
+| Weight | Kind | Effect |
+|--------|------|--------|
+| 0.97–1.0 | Morphological | Substitute in place (`canceling` → `cancel`) |
+| 0.97–1.0 | Abbreviation | Substitute in place (`sub` → `subscription`) |
+| 0.80–0.96 | Synonym | Append canonical term (`terminate` → `cancel`) |
+| 0.60–0.79 | Semantic | Confidence boost only, no expansion |
+
+Edges are added by the LLM import pipeline and reinforced from routing confirmations.
+
+## Layer 3 — Scoring index
+
+An IDF-weighted word→intent association table. Each word carries a learned weight toward one or more intents. Multi-intent queries are resolved by token consumption — words are "used up" by the highest-scoring intent, then remaining words score the next intent, and so on.
+
+**Anti-Hebbian inhibition:** when an intent fires but the correct answer is different, the wrong intent accumulates a suppression weight for the triggering words. This prevents systematic false positives without requiring any explicit negative examples.
+
+## Learning
+
+MicroResolve improves from two signals:
+
+1. **Phrase addition** — `add_phrase(intent_id, phrase)` indexes new vocabulary directly into the scoring layer.
+2. **Correction** — `correct(query, wrong, correct)` moves the phrase and updates suppression weights so the wrong intent is less likely to fire on similar queries.
+
+The HTTP server adds a third signal: the LLM auto-learn pipeline reviews low-confidence routings, extracts canonical phrases via span extraction, and calls `add_phrase` programmatically.
+
+## Frozen vs live mode
+
+| Mode | Use case | Learning |
+|------|----------|---------|
+| **Frozen** — `export_json()` + `import_json()` | Production deploy, edge, WASM | None — weights baked in |
+| **Live** — HTTP server with auto-learn on | SaaS, support bots | Continuous |
+| **Library** — direct `add_phrase` / `correct` calls | Custom pipelines | Your control |
