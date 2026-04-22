@@ -37,6 +37,29 @@ impl Router {
         self.namespace_description = desc.to_string();
     }
 
+    /// Default routing threshold for this namespace, if set.
+    /// `None` means callers should fall back to their own default.
+    pub fn namespace_default_threshold(&self) -> Option<f32> {
+        self.namespace_default_threshold
+    }
+
+    /// Set the namespace's default routing threshold.
+    /// Pass `None` to clear the override.
+    pub fn set_namespace_default_threshold(&mut self, threshold: Option<f32>) {
+        self.namespace_default_threshold = threshold.map(|t| t.max(0.0));
+    }
+
+    /// Resolve the effective routing threshold using the standard cascade:
+    ///   per-request override (if any) → namespace default (if set) → fallback.
+    ///
+    /// Centralized here so callers (HTTP server, WASM/Node/Python bindings,
+    /// embedded users) all apply the same precedence and stay in sync.
+    pub fn resolve_threshold(&self, request_override: Option<f32>, fallback: f32) -> f32 {
+        request_override
+            .or(self.namespace_default_threshold)
+            .unwrap_or(fallback)
+    }
+
     /// Description for a specific domain prefix (e.g., "billing").
     pub fn domain_description(&self, domain: &str) -> Option<&str> {
         self.domain_descriptions.get(domain).map(|s| s.as_str())
@@ -77,6 +100,9 @@ impl Router {
                     if let Ok(m) = serde_json::from_value::<Vec<NamespaceModel>>(models.clone()) {
                         router.namespace_models = m;
                     }
+                }
+                if let Some(t) = val.get("default_threshold").and_then(|t| t.as_f64()) {
+                    router.namespace_default_threshold = Some(t as f32);
                 }
             }
         }
@@ -181,11 +207,14 @@ impl Router {
             .map_err(|e| format!("cannot create {}: {}", path.display(), e))?;
 
         // Namespace metadata
-        let ns_meta = serde_json::json!({
+        let mut ns_meta = serde_json::json!({
             "name": self.namespace_name,
             "description": self.namespace_description,
             "models": self.namespace_models,
         });
+        if let Some(t) = self.namespace_default_threshold {
+            ns_meta["default_threshold"] = serde_json::json!(t);
+        }
         std::fs::write(
             path.join("_ns.json"),
             serde_json::to_string_pretty(&ns_meta).unwrap_or_default(),
@@ -367,5 +396,131 @@ fn cleanup_stale(ns_dir: &Path, written: &HashSet<PathBuf>) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Router;
+
+    /// Generate a unique tmp directory under /tmp for each test.
+    fn tmp_dir(tag: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::path::PathBuf::from(format!("/tmp/microresolve_test_{}_{}", tag, nanos));
+        std::fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn default_threshold_starts_unset() {
+        let r = Router::new();
+        assert_eq!(r.namespace_default_threshold(), None);
+    }
+
+    #[test]
+    fn set_default_threshold_persists_in_round_trip() {
+        let dir = tmp_dir("threshold_set");
+        let mut r = Router::new();
+        r.set_namespace_name("test");
+        r.set_namespace_default_threshold(Some(1.30));
+        r.save_to_dir(&dir).unwrap();
+
+        let r2 = Router::load_from_dir(&dir).unwrap();
+        assert_eq!(r2.namespace_default_threshold(), Some(1.30));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn unset_default_threshold_omitted_from_disk() {
+        let dir = tmp_dir("threshold_unset");
+        let r = Router::new();
+        r.save_to_dir(&dir).unwrap();
+
+        // Round-trip preserves None.
+        let r2 = Router::load_from_dir(&dir).unwrap();
+        assert_eq!(r2.namespace_default_threshold(), None);
+
+        // The field should NOT appear in the JSON when unset.
+        let json = std::fs::read_to_string(dir.join("_ns.json")).unwrap();
+        assert!(!json.contains("default_threshold"),
+                "expected _ns.json to omit default_threshold when None, got: {}", json);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn set_default_threshold_clamps_negative_to_zero() {
+        let mut r = Router::new();
+        r.set_namespace_default_threshold(Some(-5.0));
+        // Negative input is clamped to 0.0; 0.0 is a valid (degenerate) setting,
+        // distinct from None which means "no override."
+        assert_eq!(r.namespace_default_threshold(), Some(0.0));
+    }
+
+    #[test]
+    fn clearing_default_threshold_via_none() {
+        let mut r = Router::new();
+        r.set_namespace_default_threshold(Some(0.7));
+        assert_eq!(r.namespace_default_threshold(), Some(0.7));
+        r.set_namespace_default_threshold(None);
+        assert_eq!(r.namespace_default_threshold(), None);
+    }
+
+    // ── Cascade resolution ──────────────────────────────────────────────
+    // Per-request override > namespace default > caller-supplied fallback.
+
+    #[test]
+    fn cascade_request_override_wins() {
+        let mut r = Router::new();
+        r.set_namespace_default_threshold(Some(1.30));
+        // Request explicitly asks for 0.5 — should beat the namespace 1.30.
+        assert_eq!(r.resolve_threshold(Some(0.5), 0.3), 0.5);
+    }
+
+    #[test]
+    fn cascade_namespace_default_used_when_no_request_override() {
+        let mut r = Router::new();
+        r.set_namespace_default_threshold(Some(1.30));
+        // No request threshold — namespace 1.30 should win over fallback 0.3.
+        assert_eq!(r.resolve_threshold(None, 0.3), 1.30);
+    }
+
+    #[test]
+    fn cascade_fallback_used_when_neither_set() {
+        let r = Router::new();
+        // Nothing set anywhere — fallback wins.
+        assert_eq!(r.resolve_threshold(None, 0.3), 0.3);
+    }
+
+    #[test]
+    fn cascade_request_zero_explicitly_wins_over_namespace() {
+        // Tricky case: caller deliberately passes Some(0.0) (accept everything).
+        // This must NOT silently fall through to the namespace default.
+        let mut r = Router::new();
+        r.set_namespace_default_threshold(Some(1.30));
+        assert_eq!(r.resolve_threshold(Some(0.0), 0.3), 0.0);
+    }
+
+    #[test]
+    fn cascade_namespace_zero_wins_over_fallback() {
+        // Same principle for the namespace level: Some(0.0) is a real choice.
+        let mut r = Router::new();
+        r.set_namespace_default_threshold(Some(0.0));
+        assert_eq!(r.resolve_threshold(None, 0.3), 0.0);
+    }
+
+    #[test]
+    fn explicit_zero_threshold_is_preserved_through_round_trip() {
+        // Some(0.0) is a valid "accept everything" override and must survive
+        // serialization; it must NOT collapse to None.
+        let dir = tmp_dir("threshold_zero");
+        let mut r = Router::new();
+        r.set_namespace_default_threshold(Some(0.0));
+        r.save_to_dir(&dir).unwrap();
+        let r2 = Router::load_from_dir(&dir).unwrap();
+        assert_eq!(r2.namespace_default_threshold(), Some(0.0));
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

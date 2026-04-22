@@ -121,6 +121,9 @@ impl NgramIndex {
             .filter_map(|(vi, _)| {
                 let term = &self.vocab[vi];
                 let term_chars: Vec<char> = term.chars().collect();
+                // Block corrections that shrink the word by 2+ chars — those are
+                // substring collapses ("vacation"→"action", "oncall"→"call"), not typos.
+                if query_chars.len() > term_chars.len() + 1 { return None; }
                 let dist = edit_distance(&query_chars, &term_chars);
                 if dist <= max_dist { Some((vi, dist)) } else { None }
             })

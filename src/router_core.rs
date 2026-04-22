@@ -25,6 +25,7 @@ impl Router {
             namespace_name: String::new(),
             namespace_description: String::new(),
             namespace_models: Vec::new(),
+            namespace_default_threshold: None,
             domain_descriptions: HashMap::new(),
             top_k: 10,
             max_intents: 5,
@@ -185,6 +186,7 @@ impl Router {
             namespace_name: String::new(),
             namespace_description: String::new(),
             namespace_models: Vec::new(),
+            namespace_default_threshold: None,
             domain_descriptions: HashMap::new(),
             top_k: state.top_k,
             max_intents: state.max_intents,
@@ -274,6 +276,7 @@ impl Router {
         for (intent_id, phrase) in &all {
             self.index_phrase_no_rebuild(intent_id, phrase);
         }
+        self.l2.rebuild_idf();
         self.rebuild_l0();
     }
 

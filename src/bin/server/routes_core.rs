@@ -18,8 +18,10 @@ pub fn routes() -> axum::Router<AppState> {
 #[derive(serde::Deserialize)]
 pub struct RouteMultiRequest {
     pub query: String,
-    #[serde(default = "default_threshold")]
-    pub threshold: f32,
+    /// Per-request threshold override. If absent, falls back to the namespace's
+    /// `default_threshold`, then to the compile-time default (0.3).
+    #[serde(default)]
+    pub threshold: Option<f32>,
     #[serde(default = "default_gap")]
     pub gap: f32,
     /// If false, skip logging to review queue (use for UI test/explore)
@@ -70,11 +72,16 @@ pub async fn route_multi(
         Vec<String>,                             // l1_injected
         Vec<String>,                             // l2_tokens
         Option<microresolve::scoring::MultiIntentTrace>,
+        f32,                                     // effective_threshold (cascade-resolved)
     );
     let pipeline: PipelineOut = {
         let routers = state.routers.read().unwrap();
         match routers.get(&app_id) {
             Some(router) => {
+                // Threshold cascade: request override > namespace default > compile-time default.
+                // Logic centralized in Router so all bindings (Node/Python/WASM) stay in sync.
+                let effective_threshold = router.resolve_threshold(req.threshold, default_threshold());
+
                 // L0: typo correction
                 let q0 = router.l0().correct_query(&req.query);
 
@@ -114,20 +121,21 @@ pub async fn route_multi(
 
                 // L2 multi-intent with trace (rounds)
                 let (consumed, _neg2, trace) = router.l2().score_multi_normalized_traced(
-                    &processed, req.threshold, req.gap, true,
+                    &processed, effective_threshold, req.gap, true,
                 );
                 let consumed = if req.tiebreaker {
                     router.l2().apply_char_ngram_tiebreaker(&processed, consumed, 0.65, 0.5)
                 } else { consumed };
 
-                (Some(consumed), raw, neg, q0, normalized, processed, injected, tokens, trace)
+                (Some(consumed), raw, neg, q0, normalized, processed, injected, tokens, trace, effective_threshold)
             }
             None => (None, vec![], false, req.query.clone(), req.query.clone(),
-                    req.query.clone(), vec![], vec![], None),
+                    req.query.clone(), vec![], vec![], None, default_threshold()),
         }
     };
     let (intent_graph_results, raw_ranked, query_has_negation,
-         l0_corrected, l1_normalized, processed_query, hebbian_injected, l2_tokens, multi_trace) = pipeline;
+         l0_corrected, l1_normalized, processed_query, hebbian_injected, l2_tokens, multi_trace,
+         effective_threshold) = pipeline;
 
     let latency_us = t0.elapsed().as_micros() as u64;
 
@@ -150,7 +158,7 @@ pub async fn route_multi(
         // "escalate"       — 3+ intents at similar scores; query is genuinely ambiguous
         let disposition = if scored.len() >= 3 && scored[2].1 / top_score >= 0.75 {
             "escalate"        // tight cluster of ≥3 — can't rank, need clarification
-        } else if top_score < req.threshold * 2.0 {
+        } else if top_score < effective_threshold * 2.0 {
             "low_confidence"  // marginally above detection threshold
         } else {
             "confident"

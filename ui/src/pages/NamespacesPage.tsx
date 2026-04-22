@@ -10,6 +10,7 @@ interface NamespaceInfo {
   name: string;
   description: string;
   auto_learn: boolean;
+  default_threshold: number | null;
 }
 
 export default function NamespacesPage() {
@@ -20,8 +21,10 @@ export default function NamespacesPage() {
   const [namespaces, setNamespaces] = useState<NamespaceInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Per-row edit state
-  const [editing, setEditing] = useState<Record<string, { description: string; auto_learn: boolean }>>({});
+  // Per-row edit state.
+  // `default_threshold` carries the empty input as '' (cleared) vs a string of digits;
+  // we translate to number | null at save time.
+  const [editing, setEditing] = useState<Record<string, { description: string; auto_learn: boolean; default_threshold: string }>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
   // Create modal
@@ -41,7 +44,11 @@ export default function NamespacesPage() {
   const startEditing = (ns: NamespaceInfo) => {
     setEditing(prev => ({
       ...prev,
-      [ns.id]: { description: ns.description, auto_learn: ns.auto_learn },
+      [ns.id]: {
+        description: ns.description,
+        auto_learn: ns.auto_learn,
+        default_threshold: ns.default_threshold == null ? '' : String(ns.default_threshold),
+      },
     }));
   };
 
@@ -50,11 +57,25 @@ export default function NamespacesPage() {
   };
 
   const saveEditing = async (id: string) => {
-    const patch = editing[id];
-    if (!patch) return;
+    const draft = editing[id];
+    if (!draft) return;
     setSaving(prev => ({ ...prev, [id]: true }));
+
+    // Translate threshold input: empty string → null (clear), valid number → that number.
+    let threshold: number | null | undefined = undefined;
+    const raw = draft.default_threshold.trim();
+    if (raw === '') threshold = null;
+    else {
+      const n = Number(raw);
+      if (!Number.isNaN(n) && n >= 0) threshold = n;
+    }
+
     try {
-      await api.updateNamespace(id, patch);
+      await api.updateNamespace(id, {
+        description: draft.description,
+        auto_learn: draft.auto_learn,
+        ...(threshold !== undefined ? { default_threshold: threshold } : {}),
+      });
       cancelEditing(id);
       refresh();
     } catch { /* */ }
@@ -173,6 +194,33 @@ export default function NamespacesPage() {
                         value={draft.description}
                         onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, description: e.target.value } }))}
                         placeholder="What does this workspace handle?"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-zinc-500 uppercase tracking-wide block mb-1 flex items-center gap-1.5">
+                        Default routing threshold
+                        <span
+                          title={
+                            'Minimum score required for a route to be confirmed. ' +
+                            'Leave empty to use the system default (0.3). ' +
+                            'Lower values (0.1–0.5) for tool-routing workspaces where each intent has unique vocabulary. ' +
+                            'Higher values (1.0–2.0) for safety/classification workspaces where attack vocabulary overlaps with normal English. ' +
+                            'See docs: Choosing a threshold.'
+                          }
+                          className="text-zinc-600 cursor-help text-[10px] border border-zinc-700 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center"
+                        >
+                          ?
+                        </span>
+                      </label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        value={draft.default_threshold}
+                        onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, default_threshold: e.target.value } }))}
+                        placeholder="empty = system default (0.3)"
                         className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500"
                       />
                     </div>

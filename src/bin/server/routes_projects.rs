@@ -39,6 +39,7 @@ pub async fn list_namespaces(
             "name": r.namespace_name(),
             "description": r.namespace_description(),
             "auto_learn": modes.get(id).map(|m| m == "auto").unwrap_or(false),
+            "default_threshold": r.namespace_default_threshold(),
         }))
         .collect();
     namespaces.sort_by(|a, b| {
@@ -113,6 +114,11 @@ pub struct UpdateNamespaceRequest {
     description: Option<String>,
     #[serde(default)]
     auto_learn: Option<bool>,
+    /// Per-namespace default routing threshold.
+    /// `Some(value)` sets it, missing field leaves it unchanged.
+    /// To clear back to "no override," send `Some(-1.0)`.
+    #[serde(default)]
+    default_threshold: Option<f32>,
 }
 
 pub async fn update_namespace(
@@ -125,6 +131,11 @@ pub async fn update_namespace(
             .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)))?;
         if let Some(ref name) = req.name { router.set_namespace_name(name); }
         if let Some(ref desc) = req.description { router.set_namespace_description(desc); }
+        if let Some(t) = req.default_threshold {
+            // -1.0 sentinel clears the override; any non-negative value sets it.
+            let new = if t < 0.0 { None } else { Some(t) };
+            router.set_namespace_default_threshold(new);
+        }
         maybe_persist(&state, &req.namespace_id, router);
     }
     if let Some(auto_learn) = req.auto_learn {

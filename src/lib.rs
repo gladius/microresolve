@@ -86,6 +86,11 @@ pub struct Router {
     namespace_description: String,
     /// User-defined model registry for this namespace.
     namespace_models: Vec<NamespaceModel>,
+    /// Default routing threshold for this namespace.
+    /// Used as fallback when /api/route_multi requests omit `threshold`.
+    /// `None` means "no override, use the compile-time default."
+    /// `Some(0.0)` is a valid (degenerate) setting — accept all matches.
+    namespace_default_threshold: Option<f32>,
     /// Descriptions for domain prefixes (e.g., "billing" in "billing:cancel_order").
     domain_descriptions: HashMap<String, String>,
     // Legacy config fields kept for API compatibility.

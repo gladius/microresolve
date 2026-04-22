@@ -700,6 +700,13 @@ pub struct IntentIndex {
     /// NOT serialized — rebuilt in one O(words) pass on load via rebuild_idf().
     #[serde(skip)]
     idf_cache: HashMap<String, f32>,
+
+    /// Distinct intent IDs seen across all posting lists.
+    /// Maintained incrementally in learn_word so intent_count is correct for
+    /// namespaces built in memory (not loaded from disk) without needing rebuild_idf().
+    /// NOT serialized — rebuilt from posting lists in rebuild_idf().
+    #[serde(skip)]
+    known_intents: std::collections::HashSet<String>,
 }
 
 
@@ -714,13 +721,11 @@ impl IntentIndex {
     /// Recompute intent_count and idf_cache from word_intent in one pass.
     /// Called after deserialization (load from disk) since idf_cache is not serialized.
     pub fn rebuild_idf(&mut self) {
-        let n = {
-            let mut intents: std::collections::HashSet<&str> = std::collections::HashSet::new();
-            for entries in self.word_intent.values() {
-                for (id, _) in entries { intents.insert(id.as_str()); }
-            }
-            intents.len()
-        };
+        self.known_intents.clear();
+        for entries in self.word_intent.values() {
+            for (id, _) in entries { self.known_intents.insert(id.clone()); }
+        }
+        let n = self.known_intents.len();
         self.intent_count = n;
         let n_f = n.max(1) as f32;
         self.idf_cache.clear();
@@ -759,9 +764,12 @@ impl IntentIndex {
             // Weight update only — posting list length unchanged, IDF unchanged.
             e.1 = (e.1 + rate * (1.0 - e.1)).min(1.0);
         } else {
-            // New (word, intent) pair — posting list grows, refresh this word's IDF.
-            // intent_count stays correct because intents are registered at router level
-            // before phrases are indexed; rebuild_idf() is called after bulk operations.
+            // New (word, intent) pair — posting list grows.
+            // Update intent_count if this is a brand-new intent in the index so
+            // IDF is correct for namespaces built in memory without a disk reload.
+            if self.known_intents.insert(intent.to_string()) {
+                self.intent_count += 1;
+            }
             entries.push((intent.to_string(), rate));
             self.refresh_idf_for(word);
         }
