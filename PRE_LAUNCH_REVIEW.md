@@ -31,7 +31,7 @@ Use this as a working checklist — mark items as **DONE** / **SKIP** / **DEFERR
 
 | # | Finding | Severity | Action |
 |---|---------|----------|--------|
-| 1.1 | `similarity` HashMap on Router — dead code, written only in clone/restore, never read for routing | Low (just noise) | **[ ] Remove the field** |
+| 1.1 | `similarity` HashMap on Router — dead code, written only in clone/restore, never read for routing | Low (just noise) | ✅ **DONE** (commit 3ccf36a) — removed field, struct init, export/import paths |
 | 1.2 | `version` counter resets to 0 on each load (because it's not serialized) | Medium — connected-mode clients tracking `version` would refetch after every server restart | **[ ] Either persist `version` or document the reset behavior** |
 | 1.3 | Log store persistence location unclear — does `DELETE /api/namespaces` cleanly remove logs too? | Medium if enterprise privacy matters | **[ ] Audit log-store cleanup on namespace delete** |
 
@@ -174,7 +174,7 @@ Currently exposed in Rust lib core: intent CRUD, routing, correction, descriptio
 
 ### Should-do before launch
 - **[ ] 2.1, 2.2** — hide/remove destructive unguarded endpoints (`/api/reset`, `/api/data/all`). ~15 min.
-- **[ ] 1.1** — remove dead `similarity` field. ~5 min.
+- **✅ 1.1** — remove dead `similarity` field. **DONE** in commit 3ccf36a.
 - **[ ] 2.3, 2.4, 2.6** — audit legacy endpoints (load_defaults, phrase/*, ns/models) — remove if dead. ~15 min.
 
 ### Nice-to-have
