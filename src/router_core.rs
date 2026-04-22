@@ -21,7 +21,6 @@ impl Router {
             guardrails: HashMap::new(),
             version: 0,
             connected: false,
-            similarity: HashMap::new(),
             namespace_name: String::new(),
             namespace_description: String::new(),
             namespace_models: Vec::new(),
@@ -157,7 +156,6 @@ impl Router {
             version: self.version,
             top_k: self.top_k,
             max_intents: self.max_intents,
-            similarity: self.similarity.clone(),
             metadata: serde_json::Value::Null,
             intents: serde_json::Value::Null,
             paraphrases: serde_json::Value::Null,
@@ -184,7 +182,6 @@ impl Router {
             guardrails: state.guardrails,
             version: state.version,
             connected: false,
-            similarity: state.similarity,
             namespace_name: String::new(),
             namespace_description: String::new(),
             namespace_models: Vec::new(),
@@ -323,8 +320,6 @@ struct RouterState {
     top_k: usize,
     #[serde(default = "default_max_intents")]
     max_intents: usize,
-    #[serde(default)]
-    similarity: HashMap<String, Vec<(String, f32)>>,
     // Old fields present in saved JSON — ignored during load.
     #[serde(default, skip_serializing)]
     #[allow(dead_code)]

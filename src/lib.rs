@@ -78,9 +78,6 @@ pub struct Router {
     version: u64,
     /// When true, write operations are blocked (connected/read-only mode).
     connected: bool,
-    /// Distributional similarity: term → [(similar_term, score)].
-    /// Built from accumulated text. Used for analysis, not routing.
-    similarity: HashMap<String, Vec<(String, f32)>>,
     /// Human-readable display name for this namespace.
     namespace_name: String,
     /// Human-readable description of this namespace.
