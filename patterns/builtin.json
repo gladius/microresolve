@@ -1,0 +1,771 @@
+[
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "anthropic key",
+      "anthropic api key",
+      "claude api key"
+    ],
+    "description": "Anthropic API keys (sk-ant-* prefix).",
+    "display_name": "Anthropic API key",
+    "label": "ANTHROPIC_KEY",
+    "recommended": true,
+    "regex_patterns": [
+      "\\bsk-ant-[A-Za-z0-9_-]{32,}\\b"
+    ]
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "aws access key",
+      "access key id",
+      "aws credentials",
+      "aws_access_key_id"
+    ],
+    "description": "AWS access key IDs (AKIA*, ASIA*, AROA* \u2014 20 chars total).",
+    "display_name": "AWS access key ID",
+    "label": "AWS_ACCESS_KEY",
+    "recommended": true,
+    "regex_patterns": [
+      "\\b(?:AKIA|ASIA|AROA)[0-9A-Z]{16}\\b"
+    ]
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "aws secret key",
+      "secret access key",
+      "aws_secret_access_key"
+    ],
+    "description": "AWS secret keys are 40-char base64 \u2014 too generic to detect by value alone (collides with hashes, tokens). Detect via context only.",
+    "display_name": "AWS secret access key (context-only)",
+    "label": "AWS_SECRET_KEY",
+    "recommended": false,
+    "regex_patterns": []
+  },
+  {
+    "label": "BEARER_TOKEN",
+    "category": "Credentials",
+    "display_name": "HTTP Bearer token (context)",
+    "description": "Mentions of HTTP Authorization Bearer tokens.",
+    "regex_patterns": [
+      "\\bBearer\\s+[A-Za-z0-9._~+/=-]{20,}\\b"
+    ],
+    "context_phrases": [
+      "bearer token",
+      "authorization: bearer",
+      "auth bearer"
+    ],
+    "recommended": true
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "gcp api key",
+      "google cloud key",
+      "google api key",
+      "firebase key"
+    ],
+    "description": "Google Cloud API keys (39 chars, AIza prefix).",
+    "display_name": "GCP API key",
+    "label": "GCP_KEY",
+    "recommended": true,
+    "regex_patterns": [
+      "\\bAIza[0-9A-Za-z_-]{35}\\b"
+    ]
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "github token",
+      "github pat",
+      "personal access token",
+      "github_token"
+    ],
+    "description": "GitHub tokens (ghp_, gho_, ghs_, ghu_, ghr_ prefixes).",
+    "display_name": "GitHub personal access token",
+    "label": "GITHUB_PAT",
+    "recommended": true,
+    "regex_patterns": [
+      "\\b(?:ghp|gho|ghs|ghu|ghr)_[0-9A-Za-z]{36,}\\b"
+    ]
+  },
+  {
+    "label": "HEROKU_KEY",
+    "category": "Credentials",
+    "display_name": "Heroku API key",
+    "description": "Heroku API keys (UUID-shaped, 36 chars).",
+    "regex_patterns": [
+      "\\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\\b"
+    ],
+    "context_phrases": [
+      "heroku api key",
+      "heroku key",
+      "heroku token"
+    ],
+    "recommended": false
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "jwt",
+      "jwt token",
+      "json web token",
+      "bearer token",
+      "access token",
+      "auth token"
+    ],
+    "description": "JSON Web Tokens (three base64url segments, dot-separated).",
+    "display_name": "JWT token",
+    "label": "JWT",
+    "recommended": true,
+    "regex_patterns": [
+      "\\beyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b"
+    ]
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "openai key",
+      "openai api key",
+      "openai_api_key"
+    ],
+    "description": "OpenAI API keys (sk-* with 48+ chars).",
+    "display_name": "OpenAI API key",
+    "label": "OPENAI_KEY",
+    "recommended": true,
+    "regex_patterns": [
+      "\\bsk-[A-Za-z0-9]{20,}T3BlbkFJ[A-Za-z0-9]{20,}\\b",
+      "\\bsk-proj-[A-Za-z0-9_-]{40,}\\b"
+    ]
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "private key",
+      "rsa private key",
+      "ec private key",
+      "ssh private key"
+    ],
+    "description": "PEM-encoded private keys (RSA, EC, OpenSSH, etc.).",
+    "display_name": "Private key (PEM)",
+    "label": "PRIVATE_KEY",
+    "recommended": true,
+    "regex_patterns": [
+      "-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    ]
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "password",
+      "passcode",
+      "api key",
+      "secret key",
+      "access token",
+      "auth token",
+      "client secret",
+      "credentials"
+    ],
+    "description": "Mentions of passwords, API keys, secrets \u2014 context-only (no value pattern).",
+    "display_name": "Generic credential mention",
+    "label": "SECRET",
+    "recommended": true,
+    "regex_patterns": []
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "slack token",
+      "slack bot token",
+      "slack api token",
+      "xoxb"
+    ],
+    "description": "Slack API tokens (xoxb-, xoxa-, xoxp-, xoxe-).",
+    "display_name": "Slack token",
+    "label": "SLACK_TOKEN",
+    "recommended": true,
+    "regex_patterns": [
+      "\\bxox[abprseou]-[0-9A-Za-z-]{10,}\\b"
+    ]
+  },
+  {
+    "label": "SSH_KEY",
+    "category": "Credentials",
+    "display_name": "SSH private key",
+    "description": "OpenSSH or RSA private key headers \u2014 context-only.",
+    "regex_patterns": [
+      "-----BEGIN (?:OPENSSH|RSA|EC|DSA|ED25519) PRIVATE KEY-----"
+    ],
+    "context_phrases": [
+      "ssh private key",
+      "openssh private key",
+      "ssh key",
+      "id_rsa"
+    ],
+    "recommended": true
+  },
+  {
+    "category": "Credentials",
+    "context_phrases": [
+      "stripe key",
+      "stripe secret",
+      "stripe api key",
+      "stripe_secret_key"
+    ],
+    "description": "Stripe secret keys (sk_live_*, sk_test_*, pk_live_*, etc.).",
+    "display_name": "Stripe API key",
+    "label": "STRIPE_KEY",
+    "recommended": true,
+    "regex_patterns": [
+      "\\b(?:sk|pk|rk)_(?:live|test)_[0-9A-Za-z]{24,}\\b"
+    ]
+  },
+  {
+    "category": "Financial",
+    "context_phrases": [
+      "bitcoin address",
+      "btc address",
+      "wallet address"
+    ],
+    "description": "Bitcoin addresses (P2PKH, P2SH, Bech32).",
+    "display_name": "Bitcoin address",
+    "label": "BTC_ADDRESS",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\\b",
+      "\\bbc1[a-z0-9]{39,59}\\b"
+    ]
+  },
+  {
+    "category": "Financial",
+    "context_phrases": [
+      "ethereum address",
+      "eth address",
+      "wallet address",
+      "metamask"
+    ],
+    "description": "Ethereum addresses (0x-prefixed, 40 hex chars).",
+    "display_name": "Ethereum address",
+    "label": "ETH_ADDRESS",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b0x[a-fA-F0-9]{40}\\b"
+    ]
+  },
+  {
+    "category": "Financial",
+    "context_phrases": [
+      "iban",
+      "iban code",
+      "iban number",
+      "international bank account"
+    ],
+    "description": "International Bank Account Number (15-34 chars, country prefix).",
+    "display_name": "IBAN",
+    "label": "IBAN",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b[A-Z]{2}\\d{2}[A-Z0-9]{11,30}\\b"
+    ]
+  },
+  {
+    "label": "SWIFT_BIC",
+    "category": "Financial",
+    "display_name": "SWIFT / BIC code",
+    "description": "Bank Identifier Code: 8 or 11 characters, A-Z and 0-9.",
+    "regex_patterns": [
+      "\\b[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\\b"
+    ],
+    "context_phrases": [
+      "swift code",
+      "bic code",
+      "swift/bic",
+      "international bank code"
+    ],
+    "recommended": false
+  },
+  {
+    "label": "US_BANK_ROUTING",
+    "category": "Financial",
+    "display_name": "US bank routing number (ABA)",
+    "description": "9-digit US ABA routing number for bank wire transfers and ACH.",
+    "regex_patterns": [
+      "\\b\\d{9}\\b"
+    ],
+    "context_phrases": [
+      "routing number",
+      "aba routing",
+      "ach routing",
+      "bank routing"
+    ],
+    "recommended": false
+  },
+  {
+    "label": "AU_ABN",
+    "category": "Identifiers",
+    "display_name": "Australian Business Number",
+    "description": "Australian ABN \u2014 11 digits, often spaced 2-3-3-3.",
+    "regex_patterns": [
+      "\\b\\d{2}[\\s-]?\\d{3}[\\s-]?\\d{3}[\\s-]?\\d{3}\\b"
+    ],
+    "context_phrases": [
+      "abn",
+      "australian business number",
+      "business number"
+    ],
+    "recommended": false
+  },
+  {
+    "label": "AU_MEDICARE",
+    "category": "Identifiers",
+    "display_name": "Australian Medicare number",
+    "description": "Australian Medicare card number \u2014 10 or 11 digits.",
+    "regex_patterns": [
+      "\\b\\d{4}[\\s-]?\\d{5}[\\s-]?\\d{1,2}\\b"
+    ],
+    "context_phrases": [
+      "medicare number",
+      "medicare card",
+      "australian medicare"
+    ],
+    "recommended": false
+  },
+  {
+    "label": "AU_TFN",
+    "category": "Identifiers",
+    "display_name": "Australian Tax File Number",
+    "description": "Australian TFN \u2014 8 or 9 digits, often spaced 3-3-3.",
+    "regex_patterns": [
+      "\\b\\d{3}[\\s-]?\\d{3}[\\s-]?\\d{2,3}\\b"
+    ],
+    "context_phrases": [
+      "tax file number",
+      "tfn",
+      "australian tax"
+    ],
+    "recommended": false
+  },
+  {
+    "label": "CA_SIN",
+    "category": "Identifiers",
+    "display_name": "Canadian Social Insurance Number",
+    "description": "Canadian SIN \u2014 9 digits, often formatted as XXX-XXX-XXX.",
+    "regex_patterns": [
+      "\\b\\d{3}[\\s-]\\d{3}[\\s-]\\d{3}\\b"
+    ],
+    "context_phrases": [
+      "social insurance number",
+      "sin number",
+      "canadian sin"
+    ],
+    "recommended": false
+  },
+  {
+    "label": "EU_VAT",
+    "category": "Identifiers",
+    "display_name": "EU VAT number",
+    "description": "EU VAT identifier \u2014 2-letter country code + 8-12 alphanumeric chars.",
+    "regex_patterns": [
+      "\\b(?:AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|HU|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK)[A-Z0-9]{8,12}\\b"
+    ],
+    "context_phrases": [
+      "vat number",
+      "vat id",
+      "vat code",
+      "eu vat",
+      "value added tax"
+    ],
+    "recommended": false
+  },
+  {
+    "category": "Identifiers",
+    "context_phrases": [
+      "aadhaar number",
+      "aadhar number",
+      "uid",
+      "unique id"
+    ],
+    "description": "12-digit Indian Aadhaar number, often spaced 4-4-4.",
+    "display_name": "India Aadhaar",
+    "label": "IN_AADHAAR",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b\\d{4}\\s?\\d{4}\\s?\\d{4}\\b"
+    ]
+  },
+  {
+    "category": "Identifiers",
+    "context_phrases": [
+      "pan number",
+      "pan card",
+      "permanent account number"
+    ],
+    "description": "Indian PAN: 5 letters + 4 digits + 1 letter.",
+    "display_name": "India PAN",
+    "label": "IN_PAN",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b[A-Z]{5}\\d{4}[A-Z]\\b"
+    ]
+  },
+  {
+    "category": "Identifiers",
+    "context_phrases": [
+      "itin",
+      "individual taxpayer",
+      "tax identification"
+    ],
+    "description": "Individual Taxpayer Identification Number (9-digit, starts with 9).",
+    "display_name": "US ITIN",
+    "label": "ITIN",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b9\\d{2}-\\d{2}-\\d{4}\\b"
+    ]
+  },
+  {
+    "category": "Identifiers",
+    "context_phrases": [
+      "nhs number",
+      "nhs no",
+      "national health service number"
+    ],
+    "description": "10-digit UK National Health Service number, often spaced 3-3-4.",
+    "display_name": "UK NHS number",
+    "label": "UK_NHS",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b\\d{3}\\s?\\d{3}\\s?\\d{4}\\b"
+    ]
+  },
+  {
+    "category": "Identifiers",
+    "context_phrases": [
+      "national insurance number",
+      "ni number",
+      "nino"
+    ],
+    "description": "UK NI number (e.g., AB123456C).",
+    "display_name": "UK National Insurance Number",
+    "label": "UK_NINO",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z]\\s?\\d{2}\\s?\\d{2}\\s?\\d{2}\\s?[A-D]\\b"
+    ]
+  },
+  {
+    "category": "Identifiers",
+    "context_phrases": [
+      "driver's license",
+      "drivers license",
+      "driving license",
+      "dl number",
+      "license number"
+    ],
+    "description": "US driver's license numbers \u2014 formats vary by state. Context-driven.",
+    "display_name": "US driver's license",
+    "label": "US_DRIVERS_LICENSE",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b[A-Z]\\d{7,8}\\b"
+    ]
+  },
+  {
+    "category": "Identifiers",
+    "context_phrases": [
+      "ein",
+      "employer identification number",
+      "tax id number"
+    ],
+    "description": "EIN in 2-7 digit format (e.g., 12-3456789).",
+    "display_name": "US Employer ID Number",
+    "label": "US_EIN",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b\\d{2}-\\d{7}\\b"
+    ]
+  },
+  {
+    "label": "US_NPI",
+    "category": "Identifiers",
+    "display_name": "US National Provider Identifier",
+    "description": "10-digit healthcare provider identifier under HIPAA.",
+    "regex_patterns": [
+      "\\b\\d{10}\\b"
+    ],
+    "context_phrases": [
+      "npi number",
+      "national provider identifier",
+      "provider id",
+      "npi:"
+    ],
+    "recommended": false
+  },
+  {
+    "category": "Identifiers",
+    "context_phrases": [
+      "passport number",
+      "passport no",
+      "us passport",
+      "passport id"
+    ],
+    "description": "9-character US passport numbers, optionally prefixed with 'US'.",
+    "display_name": "US passport number",
+    "label": "US_PASSPORT",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b(?:US)?[0-9]{9}\\b"
+    ]
+  },
+  {
+    "category": "Identifiers",
+    "context_phrases": [
+      "zip code",
+      "zipcode",
+      "postal code",
+      "zip:"
+    ],
+    "description": "5-digit US ZIP codes (with required ZIP+4 extension OR with surrounding context).",
+    "display_name": "US ZIP code",
+    "label": "ZIP_CODE",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b\\d{5}-\\d{4}\\b"
+    ]
+  },
+  {
+    "label": "ISBN",
+    "category": "Misc",
+    "display_name": "ISBN (10 or 13 digit)",
+    "description": "International Standard Book Number \u2014 ISBN-10 or ISBN-13 with optional dashes.",
+    "regex_patterns": [
+      "\\b(?:ISBN[-\\s]?(?:1[03])?:?\\s?)?(?:97[89][\\s-]?)?\\d{1,5}[\\s-]?\\d{1,7}[\\s-]?\\d{1,7}[\\s-]?[\\dX]\\b"
+    ],
+    "context_phrases": [
+      "isbn",
+      "isbn-10",
+      "isbn-13"
+    ],
+    "recommended": false
+  },
+  {
+    "category": "PII",
+    "context_phrases": [
+      "home address",
+      "street address",
+      "postal address",
+      "mailing address",
+      "shipping address"
+    ],
+    "description": "Mentions of street/home/postal addresses \u2014 context only.",
+    "display_name": "Postal address (context)",
+    "label": "ADDRESS",
+    "recommended": false,
+    "regex_patterns": []
+  },
+  {
+    "category": "PII",
+    "context_phrases": [
+      "credit card",
+      "card number",
+      "cc number",
+      "visa",
+      "mastercard",
+      "amex",
+      "american express",
+      "discover card"
+    ],
+    "description": "Credit card numbers (13-19 digits with optional separators).",
+    "display_name": "Credit card",
+    "label": "CC",
+    "recommended": true,
+    "regex_patterns": [
+      "\\b(?:\\d[ -]?){12,18}\\d\\b"
+    ]
+  },
+  {
+    "category": "PII",
+    "context_phrases": [
+      "date of birth",
+      "dob",
+      "born on",
+      "birthday",
+      "birthdate"
+    ],
+    "description": "Common date-of-birth formats (YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY).",
+    "display_name": "Date of birth",
+    "label": "DOB",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b\\d{4}-\\d{2}-\\d{2}\\b",
+      "\\b\\d{1,2}/\\d{1,2}/\\d{4}\\b"
+    ]
+  },
+  {
+    "category": "PII",
+    "context_phrases": [
+      "email",
+      "e-mail",
+      "email address",
+      "email id"
+    ],
+    "description": "RFC-5322-style email addresses.",
+    "display_name": "Email address",
+    "label": "EMAIL",
+    "recommended": true,
+    "regex_patterns": [
+      "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b"
+    ]
+  },
+  {
+    "category": "PII",
+    "context_phrases": [
+      "phone",
+      "phone number",
+      "cell number",
+      "mobile number",
+      "telephone",
+      "contact number"
+    ],
+    "description": "US phone numbers with optional country code and separators.",
+    "display_name": "Phone number (US)",
+    "label": "PHONE",
+    "recommended": true,
+    "regex_patterns": [
+      "\\b(?:\\+?1[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\\b"
+    ]
+  },
+  {
+    "category": "PII",
+    "context_phrases": [
+      "international phone",
+      "country code",
+      "international number"
+    ],
+    "description": "International phone numbers with country code (E.164-style).",
+    "display_name": "Phone number (international)",
+    "label": "PHONE_INTL",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b\\+\\d{1,3}[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,9}\\b"
+    ]
+  },
+  {
+    "category": "PII",
+    "context_phrases": [
+      "ssn",
+      "social security",
+      "social security number",
+      "social security #"
+    ],
+    "description": "US SSN in 3-2-4 digit format (e.g., 123-45-6789).",
+    "display_name": "US Social Security Number",
+    "label": "SSN",
+    "recommended": true,
+    "regex_patterns": [
+      "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+    ]
+  },
+  {
+    "category": "Web/Tech",
+    "context_phrases": [
+      "ip address",
+      "ipv4",
+      "ip:"
+    ],
+    "description": "IPv4 addresses with valid octet ranges (rejects 999.999.999.999 / version strings).",
+    "display_name": "IPv4 address",
+    "label": "IPV4",
+    "recommended": true,
+    "regex_patterns": [
+      "\\b(?:25[0-5]|2[0-4]\\d|[01]?\\d?\\d)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d?\\d)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d?\\d)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d?\\d)\\b"
+    ]
+  },
+  {
+    "category": "Web/Tech",
+    "context_phrases": [
+      "ipv6",
+      "ip address"
+    ],
+    "description": "IPv6 addresses (full and compressed forms).",
+    "display_name": "IPv6 address",
+    "label": "IPV6",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b(?:[A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}\\b"
+    ]
+  },
+  {
+    "category": "Web/Tech",
+    "context_phrases": [
+      "mac address",
+      "hardware address",
+      "ethernet address"
+    ],
+    "description": "Hardware MAC addresses (colon or hyphen separated).",
+    "display_name": "MAC address",
+    "label": "MAC_ADDRESS",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\\b"
+    ]
+  },
+  {
+    "category": "Web/Tech",
+    "context_phrases": [
+      "md5",
+      "md5 hash",
+      "md5:"
+    ],
+    "description": "Bare 32-char hex strings collide with too many things \u2014 detect via context.",
+    "display_name": "MD5 hash (context-only)",
+    "label": "MD5",
+    "recommended": false,
+    "regex_patterns": []
+  },
+  {
+    "category": "Web/Tech",
+    "context_phrases": [
+      "sha256",
+      "sha-256",
+      "sha256 hash",
+      "sha256:"
+    ],
+    "description": "Bare 64-char hex strings collide with too many things \u2014 detect via context.",
+    "display_name": "SHA-256 hash (context-only)",
+    "label": "SHA256",
+    "recommended": false,
+    "regex_patterns": []
+  },
+  {
+    "category": "Web/Tech",
+    "context_phrases": [
+      "url",
+      "link",
+      "website"
+    ],
+    "description": "HTTP/HTTPS URLs requiring a TLD (rejects 'http://localhost' shorthand).",
+    "display_name": "URL",
+    "label": "URL",
+    "recommended": false,
+    "regex_patterns": [
+      "\\bhttps?://[A-Za-z0-9.-]+\\.[A-Za-z]{2,}(?:[/?#][^\\s]*)?\\b"
+    ]
+  },
+  {
+    "category": "Web/Tech",
+    "context_phrases": [
+      "uuid",
+      "guid",
+      "unique id"
+    ],
+    "description": "UUIDs (any version, 8-4-4-4-12 hex format).",
+    "display_name": "UUID",
+    "label": "UUID",
+    "recommended": false,
+    "regex_patterns": [
+      "\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b"
+    ]
+  }
+]

@@ -24,370 +24,63 @@ use std::collections::{HashMap, HashSet};
 
 // ─── Built-in pattern registry ────────────────────────────────────────────────
 
-/// Metadata for a built-in entity pattern. The static registry below holds
-/// one of these per recognized type. Patterns are organized by category
-/// (PII, Credentials, Identifiers, Web/Tech, Financial, Misc).
-#[derive(Debug, Clone, Copy)]
+/// Metadata for a built-in entity pattern. Loaded from `patterns/builtin.json`
+/// at compile time via `include_str!`, parsed once on first access.
+///
+/// Patterns are organized by category (PII, Credentials, Identifiers, etc.).
+/// Adding a new built-in pattern is a JSON edit, not a code change — same
+/// runtime cost (regex matching), unified storage with custom entities,
+/// reviewable via standard PR diff on the JSON file.
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct BuiltinPattern {
     /// Stable identifier — used in API responses, persistence, and as the
     /// suffix of the emitted `mr_pii_<label>` token (lowercased).
-    pub label: &'static str,
+    pub label: String,
     /// Display category for UI grouping ("PII", "Credentials", etc.).
-    pub category: &'static str,
+    pub category: String,
     /// Human-readable name for UI display.
-    pub display_name: &'static str,
+    pub display_name: String,
     /// Short description shown in the UI tooltip.
-    pub description: &'static str,
+    pub description: String,
     /// Value-pattern regex strings (Rust syntax). May be empty if the entity
     /// is detected only via context phrases.
-    pub regex_patterns: &'static [&'static str],
+    pub regex_patterns: Vec<String>,
     /// Context-phrase strings for Aho-Corasick (lowercase). May be empty.
-    pub context_phrases: &'static [&'static str],
+    pub context_phrases: Vec<String>,
     /// Whether this is enabled in the "recommended" preset for general use.
     /// Customers can override via per-namespace config.
     pub recommended: bool,
 }
 
-/// The full registry of built-in entity patterns. Stable ordering for UI.
+/// The full registry of built-in entity patterns.
 ///
-/// Categories: PII, Credentials, Identifiers, Web/Tech, Financial, Misc.
-pub const BUILTIN_PATTERNS: &[BuiltinPattern] = &[
-    // ── PII ─────────────────────────────────────────────────────────────────
-    BuiltinPattern {
-        label: "CC", category: "PII",
-        display_name: "Credit card",
-        description: "Credit card numbers (13-19 digits with optional separators).",
-        regex_patterns: &[r"\b(?:\d[ -]?){12,18}\d\b"],
-        context_phrases: &["credit card", "card number", "cc number", "visa", "mastercard", "amex", "american express", "discover card"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "SSN", category: "PII",
-        display_name: "US Social Security Number",
-        description: "US SSN in 3-2-4 digit format (e.g., 123-45-6789).",
-        regex_patterns: &[r"\b\d{3}-\d{2}-\d{4}\b"],
-        context_phrases: &["ssn", "social security", "social security number", "social security #"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "EMAIL", category: "PII",
-        display_name: "Email address",
-        description: "RFC-5322-style email addresses.",
-        regex_patterns: &[r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"],
-        context_phrases: &["email", "e-mail", "email address", "email id"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "PHONE", category: "PII",
-        display_name: "Phone number (US)",
-        description: "US phone numbers with optional country code and separators.",
-        regex_patterns: &[r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"],
-        context_phrases: &["phone", "phone number", "cell number", "mobile number", "telephone", "contact number"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "PHONE_INTL", category: "PII",
-        display_name: "Phone number (international)",
-        description: "International phone numbers with country code (E.164-style).",
-        regex_patterns: &[r"\b\+\d{1,3}[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}\b"],
-        context_phrases: &["international phone", "country code", "international number"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "DOB", category: "PII",
-        display_name: "Date of birth",
-        description: "Common date-of-birth formats (YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY).",
-        regex_patterns: &[
-            r"\b\d{4}-\d{2}-\d{2}\b",
-            r"\b\d{1,2}/\d{1,2}/\d{4}\b",
-        ],
-        context_phrases: &["date of birth", "dob", "born on", "birthday", "birthdate"],
-        recommended: false,
-    },
-
-    // ── Credentials & Secrets ───────────────────────────────────────────────
-    BuiltinPattern {
-        label: "AWS_ACCESS_KEY", category: "Credentials",
-        display_name: "AWS access key ID",
-        description: "AWS access key IDs (AKIA*, ASIA*, AROA* — 20 chars total).",
-        regex_patterns: &[r"\b(?:AKIA|ASIA|AROA)[0-9A-Z]{16}\b"],
-        context_phrases: &["aws access key", "access key id", "aws credentials", "aws_access_key_id"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "AWS_SECRET_KEY", category: "Credentials",
-        display_name: "AWS secret access key (context-only)",
-        description: "AWS secret keys are 40-char base64 — too generic to detect by value alone (collides with hashes, tokens). Detect via context only.",
-        regex_patterns: &[],
-        context_phrases: &["aws secret key", "secret access key", "aws_secret_access_key"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "GCP_KEY", category: "Credentials",
-        display_name: "GCP API key",
-        description: "Google Cloud API keys (39 chars, AIza prefix).",
-        regex_patterns: &[r"\bAIza[0-9A-Za-z_-]{35}\b"],
-        context_phrases: &["gcp api key", "google cloud key", "google api key", "firebase key"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "STRIPE_KEY", category: "Credentials",
-        display_name: "Stripe API key",
-        description: "Stripe secret keys (sk_live_*, sk_test_*, pk_live_*, etc.).",
-        regex_patterns: &[r"\b(?:sk|pk|rk)_(?:live|test)_[0-9A-Za-z]{24,}\b"],
-        context_phrases: &["stripe key", "stripe secret", "stripe api key", "stripe_secret_key"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "GITHUB_PAT", category: "Credentials",
-        display_name: "GitHub personal access token",
-        description: "GitHub tokens (ghp_, gho_, ghs_, ghu_, ghr_ prefixes).",
-        regex_patterns: &[r"\b(?:ghp|gho|ghs|ghu|ghr)_[0-9A-Za-z]{36,}\b"],
-        context_phrases: &["github token", "github pat", "personal access token", "github_token"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "SLACK_TOKEN", category: "Credentials",
-        display_name: "Slack token",
-        description: "Slack API tokens (xoxb-, xoxa-, xoxp-, xoxe-).",
-        regex_patterns: &[r"\bxox[abprseou]-[0-9A-Za-z-]{10,}\b"],
-        context_phrases: &["slack token", "slack bot token", "slack api token", "xoxb"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "OPENAI_KEY", category: "Credentials",
-        display_name: "OpenAI API key",
-        description: "OpenAI API keys (sk-* with 48+ chars).",
-        regex_patterns: &[r"\bsk-[A-Za-z0-9]{20,}T3BlbkFJ[A-Za-z0-9]{20,}\b", r"\bsk-proj-[A-Za-z0-9_-]{40,}\b"],
-        context_phrases: &["openai key", "openai api key", "openai_api_key"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "ANTHROPIC_KEY", category: "Credentials",
-        display_name: "Anthropic API key",
-        description: "Anthropic API keys (sk-ant-* prefix).",
-        regex_patterns: &[r"\bsk-ant-[A-Za-z0-9_-]{32,}\b"],
-        context_phrases: &["anthropic key", "anthropic api key", "claude api key"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "JWT", category: "Credentials",
-        display_name: "JWT token",
-        description: "JSON Web Tokens (three base64url segments, dot-separated).",
-        regex_patterns: &[r"\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b"],
-        context_phrases: &["jwt", "jwt token", "json web token", "bearer token", "access token", "auth token"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "PRIVATE_KEY", category: "Credentials",
-        display_name: "Private key (PEM)",
-        description: "PEM-encoded private keys (RSA, EC, OpenSSH, etc.).",
-        regex_patterns: &[r"-----BEGIN [A-Z ]*PRIVATE KEY-----"],
-        context_phrases: &["private key", "rsa private key", "ec private key", "ssh private key"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "SECRET", category: "Credentials",
-        display_name: "Generic credential mention",
-        description: "Mentions of passwords, API keys, secrets — context-only (no value pattern).",
-        regex_patterns: &[],
-        context_phrases: &["password", "passcode", "api key", "secret key", "access token", "auth token", "client secret", "credentials"],
-        recommended: true,
-    },
-
-    // ── Identifiers (US) ────────────────────────────────────────────────────
-    BuiltinPattern {
-        label: "US_PASSPORT", category: "Identifiers",
-        display_name: "US passport number",
-        description: "9-character US passport numbers, optionally prefixed with 'US'.",
-        regex_patterns: &[r"\b(?:US)?[0-9]{9}\b"],
-        context_phrases: &["passport number", "passport no", "us passport", "passport id"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "ZIP_CODE", category: "Identifiers",
-        display_name: "US ZIP code",
-        description: "5-digit US ZIP codes (with required ZIP+4 extension OR with surrounding context).",
-        // The prior pattern matched ANY 5-digit number — too greedy.
-        // Now require ZIP+4 form for confident regex match; bare 5-digit
-        // matches must come through context phrases ("zip code 12345").
-        regex_patterns: &[r"\b\d{5}-\d{4}\b"],
-        context_phrases: &["zip code", "zipcode", "postal code", "zip:"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "US_DRIVERS_LICENSE", category: "Identifiers",
-        display_name: "US driver's license",
-        description: "US driver's license numbers — formats vary by state. Context-driven.",
-        regex_patterns: &[r"\b[A-Z]\d{7,8}\b"],
-        context_phrases: &["driver's license", "drivers license", "driving license", "dl number", "license number"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "US_EIN", category: "Identifiers",
-        display_name: "US Employer ID Number",
-        description: "EIN in 2-7 digit format (e.g., 12-3456789).",
-        regex_patterns: &[r"\b\d{2}-\d{7}\b"],
-        context_phrases: &["ein", "employer identification number", "tax id number"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "ITIN", category: "Identifiers",
-        display_name: "US ITIN",
-        description: "Individual Taxpayer Identification Number (9-digit, starts with 9).",
-        regex_patterns: &[r"\b9\d{2}-\d{2}-\d{4}\b"],
-        context_phrases: &["itin", "individual taxpayer", "tax identification"],
-        recommended: false,
-    },
-
-    // ── Identifiers (International) ─────────────────────────────────────────
-    BuiltinPattern {
-        label: "UK_NHS", category: "Identifiers",
-        display_name: "UK NHS number",
-        description: "10-digit UK National Health Service number, often spaced 3-3-4.",
-        regex_patterns: &[r"\b\d{3}\s?\d{3}\s?\d{4}\b"],
-        context_phrases: &["nhs number", "nhs no", "national health service number"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "UK_NINO", category: "Identifiers",
-        display_name: "UK National Insurance Number",
-        description: "UK NI number (e.g., AB123456C).",
-        regex_patterns: &[r"\b[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z]\s?\d{2}\s?\d{2}\s?\d{2}\s?[A-D]\b"],
-        context_phrases: &["national insurance number", "ni number", "nino"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "IN_PAN", category: "Identifiers",
-        display_name: "India PAN",
-        description: "Indian PAN: 5 letters + 4 digits + 1 letter.",
-        regex_patterns: &[r"\b[A-Z]{5}\d{4}[A-Z]\b"],
-        context_phrases: &["pan number", "pan card", "permanent account number"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "IN_AADHAAR", category: "Identifiers",
-        display_name: "India Aadhaar",
-        description: "12-digit Indian Aadhaar number, often spaced 4-4-4.",
-        regex_patterns: &[r"\b\d{4}\s?\d{4}\s?\d{4}\b"],
-        context_phrases: &["aadhaar number", "aadhar number", "uid", "unique id"],
-        recommended: false,
-    },
-
-    // ── Financial ───────────────────────────────────────────────────────────
-    BuiltinPattern {
-        label: "IBAN", category: "Financial",
-        display_name: "IBAN",
-        description: "International Bank Account Number (15-34 chars, country prefix).",
-        regex_patterns: &[r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b"],
-        context_phrases: &["iban", "iban code", "iban number", "international bank account"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "BTC_ADDRESS", category: "Financial",
-        display_name: "Bitcoin address",
-        description: "Bitcoin addresses (P2PKH, P2SH, Bech32).",
-        regex_patterns: &[
-            r"\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b",
-            r"\bbc1[a-z0-9]{39,59}\b",
-        ],
-        context_phrases: &["bitcoin address", "btc address", "wallet address"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "ETH_ADDRESS", category: "Financial",
-        display_name: "Ethereum address",
-        description: "Ethereum addresses (0x-prefixed, 40 hex chars).",
-        regex_patterns: &[r"\b0x[a-fA-F0-9]{40}\b"],
-        context_phrases: &["ethereum address", "eth address", "wallet address", "metamask"],
-        recommended: false,
-    },
-
-    // ── Web / Tech ──────────────────────────────────────────────────────────
-    BuiltinPattern {
-        label: "IPV4", category: "Web/Tech",
-        display_name: "IPv4 address",
-        description: "IPv4 addresses with valid octet ranges (rejects 999.999.999.999 / version strings).",
-        // Each octet must be 0-255; the previous \d{1,3} matched version strings
-        // like "1.2.3.4" and "192.168.500.1". This rejects out-of-range octets.
-        regex_patterns: &[r"\b(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\.(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\.(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\.(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\b"],
-        context_phrases: &["ip address", "ipv4", "ip:"],
-        recommended: true,
-    },
-    BuiltinPattern {
-        label: "IPV6", category: "Web/Tech",
-        display_name: "IPv6 address",
-        description: "IPv6 addresses (full and compressed forms).",
-        regex_patterns: &[r"\b(?:[A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}\b"],
-        context_phrases: &["ipv6", "ip address"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "MAC_ADDRESS", category: "Web/Tech",
-        display_name: "MAC address",
-        description: "Hardware MAC addresses (colon or hyphen separated).",
-        regex_patterns: &[r"\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b"],
-        context_phrases: &["mac address", "hardware address", "ethernet address"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "URL", category: "Web/Tech",
-        display_name: "URL",
-        description: "HTTP/HTTPS URLs requiring a TLD (rejects 'http://localhost' shorthand).",
-        // Prior pattern matched anything starting with http:// — including
-        // version-numbered protocol mentions and URL-shaped log entries.
-        // Now require: scheme + valid host with at least one dot + TLD ≥2 chars.
-        regex_patterns: &[r"\bhttps?://[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?:[/?#][^\s]*)?\b"],
-        context_phrases: &["url", "link", "website"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "UUID", category: "Web/Tech",
-        display_name: "UUID",
-        description: "UUIDs (any version, 8-4-4-4-12 hex format).",
-        regex_patterns: &[r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"],
-        context_phrases: &["uuid", "guid", "unique id"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "SHA256", category: "Web/Tech",
-        display_name: "SHA-256 hash (context-only)",
-        description: "Bare 64-char hex strings collide with too many things — detect via context.",
-        regex_patterns: &[],
-        context_phrases: &["sha256", "sha-256", "sha256 hash", "sha256:"],
-        recommended: false,
-    },
-    BuiltinPattern {
-        label: "MD5", category: "Web/Tech",
-        display_name: "MD5 hash (context-only)",
-        description: "Bare 32-char hex strings collide with too many things — detect via context.",
-        regex_patterns: &[],
-        context_phrases: &["md5", "md5 hash", "md5:"],
-        recommended: false,
-    },
-
-    // ── Misc structured ─────────────────────────────────────────────────────
-    BuiltinPattern {
-        label: "ADDRESS", category: "PII",
-        display_name: "Postal address (context)",
-        description: "Mentions of street/home/postal addresses — context only.",
-        regex_patterns: &[],
-        context_phrases: &["home address", "street address", "postal address", "mailing address", "shipping address"],
-        recommended: false,
-    },
-];
+/// Loaded once at first access from `patterns/builtin.json`, which is embedded
+/// into the binary at compile time via `include_str!`. Same runtime cost as
+/// a hardcoded array (parsed once, immutable thereafter), but adding a new
+/// built-in pattern is a JSON edit reviewable as a normal PR diff — no Rust
+/// source change required. Unifies storage with custom entities (`_entities.json`).
+///
+/// Categories: PII, Credentials, Identifiers, Web/Tech, Financial.
+pub static BUILTIN_PATTERNS: std::sync::LazyLock<Vec<BuiltinPattern>> =
+    std::sync::LazyLock::new(|| {
+        const RAW: &str = include_str!("../patterns/builtin.json");
+        serde_json::from_str(RAW)
+            .expect("patterns/builtin.json must be valid JSON matching BuiltinPattern")
+    });
 
 /// Look up a built-in pattern by label.
 pub fn get_builtin(label: &str) -> Option<&'static BuiltinPattern> {
-    BUILTIN_PATTERNS.iter().find(|p| p.label == label)
+    // The LazyLock ensures the Vec lives forever after first access, so the
+    // 'static lifetime on the returned reference is sound.
+    BUILTIN_PATTERNS.iter().find(|p| p.label.as_str() == label)
 }
 
 /// All distinct categories in the registry, in declaration order.
-pub fn all_categories() -> Vec<&'static str> {
+pub fn all_categories() -> Vec<String> {
     let mut seen = HashSet::new();
     let mut out = Vec::new();
-    for p in BUILTIN_PATTERNS {
-        if seen.insert(p.category) { out.push(p.category); }
+    for p in BUILTIN_PATTERNS.iter() {
+        if seen.insert(p.category.clone()) { out.push(p.category.clone()); }
     }
     out
 }
@@ -498,14 +191,14 @@ impl EntityLayer {
 
         for label in labels {
             if let Some(p) = get_builtin(label) {
-                for pat in p.regex_patterns {
+                for pat in &p.regex_patterns {
                     if let Ok(rx) = Regex::new(pat) {
-                        regex_patterns.push((p.label.to_string(), rx));
+                        regex_patterns.push((p.label.clone(), rx));
                     }
                 }
-                for ctx in p.context_phrases {
-                    ac_strings.push(ctx.to_string());
-                    ac_pattern_to_label.push(p.label.to_string());
+                for ctx in &p.context_phrases {
+                    ac_strings.push(ctx.clone());
+                    ac_pattern_to_label.push(p.label.clone());
                 }
             }
         }
@@ -672,8 +365,8 @@ mod tests {
 
     #[test]
     fn all_registry_regexes_compile() {
-        for p in BUILTIN_PATTERNS {
-            for pat in p.regex_patterns {
+        for p in BUILTIN_PATTERNS.iter() {
+            for pat in &p.regex_patterns {
                 Regex::new(pat).unwrap_or_else(|e|
                     panic!("{} regex {:?} won't compile: {}", p.label, pat, e));
             }
