@@ -2,6 +2,11 @@
 name = "microresolve-node"
 version = "0.1.0"
 edition = "2021"
+authors = ["Gladius Thayalarajan"]
+description = "Pre-LLM decision layer: intent routing, PII detection, safety filtering, tool prefiltering. ~30μs per call, CPU-only, continuous learning."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/gladius/microresolve"
+homepage = "https://github.com/gladius/microresolve"
 publish = true
 
 [lib]

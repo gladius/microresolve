@@ -5,10 +5,16 @@ build-backend = "maturin"
 [project]
 name = "microresolve"
 version = "0.1.0"
-description = "Sub-microsecond intent routing with Hebbian learning. No embeddings, no GPU, no retraining."
+description = "Pre-LLM decision layer: intent routing, PII detection, safety filtering, tool prefiltering. ~30μs per call, CPU-only, continuous learning."
 requires-python = ">=3.8"
 license = "MIT OR Apache-2.0"
+authors = [{ name = "Gladius Thayalarajan" }]
 keywords = ["intent", "routing", "nlp", "chatbot"]
+
+[project.urls]
+Homepage = "https://github.com/gladius/microresolve"
+Repository = "https://github.com/gladius/microresolve"
+Issues = "https://github.com/gladius/microresolve/issues"
 
 [tool.maturin]
 features = []

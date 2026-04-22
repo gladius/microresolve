@@ -1,11 +1,11 @@
 # MicroResolve
 
-A tiny, embeddable lexical engine for AI applications. Intent routing,
-PII / entity detection, jailbreak filtering, content classification —
-all in one library, microseconds per call, with no LLM in the hot path.
+**The fastest pre-LLM decision layer.** Intent routing, PII detection,
+safety filtering, and MCP tool prefiltering — ~30μs per call, CPU-only,
+continuous learning. No embeddings, no GPU, no MLOps.
 
 Drop into any Python, Node, Rust, or browser application as a single
-embedded library. Same engine handles all four jobs.
+embedded library. One engine handles every job.
 
 ## Design Principles
 

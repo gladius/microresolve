@@ -1,7 +1,24 @@
 {
   "name": "microresolve",
   "version": "0.1.0",
-  "description": "Sub-millisecond intent routing. No embeddings, no GPU, no neural network.",
+  "description": "Pre-LLM decision layer: intent routing, PII detection, safety filtering, tool prefiltering. ~30μs per call, CPU-only, continuous learning.",
+  "author": "Gladius Thayalarajan",
+  "license": "MIT OR Apache-2.0",
+  "homepage": "https://github.com/gladius/microresolve",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gladius/microresolve.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gladius/microresolve/issues"
+  },
+  "keywords": [
+    "intent",
+    "routing",
+    "nlp",
+    "chatbot",
+    "classification"
+  ],
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
@@ -15,7 +32,6 @@
       ]
     }
   },
-  "license": "MIT",
   "devDependencies": {
     "@napi-rs/cli": "^3.0.0"
   }

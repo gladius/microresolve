@@ -6,7 +6,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'MicroResolve',
-      description: 'Sub-millisecond intent resolution. No embeddings, no GPU, no retraining.',
+      description: 'Pre-LLM decision layer: intent routing, PII detection, safety filtering, tool prefiltering. ~30μs per call, CPU-only, continuous learning.',
       logo: {
         light: './src/assets/logo-light.svg',
         dark: './src/assets/logo-dark.svg',
