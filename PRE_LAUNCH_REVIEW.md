@@ -95,9 +95,9 @@ Use this as a working checklist — mark items as **DONE** / **SKIP** / **DEFERR
 
 | # | Endpoint | Issue | Action |
 |---|----------|-------|--------|
-| 2.1 | `POST /api/reset` | Wipes a namespace entirely. Not in UI. Dangerous if exposed publicly. | **[ ] Hide behind `--dev` flag OR delete** |
-| 2.2 | `DELETE /api/data/all` | Wipes ALL data on the server. Not in UI. | **[ ] Hide behind `--dev` flag OR delete** |
-| 2.3 | `POST /api/intents/load_defaults` | Loads a hardcoded demo intent set. Pre-existing path. | **[ ] Verify if still used; delete if not** |
+| 2.1 | `POST /api/reset` | Was UI-callable but only by the now-removed Reset button | ✅ **DONE** (commit 834b958) — endpoint and UI button removed |
+| 2.2 | `DELETE /api/data/all` | "Clear All Data" button keeps it; wipes everything by design | ✅ **KEPT INTENTIONALLY** — typed-confirmation modal is sufficient guard for self-hosted dev tool convention |
+| 2.3 | `POST /api/intents/load_defaults` | 364 lines of hardcoded e-commerce demo intents from before the current product story | ✅ **DONE** (commit 834b958) — endpoint, handler, and 'Reset to Defaults' button removed |
 | 2.4 | `POST /api/phrase/{parse,prompt}` | UI never called them; server handlers were dead. `/api/phrase/generate` is kept (used by IntentsPage). | ✅ **DONE** (commit f123b26) — removed 2 server routes + handlers + UI client funcs |
 | 2.5 | `GET /api/export`, `POST /api/import` | Whole-state dump/restore. Useful for backup but also a data-exfiltration risk without auth. | **[ ] Document risk OR gate behind auth** |
 | 2.6 | `GET /api/ns/models` | Per-namespace model registry lookup. Unclear if UI uses it. | **[ ] Confirm usage; delete if unused** |
