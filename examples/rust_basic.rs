@@ -3,7 +3,7 @@
 //!
 //! Run: cargo run --example rust_basic
 
-use asv_router::{IntentType, Router};
+use microresolve::{IntentType, Router};
 
 fn main() {
     let mut router = Router::new();

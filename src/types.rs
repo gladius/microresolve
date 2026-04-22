@@ -3,7 +3,7 @@
 /// Router configuration. Pass to `Router::with_config()`.
 ///
 /// ```
-/// use asv_router::RouterConfig;
+/// use microresolve::RouterConfig;
 /// let config = RouterConfig { top_k: 5, max_intents: 10, ..Default::default() };
 /// ```
 #[derive(Debug, Clone)]

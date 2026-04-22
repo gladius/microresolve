@@ -1,6 +1,6 @@
 # MicroResolve
 
-**The fastest pre-LLM decision layer.** Intent routing, PII detection,
+**The microsecond pre-LLM decision layer.** Intent routing, PII detection,
 safety filtering, and MCP tool prefiltering — ~30μs per call, CPU-only,
 continuous learning. No embeddings, no GPU, no MLOps.
 

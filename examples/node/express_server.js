@@ -1,19 +1,19 @@
 /**
- * ASV Router + Express: production intent routing endpoint.
+ * MicroResolve + Express: production intent routing endpoint.
  *
  * Setup: cd node && npm install && npx napi build --release
  * Run:   cd examples && npm install express && node node_express.js
  * Test:  curl -X POST localhost:3000/route -H 'Content-Type: application/json' -d '{"query": "cancel my order"}'
  *
- * After publishing to npm: just `npm install asv-router` and change the require to 'asv-router'.
+ * After publishing to npm: just `npm install microresolve` and change the require to 'microresolve'.
  */
 
 const express = require('express');
 
 // Local build: require from the node/ build output
-// After npm publish: change to require('asv-router')
+// After npm publish: change to require('microresolve')
 const path = require('path');
-const { Router } = require(path.join(__dirname, '..', '..', 'node', 'asv-router.node'));
+const { Router } = require(path.join(__dirname, '..', '..', 'node', 'microresolve.node'));
 
 const app = express();
 app.use(express.json());
@@ -51,4 +51,4 @@ app.get('/intents', (_req, res) => {
   res.json(router.intentIds());
 });
 
-app.listen(3000, () => console.log('ASV Router listening on :3000'));
+app.listen(3000, () => console.log('MicroResolve listening on :3000'));

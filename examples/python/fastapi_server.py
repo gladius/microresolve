@@ -1,18 +1,18 @@
 """
-ASV Router + FastAPI: production intent routing endpoint.
+MicroResolve + FastAPI: production intent routing endpoint.
 
 Setup: cd python && python -m venv .venv && source .venv/bin/activate && maturin develop --release
 Run:   pip install fastapi uvicorn && uvicorn examples.python_fastapi:app
 Test:  curl -X POST localhost:8000/route -H 'Content-Type: application/json' -d '{"query": "cancel my order"}'
 
-After PyPI publish: just `pip install asv-router` — no maturin needed.
+After PyPI publish: just `pip install microresolve` — no maturin needed.
 """
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from asv_router import Router
+from microresolve import Router
 
-app = FastAPI(title="ASV Intent Router")
+app = FastAPI(title="MicroResolve Intent Router")
 
 # Initialize router with intents
 router = Router()

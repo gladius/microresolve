@@ -12,6 +12,8 @@ cd ../examples/node && npm install
 
 After npm publish: just `npm install microresolve` — no build step needed.
 
+All examples require as `const { Router } = require('microresolve')`.
+
 ## Examples
 
 | Example | Description |

@@ -1,13 +1,13 @@
 """
-Hybrid routing: ASV handles the easy 80%, LLM handles the hard 20%.
+Hybrid routing: MicroResolve handles the easy 80%, LLM handles the hard 20%.
 
 This is the core cost-reduction pattern. At 10M queries/day:
   - LLM only: $10,000/day
-  - Hybrid:    $2,000/day (80% free via ASV, 20% LLM fallback)
+  - Hybrid:    $2,000/day (80% free via MicroResolve, 20% LLM fallback)
 """
 
 import anthropic  # pip install anthropic
-from asv_router import Router
+from microresolve import Router
 
 # Initialize ASV router
 router = Router()

@@ -6,7 +6,7 @@ and endpoint metadata stored for direct routing to the API.
 """
 
 import json
-from asv_router import Router
+from microresolve import Router
 
 
 def import_openapi(router: Router, spec: dict):

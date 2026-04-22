@@ -1,12 +1,12 @@
 /**
- * Basic ASV Router usage: routing, multi-intent, learning, export/import, discovery.
+ * Basic MicroResolve usage: routing, multi-intent, learning, export/import, discovery.
  *
  * Run: node basic.js
  */
 
 const path = require('path');
-// Local build — after npm publish: require('asv-router')
-const { Router } = require(path.join(__dirname, '..', '..', 'node', 'asv-router.node'));
+// Local build — after npm publish: require('microresolve')
+const { Router } = require(path.join(__dirname, '..', '..', 'node', 'microresolve.node'));
 
 // --- Setup ---
 const r = new Router();

@@ -1,10 +1,10 @@
 """
-Basic ASV Router usage: routing, multi-intent, learning, export/import, discovery.
+Basic MicroResolve usage: routing, multi-intent, learning, export/import, discovery.
 
 Run: python basic.py
 """
 
-from asv_router import Router
+from microresolve import Router
 
 # --- Setup ---
 r = Router()

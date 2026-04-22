@@ -14,6 +14,8 @@ pip install -r requirements.txt
 
 After PyPI publish: just `pip install microresolve` — no build step needed.
 
+All examples import as `from microresolve import Router`.
+
 ## Examples
 
 | Example | Description |

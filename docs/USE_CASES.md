@@ -101,7 +101,7 @@ router.add_intent("attack", ["fight", "attack", "draw sword", "battle"])
 
 # Runs in-game, no server round-trip, no LLM cost per player interaction
 # Learns from player patterns: "yolo let's do this" → quest_accept
-# Zero frame drops — sub-microsecond routing
+# Zero frame drops — ~30μs routing, CPU-only
 ```
 
 Replaces rigid keyword matching with fuzzy, learnable routing.
