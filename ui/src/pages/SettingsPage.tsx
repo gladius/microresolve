@@ -173,18 +173,6 @@ function DataSection() {
         <div className="text-xs text-red-400/70 font-semibold uppercase tracking-wide">Danger zone</div>
         <div className="flex gap-3 flex-wrap">
           <button
-            onClick={async () => {
-              if (!confirm('Reset all intents to demo defaults?')) return;
-              await api.reset();
-              await api.loadDefaults();
-              alert('Reset to defaults');
-              window.location.reload();
-            }}
-            className="text-xs text-red-400/70 hover:text-red-400 px-3 py-1.5 border border-red-400/20 rounded transition-colors"
-          >
-            Reset to Defaults
-          </button>
-          <button
             onClick={() => { setShowClearModal(true); setClearInput(''); }}
             className="text-xs text-red-500/80 hover:text-red-400 px-3 py-1.5 border border-red-500/30 rounded transition-colors"
           >

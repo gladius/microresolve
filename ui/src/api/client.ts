@@ -210,8 +210,6 @@ export const api = {
   setNsModels: (models: NamespaceModel[]) => post<void>('/ns/models', models),
 
   // State
-  loadDefaults: () => post<void>('/intents/load_defaults', {}),
-  reset: () => post<void>('/reset', {}),
   exportState: async () => {
     const res = await fetch(`${BASE}/export`, { headers: appHeaders() });
     return res.text();
