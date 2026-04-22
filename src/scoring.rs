@@ -765,13 +765,22 @@ impl IntentIndex {
             e.1 = (e.1 + rate * (1.0 - e.1)).min(1.0);
         } else {
             // New (word, intent) pair — posting list grows.
-            // Update intent_count if this is a brand-new intent in the index so
-            // IDF is correct for namespaces built in memory without a disk reload.
-            if self.known_intents.insert(intent.to_string()) {
+            // Update intent_count if this is a brand-new intent in the index.
+            let new_intent = self.known_intents.insert(intent.to_string());
+            if new_intent {
                 self.intent_count += 1;
             }
             entries.push((intent.to_string(), rate));
-            self.refresh_idf_for(word);
+            if new_intent {
+                // A new intent invalidates the IDF of every previously-indexed
+                // word (their denominator was N, now it's N+1). Sub-millisecond
+                // even for thousands of words, runs only when intents are
+                // registered (rare event vs phrase-adds).
+                self.rebuild_idf();
+            } else {
+                // Existing intent — only this word's IDF needs refreshing.
+                self.refresh_idf_for(word);
+            }
         }
     }
 
@@ -1586,5 +1595,57 @@ mod intent_graph_tests {
         assert!(neg_flag, "CJK negation marker 不 should set has_negation");
         let found = neg_scores.iter().any(|(id, _)| id == "cancel_subscription");
         assert!(found, "cancel_subscription should still appear (intent is about cancellation)");
+    }
+
+    /// Regression test for the in-memory IDF-staleness bug.
+    ///
+    /// When intents are added incrementally (as happens in any newly-created
+    /// namespace built via API calls before any disk save/reload), the IDF
+    /// cache for previously-indexed words must remain correct. Earlier the
+    /// fix only refreshed the current word's IDF on each new intent, leaving
+    /// the IDF of every prior word stuck at its initial value (denominator
+    /// frozen at the intent_count when that word was first seen).
+    ///
+    /// Symptom: a fresh namespace would route nothing until the first server
+    /// restart, because IDFs were ln(1/1)=0 across the board.
+    #[test]
+    fn idf_stays_correct_when_intents_are_added_incrementally() {
+        let mut ig = IntentIndex::new();
+
+        // Add intent A with one word. After this:
+        //   intent_count = 1, IDF("foo") = ln(1/1) = 0
+        ig.learn_phrase(&["foo"], "intent_a");
+
+        // Add intent B with the same word and a unique word. After this:
+        //   intent_count = 2
+        //   IDF("foo") should be ln(2/2) = 0      (in both intents)
+        //   IDF("bar") should be ln(2/1) = 0.69   (in only one intent)
+        // BEFORE THE FIX, IDF("foo") stayed at 0 from the original computation
+        // and IDF("bar") was correct. Now both should be correct.
+        ig.learn_phrase(&["foo", "bar"], "intent_b");
+
+        // Add a third intent so we have a non-trivial idf landscape.
+        ig.learn_phrase(&["baz"], "intent_c");
+        // intent_count = 3
+        //   IDF("foo") = ln(3/2) ≈ 0.405
+        //   IDF("bar") = ln(3/1) ≈ 1.099
+        //   IDF("baz") = ln(3/1) ≈ 1.099
+
+        let lex = LexicalGraph::default();
+
+        // Querying any of these words should produce non-zero scores.
+        let (scores_foo, _) = ig.score(&lex, "foo");
+        assert!(!scores_foo.is_empty(),
+            "fresh-namespace IDF bug: 'foo' should score against intent_a and intent_b");
+        assert!(scores_foo.iter().all(|(_, s)| *s > 0.0),
+            "scores should be positive after the IDF rebuild on new intent");
+
+        let (scores_bar, _) = ig.score(&lex, "bar");
+        assert!(scores_bar.iter().any(|(id, _)| id == "intent_b"),
+            "'bar' should score against intent_b");
+
+        let (scores_baz, _) = ig.score(&lex, "baz");
+        assert!(scores_baz.iter().any(|(id, _)| id == "intent_c"),
+            "'baz' should score against intent_c");
     }
 }

@@ -17,6 +17,7 @@
 //! ```
 
 pub mod scoring;
+pub mod entity;
 pub mod import;
 pub mod ngram;
 pub mod phrase;

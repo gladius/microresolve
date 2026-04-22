@@ -43,6 +43,12 @@ pub struct RouteMultiRequest {
     /// Return per-layer debug trace in the response under "debug".
     #[serde(default)]
     pub debug: bool,
+    /// Enable the optional entity-detection layer (PoC).
+    /// When true, runs hybrid PII detector before L0 and appends entity-type
+    /// tokens (e.g., `[CC]`, `[SSN]`) to the query so intents trained on those
+    /// tokens score appropriately. Default off.
+    #[serde(default)]
+    pub enable_entity_layer: bool,
 }
 
 fn default_threshold() -> f32 { 0.3 }
@@ -82,8 +88,19 @@ pub async fn route_multi(
                 // Logic centralized in Router so all bindings (Node/Python/WASM) stay in sync.
                 let effective_threshold = router.resolve_threshold(req.threshold, default_threshold());
 
+                // Optional entity layer (PoC, off by default).
+                // Runs BEFORE L0 so detected entity tokens flow through the rest
+                // of the pipeline normally. Built-in PII detector for now;
+                // future work distills patterns per namespace via LLM.
+                let query_for_l0 = if req.enable_entity_layer {
+                    let entity = microresolve::entity::EntityLayer::default_pii();
+                    entity.augment(&req.query)
+                } else {
+                    req.query.clone()
+                };
+
                 // L0: typo correction
-                let q0 = router.l0().correct_query(&req.query);
+                let q0 = router.l0().correct_query(&query_for_l0);
 
                 // L1: normalize + expand (mode selected by request flags)
                 let preprocessed = if req.disable_l1 {
