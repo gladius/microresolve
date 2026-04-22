@@ -209,12 +209,6 @@ export const api = {
   getNsModels: () => get<NamespaceModel[]>('/ns/models'),
   setNsModels: (models: NamespaceModel[]) => post<void>('/ns/models', models),
 
-  // Phrase generation
-  buildPhrasePrompt: (intent_id: string, description: string, languages: string[]) =>
-    post<{ prompt: string }>('/phrase/prompt', { intent_id, description, languages }),
-  parsePhraseResponse: (response_text: string, languages: string[]) =>
-    post<{ phrases_by_lang: Record<string, string[]>; total: number } | { error: string }>('/phrase/parse', { response_text, languages }),
-
   // State
   loadDefaults: () => post<void>('/intents/load_defaults', {}),
   reset: () => post<void>('/reset', {}),
@@ -240,22 +234,6 @@ export const api = {
   getLogs: (limit = 100, offset = 0) =>
     get<{ total: number; offset: number; limit: number; entries: LogEntry[] }>(`/logs?limit=${limit}&offset=${offset}`),
   getLogStats: () => get<{ count: number; size_bytes: number; file: string }>('/logs/stats'),
-  clearLogs: () => fetch(`${BASE}/logs`, { method: 'DELETE' }).then(r => { if (!r.ok) throw new Error('Clear failed'); }),
-  checkAccuracy: () => post<AccuracyResult>('/logs/accuracy', {}),
-
-  // Co-occurrence & projections
-  getCoOccurrence: () => get<{ a: string; b: string; count: number }[]>('/co_occurrence'),
-  getProjections: () => get<{
-    action: string;
-    total_co_occurrences: number;
-    projected_context: { id: string; count: number; strength: number }[];
-  }[]>('/projections'),
-
-  // Learn mode review (server-side LLM call)
-  buildReviewPrompt: (query: string, results: unknown[], threshold: number) =>
-    post<{ prompt: string }>('/review/prompt', { query, results, threshold }),
-  review: (query: string, results: unknown[], threshold: number) =>
-    post<ReviewAnalysis>('/review', { query, results, threshold }),
 
   // Phrase generation (server-side LLM call)
   generatePhrases: (intent_id: string, description: string, languages: string[]) =>
@@ -531,18 +509,5 @@ export interface ReviewStats {
   pending: number;
 }
 
-export interface AccuracyResult {
-  total: number;
-  high: number;
-  medium: number;
-  low: number;
-  miss: number;
-  high_pct: number;
-  medium_pct: number;
-  low_pct: number;
-  miss_pct: number;
-  pass_pct: number;
-  sample_issues: { query: string; detected?: string[] }[];
-}
 
 

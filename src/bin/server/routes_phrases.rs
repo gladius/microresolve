@@ -1,8 +1,9 @@
-//! Phrase management endpoints.
+//! Phrase generation endpoint.
 //!
-//! - `/api/phrase/prompt` — return the LLM prompt for a given intent (client calls LLM itself)
-//! - `/api/phrase/parse` — parse an LLM phrase response server-side
 //! - `/api/phrase/generate` — server-side LLM call: generate phrases for an intent
+//!
+//! Earlier client-driven variants `/api/phrase/prompt` and `/api/phrase/parse`
+//! were removed in the dead-endpoint sweep — no UI or external caller used them.
 
 use axum::{
     extract::State,
@@ -15,37 +16,7 @@ use crate::pipeline::call_llm;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/phrase/prompt",    post(build_phrase_prompt))
-        .route("/api/phrase/parse",     post(parse_phrase_response))
         .route("/api/phrase/generate",  post(generate_phrases))
-}
-
-#[derive(serde::Deserialize)]
-pub struct BuildPromptRequest {
-    intent_id: String,
-    description: String,
-    languages: Vec<String>,
-}
-
-pub async fn build_phrase_prompt(Json(req): Json<BuildPromptRequest>) -> Json<serde_json::Value> {
-    let prompt = microresolve::phrase::build_prompt(&req.intent_id, &req.description, &req.languages);
-    Json(serde_json::json!({ "prompt": prompt }))
-}
-
-#[derive(serde::Deserialize)]
-pub struct ParseResponseRequest {
-    response_text: String,
-    languages: Vec<String>,
-}
-
-pub async fn parse_phrase_response(
-    Json(req): Json<ParseResponseRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let result = microresolve::phrase::parse_response(&req.response_text, &req.languages)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    let val: serde_json::Value =
-        serde_json::from_str(&result).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    Ok(Json(val))
 }
 
 #[derive(serde::Deserialize)]

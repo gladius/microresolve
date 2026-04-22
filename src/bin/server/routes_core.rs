@@ -40,9 +40,6 @@ pub struct RouteMultiRequest {
     /// Vocabulary-grounded synonym expansion: only expand tokens NOT already in L2.
     #[serde(default)]
     pub grounded_l1: bool,
-    /// Return per-layer debug trace in the response under "debug".
-    #[serde(default)]
-    pub debug: bool,
     /// Enable the optional entity-detection layer (PoC).
     /// When true, runs hybrid PII detector before L0 and appends entity-type
     /// tokens (e.g., `[CC]`, `[SSN]`) to the query so intents trained on those

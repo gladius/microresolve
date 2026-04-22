@@ -156,9 +156,6 @@ impl Router {
             version: self.version,
             top_k: self.top_k,
             max_intents: self.max_intents,
-            metadata: serde_json::Value::Null,
-            intents: serde_json::Value::Null,
-            paraphrases: serde_json::Value::Null,
         };
         serde_json::to_string(&state).unwrap_or_default()
     }
@@ -320,16 +317,8 @@ struct RouterState {
     top_k: usize,
     #[serde(default = "default_max_intents")]
     max_intents: usize,
-    // Old fields present in saved JSON — ignored during load.
-    #[serde(default, skip_serializing)]
-    #[allow(dead_code)]
-    metadata: serde_json::Value,
-    #[serde(default, skip_serializing)]
-    #[allow(dead_code)]
-    intents: serde_json::Value,
-    #[serde(default, skip_serializing)]
-    #[allow(dead_code)]
-    paraphrases: serde_json::Value,
+    // Old fields (metadata, intents, paraphrases) from earlier JSON exports
+    // are silently ignored — serde drops unknown keys by default.
 }
 
 fn default_top_k() -> usize { 10 }

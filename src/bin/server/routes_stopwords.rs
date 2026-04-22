@@ -25,16 +25,6 @@ pub const EN_STOPWORDS: &[&str] = &[
     "then","now","like","new","one","two","any","want","use","into","over",
 ];
 
-/// Load stop words for a language from disk. Returns None if file doesn't exist.
-pub fn load_stopwords(data_dir: &str, lang: &str) -> Option<Vec<String>> {
-    if lang == "en" {
-        return Some(EN_STOPWORDS.iter().map(|s| s.to_string()).collect());
-    }
-    let path = format!("{}/_stopwords/{}.json", data_dir, lang);
-    std::fs::read_to_string(&path).ok()
-        .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
-}
-
 /// Load all available stop word sets from disk.
 pub fn load_all_stopwords(data_dir: &str) -> HashMap<String, Vec<String>> {
     let mut map = HashMap::new();
