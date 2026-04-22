@@ -252,24 +252,27 @@ pub struct EntityOpRequest {
     pub text: String,
 }
 
-/// Get a layer for entity operations. Prefer the namespace's cached layer;
-/// fall back to building a "recommended" layer if the namespace has no
-/// config (so /api/entities/detect works even before the user enables the
-/// layer for that namespace).
-fn build_layer_for(state: &AppState, app_id: &str) -> Result<EntityLayer, (StatusCode, String)> {
+/// Run an operation against the namespace's EntityLayer without rebuilding it.
+///
+/// Previously `build_layer_for` rebuilt the layer per request (~1ms for 149
+/// patterns because of regex compilation). The cached layer already exists
+/// via `router.entity_layer()` — we just have to hold the read lock for the
+/// duration of the op so the borrow stays valid. Operations are sub-µs,
+/// so lock contention is a non-issue.
+fn with_cached_layer<R, F>(state: &AppState, app_id: &str, f: F) -> Result<R, (StatusCode, String)>
+where F: FnOnce(&EntityLayer) -> R
+{
+    // We need a fallback layer if the namespace has no config yet. Build it
+    // once per process via a LazyLock so detect/extract/mask work even for
+    // namespaces that haven't enabled the layer.
+    static FALLBACK: std::sync::LazyLock<EntityLayer> =
+        std::sync::LazyLock::new(|| EntityConfig::recommended().build_layer());
+
     let routers = state.routers.read().unwrap();
     let router = routers.get(app_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", app_id)))?;
-    if let Some(layer) = router.entity_layer() {
-        // Cached layer can't be borrowed past the lock release; rebuild from
-        // the cached config (still fast — config is small) for the response.
-        // For higher-throughput needs, expose a borrowed-layer API later.
-        if let Some(cfg) = router.entity_config() {
-            return Ok(cfg.build_layer());
-        }
-        let _ = layer; // silence unused warning when fallback path taken
-    }
-    Ok(EntityConfig::recommended().build_layer())
+    let layer = router.entity_layer().unwrap_or(&*FALLBACK);
+    Ok(f(layer))
 }
 
 pub async fn detect(
@@ -278,9 +281,8 @@ pub async fn detect(
     Json(req): Json<EntityOpRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let layer = build_layer_for(&state, &app_id)?;
     let t0 = std::time::Instant::now();
-    let labels = layer.detect(&req.text);
+    let labels = with_cached_layer(&state, &app_id, |layer| layer.detect(&req.text))?;
     let elapsed_us = t0.elapsed().as_micros();
     Ok(Json(serde_json::json!({
         "text": req.text,
@@ -295,9 +297,14 @@ pub async fn extract(
     Json(req): Json<EntityOpRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let layer = build_layer_for(&state, &app_id)?;
     let t0 = std::time::Instant::now();
-    let extracted = layer.extract(&req.text);
+    let extracted = with_cached_layer(&state, &app_id, |layer| {
+        // Convert &str values to String since we can't return borrows past the lock.
+        let ext = layer.extract(&req.text);
+        ext.into_iter()
+            .map(|(k, vs)| (k, vs.into_iter().map(|s| s.to_string()).collect::<Vec<_>>()))
+            .collect::<std::collections::HashMap<_, _>>()
+    })?;
     let elapsed_us = t0.elapsed().as_micros();
     Ok(Json(serde_json::json!({
         "text": req.text,
@@ -323,10 +330,11 @@ pub async fn mask(
     Json(req): Json<MaskRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let layer = build_layer_for(&state, &app_id)?;
-    let t0 = std::time::Instant::now();
     let template = req.placeholder.clone();
-    let masked = layer.mask(&req.text, |label| template.replace("{label}", label));
+    let t0 = std::time::Instant::now();
+    let masked = with_cached_layer(&state, &app_id, |layer| {
+        layer.mask(&req.text, |label| template.replace("{label}", label))
+    })?;
     let elapsed_us = t0.elapsed().as_micros();
     Ok(Json(serde_json::json!({
         "original": req.text,
