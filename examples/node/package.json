@@ -1,6 +1,7 @@
 {
-  "name": "asv-router-examples",
+  "name": "microresolve-examples",
   "private": true,
+  "author": "Gladius Thayalarajan",
   "dependencies": {
     "express": "^5.0.0"
   }

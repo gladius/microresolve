@@ -1,6 +1,6 @@
 # Language Support
 
-ASV Router supports **57 languages** across all major script families. The router is script-aware, not language-aware — it picks the right tokenization path based on Unicode ranges, so any language works without configuration.
+MicroResolve supports **57 languages** across all major script families. The router is script-aware, not language-aware — it picks the right tokenization path based on Unicode ranges, so any language works without configuration.
 
 ## How it works
 

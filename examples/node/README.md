@@ -10,7 +10,7 @@ cd node && npm install && npx napi build --release
 cd ../examples/node && npm install
 ```
 
-After npm publish: just `npm install asv-router` — no build step needed.
+After npm publish: just `npm install microresolve` — no build step needed.
 
 ## Examples
 

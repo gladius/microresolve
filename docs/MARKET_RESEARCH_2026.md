@@ -1,8 +1,8 @@
-# ASV Router — Market Research & Opportunity Analysis (April 2026)
+# MicroResolve — Market Research & Opportunity Analysis (April 2026)
 
 ## Executive Summary
 
-The LLM cost crisis is real and accelerating. Token prices dropped 280x in two years, but enterprise AI spend grew 320%. The consensus architecture in 2026 is **hybrid routing**: cheap deterministic pre-filter + LLM fallback for hard cases. ASV occupies the only unoccupied niche — model-free, zero-embedding, vocabulary-based intent routing at 30µs. Every competitor requires either an embedding model, a fine-tuned small LLM, or a full LLM call.
+The LLM cost crisis is real and accelerating. Token prices dropped 280x in two years, but enterprise AI spend grew 320%. The consensus architecture in 2026 is **hybrid routing**: cheap deterministic pre-filter + LLM fallback for hard cases. MicroResolve occupies the only unoccupied niche — model-free, zero-embedding, vocabulary-based intent routing at 30µs. Every competitor requires either an embedding model, a fine-tuned small LLM, or a full LLM call.
 
 ---
 
@@ -124,7 +124,7 @@ MCP (Model Context Protocol) is everywhere but facing serious problems:
 - **5%** of open-source MCP servers contain tool poisoning attacks
 - Tool-use accuracy: Claude 3.7 Sonnet completes only **16% of tasks** on airline booking benchmarks
 
-**ASV opportunity:** Pre-filter which tools are relevant. Instead of sending 50 tool descriptions (100K tokens), send 2-3 relevant ones. This alone saves 90%+ of input tokens per agent call.
+**MicroResolve opportunity:** Pre-filter which tools are relevant. Instead of sending 50 tool descriptions (100K tokens), send 2-3 relevant ones. This alone saves 90%+ of input tokens per agent call.
 
 ---
 
@@ -141,7 +141,7 @@ MCP (Model Context Protocol) is everywhere but facing serious problems:
 | **Route0x** | 120 | Python | SetFit + anomaly detection | Yes (SetFit) |
 | **Arch-Router (Katanemo)** | — | Python | 1.5B fine-tuned Qwen | Yes (1.5B model) |
 | **NVIDIA llm-router** | 236 | Jupyter | Qwen 1.75B + CLIP | Yes (1.75B model) |
-| **ASV Router** | — | Rust/WASM | Vocabulary-based | **NO** |
+| **MicroResolve** | — | Rust/WASM | Vocabulary-based | **NO** |
 
 ### Infrastructure/Gateway Layer
 
@@ -159,7 +159,7 @@ MCP (Model Context Protocol) is everywhere but facing serious problems:
 2. A fine-tuned small LLM (Arch-Router, NVIDIA)
 3. A full LLM call (LangChain, LlamaIndex)
 
-ASV is the only system that routes at 30µs with zero model dependency.
+MicroResolve is the only system that routes at 30µs with zero model dependency.
 
 ---
 
@@ -168,7 +168,7 @@ ASV is the only system that routes at 30µs with zero model dependency.
 The industry has converged on a layered architecture:
 
 ```
-Layer 1: Deterministic pre-filter     (cheap, fast, 30µs)     ← ASV fits here
+Layer 1: Deterministic pre-filter     (cheap, fast, 30µs)     ← MicroResolve fits here
 Layer 2: Semantic cache               (40-60% hit rate)
 Layer 3: Small model routing           (Haiku, 4o-mini)
 Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
@@ -192,25 +192,25 @@ Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
 
 **A. LLM Agent Tool Pre-Filter**
 - Problem: 50 MCP tools = 100K+ tokens per call, 72% context window waste
-- ASV: Pre-select 2-3 relevant tools at 30µs, cut input tokens 90%+
+- MicroResolve: Pre-select 2-3 relevant tools at 30µs, cut input tokens 90%+
 - Market: Every company running production AI agents
 - Evidence: Perplexity dropped MCP for this exact reason
 
 **B. LLM Cost Reduction Layer (Cache + Route)**
 - Problem: $42K/month support routing bills, $47K surprise API invoices
-- ASV: Handle the 80% obvious queries at $0, send 20% to LLM
+- MicroResolve: Handle the 80% obvious queries at $0, send 20% to LLM
 - Evidence: Multiple case studies show 50-87% reduction with hybrid routing
 - Positioning: "Your LLM bill drops every week. Automatically."
 
 **C. Contact Center / IVR Intent Routing**
 - Problem: Millions of calls/month, cloud NLU costs $0.001+ per call
-- ASV: Self-hosted, sub-millisecond, 58 languages
+- MicroResolve: Self-hosted, sub-millisecond, 58 languages
 - Market: Gartner says $80B opportunity in 2026
 - Evidence: Amazon Lex added LLM-assisted NLU — hybrid is the direction
 
 **D. Regulated Industry Routing (Banking, Healthcare, Government)**
 - Problem: GDPR/HIPAA prohibit sending data to third-party APIs
-- ASV: Self-hosted, deterministic (auditable), no data leaves network
+- MicroResolve: Self-hosted, deterministic (auditable), no data leaves network
 - Evidence: Financial services firms say "we do not have the luxury of inconsistent outputs"
 - Market: 40% of enterprises spend >$250K/year on LLMs, many can't use cloud NLU
 
@@ -218,39 +218,39 @@ Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
 
 **E. Deterministic Agent Orchestration**
 - Problem: LLMs are non-deterministic — temperature=0 proven not deterministic (March 2026)
-- ASV: Same input = same output, always, provably
+- MicroResolve: Same input = same output, always, provably
 - Evidence: HN thread "What changes when agent routing is fully deterministic?"
 - Use: Safety-critical systems, financial compliance, medical devices
 
 **F. Edge/Offline Routing**
 - Problem: Voice assistants, IoT, automotive need offline intent routing
-- ASV: WASM build, runs on Raspberry Pi, no network dependency
+- MicroResolve: WASM build, runs on Raspberry Pi, no network dependency
 - Market: Smart home, automotive, industrial, robotics
 - Evidence: r/LocalLLaMA privacy-first movement, self-hosted models growing
 
 **G. CJK Enterprise Market**
 - Problem: Chinese companies can't use Google/Microsoft NLU (Great Firewall)
-- ASV: Purpose-built CJK tokenization, self-hosted, no external dependencies
+- MicroResolve: Purpose-built CJK tokenization, self-hosted, no external dependencies
 - Market: $2B+ CJK chatbot market, zero competition in model-free CJK routing
 - Evidence: No competitor has CJK-native vocabulary-based routing
 
 **H. Real-Time Systems (Gaming, Voice, Trading)**
 - Problem: 200ms+ LLM latency unacceptable for real-time
-- ASV: 30µs — invisible to users
+- MicroResolve: 30µs — invisible to users
 - Evidence: "Response time inconsistency is even bigger than cost" — HN developer
 
 ### Tier 3: Emerging Opportunities
 
 **I. Semantic Cache Pre-Filter**
-- ASV identifies the intent, semantic cache checks if this intent+query was seen before
+- MicroResolve identifies the intent, semantic cache checks if this intent+query was seen before
 - Eliminates the embedding call for cache lookup on high-confidence routes
 
 **J. LLM Output Validator**
-- ASV checks if the LLM's tool call matches the detected intent
+- MicroResolve checks if the LLM's tool call matches the detected intent
 - Catches hallucinated tool calls (a $14,200/employee/year problem per research)
 
 **K. Multi-Model Router**
-- ASV decides query complexity → routes to cheapest capable model
+- MicroResolve decides query complexity → routes to cheapest capable model
 - Simple queries → local Gemma ($0), complex → Claude ($0.005)
 - Evidence: A logistics company saved $70K/month doing exactly this manually
 
@@ -261,7 +261,7 @@ Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
 **M. Log/Alert Classification**
 - Observability pipelines: millions of log lines/minute need classification
 - Regex rules are brittle (thousands of patterns), LLM is too expensive at volume
-- ASV: classify every log line at 30µs, learn from engineer corrections
+- MicroResolve: classify every log line at 30µs, learn from engineer corrections
 
 **N. Documentation / Static Site Search**
 - WASM in browser, classify search intent (tutorial vs troubleshooting vs API ref)
@@ -277,14 +277,14 @@ Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
 - ~~"Cheaper than LLMs"~~ — prices keep dropping, weak long-term argument alone
 
 ### What TO say
-- **"The Layer 0 before your LLM"** — ASV is the deterministic pre-filter in the consensus hybrid architecture
+- **"The Layer 0 before your LLM"** — MicroResolve is the deterministic pre-filter in the consensus hybrid architecture
 - **"80% of routing at $0 and 30µs. Send the rest to your LLM."** — concrete, measurable
-- **"Your LLM bill drops every week"** — the learning loop means ASV handles more over time
+- **"Your LLM bill drops every week"** — the learning loop means MicroResolve handles more over time
 - **"Same input, same output, always"** — determinism is a feature LLMs literally cannot offer
 - **"No model, no API key, no GPU"** — zero dependency, runs anywhere
 
 ### Primary Pitch (Agent/Tool Pre-Filter)
-*"MCP loads 50 tools into every LLM call — that's 100K tokens before a single user message. ASV pre-selects the 2-3 relevant tools at 30 microseconds. Cut your input tokens 90%, eliminate tool call hallucinations, and your LLM bill drops every week as the system learns."*
+*"MCP loads 50 tools into every LLM call — that's 100K tokens before a single user message. MicroResolve pre-selects the 2-3 relevant tools at 30 microseconds. Cut your input tokens 90%, eliminate tool call hallucinations, and your LLM bill drops every week as the system learns."*
 
 ### Secondary Pitch (Contact Center / Enterprise)
 *"Self-hosted intent routing with 58-language support, sub-millisecond latency, and deterministic behavior — for organizations that can't send customer data to cloud APIs. Start with LLM accuracy on day 1, learn from corrections, handle 80% of traffic locally within weeks."*
@@ -303,7 +303,7 @@ Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
 
 4. **Cold-start accuracy gap** — Honest test shows 61% F1 on blind evaluation vs 70% when seeds are tuned. The learning loop needs time.
 
-5. **"Routers test way better than they work in production"** — CuriouslyC's warning applies to ASV too.
+5. **"Routers test way better than they work in production"** — CuriouslyC's warning applies to MicroResolve too.
 
 ### Honest Strengths
 
@@ -311,7 +311,7 @@ Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
 2. **30µs is 10,000x faster** than any embedding-based competitor
 3. **Zero dependency** — no GPU, no API key, no model download, runs in WASM
 4. **CJK-native** — only vocabulary-based router with proper CJK tokenization
-5. **The hybrid architecture is consensus** — ASV fits the exact slot everyone recommends
+5. **The hybrid architecture is consensus** — MicroResolve fits the exact slot everyone recommends
 
 ### What Needs to Happen
 

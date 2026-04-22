@@ -3,7 +3,7 @@
 /// Configuration for connected mode.
 #[derive(Debug, Clone)]
 pub struct ConnectConfig {
-    /// Base URL of the ASV server, e.g. "http://localhost:3001".
+    /// Base URL of the MicroResolve server, e.g. "http://localhost:3001".
     pub server_url: String,
     /// Optional API key sent as X-Api-Key header.
     pub api_key: Option<String>,

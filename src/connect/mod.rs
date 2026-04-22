@@ -1,7 +1,7 @@
 //! Connected mode: pull-based sync, log shipping, multi-app routing.
 //!
 //! In connected mode, routing happens locally (zero latency) but the library
-//! periodically syncs with a central ASV server to pick up model improvements,
+//! periodically syncs with a central MicroResolve server to pick up model improvements,
 //! and ships anonymized query logs back for the server's LLM review pipeline.
 //!
 //! ## Architecture

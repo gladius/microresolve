@@ -1,8 +1,8 @@
-# ASV Router — Multi-Intent Problem
+# MicroResolve — Multi-Intent Problem
 
 ## The Problem
 
-ASV assumes one intent per query. When users type paragraphs with multiple intents, scoring breaks.
+MicroResolve assumes one intent per query. When users type paragraphs with multiple intents, scoring breaks.
 
 ### Example
 

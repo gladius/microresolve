@@ -1,11 +1,11 @@
-# Building ASV: 14 Experiments, 12 Failures, 2 Wins
+# Building MicroResolve: 14 Experiments, 12 Failures, 2 Wins
 
 > A candid engineering log from building a sub-millisecond intent router.
 > Published 2026-04-17.
 
 ## TL;DR
 
-We built **ASV**, a fast intent router in Rust — no embeddings, no GPU, no external models. Before getting to the final design, we tried **fourteen architectural experiments**. Twelve didn't work. Two did. The two that worked surprised us.
+We built **MicroResolve**, a fast intent router in Rust — no embeddings, no GPU, no external models. Before getting to the final design, we tried **fourteen architectural experiments**. Twelve didn't work. Two did. The two that worked surprised us.
 
 **What actually matters for intent routing accuracy:** not the scoring algorithm, not the clever post-processing layers, not the learned embeddings. **It's seed phrase density.** At 12 phrases per intent, simple 1-gram IDF with Hebbian reinforcement hits **91% top-1 / 97% top-3** on held-out enterprise queries in under a millisecond. At 2-3 phrases per intent, the same algorithm scores 40%. No cleverness bridges that gap.
 
@@ -15,7 +15,7 @@ If you're building a classifier and tempted to reach for embeddings, SVD, PMI, o
 
 ## The setup
 
-ASV is a lexical intent router. Given a user query, it returns a ranked list of matching intents from a namespace. Use cases:
+MicroResolve is a lexical intent router. Given a user query, it returns a ranked list of matching intents from a namespace. Use cases:
 
 - Pre-filtering MCP tool routing (pick top-5 from 100+ tools before an LLM disambiguates)
 - Command palette classifiers
@@ -171,11 +171,11 @@ Then we started running held-out validation. **Everything broke.**
 
 **Result.** Neutral to negative on held-out. LLM-picked pairs weren't better than our heuristic pairs.
 
-**Why.** The LLM picks pairs that *look* confusable — cancel vs refund, create vs update. But surface similarity ≠ actual routing confusion. Real routing confusion happens where vocabulary genuinely overlaps, which is already captured by ASV's internal scoring. Adding LLM-picked inhibition on top adds noise, not signal.
+**Why.** The LLM picks pairs that *look* confusable — cancel vs refund, create vs update. But surface similarity ≠ actual routing confusion. Real routing confusion happens where vocabulary genuinely overlaps, which is already captured by MicroResolve's internal scoring. Adding LLM-picked inhibition on top adds noise, not signal.
 
 ### 13. Bigram-IDF re-ranking
 
-**Hypothesis.** Re-rank ASV's top-K results using a bigram overlap bonus. Doesn't replace scoring, just tweaks the order at the top.
+**Hypothesis.** Re-rank MicroResolve's top-K results using a bigram overlap bonus. Doesn't replace scoring, just tweaks the order at the top.
 
 **Result.** +3.3pp dev top-1, -2.3pp val top-1. Classic overfit.
 
@@ -183,7 +183,7 @@ Then we started running held-out validation. **Everything broke.**
 
 ### 14. N-gram FP filter
 
-**Hypothesis.** After ASV returns top-1, check whether the query contains any **distinctive** bigram for that intent. If not, demote top-1. Keeps confident correct matches, rejects confident wrong matches.
+**Hypothesis.** After MicroResolve returns top-1, check whether the query contains any **distinctive** bigram for that intent. If not, demote top-1. Keeps confident correct matches, rejects confident wrong matches.
 
 **Result.** **-20.6pp top-1 on dense validation.** Catastrophic.
 
@@ -219,7 +219,7 @@ The lesson: **if your team is asking "how do we improve accuracy," the answer is
 
 ### B. Token consumption for multi-intent
 
-ASV's distinctive capability is decomposing compound queries. *"Refund the stripe charge and cancel the shopify order"* produces two top-ranked intents — one from each SaaS provider — because ASV's scoring consumes tokens as it fires intents, so subsequent intents score on what's left.
+MicroResolve's distinctive capability is decomposing compound queries. *"Refund the stripe charge and cancel the shopify order"* produces two top-ranked intents — one from each SaaS provider — because MicroResolve's scoring consumes tokens as it fires intents, so subsequent intents score on what's left.
 
 On 125 intents × 5 domains × 58 compound queries: **94.8% of queries had all expected intents in top-5, 97.7% average recall@5**. At sub-millisecond latency.
 
@@ -227,7 +227,7 @@ Most classifiers can't do multi-intent at all. They pick one winning intent. Tok
 
 ### C. Character n-gram Jaccard tiebreaker
 
-The one new layer from this round of experiments that shipped. When ASV's top-1 and top-2 score close (ratio < 0.65), compute character 4-gram Jaccard similarity between the query and each candidate's seed phrases. Re-rank using `original_score + 0.5 × jaccard`.
+The one new layer from this round of experiments that shipped. When MicroResolve's top-1 and top-2 score close (ratio < 0.65), compute character 4-gram Jaccard similarity between the query and each candidate's seed phrases. Re-rank using `original_score + 0.5 × jaccard`.
 
 On thin-seed held-out: **+4.6-6.7pp top-1**. On rich-seed: dormant (rarely fires, zero regression). Derived from seed phrases at index time — no training needed.
 
@@ -296,4 +296,4 @@ Independent numbers (not author-measured). Reproducible benchmark harness coming
 
 ---
 
-*Code: ASV is open source at [link-to-repo]. Benchmarks + test suite included. Contributions welcome — especially ones that break our numbers, honestly reported.*
+*Code: MicroResolve is open source at [link-to-repo]. Benchmarks + test suite included. Contributions welcome — especially ones that break our numbers, honestly reported.*

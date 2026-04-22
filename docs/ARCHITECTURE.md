@@ -1,8 +1,8 @@
-# ASV Architecture
+# MicroResolve Architecture
 
 ## Overview
 
-ASV is an intent extraction system with a library (fast local routing) and
+MicroResolve is an intent extraction system with a library (fast local routing) and
 a server (central management, review, learning). Both run inside the
 company's infrastructure. Nothing leaves the company network.
 
@@ -10,13 +10,13 @@ company's infrastructure. Nothing leaves the company network.
 Company's Infrastructure
 ┌──────────────────────────────────────────────────────────┐
 │                                                          │
-│  Service A ──→ ASV Library ──→ routes locally (30μs)     │
-│  Service B ──→ ASV Library ──→ routes locally (30μs)     │
-│  Service C ──→ ASV Library ──→ routes locally (30μs)     │
+│  Service A ──→ MicroResolve Library ──→ routes locally (30μs)     │
+│  Service B ──→ MicroResolve Library ──→ routes locally (30μs)     │
+│  Service C ──→ MicroResolve Library ──→ routes locally (30μs)     │
 │       │              │              │                     │
 │       └──────────────┼──────────────┘                     │
 │                      ↓                                    │
-│              ASV Server (central)                         │
+│              MicroResolve Server (central)                         │
 │              - Receives ALL queries + results             │
 │              - Flags failures (low confidence, miss)      │
 │              - LLM auto-learning or human review          │
@@ -137,11 +137,11 @@ POST /api/discover       — auto-discover from uploaded queries
 
 ```
 1. Customer sends message to Service A
-2. Service A calls ASV Library: route_multi("I got the wrong item")
+2. Service A calls MicroResolve Library: route_multi("I got the wrong item")
 3. Library returns: {confirmed: [], candidates: [{id: "change_order", score: 0.4}]}
    Library flags: "miss" (empty confirmed)
 4. Service A uses the result (even if low confidence)
-5. Library sends report to ASV Server: {query, results, flag: "miss"}
+5. Library sends report to MicroResolve Server: {query, results, flag: "miss"}
 6. Server queues for review
 
 In auto-learn mode:

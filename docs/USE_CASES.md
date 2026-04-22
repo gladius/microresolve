@@ -1,4 +1,4 @@
-# ASV Router — Use Cases
+# MicroResolve — Use Cases
 
 ## Standard (chatbot/support)
 
@@ -43,7 +43,7 @@ result = router.route("can you check what's in this screenshot?")
 # → vision_agent, score 1.8
 ```
 
-Everyone building multi-agent systems in 2026 needs a router. Most use an LLM to route to other LLMs. ASV replaces that with <1ms dispatch.
+Everyone building multi-agent systems in 2026 needs a router. Most use an LLM to route to other LLMs. MicroResolve replaces that with <1ms dispatch.
 
 ### CLI Command Dispatch — Natural Language Shell
 
@@ -119,11 +119,11 @@ router.add_intent("deploy_issue", ["deploy failed", "rollback", "build broken", 
 # Learns from ops team corrections over time
 ```
 
-Embedding models choke at volume. ASV handles millions of log lines per second.
+Embedding models choke at volume. MicroResolve handles millions of log lines per second.
 
 ### Accessibility — Personal Voice Command Learning
 
-A user with a speech disability says "ughh ligh" for "turn off lights". ASV learns this after one correction:
+A user with a speech disability says "ughh ligh" for "turn off lights". MicroResolve learns this after one correction:
 
 ```python
 # User says something the system doesn't understand
@@ -160,7 +160,7 @@ router.add_intent("obvious_violation", ["kill", "bomb threat", "explicit slur li
 router.add_intent("needs_review", ["hate", "harassment", "threatening"])
 router.add_intent("likely_safe", ["hello", "thanks", "good morning"])
 
-# ASV as first pass: <1ms per message
+# MicroResolve as first pass: <1ms per message
 # Only send "needs_review" to expensive LLM for nuanced judgment
 # Saves 80% of LLM costs on moderation
 ```

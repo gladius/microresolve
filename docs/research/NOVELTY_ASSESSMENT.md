@@ -1,4 +1,4 @@
-# ASV Router — Novelty Assessment & Publication Justification
+# MicroResolve — Novelty Assessment & Publication Justification
 
 > Compiled 2026-04-02 from exhaustive prior-art search (100+ queries across academic papers, GitHub, npm, PyPI, crates.io, commercial platforms).
 
@@ -6,9 +6,9 @@
 
 ## 1. Verdict
 
-**Paper-worthy: YES.** No existing system — academic or commercial — combines all of ASV's differentiators. Individual techniques (inverted indexes, IDF, keyword matching) are well-known; the *architecture and combination* is novel.
+**Paper-worthy: YES.** No existing system — academic or commercial — combines all of MicroResolve's differentiators. Individual techniques (inverted indexes, IDF, keyword matching) are well-known; the *architecture and combination* is novel.
 
-**This is NOT another case of reimplementing an existing technique.** The n-gram speculative decoding situation was: exact same technique, already shipped as a default feature. ASV's situation is: known building blocks assembled into an architecture nobody has published or deployed.
+**This is NOT another case of reimplementing an existing technique.** The n-gram speculative decoding situation was: exact same technique, already shipped as a default feature. MicroResolve's situation is: known building blocks assembled into an architecture nobody has published or deployed.
 
 ---
 
@@ -37,84 +37,84 @@
 ### Semantic Router (Aurelio AI, 2024)
 - **What it is:** Embedding similarity routing. Embed seed phrases → cosine similarity at query time.
 - **GitHub:** ~2,000 stars, actively maintained
-- **Overlap with ASV:** ~25% — both route queries to intents using seed phrases
+- **Overlap with MicroResolve:** ~25% — both route queries to intents using seed phrases
 - **Key differences:**
   - Requires embedding model (OpenAI, Cohere, or local fastembed)
   - No online learning — seeds are fixed after init
   - No multi-intent detection
   - No relation classification
-  - Latency: 4-7ms (embedding dominates) vs ASV's 13-29µs
-- **Why ASV is distinct:** Fundamentally different architecture (sparse vectors vs dense embeddings). ASV learns from corrections; Semantic Router cannot.
+  - Latency: 4-7ms (embedding dominates) vs MicroResolve's 13-29µs
+- **Why MicroResolve is distinct:** Fundamentally different architecture (sparse vectors vs dense embeddings). MicroResolve learns from corrections; Semantic Router cannot.
 
 ### Kore.ai
 - **What it is:** Enterprise conversational AI platform with keyword-based multi-intent support
-- **Overlap with ASV:** ~40% — keyword matching, multi-intent splitting on conjunctions
+- **Overlap with MicroResolve:** ~40% — keyword matching, multi-intent splitting on conjunctions
 - **Key differences:**
   - Proprietary SaaS, no published architecture
   - No online learning (configuration-based, not learning-based)
   - Multi-intent splits on conjunctions only, no scored decomposition
   - No relation detection between intents
   - No paper published
-- **Why ASV is distinct:** Open architecture with online learning + scored decomposition + relation typing. Kore.ai's approach is rule-based splitting, not scored term consumption.
+- **Why MicroResolve is distinct:** Open architecture with online learning + scored decomposition + relation typing. Kore.ai's approach is rule-based splitting, not scored term consumption.
 
 ### NLP.js (AXA Group, open source)
 - **What it is:** Lightweight NLU library with perceptron-based intent classification
 - **GitHub:** 6,561 stars, actively maintained
-- **Overlap with ASV:** ~30% — lightweight, multi-language, no GPU required
+- **Overlap with MicroResolve:** ~30% — lightweight, multi-language, no GPU required
 - **Key differences:**
   - Perceptron classifier (neural, though simple)
   - Requires batch retraining to incorporate new data
   - No multi-intent detection
   - No online learning (must retrain)
   - Node.js only
-- **Why ASV is distinct:** True online learning (no retrain), multi-intent decomposition, inverted index (not perceptron).
+- **Why MicroResolve is distinct:** True online learning (no retrain), multi-intent decomposition, inverted index (not perceptron).
 
 ### Mycroft Adapt
 - **What it is:** Trie-based keyword intent matching for voice assistants
 - **GitHub:** ~500 stars, low maintenance
-- **Overlap with ASV:** ~25% — keyword-based, lightweight
+- **Overlap with MicroResolve:** ~25% — keyword-based, lightweight
 - **Key differences:**
   - Trie-based exact matching (no scoring, no ranking)
   - No learning of any kind
   - No multi-intent support
   - Python only, voice-assistant focused
-- **Why ASV is distinct:** Scored routing, online learning, multi-intent, relation detection — essentially everything beyond basic keyword lookup.
+- **Why MicroResolve is distinct:** Scored routing, online learning, multi-intent, relation detection — essentially everything beyond basic keyword lookup.
 
 ### Snips NLU
 - **What it is:** Lightweight NLU library with logistic regression + CRF
 - **GitHub:** ~3,800 stars, dead since Apple acquisition (2020)
-- **Overlap with ASV:** ~15% — lightweight intent classification
+- **Overlap with MicroResolve:** ~15% — lightweight intent classification
 - **Key differences:**
   - Logistic regression (requires training data and batch training)
   - Dead project (no updates since 2020)
   - No online learning
   - No multi-intent
-- **Why ASV is distinct:** Active, online learning, multi-intent, zero-dependency.
+- **Why MicroResolve is distinct:** Active, online learning, multi-intent, zero-dependency.
 
 ### Rocchio Classification (1971)
 - **What it is:** Centroid-based text classification in term-weight space
-- **Overlap with ASV:** ~35% — term-weight vectors, centroid similarity
+- **Overlap with MicroResolve:** ~35% — term-weight vectors, centroid similarity
 - **Key differences:**
-  - Centroid averaging (ASV uses `max(seed, learned)`)
+  - Centroid averaging (MicroResolve uses `max(seed, learned)`)
   - No inverted index (computes distance to all centroids)
   - No online learning (recomputes centroids from all examples)
   - No multi-intent
   - Academic technique, not a deployed system
-- **Why ASV is distinct:** Dual-layer vector design, incremental index updates, online learning with asymptotic growth, multi-intent decomposition.
+- **Why MicroResolve is distinct:** Dual-layer vector design, incremental index updates, online learning with asymptotic growth, multi-intent decomposition.
 
 ### Classical BM25 / Information Retrieval
-- **Overlap with ASV:** ~20% — inverted index, IDF weighting
-- **Key difference:** BM25 ranks documents by relevance. ASV routes queries to intents. The data structures are similar but the application and learning mechanism are entirely different. ASV's weights come from seed phrases and online learning, not term frequency statistics.
+- **Overlap with MicroResolve:** ~20% — inverted index, IDF weighting
+- **Key difference:** BM25 ranks documents by relevance. MicroResolve routes queries to intents. The data structures are similar but the application and learning mechanism are entirely different. MicroResolve's weights come from seed phrases and online learning, not term frequency statistics.
 
 ### Gonc & Saglam (ICMI 2023) — "User Feedback-based Online Learning"
 - **What it is:** Online learning for intent classification using contextual bandits with LLM encoders
-- **Overlap with ASV:** Uses online learning for intent classification
+- **Overlap with MicroResolve:** Uses online learning for intent classification
 - **Key differences:**
   - Requires embedding model (LLM-based encoder)
   - Uses bandit exploration-exploitation (not direct weight updates)
   - No multi-intent detection
   - No inverted index architecture
-- **Why ASV is distinct:** Model-free (no embeddings), simpler mechanism (direct weight updates), multi-intent support.
+- **Why MicroResolve is distinct:** Model-free (no embeddings), simpler mechanism (direct weight updates), multi-intent support.
 
 ---
 
@@ -126,12 +126,12 @@ The most recent survey on multi-intent spoken language understanding explicitly 
 - **Non-neural multi-intent detection is absent from the literature**
 - **Inter-intent relation detection is identified as an open research problem**
 
-ASV directly addresses both gaps.
+MicroResolve directly addresses both gaps.
 
 ### Knowledge Distillation Literature
 - Hinton et al. (2015) — distillation into neural students via gradient descent
 - LLM2LLM (Lee et al., 2024) — LLM generates synthetic data for fine-tuning smaller LLMs
-- **Neither distills into non-neural sparse vectors via online corrections.** ASV's approach is novel in the distillation literature.
+- **Neither distills into non-neural sparse vectors via online corrections.** MicroResolve's approach is novel in the distillation literature.
 
 ---
 
@@ -150,7 +150,7 @@ These components are standard and the paper should NOT claim novelty for them in
 
 ---
 
-## 6. What Makes ASV Genuinely Novel (The Combination)
+## 6. What Makes MicroResolve Genuinely Novel (The Combination)
 
 No existing system combines ALL five:
 
@@ -167,11 +167,11 @@ No existing system combines ALL five:
 | Risk | Level | Mitigation |
 |------|-------|------------|
 | "Just keyword matching" dismissal | **Medium** | Ablation study showing learning + multi-intent contribute; head-to-head vs embedding router shows competitive accuracy |
-| Semantic Router comparison | **Low** | Fundamentally different architecture (sparse vs dense); ASV surpasses at 100+ seeds with learning |
+| Semantic Router comparison | **Low** | Fundamentally different architecture (sparse vs dense); MicroResolve surpasses at 100+ seeds with learning |
 | Someone publishes similar first | **Low** | No indication anyone is working on this exact combination |
 | Reviewers demand neural baseline | **Medium** | Already have embedding router comparison; could add BERT/DistilBERT baseline |
 | "Not enough datasets" criticism | **Medium** | CLINC150 + BANKING77 are standard; adding ATIS or SNIPS would strengthen |
-| Accuracy inferior to SOTA neural | **Expected** | Paper explicitly positions ASV for different use cases (edge, online learning, interpretability) — not competing on raw accuracy |
+| Accuracy inferior to SOTA neural | **Expected** | Paper explicitly positions MicroResolve for different use cases (edge, online learning, interpretability) — not competing on raw accuracy |
 
 ---
 
@@ -207,7 +207,7 @@ Quantify individual contribution of each component:
 
 ### Proposed Novel Extensions
 1. **Federated Intent Learning** — max-merge learned layers across instances preserves privacy while sharing knowledge
-2. **Agent Tool Routing** — reframe ASV as universal microsecond routing layer for AI agent tool selection
+2. **Agent Tool Routing** — reframe MicroResolve as universal microsecond routing layer for AI agent tool selection
 3. **Intent Drift Detection** — monitor learned weight velocity to detect concept drift
 4. **Explainable Routing** — every decision decomposable to "term X matched intent Y with weight Z" (already inherent, just needs formalization)
 
@@ -230,14 +230,14 @@ Add ATIS or SNIPS benchmark for broader evaluation coverage.
 | Hinton KD | 2015 | NeurIPS | Knowledge distillation |
 | LLM2LLM (Lee et al.) | 2024 | arXiv | LLM-based data augmentation |
 | Settles Active Learning | 2009 | Survey | Active learning framework |
-| Multi-Intent SLU Survey | 2025 | ACL | Confirms gap ASV fills |
+| Multi-Intent SLU Survey | 2025 | ACL | Confirms gap MicroResolve fills |
 | Gonc & Saglam | 2023 | ICMI | Online learning for intents |
 
 ---
 
 ## 11. One-Paragraph Elevator Pitch
 
-ASV Router is the first intent routing architecture that combines inverted-index scoring, dual-layer sparse vectors with online learning, non-neural multi-intent decomposition with relation detection, and LLM-as-teacher knowledge distillation — all with zero external dependencies. It starts with LLM-supervised verification and progressively "graduates" to autonomous routing as learned term-weight associations accumulate, inverting the typical AI cost curve. On standard benchmarks (CLINC150, BANKING77), ASV surpasses embedding-based routers after online learning while routing 150-500x faster. The December 2025 Multi-Intent SLU Survey confirms that non-neural multi-intent detection is absent from the literature and inter-intent relation classification is an open problem — ASV addresses both.
+MicroResolve is the first intent routing architecture that combines inverted-index scoring, dual-layer sparse vectors with online learning, non-neural multi-intent decomposition with relation detection, and LLM-as-teacher knowledge distillation — all with zero external dependencies. It starts with LLM-supervised verification and progressively "graduates" to autonomous routing as learned term-weight associations accumulate, inverting the typical AI cost curve. On standard benchmarks (CLINC150, BANKING77), MicroResolve surpasses embedding-based routers after online learning while routing 150-500x faster. The December 2025 Multi-Intent SLU Survey confirms that non-neural multi-intent detection is absent from the literature and inter-intent relation classification is an open problem — MicroResolve addresses both.
 
 ---
 
