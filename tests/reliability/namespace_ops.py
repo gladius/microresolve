@@ -163,8 +163,7 @@ def add_variant_phrases(ns: str, variant_map: dict, intent_data: list):
                     continue
                 seen.add(key)
                 # Add variant as a one-word phrase
-                code, _ = _post("/api/intents/phrase", {
-                    "intent_id": intent_id,
+                code, _ = _post(f"/api/intents/{intent_id}/phrases", {
                     "phrase": variant,
                     "lang": "en",
                 }, ns=ns)

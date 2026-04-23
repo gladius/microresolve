@@ -2,7 +2,7 @@
 
 All benchmarks run against ASV's full L0→L4 pipeline with **zero LLM calls**.
 Two passes per dataset: seed phrases only, then after direct learning from misses
-(miss query → added as training phrase via `/api/intents/phrase`).
+(miss query → added as training phrase via `POST /api/intents/{id}/phrases`).
 
 Server: ASV v0.1.0 · Rust release build · Intel × Linux
 

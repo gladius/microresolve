@@ -142,8 +142,7 @@ def apply_learning(ns: str, results: list[dict]) -> int:
         missed = expected - predicted  # intents we failed to predict
         for intent_id in missed:
             try:
-                resp = _req("POST", "/api/intents/phrase", {
-                    "intent_id": intent_id,
+                resp = _req("POST", f"/api/intents/{intent_id}/phrases", {
                     "phrase": r["text"],
                 }, ns=ns)
                 if resp and resp.get("added"):
