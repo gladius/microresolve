@@ -93,9 +93,9 @@ export default function Layout() {
     {
       label: 'Config',
       items: [
-        { to: '/namespaces', label: 'Workspaces',  icon: '▦', hint: 'Manage isolated workspaces' },
-        { to: '/models',     label: 'Models',     icon: '⬡', hint: 'Routing model registry for this workspace' },
-        { to: '/languages',  label: 'Languages',  icon: '◌', hint: 'Phrase generation languages for this workspace' },
+        { to: '/namespaces', label: 'Namespaces', icon: '▦', hint: 'Manage isolated namespaces' },
+        { to: '/models',     label: 'Models',     icon: '⬡', hint: 'Routing model registry for this namespace' },
+        { to: '/languages',  label: 'Languages',  icon: '◌', hint: 'Phrase generation languages for this namespace' },
         { to: '/settings',   label: 'Settings',   icon: '⚙', hint: 'LLM config and data management' },
       ],
     },
@@ -132,7 +132,7 @@ export default function Layout() {
           <button
             onClick={() => setShowNsMenu(!showNsMenu)}
             className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-zinc-300 hover:bg-zinc-800/70 border border-zinc-800 transition-colors"
-            title={`Workspace: ${activeNs}`}
+            title={`Namespace: ${activeNs}`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
             {!collapsed && (
@@ -152,7 +152,7 @@ export default function Layout() {
                   autoFocus
                   value={nsFilter}
                   onChange={e => setNsFilter(e.target.value)}
-                  placeholder="Filter workspaces..."
+                  placeholder="Filter namespaces..."
                   className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500"
                 />
               </div>
@@ -177,7 +177,7 @@ export default function Layout() {
                   onClick={() => { setShowNsMenu(false); navigate('/namespaces'); }}
                   className="w-full text-left text-xs text-zinc-400 hover:text-violet-400 px-1 py-1"
                 >
-                  + Manage workspaces
+                  + Manage namespaces
                 </button>
               </div>
             </div>

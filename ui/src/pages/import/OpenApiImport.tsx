@@ -37,7 +37,7 @@ export default function OpenApiImport() {
   const currentDomain = settings.selectedDomain;
   const languages = settings.languages;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (currentApp && currentApp !== 'default') headers['X-Workspace-ID'] = currentApp;
+  if (currentApp && currentApp !== 'default') headers['X-Namespace-ID'] = currentApp;
 
   const handleParse = async (content: string) => {
     setLoading(true); setError(''); setParsed(null); setResult(null); setRawSpec(content);

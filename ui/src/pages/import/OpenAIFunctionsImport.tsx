@@ -49,7 +49,7 @@ export default function OpenAIFunctionsImport() {
 
   const headers = () => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (ns && ns !== 'default') h['X-Workspace-ID'] = ns;
+    if (ns && ns !== 'default') h['X-Namespace-ID'] = ns;
     return h;
   };
 

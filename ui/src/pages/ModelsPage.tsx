@@ -43,15 +43,15 @@ export default function ModelsPage() {
 
         {/* Explainer */}
         <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 text-xs text-zinc-500 leading-relaxed space-y-1">
-          <div className="text-zinc-300 font-medium text-sm">Per-workspace model registry</div>
+          <div className="text-zinc-300 font-medium text-sm">Per-namespace model registry</div>
           <p>
-            Define named models for this workspace. Each intent can then specify which model to route to
+            Define named models for this namespace. Each intent can then specify which model to route to
             via the <span className="text-violet-400 font-mono">target</span> field in its Details tab.
             Useful when different intents need different speed/quality tradeoffs — e.g. fast model for
             simple queries, a smarter model for complex ones.
           </p>
           <p className="text-zinc-600">
-            Models are scoped to the active workspace. Switch workspaces from the sidebar to manage models for others.
+            Models are scoped to the active namespace. Switch namespaces from the sidebar to manage models for others.
           </p>
         </div>
 

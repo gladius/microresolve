@@ -93,11 +93,11 @@ export default function DomainsPage() {
       size="sm"
       className="space-y-6"
       title={`${namespaceId} · domains`}
-      subtitle={isActive ? 'active workspace' : undefined}
+      subtitle={isActive ? 'active namespace' : undefined}
       actions={
         <>
           <button onClick={() => navigate('/namespaces')} className="text-xs text-zinc-500 hover:text-zinc-300">
-            ← Workspaces
+            ← Namespaces
           </button>
           <button
             onClick={openModal}

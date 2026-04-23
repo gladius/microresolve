@@ -1,7 +1,7 @@
 //! Namespace and domain management endpoints.
 //!
 //! Hierarchy: Namespace → Domain → Intent
-//!   Namespace: isolated Router workspace, selected via X-Workspace-ID header
+//!   Namespace: isolated Router instance, selected via X-Namespace-ID header
 //!   Domain:    logical intent group derived from "domain:intent_id" prefix
 //!   Intent:    leaf routing target
 

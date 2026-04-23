@@ -77,11 +77,11 @@ pub fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
-/// Extract the active namespace ID from the `X-Workspace-ID` request header.
+/// Extract the active namespace ID from the `X-Namespace-ID` request header.
 /// Defaults to `"default"` when the header is absent.
 pub fn app_id_from_headers(headers: &HeaderMap) -> String {
     headers
-        .get("X-Workspace-ID")
+        .get("X-Namespace-ID")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("default")
         .to_string()

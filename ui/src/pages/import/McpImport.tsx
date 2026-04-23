@@ -43,7 +43,7 @@ export default function McpImport() {
   const currentDomain = settings.selectedDomain;
   const languages = settings.languages;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (currentApp && currentApp !== 'default') headers['X-Workspace-ID'] = currentApp;
+  if (currentApp && currentApp !== 'default') headers['X-Namespace-ID'] = currentApp;
 
   // Search Smithery registry
   const handleSearch = async () => {

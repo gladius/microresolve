@@ -10,7 +10,7 @@
 //! 4. **LLM distillation** — propose patterns from a plain-English description
 //!    (`POST /api/entities/distill`). Returns proposed JSON, does not save.
 //!
-//! All per-namespace operations use `X-Workspace-ID` header to identify the
+//! All per-namespace operations use `X-Namespace-ID` header to identify the
 //! namespace. Pattern operations always reflect the *current* persisted config
 //! for that namespace.
 

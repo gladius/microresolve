@@ -10,7 +10,7 @@ export function setApiNamespaceId(namespaceId: string) {
 export function appHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   if (currentNamespaceId && currentNamespaceId !== 'default') {
-    h['X-Workspace-ID'] = currentNamespaceId;
+    h['X-Namespace-ID'] = currentNamespaceId;
   }
   return h;
 }
@@ -313,7 +313,7 @@ export const api = {
     history: { role: string; message: string }[];
   }) => post<{ message: string }>('/simulate/respond', config),
 
-  // Namespaces (isolated routing workspaces)
+  // Namespaces (isolated routing instances)
   listNamespaces: () => get<{ id: string; name: string; description: string; auto_learn: boolean; default_threshold: number | null }[]>('/namespaces'),
   createNamespace: (namespace_id: string, name = '', description = '') =>
     post<{ created: string }>('/namespaces', { namespace_id, name, description }),
@@ -341,7 +341,7 @@ export const api = {
   listDomains: () => get<{ name: string; description: string; intent_count: number }[]>('/domains'),
   listDomainsFor: (namespaceId: string) => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (namespaceId && namespaceId !== 'default') h['X-Workspace-ID'] = namespaceId;
+    if (namespaceId && namespaceId !== 'default') h['X-Namespace-ID'] = namespaceId;
     return fetch(`${BASE}/domains`, { headers: h })
       .then(r => r.json() as Promise<{ name: string; description: string; intent_count: number }[]>);
   },
@@ -353,7 +353,7 @@ export const api = {
     }).then(r => { if (!r.ok) throw new Error('Update failed'); }),
   updateDomainFor: (namespaceId: string, domain: string, description: string) => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (namespaceId && namespaceId !== 'default') h['X-Workspace-ID'] = namespaceId;
+    if (namespaceId && namespaceId !== 'default') h['X-Namespace-ID'] = namespaceId;
     return fetch(`${BASE}/domains`, {
       method: 'PATCH',
       headers: h,
@@ -362,7 +362,7 @@ export const api = {
   },
   createDomainFor: (namespaceId: string, domain: string, description: string) => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (namespaceId && namespaceId !== 'default') h['X-Workspace-ID'] = namespaceId;
+    if (namespaceId && namespaceId !== 'default') h['X-Namespace-ID'] = namespaceId;
     return fetch(`${BASE}/domains`, {
       method: 'POST',
       headers: h,
@@ -371,7 +371,7 @@ export const api = {
   },
   deleteDomainFor: (namespaceId: string, domain: string) => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (namespaceId && namespaceId !== 'default') h['X-Workspace-ID'] = namespaceId;
+    if (namespaceId && namespaceId !== 'default') h['X-Namespace-ID'] = namespaceId;
     return fetch(`${BASE}/domains`, {
       method: 'DELETE',
       headers: h,

@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
  *     contained:  content wrapped in max-width + padding (for Settings, Namespaces, etc)
  *
  * Usage:
- *   <Page title="Namespaces" subtitle="Isolated workspaces" actions={<Button>New</Button>} size="sm">
+ *   <Page title="Namespaces" subtitle="Isolated namespaces" actions={<Button>New</Button>} size="sm">
  *     <MyContent />
  *   </Page>
  *

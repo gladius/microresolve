@@ -84,7 +84,7 @@ export default function NamespacesPage() {
 
   const deleteNs = async (id: string) => {
     if (id === 'default') return;
-    if (!confirm(`Delete workspace "${id}" and all its intents? This cannot be undone.`)) return;
+    if (!confirm(`Delete namespace "${id}" and all its intents? This cannot be undone.`)) return;
     try {
       await api.deleteNamespace(id);
       if (settings.selectedNamespaceId === id) setSelectedNamespaceId('default');
@@ -118,8 +118,8 @@ export default function NamespacesPage() {
     <Page
       size="sm"
       className="space-y-6"
-      title="Workspaces"
-      subtitle="Isolated routing workspaces"
+      title="Namespaces"
+      subtitle="Isolated routing namespaces"
       actions={
         <button
           onClick={openModal}
@@ -193,7 +193,7 @@ export default function NamespacesPage() {
                         autoFocus
                         value={draft.description}
                         onChange={e => setEditing(prev => ({ ...prev, [ns.id]: { ...draft, description: e.target.value } }))}
-                        placeholder="What does this workspace handle?"
+                        placeholder="What does this namespace handle?"
                         className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500"
                       />
                     </div>
@@ -205,8 +205,8 @@ export default function NamespacesPage() {
                           title={
                             'Minimum score required for a route to be confirmed. ' +
                             'Leave empty to use the system default (0.3). ' +
-                            'Lower values (0.1–0.5) for tool-routing workspaces where each intent has unique vocabulary. ' +
-                            'Higher values (1.0–2.0) for safety/classification workspaces where attack vocabulary overlaps with normal English. ' +
+                            'Lower values (0.1–0.5) for tool-routing namespaces where each intent has unique vocabulary. ' +
+                            'Higher values (1.0–2.0) for safety/classification namespaces where attack vocabulary overlaps with normal English. ' +
                             'See docs: Choosing a threshold.'
                           }
                           className="text-zinc-600 cursor-help text-[10px] border border-zinc-700 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center"
@@ -274,12 +274,12 @@ export default function NamespacesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-zinc-100">New Workspace</h3>
+              <h3 className="text-base font-semibold text-zinc-100">New Namespace</h3>
               <button onClick={closeModal} className="text-zinc-500 hover:text-zinc-300 text-xl leading-none">×</button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-zinc-400 block mb-1">Workspace ID <span className="text-zinc-600">(immutable)</span></label>
+                <label className="text-xs text-zinc-400 block mb-1">Namespace ID <span className="text-zinc-600">(immutable)</span></label>
                 <input
                   autoFocus
                   value={modalId}
@@ -294,7 +294,7 @@ export default function NamespacesPage() {
                 <input
                   value={modalDesc}
                   onChange={e => setModalDesc(e.target.value)}
-                  placeholder="What does this workspace handle?"
+                  placeholder="What does this namespace handle?"
                   className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 />
               </div>

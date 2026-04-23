@@ -191,7 +191,7 @@ function DataSection() {
               <h3 className="text-base font-semibold text-zinc-100">Clear All Data</h3>
             </div>
             <p className="text-sm text-zinc-400">
-              This will permanently delete <strong className="text-zinc-100">all workspaces, intents, training data, and query logs</strong>. The server resets to a clean state with only the default workspace.
+              This will permanently delete <strong className="text-zinc-100">all namespaces, intents, training data, and query logs</strong>. The server resets to a clean state with only the default namespace.
             </p>
             <p className="text-xs text-zinc-500">This action cannot be undone.</p>
             <div>
