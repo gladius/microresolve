@@ -19,6 +19,7 @@
 pub mod scoring;
 pub mod entity;
 pub mod import;
+pub mod loop_detector;
 pub mod ngram;
 pub mod phrase;
 pub mod tokenizer;

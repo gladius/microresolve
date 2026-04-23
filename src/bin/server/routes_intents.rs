@@ -1,9 +1,9 @@
 //! Intent management endpoints.
 
 use axum::{
-    extract::State,
+    extract::{State, Path},
     http::{StatusCode, HeaderMap},
-    routing::{get, post},
+    routing::{get, post, patch},
     Json,
 };
 use microresolve::NamespaceModel;
@@ -12,20 +12,118 @@ use crate::state::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/intents", get(list_intents))
-        .route("/api/intents", post(add_intent))
-        .route("/api/intents/delete", post(delete_intent))
-        .route("/api/intents/phrase", post(add_phrase))
-        .route("/api/intents/phrase/remove", post(remove_phrase))
-        .route("/api/intents/multilingual", post(add_intent_multilingual))
-        .route("/api/intents/type", post(set_intent_type))
-        .route("/api/intents/description", post(set_intent_description))
-        .route("/api/intents/instructions", post(set_intent_instructions))
-        .route("/api/intents/persona", post(set_intent_persona))
-        .route("/api/intents/guardrails", post(set_intent_guardrails))
-        .route("/api/intents/target", post(set_intent_target))
-        .route("/api/ns/models", get(get_ns_models).post(set_ns_models))
-        .route("/api/intents/discriminate", post(discriminate_intents))
+        // Modern RESTful surface (preferred for new callers)
+        .route("/api/intents",                  get(list_intents).post(add_intent))
+        .route("/api/intents/{id}",             patch(patch_intent).delete(delete_intent_by_id))
+        .route("/api/intents/{id}/phrases",     post(add_phrase_to_intent).delete(remove_phrase_from_intent))
+        // Multilingual seed payload (POST body shape differs from POST /intents)
+        .route("/api/intents/multilingual",     post(add_intent_multilingual))
+        // Cross-cutting operations
+        .route("/api/intents/discriminate",     post(discriminate_intents))
+        .route("/api/ns/models",                get(get_ns_models).post(set_ns_models))
+
+        // ── DEPRECATED ─────────────────────────────────────────────────────
+        // Per-field POST endpoints kept for backward compatibility during
+        // Phase 2 of the API consolidation. UI is migrating to PATCH /intents/{id}.
+        // To be removed in Phase 3 of the consolidation (next session).
+        .route("/api/intents/delete",           post(delete_intent))
+        .route("/api/intents/phrase",           post(add_phrase))
+        .route("/api/intents/phrase/remove",    post(remove_phrase))
+        .route("/api/intents/type",             post(set_intent_type))
+        .route("/api/intents/description",      post(set_intent_description))
+        .route("/api/intents/instructions",     post(set_intent_instructions))
+        .route("/api/intents/persona",          post(set_intent_persona))
+        .route("/api/intents/guardrails",       post(set_intent_guardrails))
+        .route("/api/intents/target",           post(set_intent_target))
+}
+
+// ── New RESTful handlers ────────────────────────────────────────────────────
+
+/// Partial update of an intent. Any subset of fields may be provided.
+#[derive(serde::Deserialize)]
+pub struct PatchIntentRequest {
+    #[serde(default)] pub intent_type: Option<IntentType>,
+    #[serde(default)] pub description: Option<String>,
+    #[serde(default)] pub instructions: Option<String>,
+    #[serde(default)] pub persona: Option<String>,
+    #[serde(default)] pub guardrails: Option<Vec<String>>,
+    #[serde(default)] pub target: Option<microresolve::IntentTarget>,
+}
+
+pub async fn patch_intent(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(req): Json<PatchIntentRequest>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&app_id)
+        .ok_or((StatusCode::NOT_FOUND, format!("namespace '{}' not found", app_id)))?;
+
+    if router.get_training(&id).is_none() {
+        return Err((StatusCode::NOT_FOUND, format!("intent '{}' not found", id)));
+    }
+
+    if let Some(t) = req.intent_type   { router.set_intent_type(&id, t); }
+    if let Some(d) = req.description   { router.set_description(&id, &d); }
+    if let Some(i) = req.instructions  { router.set_instructions(&id, &i); }
+    if let Some(p) = req.persona       { router.set_persona(&id, &p); }
+    if let Some(g) = req.guardrails    { router.set_guardrails(&id, g); }
+    if let Some(t) = req.target        { router.set_target(&id, t); }
+
+    maybe_persist(&state, &app_id, router);
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn delete_intent_by_id(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> StatusCode {
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = match routers.get_mut(&app_id) {
+        Some(r) => r,
+        None => return StatusCode::NOT_FOUND,
+    };
+    router.remove_intent(&id);
+    maybe_persist(&state, &app_id, router);
+    StatusCode::NO_CONTENT
+}
+
+#[derive(serde::Deserialize)]
+pub struct PhrasePayload {
+    pub phrase: String,
+    #[serde(default = "default_lang")]
+    pub lang: String,
+}
+
+pub async fn add_phrase_to_intent(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(req): Json<PhrasePayload>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    // Reuse existing handler logic by adapting the request shape.
+    add_phrase(
+        State(state),
+        headers,
+        Json(AddPhraseRequest { intent_id: id, phrase: req.phrase, lang: req.lang }),
+    ).await
+}
+
+pub async fn remove_phrase_from_intent(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(req): Json<PhrasePayload>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    remove_phrase(
+        State(state),
+        headers,
+        Json(RemovePhraseRequest { intent_id: id, phrase: req.phrase }),
+    ).await
 }
 
 pub async fn list_intents(
