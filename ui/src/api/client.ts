@@ -50,6 +50,28 @@ async function get<T>(path: string): Promise<T> {
   return data;
 }
 
+async function patch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PATCH',
+    headers: appHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(friendlyError(res.status, await res.text()));
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text);
+}
+
+async function del<T>(path: string, body?: unknown): Promise<T> {
+  const opts: RequestInit = { method: 'DELETE', headers: appHeaders() };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(`${BASE}${path}`, opts);
+  if (!res.ok) throw new Error(friendlyError(res.status, await res.text()));
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text);
+}
+
 // --- Types ---
 
 export type IntentType = 'action' | 'context';
@@ -187,23 +209,32 @@ export const api = {
       conflicts: { term: string; competing_intent: string; severity: number }[];
       redundant: boolean;
       reason: string | null;
-    }>('/intents/phrase', { intent_id, phrase, lang }),
+    }>(`/intents/${encodeURIComponent(intent_id)}/phrases`, { phrase, lang }),
   removePhrase: (intent_id: string, phrase: string) =>
-    post<void>('/intents/phrase/remove', { intent_id, phrase }),
-  deleteIntent: (id: string) => post<void>('/intents/delete', { id }),
+    del<void>(`/intents/${encodeURIComponent(intent_id)}/phrases`, { phrase }),
+  deleteIntent: (id: string) => del<void>(`/intents/${encodeURIComponent(id)}`),
+  // Partial update — any subset of fields. Server: PATCH /api/intents/:id
+  patchIntent: (id: string, fields: {
+    intent_type?: IntentType;
+    description?: string;
+    instructions?: string;
+    persona?: string;
+    guardrails?: string[];
+    target?: IntentTarget;
+  }) => patch<void>(`/intents/${encodeURIComponent(id)}`, fields),
+  // Convenience wrappers — kept for backward call-site compatibility
   setIntentType: (intent_id: string, intent_type: IntentType) =>
-    post<void>('/intents/type', { intent_id, intent_type }),
+    patch<void>(`/intents/${encodeURIComponent(intent_id)}`, { intent_type }),
   setDescription: (intent_id: string, description: string) =>
-    post<void>('/intents/description', { intent_id, description }),
-  // Intent behavior (instructions, persona, guardrails)
+    patch<void>(`/intents/${encodeURIComponent(intent_id)}`, { description }),
   setInstructions: (intent_id: string, instructions: string) =>
-    post<void>('/intents/instructions', { intent_id, instructions }),
+    patch<void>(`/intents/${encodeURIComponent(intent_id)}`, { instructions }),
   setPersona: (intent_id: string, persona: string) =>
-    post<void>('/intents/persona', { intent_id, persona }),
+    patch<void>(`/intents/${encodeURIComponent(intent_id)}`, { persona }),
   setGuardrails: (intent_id: string, guardrails: string[]) =>
-    post<void>('/intents/guardrails', { intent_id, guardrails }),
+    patch<void>(`/intents/${encodeURIComponent(intent_id)}`, { guardrails }),
   setTarget: (intent_id: string, target: IntentTarget) =>
-    post<void>('/intents/target', { intent_id, target }),
+    patch<void>(`/intents/${encodeURIComponent(intent_id)}`, { target }),
 
   // Namespace model registry
   getNsModels: () => get<NamespaceModel[]>('/ns/models'),

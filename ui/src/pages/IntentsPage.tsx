@@ -687,12 +687,17 @@ function DetailsTab({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.setInstructions(intent.id, instructions.trim());
-      await api.setPersona(intent.id, persona.trim());
-      await api.setGuardrails(intent.id, guardrails.filter(Boolean));
+      // Single PATCH carrying every changed field — replaces the four
+      // separate per-field POSTs we used to make.
+      const fields: Parameters<typeof api.patchIntent>[1] = {
+        instructions: instructions.trim(),
+        persona: persona.trim(),
+        guardrails: guardrails.filter(Boolean),
+      };
       if (model !== (intent.target?.model || '')) {
-        await api.setTarget(intent.id, { type: 'llm', model: model || undefined });
+        fields.target = { type: 'llm', model: model || undefined };
       }
+      await api.patchIntent(intent.id, fields);
       setDirty(false);
       onRefresh();
     } finally {
