@@ -12,29 +12,12 @@ use crate::state::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        // Modern RESTful surface (preferred for new callers)
         .route("/api/intents",                  get(list_intents).post(add_intent))
         .route("/api/intents/{id}",             patch(patch_intent).delete(delete_intent_by_id))
         .route("/api/intents/{id}/phrases",     post(add_phrase_to_intent).delete(remove_phrase_from_intent))
-        // Multilingual seed payload (POST body shape differs from POST /intents)
         .route("/api/intents/multilingual",     post(add_intent_multilingual))
-        // Cross-cutting operations
         .route("/api/intents/discriminate",     post(discriminate_intents))
         .route("/api/ns/models",                get(get_ns_models).post(set_ns_models))
-
-        // ── DEPRECATED ─────────────────────────────────────────────────────
-        // Per-field POST endpoints kept for backward compatibility during
-        // Phase 2 of the API consolidation. UI is migrating to PATCH /intents/{id}.
-        // To be removed in Phase 3 of the consolidation (next session).
-        .route("/api/intents/delete",           post(delete_intent))
-        .route("/api/intents/phrase",           post(add_phrase))
-        .route("/api/intents/phrase/remove",    post(remove_phrase))
-        .route("/api/intents/type",             post(set_intent_type))
-        .route("/api/intents/description",      post(set_intent_description))
-        .route("/api/intents/instructions",     post(set_intent_instructions))
-        .route("/api/intents/persona",          post(set_intent_persona))
-        .route("/api/intents/guardrails",       post(set_intent_guardrails))
-        .route("/api/intents/target",           post(set_intent_target))
 }
 
 // ── New RESTful handlers ────────────────────────────────────────────────────
@@ -99,18 +82,44 @@ pub struct PhrasePayload {
     pub lang: String,
 }
 
+pub fn default_lang() -> String { "en".to_string() }
+
 pub async fn add_phrase_to_intent(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
     Json(req): Json<PhrasePayload>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    // Reuse existing handler logic by adapting the request shape.
-    add_phrase(
-        State(state),
-        headers,
-        Json(AddPhraseRequest { intent_id: id, phrase: req.phrase, lang: req.lang }),
-    ).await
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&app_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
+
+    if router.get_training(&id).is_none() {
+        return Err((StatusCode::NOT_FOUND, format!("intent '{}' not found", id)));
+    }
+
+    let result = router.add_phrase_checked(&id, &req.phrase, &req.lang);
+
+    if result.added {
+        maybe_persist(&state, &app_id, router);
+    }
+
+    let counts = router.seed_counts_by_lang(&id);
+    drop(routers);
+
+    Ok(Json(serde_json::json!({
+        "added": result.added,
+        "counts": counts,
+        "new_terms": result.new_terms,
+        "conflicts": result.conflicts.iter().map(|c| serde_json::json!({
+            "term": c.term,
+            "competing_intent": c.competing_intent,
+            "severity": c.severity,
+        })).collect::<Vec<_>>(),
+        "redundant": result.redundant,
+        "reason": result.warning,
+    })))
 }
 
 pub async fn remove_phrase_from_intent(
@@ -119,11 +128,16 @@ pub async fn remove_phrase_from_intent(
     Path(id): Path<String>,
     Json(req): Json<PhrasePayload>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    remove_phrase(
-        State(state),
-        headers,
-        Json(RemovePhraseRequest { intent_id: id, phrase: req.phrase }),
-    ).await
+    let app_id = app_id_from_headers(&headers);
+    let mut routers = state.routers.write().unwrap();
+    let router = routers.get_mut(&app_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
+    if router.remove_phrase(&id, &req.phrase) {
+        maybe_persist(&state, &app_id, router);
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err((StatusCode::NOT_FOUND, "phrase not found".to_string()))
+    }
 }
 
 pub async fn list_intents(
@@ -199,76 +213,6 @@ pub async fn add_intent(
 }
 
 #[derive(serde::Deserialize)]
-pub struct AddPhraseRequest {
-    intent_id: String,
-    phrase: String,
-    #[serde(default = "default_lang")]
-    lang: String,
-}
-
-pub fn default_lang() -> String { "en".to_string() }
-
-pub async fn add_phrase(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<AddPhraseRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = routers.get_mut(&app_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-
-    if router.get_training(&req.intent_id).is_none() {
-        return Err((StatusCode::NOT_FOUND, format!("intent '{}' not found", req.intent_id)));
-    }
-
-    let result = router.add_phrase_checked(&req.intent_id, &req.phrase, &req.lang);
-
-    if result.added {
-        maybe_persist(&state, &app_id, router);
-    }
-
-    let counts = router.seed_counts_by_lang(&req.intent_id);
-    drop(routers);
-
-    Ok(Json(serde_json::json!({
-        "added": result.added,
-        "counts": counts,
-        "new_terms": result.new_terms,
-        "conflicts": result.conflicts.iter().map(|c| serde_json::json!({
-            "term": c.term,
-            "competing_intent": c.competing_intent,
-            "severity": c.severity,
-        })).collect::<Vec<_>>(),
-        "redundant": result.redundant,
-        "reason": result.warning,
-    })))
-}
-
-#[derive(serde::Deserialize)]
-pub struct RemovePhraseRequest {
-    intent_id: String,
-    phrase: String,
-}
-
-pub async fn remove_phrase(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<RemovePhraseRequest>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = routers.get_mut(&app_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-    if router.remove_phrase(&req.intent_id, &req.phrase) {
-        maybe_persist(&state, &app_id, router);
-        Ok(StatusCode::OK)
-    } else {
-        Err((StatusCode::NOT_FOUND, "phrase not found".to_string()))
-    }
-}
-
-#[derive(serde::Deserialize)]
 pub struct AddIntentMultilingualRequest {
     id: String,
     phrases_by_lang: std::collections::HashMap<String, Vec<String>>,
@@ -302,159 +246,6 @@ pub async fn add_intent_multilingual(
     }
 
     StatusCode::CREATED
-}
-
-#[derive(serde::Deserialize)]
-pub struct SetIntentTypeRequest {
-    intent_id: String,
-    intent_type: IntentType,
-}
-
-pub async fn set_intent_type(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<SetIntentTypeRequest>,
-) -> StatusCode {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = match routers.get_mut(&app_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
-    router.set_intent_type(&req.intent_id, req.intent_type);
-    maybe_persist(&state, &app_id, router);
-    StatusCode::OK
-}
-
-#[derive(serde::Deserialize)]
-pub struct SetDescriptionRequest {
-    intent_id: String,
-    description: String,
-}
-
-pub async fn set_intent_description(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<SetDescriptionRequest>,
-) -> StatusCode {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = match routers.get_mut(&app_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
-    router.set_description(&req.intent_id, &req.description);
-    maybe_persist(&state, &app_id, router);
-    StatusCode::OK
-}
-
-#[derive(serde::Deserialize)]
-pub struct DeleteIntentRequest {
-    id: String,
-}
-
-pub async fn delete_intent(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<DeleteIntentRequest>,
-) -> StatusCode {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = match routers.get_mut(&app_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
-    router.remove_intent(&req.id);
-    maybe_persist(&state, &app_id, router);
-    StatusCode::OK
-}
-
-#[derive(serde::Deserialize)]
-pub struct SetInstructionsRequest {
-    intent_id: String,
-    instructions: String,
-}
-
-pub async fn set_intent_instructions(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<SetInstructionsRequest>,
-) -> StatusCode {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = match routers.get_mut(&app_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
-    router.set_instructions(&req.intent_id, &req.instructions);
-    maybe_persist(&state, &app_id, router);
-    StatusCode::OK
-}
-
-#[derive(serde::Deserialize)]
-pub struct SetPersonaRequest {
-    intent_id: String,
-    persona: String,
-}
-
-pub async fn set_intent_persona(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<SetPersonaRequest>,
-) -> StatusCode {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = match routers.get_mut(&app_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
-    router.set_persona(&req.intent_id, &req.persona);
-    maybe_persist(&state, &app_id, router);
-    StatusCode::OK
-}
-
-#[derive(serde::Deserialize)]
-pub struct SetGuardrailsRequest {
-    intent_id: String,
-    guardrails: Vec<String>,
-}
-
-pub async fn set_intent_guardrails(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<SetGuardrailsRequest>,
-) -> StatusCode {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = match routers.get_mut(&app_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
-    router.set_guardrails(&req.intent_id, req.guardrails);
-    maybe_persist(&state, &app_id, router);
-    StatusCode::OK
-}
-
-#[derive(serde::Deserialize)]
-pub struct SetTargetRequest {
-    intent_id: String,
-    target: microresolve::IntentTarget,
-}
-
-pub async fn set_intent_target(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<SetTargetRequest>,
-) -> StatusCode {
-    let app_id = app_id_from_headers(&headers);
-    let mut routers = state.routers.write().unwrap();
-    let router = match routers.get_mut(&app_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
-    router.set_target(&req.intent_id, req.target);
-    maybe_persist(&state, &app_id, router);
-    StatusCode::OK
 }
 
 pub async fn get_ns_models(

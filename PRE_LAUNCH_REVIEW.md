@@ -177,6 +177,11 @@ Currently exposed in Rust lib core: intent CRUD, routing, correction, descriptio
 - **✅ 1.1** — remove dead `similarity` field. **DONE** in commit 3ccf36a.
 - **[ ] 2.3, 2.4, 2.6** — audit legacy endpoints (load_defaults, phrase/*, ns/models) — remove if dead. ~15 min.
 
+### Done — API consolidation
+- **✅ Phase 1** (commit c9c3221) — added RESTful endpoints (`PATCH /intents/{id}`, `DELETE /intents/{id}`, `POST/DELETE /intents/{id}/phrases`) alongside legacy.
+- **✅ Phase 2** (commit b878f0c) — UI client uses new RESTful URLs; `IntentsPage.handleSave` collapses 4 POSTs → 1 PATCH.
+- **✅ Phase 3** — removed 9 deprecated per-field POST endpoints + handlers + request structs (251 LOC). Net endpoint count drops from 80 → 71.
+
 ### Nice-to-have
 - **[ ] 1.2** — persist `version` counter across restarts OR document. ~10 min if persist.
 - **[ ] 1.3** — audit log store cleanup on namespace delete. ~10 min.
