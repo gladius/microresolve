@@ -33,7 +33,7 @@ Use this as a working checklist — mark items as **DONE** / **SKIP** / **DEFERR
 |---|---------|----------|--------|
 | 1.1 | `similarity` HashMap on Router — dead code, written only in clone/restore, never read for routing | Low (just noise) | ✅ **DONE** (commit 3ccf36a) — removed field, struct init, export/import paths |
 | 1.2 | `version` counter resets to 0 on each load (because it's not serialized) | Medium — connected-mode clients tracking `version` would refetch after every server restart | **[ ] Either persist `version` or document the reset behavior** |
-| 1.3 | Log store persistence location unclear — does `DELETE /api/namespaces` cleanly remove logs too? | Medium if enterprise privacy matters | **[ ] Audit log-store cleanup on namespace delete** |
+| 1.3 | Log store persistence location unclear — does `DELETE /api/namespaces` cleanly remove logs too? | Medium if enterprise privacy matters | ✅ **DONE** — `delete_namespace` now calls `LogStore::drop_app` (removes `{data_dir}/logs/{ns}.bin` + in-memory index) and clears `review_mode[ns]`. E2E verified: 733 B .bin file disappears on delete, subsequent log query returns empty. |
 
 ### When does the server actually save?
 

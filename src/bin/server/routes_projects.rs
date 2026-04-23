@@ -102,6 +102,10 @@ pub async fn delete_namespace(
         // Also remove old flat file if it exists (migration cleanup)
         let _ = std::fs::remove_file(format!("{}/{}.json", dir, req.namespace_id));
     }
+    // Drop the namespace's query log (on-disk .bin + in-memory index)
+    state.log_store.lock().unwrap().drop_app(&req.namespace_id);
+    // Drop the in-memory review_mode entry
+    state.review_mode.write().unwrap().remove(&req.namespace_id);
     Ok(Json(serde_json::json!({"deleted": req.namespace_id})))
 }
 

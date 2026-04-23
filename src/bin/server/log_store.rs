@@ -427,6 +427,16 @@ impl LogStore {
         pending
     }
 
+    /// Drop a single app's log: remove the on-disk `.bin` file and the
+    /// in-memory index. Used when a namespace is deleted so its query
+    /// history doesn't linger as a privacy leak or re-appear after restart.
+    pub fn drop_app(&mut self, app_id: &str) {
+        self.apps.remove(app_id);
+        if let Some(ref dir) = self.data_dir {
+            let _ = fs::remove_file(dir.join(format!("{}.bin", app_id)));
+        }
+    }
+
     /// Stats for all apps.
     /// Delete all log files and reset in-memory state.
     pub fn clear_all(&mut self) {
