@@ -6,7 +6,7 @@ Layer 1 (recall):     LLM generates 10 questions per section → bridges paraphr
 Layer 2 (precision):  Cross-section TF-IDF on content n-grams → adds discriminative terms
 
 The discriminative layer finds n-grams that appear in FEW sections (unique vocabulary).
-ASV's inverted index already IDF-weights rare terms, so these score higher at routing time.
+MicroResolve's inverted index already IDF-weights rare terms, so these score higher at routing time.
 
 Zero additional LLM calls — reuses cached questions from run_docs.py.
 

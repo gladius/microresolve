@@ -3,12 +3,12 @@
 Bigram-IDF experimental layer.
 
 Builds per-intent bigram sets from seed phrases, then at query time
-re-ranks ASV's top-K results using bigram overlap bonus.
+re-ranks MicroResolve's top-K results using bigram overlap bonus.
 
 This simulates how a secondary bigram-scoring signal would behave
-without modifying ASV's core scoring code. If this shows a lift,
+without modifying MicroResolve's core scoring code. If this shows a lift,
 productizing it is straightforward — add bigram scoring alongside
-unigram in ASV's index.
+unigram in MicroResolve's index.
 """
 
 import json
@@ -87,9 +87,9 @@ def bigram_score(query: str, intent_id: str) -> float:
 
 def rerank(query: str, asv_ranked: list, top_k: int = 10, alpha: float = 0.5) -> list:
     """
-    Given ASV's ranked list [{id, score}, ...], add bigram bonus and re-sort.
-    alpha: weight of bigram score in the combined score (0 = ASV only).
-    Only considers top_k candidates from ASV to limit cost.
+    Given MicroResolve's ranked list [{id, score}, ...], add bigram bonus and re-sort.
+    alpha: weight of bigram score in the combined score (0 = MicroResolve only).
+    Only considers top_k candidates from MicroResolve to limit cost.
     """
     candidates = asv_ranked[:top_k]
     rescored = []

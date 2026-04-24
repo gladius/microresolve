@@ -88,7 +88,7 @@ def run_experiment(name, seeds_path, test_path, metric_fn):
 
 if __name__ == "__main__":
     if not check_server():
-        print("Start the ASV server first.")
+        print("Start the MicroResolve server first.")
         sys.exit(1)
 
     # Experiment 1: MixSNIPS (7 intents, heavily overlapping)

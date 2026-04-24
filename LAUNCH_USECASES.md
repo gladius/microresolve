@@ -1,4 +1,4 @@
-# ASV — Launch Use Cases
+# MicroResolve — Launch Use Cases
 
 **The pitch**: a trainable, zero-cost decision layer you embed in your stack before
 anything expensive runs. 30µs per query. No LLM at inference time. Gets smarter
@@ -14,7 +14,7 @@ Each entry maps to: one blog post + one demo namespace with real example intents
 **The problem**: Every query hits the LLM even when the answer is deterministic.
 "What are your hours?" doesn't need GPT-4.
 
-**How ASV helps**: Train intents for your known query patterns. High-confidence
+**How MicroResolve helps**: Train intents for your known query patterns. High-confidence
 hits get answered directly from metadata. Only ambiguous or novel queries reach
 the LLM.
 
@@ -31,7 +31,7 @@ the LLM.
 **The problem**: Prompt injection, jailbreaks, off-topic abuse, and competitor
 baiting all cost you API tokens AND risk your product.
 
-**How ASV helps**: Train a guardrail namespace with intents for each threat class.
+**How MicroResolve helps**: Train a guardrail namespace with intents for each threat class.
 Run it as the first layer — if it fires, never forward to the LLM.
 
 **Intent classes**:
@@ -53,7 +53,7 @@ Run it as the first layer — if it fires, never forward to the LLM.
 **The problem**: Orchestrator agents re-read all agent descriptions on every turn
 to decide who handles what.
 
-**How ASV helps**: Each specialist agent becomes an intent (description + trigger
+**How MicroResolve helps**: Each specialist agent becomes an intent (description + trigger
 phrases). Incoming queries route to the right agent before any LLM orchestration.
 
 **Intent examples**:
@@ -73,7 +73,7 @@ phrases). Incoming queries route to the right agent before any LLM orchestration
 **The problem**: Chatbots miss the signals that a customer needs a human. By the
 time the LLM figures it out, the customer is already angry.
 
-**How ASV helps**: Train escalation intents that fire in parallel with topic
+**How MicroResolve helps**: Train escalation intents that fire in parallel with topic
 routing. Detects urgency, frustration, legal threats, explicit handoff requests —
 at 30µs, before the response is generated.
 
@@ -95,7 +95,7 @@ at 30µs, before the response is generated.
 **The problem**: Internal Slack bots are a mess of regex patterns and if/else
 chains. Every new command needs a code deploy.
 
-**How ASV helps**: Each bot command is an intent. Add new commands via API or
+**How MicroResolve helps**: Each bot command is an intent. Add new commands via API or
 UI — no deploys. Handles natural phrasing ("can someone deploy staging" vs
 "deploy to staging plz").
 
@@ -117,7 +117,7 @@ UI — no deploys. Handles natural phrasing ("can someone deploy staging" vs
 **The problem**: Multi-turn flows require the LLM to re-read conversation history
 to figure out which step the user is responding to.
 
-**How ASV helps**: Each step in a flow has trigger intents. "I'll take option B"
+**How MicroResolve helps**: Each step in a flow has trigger intents. "I'll take option B"
 after a branch point routes deterministically to `branch_b_handler` without
 re-reading history.
 
@@ -138,7 +138,7 @@ re-reading history.
 **The problem**: Search engines and product catalogs serve different result types
 for different query intents. Classifying them on every search is expensive.
 
-**How ASV helps**: Train a classifier namespace. "Buy a red hoodie" → transactional
+**How MicroResolve helps**: Train a classifier namespace. "Buy a red hoodie" → transactional
 (show product cards). "How do hoodies fit" → informational (show sizing guide).
 "Uniqlo hoodie" → navigational (show brand page).
 
@@ -153,7 +153,7 @@ for different query intents. Classifying them on every search is expensive.
 **The problem**: Users submitting content that will be embedded in prompts can
 inject instructions. Detecting this with the LLM is circular.
 
-**How ASV helps**: Train injection-pattern intents from known attack signatures.
+**How MicroResolve helps**: Train injection-pattern intents from known attack signatures.
 Fire before the prompt is assembled. Zero LLM exposure to the attack payload.
 
 **Intent classes**:
@@ -173,7 +173,7 @@ Fire before the prompt is assembled. Zero LLM exposure to the attack payload.
 **The problem**: Product pages, checkout flows, and support tickets all get mixed
 into the same chat interface. The LLM treats them all the same.
 
-**How ASV helps**: Intent-stratify incoming queries before they hit any backend.
+**How MicroResolve helps**: Intent-stratify incoming queries before they hit any backend.
 
 **Intent classes**:
 - `browse` — "show me", "what do you have", "looking for"
@@ -192,7 +192,7 @@ into the same chat interface. The LLM treats them all the same.
 
 **The problem**: Issue triage is slow. Labels get applied inconsistently or late.
 
-**How ASV helps**: Train on issue title + body snippets. Auto-route to label
+**How MicroResolve helps**: Train on issue title + body snippets. Auto-route to label
 intents before a human or LLM reviews.
 
 **Intent classes**:

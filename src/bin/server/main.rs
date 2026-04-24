@@ -23,6 +23,7 @@ mod routes_hebbian;
 mod routes_stopwords;
 mod routes_entities;
 mod worker;
+mod cli;
 
 use state::*;
 use log_store::LogStore;
@@ -40,48 +41,89 @@ use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() {
-    // Load .env first so ASV_DATA_DIR can be read from it
-    if let Ok(env_content) = std::fs::read_to_string(".env") {
-        for line in env_content.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') { continue; }
-            if let Some((key, val)) = line.split_once('=') {
-                let key = key.trim();
-                let val = val.trim().trim_matches('"').trim_matches('\'');
-                if std::env::var(key).is_err() {
-                    std::env::set_var(key, val);
+    // ─── dev-vs-distributed detection ──────────────────────────────────────
+    //
+    // Single signal: is `ui/dist/` sitting next to our executable?
+    //
+    //   • Distributed install (tarball / brew / docker / cargo-dist artifact)
+    //       → ui/dist IS next to the binary (we packaged it that way)
+    //       → serve the UI, auto-open a browser, IGNORE any stray .env
+    //
+    //   • Cargo build (`cargo run`, `cargo run --release`, `cargo install`, …)
+    //       → ui/dist is NOT next to `target/…/server` or `~/.cargo/bin/`
+    //       → API-only (Vite's `npm run dev` on :3000 owns the UI),
+    //         no browser auto-open, AUTO-LOAD ./.env so dev env vars just work
+    //
+    // This is zero-config, profile-independent, and matches the actual
+    // packaging convention in the release pipeline. No flag to remember.
+    let ui_dist: Option<std::path::PathBuf> = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("ui/dist")))
+        .filter(|p| p.exists());
+    let is_distributed = ui_dist.is_some();
+
+    // `.env` is a developer convenience. Skip it on distributed installs so
+    // a stray .env in the user's CWD can't silently override their config.
+    if !is_distributed {
+        if let Ok(env_content) = std::fs::read_to_string(".env") {
+            let mut loaded = 0;
+            for line in env_content.lines() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') { continue; }
+                if let Some((key, val)) = line.split_once('=') {
+                    let key = key.trim();
+                    let val = val.trim().trim_matches('"').trim_matches('\'');
+                    if std::env::var(key).is_err() {
+                        std::env::set_var(key, val);
+                        loaded += 1;
+                    }
                 }
             }
-        }
-    }
-
-    // Data directory: --data flag > ASV_DATA_DIR env > ~/.local/share/microresolve (default)
-    let mut data_dir: Option<String> = None;
-    let args: Vec<String> = std::env::args().collect();
-    for i in 0..args.len() {
-        if args[i] == "--data" {
-            if let Some(dir) = args.get(i + 1) {
-                data_dir = Some(dir.clone());
+            if loaded > 0 {
+                eprintln!("(dev) loaded {} variable(s) from ./.env", loaded);
             }
         }
     }
-    if data_dir.is_none() {
-        let dir = std::env::var("ASV_DATA_DIR").unwrap_or_else(|_| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            format!("{}/.local/share/microresolve", home)
-        });
-        std::fs::create_dir_all(&dir).ok();
-        data_dir = Some(dir);
+
+    // Parse CLI: handles --help, --version, subcommands, flag validation.
+    let parsed = <cli::Cli as clap::Parser>::parse();
+
+    // Subcommand: interactive config setup, then exit.
+    if let Some(cli::Command::Config) = parsed.command {
+        if let Err(e) = cli::run_config_subcommand() {
+            eprintln!("Failed to write config: {}", e);
+            std::process::exit(1);
+        }
+        return;
     }
 
-    let port = std::env::var("PORT").unwrap_or_else(|_| "3001".to_string());
-    let addr = format!("0.0.0.0:{}", port);
+    // Merge CLI flags + env vars + config file into one resolved config.
+    let cfg = cli::resolve(&parsed);
 
-    let llm_key = std::env::var("LLM_API_KEY").ok();
+    if parsed.print_config {
+        cli::print_resolved(&cfg);
+        return;
+    }
+
+    // Ensure data dir exists.
+    std::fs::create_dir_all(&cfg.data_dir).ok();
+    let data_dir: Option<String> = Some(cfg.data_dir.display().to_string());
+
+    // Propagate resolved config to env so downstream modules (pipeline.rs,
+    // routes_review.rs) that read LLM_* directly continue to work.
+    std::env::set_var("LLM_PROVIDER", &cfg.llm_provider);
+    std::env::set_var("LLM_MODEL", &cfg.llm_model);
+    if let Some(k) = cfg.llm_api_key.as_ref() {
+        std::env::set_var("LLM_API_KEY", k);
+    }
+
+    let addr = format!("{}:{}", cfg.host, cfg.port);
+
+    let llm_key = cfg.llm_api_key.clone();
     if llm_key.is_some() {
         println!("LLM API key: loaded");
     } else {
-        println!("LLM API key: not set (LLM features disabled)");
+        println!("LLM API key: not set (run `microresolve config` or set LLM_API_KEY to enable training features)");
     }
 
     // Initialize routers from namespace directories
@@ -154,27 +196,40 @@ async fn main() {
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
-    // Serve static UI files if ui/dist exists.
-    // /assets/* are content-hashed by Vite — served by ServeDir (browser can cache them).
-    // All other paths are SPA routes: serve index.html with no-cache so the browser
-    // always fetches the latest hash references after a rebuild.
-    let app = if std::path::Path::new("ui/dist").exists() {
+    // `ui_dist` was resolved at the top of main() via binary adjacency.
+    // `is_distributed` is true iff we found it. That single boolean controls
+    // UI serving AND browser auto-open below — no cfg(debug_assertions), no
+    // CWD fallback. The packaging convention is the signal.
+    let app = if let Some(dist) = ui_dist.as_ref() {
         use axum::response::IntoResponse;
         use axum::http::header;
 
+        // Store the index.html path in a OnceLock so the fallback handler
+        // (which must be a plain fn for axum to accept) can read it.
+        static UI_INDEX_PATH: std::sync::OnceLock<std::path::PathBuf> =
+            std::sync::OnceLock::new();
+        let _ = UI_INDEX_PATH.set(dist.join("index.html"));
+
         async fn spa_index() -> impl IntoResponse {
-            let html = std::fs::read_to_string("ui/dist/index.html")
-                .unwrap_or_else(|_| "<html><body>UI not found</body></html>".to_string());
+            let html = UI_INDEX_PATH
+                .get()
+                .and_then(|p| std::fs::read_to_string(p).ok())
+                .unwrap_or_else(|| "<html><body>UI not found</body></html>".to_string());
             (
                 [(header::CACHE_CONTROL, "no-cache, no-store, must-revalidate")],
                 axum::response::Html(html),
             )
         }
 
+        println!("UI served from: {}", dist.display());
         app
-            .nest_service("/assets", tower_http::services::ServeDir::new("ui/dist/assets"))
+            .nest_service(
+                "/assets",
+                tower_http::services::ServeDir::new(dist.join("assets")),
+            )
             .fallback(spa_index)
     } else {
+        println!("(dev) API-only — no ui/dist next to the binary. For the UI, run `cd ui && npm run dev` (http://localhost:3000).");
         app
     };
 
@@ -185,6 +240,24 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(&addr).await
         .expect(&format!("Failed to bind to {} — is the port already in use?", addr));
+
+    // Auto-open the browser — only for distributed installs. In dev builds
+    // the Vite dev server on :3000 already owns the browser tab.
+    if is_distributed {
+        if !cfg.no_open && !cli::looks_headless() {
+            let url = format!("http://localhost:{}/", cfg.port);
+            if let Err(e) = open::that_detached(&url) {
+                eprintln!("(could not auto-open browser: {}. Visit {} manually.)", e, url);
+            } else {
+                println!("Opening browser at {}", url);
+            }
+        } else if cfg.no_open {
+            println!("Browser auto-open disabled (--no-open).");
+        } else {
+            println!("Headless environment detected — not opening browser.");
+        }
+    }
+
     axum::serve(listener, app).await
         .expect("Server error");
 }

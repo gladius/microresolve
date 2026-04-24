@@ -1,5 +1,5 @@
 """
-ABCD Dataset Simulation: replay real customer conversations through ASV server.
+ABCD Dataset Simulation: replay real customer conversations through MicroResolve server.
 
 Uses the HTTP API — exactly like a real production client. Every query goes
 through the full stack: HTTP → server → router → record co-occurrence → persist.
@@ -51,7 +51,7 @@ def ensure_intents(sessions: list[dict]):
     resp = requests.get(f"{BASE}/intents")
     existing = {i["id"] for i in resp.json()}
 
-    # Map ABCD flows to ASV intents with seed phrases
+    # Map ABCD flows to MicroResolve intents with seed phrases
     intent_map = {
         "product_defect": {
             "seeds": ["defective product", "product is broken", "wrong item received",
@@ -152,7 +152,7 @@ def ensure_intents(sessions: list[dict]):
 
 
 def run_simulation(sessions: list[dict], max_sessions: int = 500):
-    """Replay customer sessions through ASV server API."""
+    """Replay customer sessions through MicroResolve server API."""
     total_queries = 0
     total_sessions = 0
     intent_hits = {}
@@ -232,7 +232,7 @@ def run_simulation(sessions: list[dict], max_sessions: int = 500):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ABCD simulation through ASV server")
+    parser = argparse.ArgumentParser(description="ABCD simulation through MicroResolve server")
     parser.add_argument("--dataset", default="/tmp/abcd_v1.1.json", help="Path to ABCD JSON")
     parser.add_argument("--conversations", type=int, default=500, help="Max conversations to simulate")
     parser.add_argument("--split", default="train", help="Dataset split: train/dev/test")

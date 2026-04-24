@@ -1,10 +1,10 @@
-# ASV Router — Benchmark Results
+# MicroResolve Router — Benchmark Results
 
-All benchmarks run against ASV's full L0→L4 pipeline with **zero LLM calls**.
+All benchmarks run against MicroResolve's full L0→L4 pipeline with **zero LLM calls**.
 Two passes per dataset: seed phrases only, then after direct learning from misses
 (miss query → added as training phrase via `POST /api/intents/{id}/phrases`).
 
-Server: ASV v0.1.0 · Rust release build · Intel × Linux
+Server: MicroResolve v0.1.0 · Rust release build · Intel × Linux
 
 ---
 
@@ -43,7 +43,7 @@ Server: ASV v0.1.0 · Rust release build · Intel × Linux
 *Results after direct learning from misses. Seed-only F1: MixSNIPS 77.3%, MixATIS 61.9%.*
 
 ### Track 4 notes
-- **Partial match** is the practical metric: 96.8% / 84.3% means ASV correctly identifies at least one of the expected intents in nearly all queries
+- **Partial match** is the practical metric: 96.8% / 84.3% means MicroResolve correctly identifies at least one of the expected intents in nearly all queries
 - **Exact match** (all intents correct, none extra) is harder — multi-intent decomposition is inherently ambiguous
 - **Learning had no significant effect** on F1 — multi-intent miss queries have overlapping vocabulary, so adding them as phrases doesn't help disambiguation
 - Latency: 2.4–2.8ms p50 — significantly faster than single-intent (no token consumption pass needed for small intent sets)
@@ -70,5 +70,5 @@ Learning = `router.add_phrase(intent_id, phrase)` → atomic update of L2.
 - **No LLM used** at any point during benchmarking
 - **Seed-only baseline** reflects cold-start performance with minimal training data
 - **+Learning pass** simulates one round of direct feedback (user confirms correct intent)
-- CLINC150 +29pp jump shows how quickly ASV absorbs corrections
+- CLINC150 +29pp jump shows how quickly MicroResolve absorbs corrections
 - MixSNIPS/MixATIS learning delta ≈0 because multi-intent vocabularies heavily overlap

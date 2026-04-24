@@ -2,7 +2,7 @@
 """Experiment: Vector similarity vs current L2 token scoring on CLINC150.
 
 Tests three modes:
-  baseline   — current ASV server (L2 token IDF, L1 morph+synonym)
+  baseline   — current MicroResolve server (L2 token IDF, L1 morph+synonym)
   vector     — pure GloVe mean-pool: no server, no token index
   hybrid     — server L2 score + vector cosine, combined
 

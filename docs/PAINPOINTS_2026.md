@@ -221,7 +221,7 @@ Each pain point includes:
 - Multiple regulated industries: healthcare, banking, government, defense
 
 **Can MicroResolve fix?** Yes.
-**How:** Fully self-hosted. Zero external calls. Runs on-premise, air-gapped, or in WASM in the browser. No data ever leaves the deployment environment. JSON export provides full audit trail.
+**How:** Fully self-hosted. Zero external calls. Runs on-premise or air-gapped. No data ever leaves the deployment environment. JSON export provides full audit trail.
 **Gap:** None. Works today. This is one of MicroResolve's strongest natural advantages.
 
 ---

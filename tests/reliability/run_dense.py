@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Dense-seed experiment: 3 domains × 5 intents × 12 phrases = 15 intents, 180 phrases.
-Tests whether ASV's real ceiling is data density (seeds/intent) rather than algorithmic layers.
+Tests whether MicroResolve's real ceiling is data density (seeds/intent) rather than algorithmic layers.
 
-Runs baseline ASV on this realistically-seeded namespace and reports dev+validation numbers.
+Runs baseline MicroResolve on this realistically-seeded namespace and reports dev+validation numbers.
 """
 import json
 import urllib.request

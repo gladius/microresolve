@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "purpose": "Natural cross-domain queries — how a real user would actually phrase them, not systematic pair enumeration. Tests ASV's multi-intent decomposition on realistic enterprise requests that happen to span multiple SaaS tools."
+    "purpose": "Natural cross-domain queries — how a real user would actually phrase them, not systematic pair enumeration. Tests MicroResolve's multi-intent decomposition on realistic enterprise requests that happen to span multiple SaaS tools."
   },
   "queries": [
     { "query": "refund them and cancel their order", "expected_multi": ["stripe:create_refund", "shopify:cancel_order"] },

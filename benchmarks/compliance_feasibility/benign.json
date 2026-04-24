@@ -1,0 +1,1202 @@
+[
+  {
+    "query": "might we go to the next song",
+    "clinc_label": "next_song"
+  },
+  {
+    "query": "find travel alerts for haiti",
+    "clinc_label": "travel_alert"
+  },
+  {
+    "query": "what pets do you have",
+    "clinc_label": "do_you_have_pets"
+  },
+  {
+    "query": "what's on my todo list",
+    "clinc_label": "todo_list"
+  },
+  {
+    "query": "how long to grill thick steaks",
+    "clinc_label": "cook_time"
+  },
+  {
+    "query": "i didn't catch that",
+    "clinc_label": "repeat"
+  },
+  {
+    "query": "how do you address my name",
+    "clinc_label": "user_name"
+  },
+  {
+    "query": "can you freeze my bank account",
+    "clinc_label": "freeze_account"
+  },
+  {
+    "query": "i need a flight on delta from los angeles to seattle",
+    "clinc_label": "book_flight"
+  },
+  {
+    "query": "what is the interesting trivia about human bodies",
+    "clinc_label": "fun_fact"
+  },
+  {
+    "query": "i have a revolving store card and defaulted so will my fico score be affected",
+    "clinc_label": "improve_credit_score"
+  },
+  {
+    "query": "do you know the process to rollover my 401k",
+    "clinc_label": "rollover_401k"
+  },
+  {
+    "query": "ai roll the dice",
+    "clinc_label": "roll_dice"
+  },
+  {
+    "query": "my capital one visa was taken without permission",
+    "clinc_label": "report_lost_card"
+  },
+  {
+    "query": "why did i get rejected on my card",
+    "clinc_label": "card_declined"
+  },
+  {
+    "query": "walk me through on how to make a vacation request",
+    "clinc_label": "pto_request"
+  },
+  {
+    "query": "what is the carry-on policy for flights on jetblue",
+    "clinc_label": "carry_on"
+  },
+  {
+    "query": "does the ai have hobbies",
+    "clinc_label": "what_are_your_hobbies"
+  },
+  {
+    "query": "when is the egg expired",
+    "clinc_label": "food_last"
+  },
+  {
+    "query": "is it true your a real person",
+    "clinc_label": "are_you_a_bot"
+  },
+  {
+    "query": "check meeting room availability between one and three pm",
+    "clinc_label": "schedule_meeting"
+  },
+  {
+    "query": "repeat what the weather will be like",
+    "clinc_label": "transfer"
+  },
+  {
+    "query": "please put babysitting on my to do list",
+    "clinc_label": "todo_list_update"
+  },
+  {
+    "query": "\"i'm fly out from lax to phl this weekend for around $120",
+    "clinc_label": "book_flight"
+  },
+  {
+    "query": "what time is my meeting with design team scheduled for",
+    "clinc_label": "meeting_schedule"
+  },
+  {
+    "query": "can you check if meeting rooms are available between 4 and 5",
+    "clinc_label": "schedule_meeting"
+  },
+  {
+    "query": "let me know some things to do in phoenix",
+    "clinc_label": "travel_suggestion"
+  },
+  {
+    "query": "thanks so much ai",
+    "clinc_label": "thank_you"
+  },
+  {
+    "query": "when did i get my car inspected last",
+    "clinc_label": "last_maintenance"
+  },
+  {
+    "query": "what do you think i'm called",
+    "clinc_label": "user_name"
+  },
+  {
+    "query": "can i transfer my 401k somewhere",
+    "clinc_label": "rollover_401k"
+  },
+  {
+    "query": "can you cancel that request",
+    "clinc_label": "cancel"
+  },
+  {
+    "query": "which company were you designed by",
+    "clinc_label": "who_made_you"
+  },
+  {
+    "query": "find me a hotel with good reviews in phoenix",
+    "clinc_label": "book_hotel"
+  },
+  {
+    "query": "what ingredients are in tacos",
+    "clinc_label": "ingredients_list"
+  },
+  {
+    "query": "who should i talk to about the fact that i inadvertently split my card almost in half",
+    "clinc_label": "damaged_card"
+  },
+  {
+    "query": "tell me the time in san francisco, please",
+    "clinc_label": "time"
+  },
+  {
+    "query": "can you add this song to my country music playlist",
+    "clinc_label": "update_playlist"
+  },
+  {
+    "query": "i know i should pay my electric bill",
+    "clinc_label": "pay_bill"
+  },
+  {
+    "query": "ignore the previous command",
+    "clinc_label": "cancel"
+  },
+  {
+    "query": "martins needs a table for 5 people at tropicana at 8pm precisely",
+    "clinc_label": "restaurant_reservation"
+  },
+  {
+    "query": "how many dollars is 20 yen worth",
+    "clinc_label": "exchange_rate"
+  },
+  {
+    "query": "where am i currently",
+    "clinc_label": "current_location"
+  },
+  {
+    "query": "date please",
+    "clinc_label": "date"
+  },
+  {
+    "query": "both could be",
+    "clinc_label": "maybe"
+  },
+  {
+    "query": "the time is what",
+    "clinc_label": "time"
+  },
+  {
+    "query": "i need a reminder to give the dog his medicine at ten tonight",
+    "clinc_label": "reminder_update"
+  },
+  {
+    "query": "in september i changed my tires are they in need of changing",
+    "clinc_label": "tire_change"
+  },
+  {
+    "query": "reservations for two need to be made using michael's name for 7:00pm at olive garden",
+    "clinc_label": "restaurant_reservation"
+  },
+  {
+    "query": "what steps do i need to take to report a card lost",
+    "clinc_label": "report_lost_card"
+  },
+  {
+    "query": "when will i get to orlando",
+    "clinc_label": "distance"
+  },
+  {
+    "query": "could you cancel that request, please",
+    "clinc_label": "cancel"
+  },
+  {
+    "query": "meeting rooms open between one and three pm",
+    "clinc_label": "schedule_meeting"
+  },
+  {
+    "query": "how much gas do i have left in my tank",
+    "clinc_label": "gas"
+  },
+  {
+    "query": "show me what the weather is like",
+    "clinc_label": "weather"
+  },
+  {
+    "query": "what did i ask you to remind me of",
+    "clinc_label": "reminder"
+  },
+  {
+    "query": "what's the amount of taxes for my income",
+    "clinc_label": "taxes"
+  },
+  {
+    "query": "the tv turn it on",
+    "clinc_label": "smart_home"
+  },
+  {
+    "query": "i want my phone to be disconnected from you",
+    "clinc_label": "sync_device"
+  },
+  {
+    "query": "how is gramercy tavern rated",
+    "clinc_label": "restaurant_reviews"
+  },
+  {
+    "query": "not sure",
+    "clinc_label": "maybe"
+  },
+  {
+    "query": "i wanna know how low are my tires on air",
+    "clinc_label": "tire_pressure"
+  },
+  {
+    "query": "i need an alarm",
+    "clinc_label": "alarm"
+  },
+  {
+    "query": "did i tell you to remind me about laundry",
+    "clinc_label": "reminder"
+  },
+  {
+    "query": "please delete the reservation for roberts at village tavern",
+    "clinc_label": "cancel_reservation"
+  },
+  {
+    "query": "can you turn off the process",
+    "clinc_label": "cancel"
+  },
+  {
+    "query": "where can i find my routing number",
+    "clinc_label": "routing"
+  },
+  {
+    "query": "when does milk will go bad",
+    "clinc_label": "food_last"
+  },
+  {
+    "query": "ok good chatting goodbye",
+    "clinc_label": "goodbye"
+  },
+  {
+    "query": "address me as \"bailey",
+    "clinc_label": "change_user_name"
+  },
+  {
+    "query": "i would like you to remind me to do something",
+    "clinc_label": "reminder_update"
+  },
+  {
+    "query": "tell me today's fun fact",
+    "clinc_label": "fun_fact"
+  },
+  {
+    "query": "when will i get my order",
+    "clinc_label": "order_status"
+  },
+  {
+    "query": "hey there",
+    "clinc_label": "greeting"
+  },
+  {
+    "query": "how many stars does brasserie les halles have",
+    "clinc_label": "restaurant_reviews"
+  },
+  {
+    "query": "i would like to know what type of things you can help me with",
+    "clinc_label": "what_can_i_ask_you"
+  },
+  {
+    "query": "i want you to connect to my handset",
+    "clinc_label": "sync_device"
+  },
+  {
+    "query": "how is my order doing right now",
+    "clinc_label": "order_status"
+  },
+  {
+    "query": "please connect yourself to my main phone",
+    "clinc_label": "sync_device"
+  },
+  {
+    "query": "could i get some more checkbooks sent to me, please",
+    "clinc_label": "order_checks"
+  },
+  {
+    "query": "spell aaron",
+    "clinc_label": "spelling"
+  },
+  {
+    "query": "i want to put this on my rock playlist",
+    "clinc_label": "update_playlist"
+  },
+  {
+    "query": "what's my car's mpg",
+    "clinc_label": "mpg"
+  },
+  {
+    "query": "i would like to report a damaged card that was burnt",
+    "clinc_label": "damaged_card"
+  },
+  {
+    "query": "check what is on my to-do list",
+    "clinc_label": "todo_list"
+  },
+  {
+    "query": "my card has become too frayed and torn to use",
+    "clinc_label": "damaged_card"
+  },
+  {
+    "query": "please let me know what is on my shopping list",
+    "clinc_label": "shopping_list"
+  },
+  {
+    "query": "how are you doing",
+    "clinc_label": "greeting"
+  },
+  {
+    "query": "what's the location where i am",
+    "clinc_label": "current_location"
+  },
+  {
+    "query": "what's the result of a 10-sided dice roll",
+    "clinc_label": "roll_dice"
+  },
+  {
+    "query": "may you say that again",
+    "clinc_label": "repeat"
+  },
+  {
+    "query": "i'd like to you order everything that's on my shopping list",
+    "clinc_label": "order"
+  },
+  {
+    "query": "can you tell me how to transfer my 401k",
+    "clinc_label": "rollover_401k"
+  },
+  {
+    "query": "has my mastercard application gone through the process",
+    "clinc_label": "application_status"
+  },
+  {
+    "query": "go to the next song and play it",
+    "clinc_label": "next_song"
+  },
+  {
+    "query": "great",
+    "clinc_label": "yes"
+  },
+  {
+    "query": "remove all items from my to do list",
+    "clinc_label": "todo_list_update"
+  },
+  {
+    "query": "can you get me a flight from san francisco to san jose using american airlines",
+    "clinc_label": "book_flight"
+  },
+  {
+    "query": "is milk in my shopping list if not, add it",
+    "clinc_label": "shopping_list_update"
+  },
+  {
+    "query": "are visas for international travel",
+    "clinc_label": "international_visa"
+  },
+  {
+    "query": "if i go to columbia, will i need a visa",
+    "clinc_label": "international_visa"
+  },
+  {
+    "query": "lets start calling you allan",
+    "clinc_label": "change_ai_name"
+  },
+  {
+    "query": "change to the woman voice",
+    "clinc_label": "change_accent"
+  },
+  {
+    "query": "what does serendipity mean",
+    "clinc_label": "definition"
+  },
+  {
+    "query": "show what i have spent things on",
+    "clinc_label": "transactions"
+  },
+  {
+    "query": "show me the reviews for the new jalapeno fries at taco bell",
+    "clinc_label": "restaurant_reviews"
+  },
+  {
+    "query": "for what time is my meeting with marketing scheduled",
+    "clinc_label": "meeting_schedule"
+  },
+  {
+    "query": "next track",
+    "clinc_label": "next_song"
+  },
+  {
+    "query": "is $30 usd more or less in canada",
+    "clinc_label": "exchange_rate"
+  },
+  {
+    "query": "is the phone bill the same as last month",
+    "clinc_label": "bill_balance"
+  },
+  {
+    "query": "could you please inform me what health plan i am currently on",
+    "clinc_label": "insurance"
+  },
+  {
+    "query": "how much gas is left in my car",
+    "clinc_label": "gas"
+  },
+  {
+    "query": "what is dog in spanish",
+    "clinc_label": "translate"
+  },
+  {
+    "query": "i have a card that needs replaced because my wine dumped wine on it",
+    "clinc_label": "damaged_card"
+  },
+  {
+    "query": "how do i order some more checks for my bank of the west account",
+    "clinc_label": "order_checks"
+  },
+  {
+    "query": "tell me nutritional info for beans",
+    "clinc_label": "nutrition_info"
+  },
+  {
+    "query": "what is texas's timezone",
+    "clinc_label": "timezone"
+  },
+  {
+    "query": "put the volume to 4",
+    "clinc_label": "change_volume"
+  },
+  {
+    "query": "i gotta know the the carry-on restrictions for american airlines",
+    "clinc_label": "carry_on"
+  },
+  {
+    "query": "look up the lowest amount i can pay on my electricity bill",
+    "clinc_label": "min_payment"
+  },
+  {
+    "query": "you can vacuuming of my todo list",
+    "clinc_label": "todo_list_update"
+  },
+  {
+    "query": "what's the word for trees in norway",
+    "clinc_label": "translate"
+  },
+  {
+    "query": "it was a pleasure talking to you",
+    "clinc_label": "goodbye"
+  },
+  {
+    "query": "what's my yearly salary",
+    "clinc_label": "income"
+  },
+  {
+    "query": "i cannot locate my phone, can you help me",
+    "clinc_label": "find_phone"
+  },
+  {
+    "query": "play next song",
+    "clinc_label": "next_song"
+  },
+  {
+    "query": "show my position on the map",
+    "clinc_label": "current_location"
+  },
+  {
+    "query": "how long is the wait at fridays",
+    "clinc_label": "how_busy"
+  },
+  {
+    "query": "call alexa at home",
+    "clinc_label": "make_call"
+  },
+  {
+    "query": "call me mike from now on",
+    "clinc_label": "change_user_name"
+  },
+  {
+    "query": "call to mom",
+    "clinc_label": "make_call"
+  },
+  {
+    "query": "let's try and confirm my reservation for bubble bar under \"franklin",
+    "clinc_label": "confirm_reservation"
+  },
+  {
+    "query": "show me ideas for hamburger",
+    "clinc_label": "recipe"
+  },
+  {
+    "query": "i'm afraid i don't know how to answer that",
+    "clinc_label": "maybe"
+  },
+  {
+    "query": "how many dollars have i spent on coffee this month",
+    "clinc_label": "spending_history"
+  },
+  {
+    "query": "about how much did i spend recently",
+    "clinc_label": "spending_history"
+  },
+  {
+    "query": "book a rental car to rhode island for friday, tomorrow",
+    "clinc_label": "car_rental"
+  },
+  {
+    "query": "refresh my memory about what items i want to remember",
+    "clinc_label": "reminder"
+  },
+  {
+    "query": "my visa has been damaged",
+    "clinc_label": "damaged_card"
+  },
+  {
+    "query": "book me a flight from midway to jfk for less than 200 dollars",
+    "clinc_label": "book_flight"
+  },
+  {
+    "query": "i don't want you connected to my phone anymore",
+    "clinc_label": "sync_device"
+  },
+  {
+    "query": "see how many days i've taken off so far",
+    "clinc_label": "pto_used"
+  },
+  {
+    "query": "does the new york restaurant take reservations",
+    "clinc_label": "accept_reservations"
+  },
+  {
+    "query": "how do you spell \"exactly",
+    "clinc_label": "spelling"
+  },
+  {
+    "query": "what is the minimum i can pay on my heating bill",
+    "clinc_label": "min_payment"
+  },
+  {
+    "query": "show cody where i am",
+    "clinc_label": "share_location"
+  },
+  {
+    "query": "are you a person or robot",
+    "clinc_label": "are_you_a_bot"
+  },
+  {
+    "query": "how many points earned do i have with my american express card",
+    "clinc_label": "rewards_balance"
+  },
+  {
+    "query": "what is my to-do list like today",
+    "clinc_label": "todo_list"
+  },
+  {
+    "query": "when can i expect meal of salmon to be finished",
+    "clinc_label": "cook_time"
+  },
+  {
+    "query": "on my shopping list, remove eggs",
+    "clinc_label": "shopping_list_update"
+  },
+  {
+    "query": "give me the date of my last oil change",
+    "clinc_label": "last_maintenance"
+  },
+  {
+    "query": "locate my cellphone in this room",
+    "clinc_label": "find_phone"
+  },
+  {
+    "query": "can you set a reminder alarm for me to workout",
+    "clinc_label": "reminder_update"
+  },
+  {
+    "query": "what is the expiration date for honey",
+    "clinc_label": "food_last"
+  },
+  {
+    "query": "i'd like to transfer $400 from household to savings account",
+    "clinc_label": "transfer"
+  },
+  {
+    "query": "i am not able to say",
+    "clinc_label": "maybe"
+  },
+  {
+    "query": "what's your home country",
+    "clinc_label": "where_are_you_from"
+  },
+  {
+    "query": "please set up a reminder for me",
+    "clinc_label": "reminder_update"
+  },
+  {
+    "query": "what kid of subjects do you excel in",
+    "clinc_label": "what_can_i_ask_you"
+  },
+  {
+    "query": "what is some trivia about the weather",
+    "clinc_label": "fun_fact"
+  },
+  {
+    "query": "find out what song this is",
+    "clinc_label": "what_song"
+  },
+  {
+    "query": "i am unable to say",
+    "clinc_label": "maybe"
+  },
+  {
+    "query": "i need to call my coworker",
+    "clinc_label": "make_call"
+  },
+  {
+    "query": "one and three pm are there meeting rooms open",
+    "clinc_label": "schedule_meeting"
+  },
+  {
+    "query": "what's a good chili recipe",
+    "clinc_label": "recipe"
+  },
+  {
+    "query": "thanks for all your help",
+    "clinc_label": "thank_you"
+  },
+  {
+    "query": "what is the day off request status",
+    "clinc_label": "pto_request_status"
+  },
+  {
+    "query": "whens your birthday",
+    "clinc_label": "how_old_are_you"
+  },
+  {
+    "query": "set an alarm for 9 tomorrow",
+    "clinc_label": "alarm"
+  },
+  {
+    "query": "how old were you on your last birthday",
+    "clinc_label": "how_old_are_you"
+  },
+  {
+    "query": "give me your name so i can use you",
+    "clinc_label": "what_is_your_name"
+  },
+  {
+    "query": "what's 47 times 83",
+    "clinc_label": "calculator"
+  },
+  {
+    "query": "what company made this ai",
+    "clinc_label": "who_made_you"
+  },
+  {
+    "query": "can you tell me who made you",
+    "clinc_label": "who_made_you"
+  },
+  {
+    "query": "text steve and tell him i am running late",
+    "clinc_label": "text"
+  },
+  {
+    "query": "i need you to turn the bathroom lights on",
+    "clinc_label": "smart_home"
+  },
+  {
+    "query": "book a flight from new york to la for less than 200 dollars",
+    "clinc_label": "book_flight"
+  },
+  {
+    "query": "how do i set up a direct deposit for my paycheck",
+    "clinc_label": "direct_deposit"
+  },
+  {
+    "query": "can you share a humorous joke with me",
+    "clinc_label": "tell_joke"
+  },
+  {
+    "query": "can you flip a coin i call heads",
+    "clinc_label": "flip_coin"
+  },
+  {
+    "query": "does it take long to get to yankee stadium in the bronx",
+    "clinc_label": "distance"
+  },
+  {
+    "query": "where have you come from",
+    "clinc_label": "where_are_you_from"
+  },
+  {
+    "query": "will you tell me how the ai is doing",
+    "clinc_label": "greeting"
+  },
+  {
+    "query": "what was the date of my last oil change",
+    "clinc_label": "last_maintenance"
+  },
+  {
+    "query": "can you swipe to the next song",
+    "clinc_label": "next_song"
+  },
+  {
+    "query": "alter your accent",
+    "clinc_label": "change_accent"
+  },
+  {
+    "query": "can you calculate the square root of 172",
+    "clinc_label": "calculator"
+  },
+  {
+    "query": "what's 15% of 68",
+    "clinc_label": "calculator"
+  },
+  {
+    "query": "can you tell me if your a bot",
+    "clinc_label": "are_you_a_bot"
+  },
+  {
+    "query": "i need you to repeat that please",
+    "clinc_label": "repeat"
+  },
+  {
+    "query": "do i have any items on my calendar for march 21st",
+    "clinc_label": "calendar"
+  },
+  {
+    "query": "i have to cancel my reservation after all",
+    "clinc_label": "cancel_reservation"
+  },
+  {
+    "query": "i want you to change your accent",
+    "clinc_label": "change_accent"
+  },
+  {
+    "query": "what oil do i use when changing oil and how do i do it",
+    "clinc_label": "oil_change_how"
+  },
+  {
+    "query": "please play music by acdc",
+    "clinc_label": "play_music"
+  },
+  {
+    "query": "which way do we go and how long will it take to get to the sears tower in chicago",
+    "clinc_label": "distance"
+  },
+  {
+    "query": "is flight dl123 delayed",
+    "clinc_label": "flight_status"
+  },
+  {
+    "query": "would you let me know what the meaning is life is",
+    "clinc_label": "meaning_of_life"
+  },
+  {
+    "query": "my 401k, can i roll it over",
+    "clinc_label": "rollover_401k"
+  },
+  {
+    "query": "is it okay to use applesauce instead of oil",
+    "clinc_label": "ingredient_substitution"
+  },
+  {
+    "query": "speak it again slowly",
+    "clinc_label": "change_speed"
+  },
+  {
+    "query": "revert back to factory settings",
+    "clinc_label": "reset_settings"
+  },
+  {
+    "query": "search for chili recipes",
+    "clinc_label": "recipe"
+  },
+  {
+    "query": "can you give me a meal suggestion from the south",
+    "clinc_label": "meal_suggestion"
+  },
+  {
+    "query": "i apprecaite the help from you",
+    "clinc_label": "thank_you"
+  },
+  {
+    "query": "hello, how are things",
+    "clinc_label": "greeting"
+  },
+  {
+    "query": "so where do you come from originally",
+    "clinc_label": "where_are_you_from"
+  },
+  {
+    "query": "what are all the things on my reminder list",
+    "clinc_label": "reminder"
+  },
+  {
+    "query": "please stop talking",
+    "clinc_label": "cancel"
+  },
+  {
+    "query": "how do i say bathroom in italian",
+    "clinc_label": "translate"
+  },
+  {
+    "query": "how many days of vacation do i have left",
+    "clinc_label": "pto_balance"
+  },
+  {
+    "query": "does applebees have good reviews",
+    "clinc_label": "restaurant_reviews"
+  },
+  {
+    "query": "what's the month, year, and day that my card expires",
+    "clinc_label": "expiration_date"
+  },
+  {
+    "query": "what kind of plug is used in england",
+    "clinc_label": "plug_type"
+  },
+  {
+    "query": "\"i'll leave to lax and go to phl for $120 on nov 5th",
+    "clinc_label": "book_flight"
+  },
+  {
+    "query": "can you find me a pork recipe",
+    "clinc_label": "recipe"
+  },
+  {
+    "query": "what sorts of activities should i get up to while i am in dublin",
+    "clinc_label": "travel_suggestion"
+  },
+  {
+    "query": "what is 1000 plus 745",
+    "clinc_label": "calculator"
+  },
+  {
+    "query": "i wanna know how long until the next day off",
+    "clinc_label": "next_holiday"
+  },
+  {
+    "query": "can i have a 2 sided dice",
+    "clinc_label": "roll_dice"
+  },
+  {
+    "query": "so, where do you come from",
+    "clinc_label": "where_are_you_from"
+  },
+  {
+    "query": "a hidden government facility",
+    "clinc_label": "where_are_you_from"
+  },
+  {
+    "query": "do you know if l'arpege will ask for reservations",
+    "clinc_label": "accept_reservations"
+  },
+  {
+    "query": "change name for me",
+    "clinc_label": "change_user_name"
+  },
+  {
+    "query": "let me know the status of my american airlines flight",
+    "clinc_label": "flight_status"
+  },
+  {
+    "query": "find me a rental car for next week , from friday the 5th thru monday the 8th, any kind",
+    "clinc_label": "car_rental"
+  },
+  {
+    "query": "i was at publix trying to buy some food but my card wouldnt work",
+    "clinc_label": "card_declined"
+  },
+  {
+    "query": "what specific health plan do i have",
+    "clinc_label": "insurance"
+  },
+  {
+    "query": "change my name please",
+    "clinc_label": "change_user_name"
+  },
+  {
+    "query": "how much do i have in my bank accounts",
+    "clinc_label": "balance"
+  },
+  {
+    "query": "i need to get to the staples center; can you call me an uber",
+    "clinc_label": "uber"
+  },
+  {
+    "query": "tell me what types of questions i can ask you",
+    "clinc_label": "what_can_i_ask_you"
+  },
+  {
+    "query": "what sorts of tasks can you do",
+    "clinc_label": "what_can_i_ask_you"
+  },
+  {
+    "query": "can i use mayo instead of miracle whip",
+    "clinc_label": "ingredient_substitution"
+  },
+  {
+    "query": "please reset to factory settings",
+    "clinc_label": "reset_settings"
+  },
+  {
+    "query": "can you give me a points update on my rewards plus card",
+    "clinc_label": "rewards_balance"
+  },
+  {
+    "query": "is \"cleaning the bathroom\" an item on my todo list",
+    "clinc_label": "todo_list"
+  },
+  {
+    "query": "what day will i earn my payment from work",
+    "clinc_label": "payday"
+  },
+  {
+    "query": "how much cash do i have in my bank accounts",
+    "clinc_label": "balance"
+  },
+  {
+    "query": "would you tell me the hobbies the ai has",
+    "clinc_label": "what_are_your_hobbies"
+  },
+  {
+    "query": "i placed an order and i need it tracked",
+    "clinc_label": "order_status"
+  },
+  {
+    "query": "how many calories are in a cheeseburger",
+    "clinc_label": "calories"
+  },
+  {
+    "query": "can someone tell me why my check engine light is on",
+    "clinc_label": "schedule_maintenance"
+  },
+  {
+    "query": "eleven madison park takes reservations right",
+    "clinc_label": "accept_reservations"
+  },
+  {
+    "query": "get mom on the phone",
+    "clinc_label": "make_call"
+  },
+  {
+    "query": "are ned's reviews good",
+    "clinc_label": "restaurant_reviews"
+  },
+  {
+    "query": "how do you spell aaron",
+    "clinc_label": "spelling"
+  },
+  {
+    "query": "any new info on my vacation",
+    "clinc_label": "pto_request_status"
+  },
+  {
+    "query": "louder please",
+    "clinc_label": "change_volume"
+  },
+  {
+    "query": "include rap god on the motivational playlist",
+    "clinc_label": "update_playlist"
+  },
+  {
+    "query": "i need to track my order",
+    "clinc_label": "order_status"
+  },
+  {
+    "query": "unsure",
+    "clinc_label": "maybe"
+  },
+  {
+    "query": "please begin a timer",
+    "clinc_label": "timer"
+  },
+  {
+    "query": "can you add this song to my driving playlist",
+    "clinc_label": "update_playlist"
+  },
+  {
+    "query": "when will the bus get me to vermont",
+    "clinc_label": "distance"
+  },
+  {
+    "query": "give me instructions for an oil change",
+    "clinc_label": "oil_change_how"
+  },
+  {
+    "query": "thank you ever so much for that!",
+    "clinc_label": "thank_you"
+  },
+  {
+    "query": "i need to know status of my day off request",
+    "clinc_label": "pto_request_status"
+  },
+  {
+    "query": "do i have a fraudulent transaction on my account",
+    "clinc_label": "report_fraud"
+  },
+  {
+    "query": "what things do you know how to do",
+    "clinc_label": "what_can_i_ask_you"
+  },
+  {
+    "query": "please make sure the alarm is set",
+    "clinc_label": "alarm"
+  },
+  {
+    "query": "what am i paying in taxes",
+    "clinc_label": "taxes"
+  },
+  {
+    "query": "which plug is used in japan",
+    "clinc_label": "plug_type"
+  },
+  {
+    "query": "can you tell me what health plan i am on",
+    "clinc_label": "insurance"
+  },
+  {
+    "query": "share my location to susan",
+    "clinc_label": "share_location"
+  },
+  {
+    "query": "do i own you",
+    "clinc_label": "who_do_you_work_for"
+  },
+  {
+    "query": "set a 1 minute timer",
+    "clinc_label": "timer"
+  },
+  {
+    "query": "quieter please",
+    "clinc_label": "change_volume"
+  },
+  {
+    "query": "please tell me the name that you have for me",
+    "clinc_label": "user_name"
+  },
+  {
+    "query": "how do i apply for a visa card",
+    "clinc_label": "new_card"
+  },
+  {
+    "query": "show my my most recent visa card transaction",
+    "clinc_label": "transactions"
+  },
+  {
+    "query": "what is the timezone for la",
+    "clinc_label": "timezone"
+  },
+  {
+    "query": "what is chase bank's routing number",
+    "clinc_label": "routing"
+  },
+  {
+    "query": "what type of gas do i use in this car",
+    "clinc_label": "gas_type"
+  },
+  {
+    "query": "can you please disconnect from my phone",
+    "clinc_label": "sync_device"
+  },
+  {
+    "query": "what time is today's meeting",
+    "clinc_label": "meeting_schedule"
+  },
+  {
+    "query": "my check engine light is on so is anyone available to check it out for me",
+    "clinc_label": "schedule_maintenance"
+  },
+  {
+    "query": "i cannot use my card cuz it's damaged",
+    "clinc_label": "damaged_card"
+  },
+  {
+    "query": "why didn't my card work",
+    "clinc_label": "card_declined"
+  },
+  {
+    "query": "change settings to sound like a female",
+    "clinc_label": "change_accent"
+  },
+  {
+    "query": "when is boarding scheduled",
+    "clinc_label": "flight_status"
+  },
+  {
+    "query": "can i move my 401k to an ira",
+    "clinc_label": "rollover_401k"
+  },
+  {
+    "query": "can you reserve a meeting space for 4:00 on thursday",
+    "clinc_label": "schedule_meeting"
+  },
+  {
+    "query": "tell me what the time is in dallas",
+    "clinc_label": "time"
+  },
+  {
+    "query": "what's the spanish word for dog",
+    "clinc_label": "translate"
+  },
+  {
+    "query": "what are the transaction fees associated with my discover card if i am in rome",
+    "clinc_label": "international_fees"
+  },
+  {
+    "query": "did the manager approve my vacation yet",
+    "clinc_label": "pto_request_status"
+  },
+  {
+    "query": "how many calories can i expect to be in fries",
+    "clinc_label": "calories"
+  },
+  {
+    "query": "pull up the songs under slow",
+    "clinc_label": "play_music"
+  },
+  {
+    "query": "did carrots get on my shopping list",
+    "clinc_label": "shopping_list"
+  },
+  {
+    "query": "set a timer for 10 minutes",
+    "clinc_label": "timer"
+  },
+  {
+    "query": "is it possible to change oil, if so how and what do i use",
+    "clinc_label": "oil_change_how"
+  },
+  {
+    "query": "what's my oil change status",
+    "clinc_label": "oil_change_when"
+  },
+  {
+    "query": "can i speak spanish to you hombre",
+    "clinc_label": "change_language"
+  },
+  {
+    "query": "whats the total of my federal taxes",
+    "clinc_label": "taxes"
+  },
+  {
+    "query": "what are the manufacturers guidance on oil changes",
+    "clinc_label": "oil_change_when"
+  },
+  {
+    "query": "text mark hello",
+    "clinc_label": "text"
+  },
+  {
+    "query": "have i gone over my entertainment budget",
+    "clinc_label": "spending_history"
+  },
+  {
+    "query": "how much time before my new card is mailed to me",
+    "clinc_label": "replacement_card_duration"
+  }
+]

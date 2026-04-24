@@ -19,7 +19,6 @@
 pub mod scoring;
 pub mod entity;
 pub mod import;
-pub mod loop_detector;
 pub mod ngram;
 pub mod phrase;
 pub mod tokenizer;
@@ -34,9 +33,6 @@ mod router_intents;
 mod router_learning;
 mod router_metadata;
 mod router_persist;
-
-#[cfg(feature = "wasm")]
-pub mod wasm;
 
 pub use types::*;
 

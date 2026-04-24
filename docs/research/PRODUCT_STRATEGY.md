@@ -41,7 +41,7 @@
 "pip install microresolve. 5 lines to add intent routing. Learns while it runs. No API key. No model. Works offline."
 
 ### Edge/IoT Teams
-"30us, 8MB RAM, runs on Raspberry Pi. No internet required. Compiles to WASM for browser."
+"30us, 8MB RAM, runs on Raspberry Pi. No internet required. CPU-only, no model download."
 
 ### Privacy/Compliance Teams
 "All processing local. No query data leaves the device. CRDT sync sends only weight deltas, never raw user messages."
@@ -75,9 +75,8 @@
 |---|---|---|
 | 1 | Server (polish + Docker) | Enterprise, any-language, instant testing, central learning hub |
 | 2 | Python (PyO3) | 80% of AI developers, LangChain integration |
-| 3 | npm WASM | Browser demo, web apps |
-| 4 | Node.js (napi-rs) | Server-side JS |
-| 5 | CLI | Developer tooling |
+| 3 | Node.js (napi-rs) | Server-side JS |
+| 4 | CLI | Developer tooling |
 
 ---
 

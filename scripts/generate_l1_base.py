@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Generate L1 base graph (l1_base.json) from WordNet and ConceptNet.
 
-This is a ONE-TIME setup script. Run it before starting the ASV server
+This is a ONE-TIME setup script. Run it before starting the MicroResolve server
 to give L1 a rich synonym/normalization foundation across all namespaces.
 
-Output: data/l1_base.json  (loaded by ASV server at startup)
+Output: data/l1_base.json  (loaded by MicroResolve server at startup)
 
 Usage:
   pip install nltk requests
@@ -29,7 +29,7 @@ from collections import defaultdict
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "data", "l1_base.json")
 
-# ── Edge weight bands (match ASV EdgeKind thresholds) ────────────────────────
+# ── Edge weight bands (match MicroResolve EdgeKind thresholds) ────────────────────────
 # Morphological: 0.97–1.0  → substitute in place
 # Synonym:       0.80–0.96 → append to query
 # Semantic:      0.60–0.79 → confidence boost only
@@ -177,7 +177,7 @@ SEED_TERMS = [
     "pr", "repo", "msg", "sub", "acc", "txn", "pw", "2fa",
 ]
 
-# ConceptNet relation types → ASV edge kind + weight
+# ConceptNet relation types → MicroResolve edge kind + weight
 RELATION_MAP = {
     "/r/Synonym":       (KIND_SYNONYM, 0.92),
     "/r/SimilarTo":     (KIND_SYNONYM, 0.85),
@@ -302,7 +302,7 @@ def load_domain(graph, queries_path: str):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate ASV L1 base graph")
+    parser = argparse.ArgumentParser(description="Generate MicroResolve L1 base graph")
     parser.add_argument("--domain", metavar="FILE",
                         help="Path to labeled queries JSON for domain co-occurrence")
     parser.add_argument("--skip-conceptnet", action="store_true",
@@ -345,7 +345,7 @@ def main():
     print(f"    Domain:     {domain_count:,}")
     print(f"  File size:    {size_mb:.1f} MB")
     print(f"  Output:       {args.out}")
-    print(f"\nNext step: restart ASV server — it will load this file automatically.")
+    print(f"\nNext step: restart MicroResolve server — it will load this file automatically.")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "purpose": "Multi-intent validation targeting bench_scale125 (125 intents across 5 domains). Tests ASV's token-consumption multi-intent decomposition at realistic enterprise scale.",
+    "purpose": "Multi-intent validation targeting bench_scale125 (125 intents across 5 domains). Tests MicroResolve's token-consumption multi-intent decomposition at realistic enterprise scale.",
     "namespace": "bench_scale125",
     "categories_explanation": {
       "parallel_same": "2 intents same domain, parallel (and/also)",

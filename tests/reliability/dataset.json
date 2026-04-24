@@ -1,7 +1,7 @@
 {
   "_meta": {
     "namespace": "scale-test",
-    "description": "Enterprise reliability test set for ASV. Targets the existing scale-test namespace with 98 intents across Stripe/Shopify/Linear/Vercel SaaS APIs — realistic cold-start enterprise scenario (2-3 seed phrases per intent).",
+    "description": "Enterprise reliability test set for MicroResolve. Targets the existing scale-test namespace with 98 intents across Stripe/Shopify/Linear/Vercel SaaS APIs — realistic cold-start enterprise scenario (2-3 seed phrases per intent).",
     "metrics": [
       "top_1_accuracy",
       "top_3_accuracy",

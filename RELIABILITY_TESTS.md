@@ -1,8 +1,8 @@
-# ASV Reliability Experiments — Thursday 2026-04-16 → Friday 2026-04-17
+# MicroResolve Reliability Experiments — Thursday 2026-04-16 → Friday 2026-04-17
 
-Goal: find one or more layers that materially improve ASV's reliability — especially on false positives, morphological failures, and cold-start behaviour — before Monday's launch. Six months of development shouldn't be foreclosed by a rushed launch.
+Goal: find one or more layers that materially improve MicroResolve's reliability — especially on false positives, morphological failures, and cold-start behaviour — before Monday's launch. Six months of development shouldn't be foreclosed by a rushed launch.
 
-## Context: where ASV stands today
+## Context: where MicroResolve stands today
 
 From prior benchmarks (`ngram-pattern-engine` branch, `docs/research/RESULTS.md`):
 
@@ -36,7 +36,7 @@ Winning formula in current code: 1-gram IDF + Hebbian L1 expansion + L2 intent g
 ### Order — single branch `experiments-thursday`, additive commits, measure delta at each step
 
 #### Step 0: Measurement harness (must come first)
-A single script that runs the same query set through ASV and records top-1, top-3, confidence, and disposition. Fast to run (<60s). Same queries used for every subsequent experiment.
+A single script that runs the same query set through MicroResolve and records top-1, top-3, confidence, and disposition. Fast to run (<60s). Same queries used for every subsequent experiment.
 
 Sets: (a) 19-query adversarial set from `/tmp/router_experiment.py` covering easy/false-neg/false-pos/ambiguous; (b) a sample of CLINC150 (50 queries × 5 intents) if data available locally; (c) a "clean" set (25 unambiguous queries for regression detection).
 
@@ -194,7 +194,7 @@ Saved: `tests/reliability/results/baseline.json`
 
 ### Step 2: LLM equivalence classes — 2026-04-16 (result: **+6.7pp top-3, -1.7pp top-1**)
 
-**Approach:** One LLM call per intent (98 total) asking for morphological variants + direct synonyms of each intent's seed words. Result: 789-entry variant→canonical map. Applied at query time via token expansion (query "cancelling my order" → "cancelling cancel my order" before sending to ASV).
+**Approach:** One LLM call per intent (98 total) asking for morphological variants + direct synonyms of each intent's seed words. Result: 789-entry variant→canonical map. Applied at query time via token expansion (query "cancelling my order" → "cancelling cancel my order" before sending to MicroResolve).
 
 **This is distinct from the failed LLM-paraphrase training.** Paraphrases generated new phrases (novel vocabulary). Equivalence classes map variants of words ALREADY in the seeds (e.g., "cancelling" → "cancel"). LLM is a dictionary, not a generator.
 
@@ -271,7 +271,7 @@ Deferred — requires multi-turn LP traffic to be measurable; single-run measure
 - cross_provider: 100% → 86% with query expansion (-14pp)
 
 **Decision for launch:**
-- **Do NOT enable interventions by default.** Ship baseline ASV.
+- **Do NOT enable interventions by default.** Ship baseline MicroResolve.
 - **Document e2_a (query expansion via LLM equivalence) as an opt-in option for thin-seed cold-start scenarios.** +26pp on weak categories is real value when you have it.
 - Document honest cold-start numbers: top-1 ~40%, top-3 ~55-60% with 2-3 seeds/intent. Prior work shows top-1 ~95% with 120 seeds/intent on CLINC150.
 - **Top-3 is the pitch.** Prefilter-for-LLM is the launch story. Top-3 is 10-20pp better than top-1 and is what downstream LLM use cases actually consume.

@@ -6,7 +6,7 @@ OOS queries from in-scope queries better than raw score threshold?
 Runs against the saved baseline.json and produces a threshold-sweep table
 showing true-OOS-rejection vs false-rejection-of-in-scope at each threshold.
 
-This doesn't require re-running ASV or any LLM calls — just analyses existing data.
+This doesn't require re-running MicroResolve or any LLM calls — just analyses existing data.
 """
 import json
 import sys

@@ -1,6 +1,130 @@
 # MicroResolve — Use Cases
 
-## Standard (chatbot/support)
+> MicroResolve is the **reflex layer** for AI applications — the fast,
+> learned System 1 that resolves the easy 80% of decisions so your LLM
+> only handles what actually needs thought.
+
+## Table of Contents
+
+**Tier 1 — high-impact, unexplored (NEW)**
+- [LLM output classification](#llm-output-classification) — filter responses for quality/safety at 30μs
+- [Model cascade routing](#model-cascade-routing) — Haiku vs Sonnet vs Opus, learned per query
+- [Context relevance scoring for RAG](#context-relevance-scoring-for-rag) — 30μs vs 50ms reranking
+- [Multi-agent dispatch](#multi-agent-dispatch) — which specialist agent handles this
+
+**Tier 2 — solid (see below)**
+- Prompt template selection
+- Semantic query deduplication
+- Urgency / priority classification
+- Tone / sentiment (pre or post LLM)
+- Learned compliance / policy enforcement
+- Language detection at microsecond speed
+
+**Tier 3 — niche**
+- Intent evolution tracking across multi-turn sessions
+- Cross-lingual intent unification
+- Per-namespace learned guardrails
+
+---
+
+## Tier 1 — New high-impact use cases
+
+### LLM output classification
+
+**The problem.** Guardrails / safety / relevance checking on LLM responses
+currently costs another LLM call — 200ms + $0.001 per generation. For
+apps doing 10M generations/day, that's $10k/day and a doubled latency
+budget.
+
+**The reflex-layer approach.** Train the reflex on labelled LLM outputs
+(good / bad / flagged). Classify each generation in ~30μs before shipping
+to the user. Costs drop 100×, latency drops 7,000×.
+
+```python
+reflex.add_intent("safe", [...good_examples])
+reflex.add_intent("hallucination", [...known_hallucinations])
+reflex.add_intent("policy_violation", [...flagged_outputs])
+reflex.add_intent("off_topic", [...derails])
+
+# after each LLM call
+label = reflex.route(llm_output)
+if label != "safe":
+    fall_back_to_llm_or_human()
+```
+
+Replaces: Guardrails AI, NeMo-Guardrails, secondary LLM judge calls.
+
+---
+
+### Model cascade routing
+
+**The problem.** Most queries don't need Opus. Some don't even need Sonnet.
+Teams pay top-tier model prices for queries a cheaper model could handle.
+
+**The reflex-layer approach.** Log historical query → model-needed decisions
+(human-curated or LLM-judged). The reflex learns which queries routinely
+succeed at Haiku, which need Sonnet, which truly need Opus.
+
+```python
+reflex.add_intent("haiku_ok",   [...simple_queries])
+reflex.add_intent("need_sonnet",[...moderate_queries])
+reflex.add_intent("need_opus",  [...complex_queries])
+
+target = reflex.route(user_query)[0].id
+response = anthropic.messages.create(model=target, ...)
+```
+
+Typical savings: 70–80% of LLM spend at scale.
+
+---
+
+### Context relevance scoring for RAG
+
+**The problem.** RAG retrieves 50 candidate chunks; the LLM needs 5.
+Current solutions: cross-encoder rerankers (10–50ms) or reranking LLMs
+(hundreds of ms + cost). Both scale poorly.
+
+**The reflex-layer approach.** Per-namespace relevance reflex trained on
+query + chunk → relevance label. Microsecond scoring for all 50 chunks
+in parallel, before the LLM sees anything.
+
+```python
+# Per-query, score all chunks
+scores = [reflex.relevance(query, chunk) for chunk in retrieved_50]
+top_5  = sorted(zip(scores, retrieved_50), reverse=True)[:5]
+llm.answer(query, context=top_5)
+```
+
+30μs × 50 = 1.5ms total — 30× faster than a cross-encoder, 200× faster
+than an LLM reranker.
+
+---
+
+### Multi-agent dispatch
+
+**The problem.** Agent swarms (Anthropic SubAgents, LangGraph, CrewAI)
+need a dispatcher that decides which specialist handles a request.
+Hand-coded rules don't cover edge cases; an LLM dispatcher doubles cost.
+
+**The reflex-layer approach.** The dispatcher IS a reflex — learned from
+historical (task → correct agent) pairs.
+
+```python
+reflex.add_intent("code_agent",   [...coding_tasks])
+reflex.add_intent("data_agent",   [...analytical_tasks])
+reflex.add_intent("writer_agent", [...prose_tasks])
+reflex.add_intent("web_agent",    [...browsing_tasks])
+
+agent_id = reflex.route(task)[0].id
+agents[agent_id].handle(task)
+```
+
+Reflex learns new dispatch patterns as supervisors correct mistakes. No
+re-training, no redeploy.
+
+---
+
+
 
 ### Customer Support Ticket Routing
 

@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "purpose": "Synthetic corrections that seed L3 inhibition for cross-provider same-action pairs. Each trains ASV that when provider X is named, its intent should win over the same-named intent in provider Y.",
+    "purpose": "Synthetic corrections that seed L3 inhibition for cross-provider same-action pairs. Each trains MicroResolve that when provider X is named, its intent should win over the same-named intent in provider Y.",
     "note": "For E4 experiment. Queries are minimal and provider-explicit."
   },
   "corrections": [

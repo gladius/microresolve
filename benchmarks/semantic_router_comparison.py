@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Semantic Router vs ASV — Head-to-head comparison on CLINC150 and BANKING77.
+Semantic Router vs MicroResolve — Head-to-head comparison on CLINC150 and BANKING77.
 
 Replicates the Semantic Router approach (embedding similarity routing) using
 fastembed (BAAI/bge-small-en-v1.5) with cosine similarity scoring.
@@ -46,7 +46,7 @@ def embed_batch(model, texts):
 
 
 # ---------------------------------------------------------------------------
-# Dataset loading (matches ASV benchmark format)
+# Dataset loading (matches MicroResolve benchmark format)
 # ---------------------------------------------------------------------------
 
 def load_clinc150(data_dir):
@@ -214,7 +214,7 @@ def run_benchmark(dataset, model, seeds_per_intent):
 
 
 def run_sweep(dataset, model):
-    """Run multiple seed counts for comparison with ASV sweep."""
+    """Run multiple seed counts for comparison with MicroResolve sweep."""
     seed_counts = [5, 10, 20, 50, 100, 120] if dataset["name"] == "CLINC150" else [5, 10, 20, 50, 100, 130]
 
     print(f"\n{'='*70}")

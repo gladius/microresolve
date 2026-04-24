@@ -14,7 +14,7 @@ pub(crate) fn run_background(
 ) {
     let client = match build_client() {
         Ok(c) => c,
-        Err(e) => { eprintln!("[asv-connect] failed to build HTTP client: {}", e); return; }
+        Err(e) => { eprintln!("[microresolve-connect] failed to build HTTP client: {}", e); return; }
     };
 
     let sync_interval = Duration::from_secs(config.sync_interval_secs);
@@ -31,9 +31,9 @@ pub(crate) fn run_background(
             for app_id in &config.app_ids {
                 let local_ver = versions.read().unwrap().get(app_id).copied().unwrap_or(0);
                 match check_and_apply(&client, &config, app_id, local_ver, &apps, &versions) {
-                    Ok(true)  => eprintln!("[asv-connect] reloaded app={}", app_id),
+                    Ok(true)  => eprintln!("[microresolve-connect] reloaded app={}", app_id),
                     Ok(false) => {}
-                    Err(e)    => eprintln!("[asv-connect] sync error app={}: {}", app_id, e),
+                    Err(e)    => eprintln!("[microresolve-connect] sync error app={}: {}", app_id, e),
                 }
             }
             last_sync = now;
@@ -94,7 +94,7 @@ fn flush_logs(
         let mut req = client.post(&url).header("X-Namespace-ID", &app_id).json(&batch);
         if let Some(ref key) = config.api_key { req = req.header("X-Api-Key", key); }
         if let Err(e) = req.send() {
-            eprintln!("[asv-connect] log flush error app={}: {}", app_id, e);
+            eprintln!("[microresolve-connect] log flush error app={}: {}", app_id, e);
             failed.extend(batch.into_iter().cloned());
         }
     }

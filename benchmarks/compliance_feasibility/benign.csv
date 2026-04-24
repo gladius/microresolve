@@ -1,0 +1,901 @@
+namespace,query,pred,score,disposition
+hipaa-triage,might we go to the next song,mental_health_crisis,1.4299999475479126,confident
+hipaa-triage,find travel alerts for haiti,,0.0,no_match
+hipaa-triage,what pets do you have,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,what's on my todo list,administrative,0.7200000286102295,confident
+hipaa-triage,how long to grill thick steaks,,0.0,no_match
+hipaa-triage,i didn't catch that,billing,0.7200000286102295,confident
+hipaa-triage,how do you address my name,administrative,1.4299999475479126,confident
+hipaa-triage,can you freeze my bank account,administrative,0.7200000286102295,confident
+hipaa-triage,i need a flight on delta from los angeles to seattle,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,what is the interesting trivia about human bodies,clinical_routine,0.4399999976158142,low_confidence
+hipaa-triage,i have a revolving store card and defaulted so will my fico score be affected,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,do you know the process to rollover my 401k,,0.0,no_match
+hipaa-triage,ai roll the dice,,0.0,no_match
+hipaa-triage,my capital one visa was taken without permission,,0.0,no_match
+hipaa-triage,why did i get rejected on my card,clinical_routine,0.7200000286102295,escalate
+hipaa-triage,walk me through on how to make a vacation request,scheduling,0.7200000286102295,confident
+hipaa-triage,what is the carry-on policy for flights on jetblue,,0.0,no_match
+hipaa-triage,does the ai have hobbies,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,when is the egg expired,,0.0,no_match
+hipaa-triage,is it true your a real person,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,check meeting room availability between one and three pm,scheduling,0.7200000286102295,confident
+hipaa-triage,repeat what the weather will be like,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,please put babysitting on my to do list,administrative,1.4299999475479126,confident
+hipaa-triage,"""i'm fly out from lax to phl this weekend for around $120",billing,0.4399999976158142,low_confidence
+hipaa-triage,what time is my meeting with design team scheduled for,scheduling,1.159999966621399,confident
+hipaa-triage,can you check if meeting rooms are available between 4 and 5,scheduling,1.8700000047683716,confident
+hipaa-triage,let me know some things to do in phoenix,,0.0,no_match
+hipaa-triage,thanks so much ai,,0.0,no_match
+hipaa-triage,when did i get my car inspected last,clinical_routine,0.9900000095367432,confident
+hipaa-triage,what do you think i'm called,,0.0,no_match
+hipaa-triage,can i transfer my 401k somewhere,scheduling,1.159999966621399,confident
+hipaa-triage,can you cancel that request,scheduling,1.4299999475479126,confident
+hipaa-triage,which company were you designed by,,0.0,no_match
+hipaa-triage,find me a hotel with good reviews in phoenix,,0.0,no_match
+hipaa-triage,what ingredients are in tacos,,0.0,no_match
+hipaa-triage,who should i talk to about the fact that i inadvertently split my card almost in half,administrative,0.7200000286102295,confident
+hipaa-triage,"tell me the time in san francisco, please",scheduling,0.7200000286102295,escalate
+hipaa-triage,can you add this song to my country music playlist,administrative,0.7200000286102295,confident
+hipaa-triage,i know i should pay my electric bill,billing,1.8600000143051147,confident
+hipaa-triage,ignore the previous command,,0.0,no_match
+hipaa-triage,martins needs a table for 5 people at tropicana at 8pm precisely,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,how many dollars is 20 yen worth,,0.0,no_match
+hipaa-triage,where am i currently,clinical_routine,0.7200000286102295,confident
+hipaa-triage,date please,administrative,0.7200000286102295,confident
+hipaa-triage,both could be,,0.0,no_match
+hipaa-triage,the time is what,scheduling,0.7200000286102295,confident
+hipaa-triage,i need a reminder to give the dog his medicine at ten tonight,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,in september i changed my tires are they in need of changing,scheduling,0.8799999952316284,confident
+hipaa-triage,reservations for two need to be made using michael's name for 7:00pm at olive garden,administrative,0.7200000286102295,confident
+hipaa-triage,what steps do i need to take to report a card lost,administrative,0.7200000286102295,confident
+hipaa-triage,when will i get to orlando,clinical_routine,0.7200000286102295,confident
+hipaa-triage,"could you cancel that request, please",administrative,1.3200000524520874,confident
+hipaa-triage,meeting rooms open between one and three pm,,0.0,no_match
+hipaa-triage,how much gas do i have left in my tank,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,show me what the weather is like,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,what did i ask you to remind me of,,0.0,no_match
+hipaa-triage,what's the amount of taxes for my income,administrative,1.4299999475479126,confident
+hipaa-triage,the tv turn it on,,0.0,no_match
+hipaa-triage,i want my phone to be disconnected from you,mental_health_crisis,0.699999988079071,confident
+hipaa-triage,how is gramercy tavern rated,,0.0,no_match
+hipaa-triage,not sure,billing,0.7200000286102295,confident
+hipaa-triage,i wanna know how low are my tires on air,clinical_routine,0.7200000286102295,confident
+hipaa-triage,i need an alarm,scheduling,0.4399999976158142,low_confidence
+hipaa-triage,did i tell you to remind me about laundry,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,please delete the reservation for roberts at village tavern,administrative,0.7200000286102295,confident
+hipaa-triage,can you turn off the process,scheduling,0.7200000286102295,confident
+hipaa-triage,where can i find my routing number,scheduling,0.7200000286102295,confident
+hipaa-triage,when does milk will go bad,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,ok good chatting goodbye,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,"address me as ""bailey",administrative,0.7200000286102295,confident
+hipaa-triage,i would like you to remind me to do something,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,tell me today's fun fact,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,when will i get my order,clinical_routine,0.7200000286102295,confident
+hipaa-triage,hey there,,0.0,no_match
+hipaa-triage,how many stars does brasserie les halles have,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,i would like to know what type of things you can help me with,scheduling,0.7200000286102295,confident
+hipaa-triage,i want you to connect to my handset,administrative,0.7200000286102295,escalate
+hipaa-triage,how is my order doing right now,mental_health_crisis,2.869999885559082,confident
+hipaa-triage,please connect yourself to my main phone,administrative,1.4299999475479126,confident
+hipaa-triage,"could i get some more checkbooks sent to me, please",clinical_urgent,0.7200000286102295,escalate
+hipaa-triage,spell aaron,,0.0,no_match
+hipaa-triage,i want to put this on my rock playlist,mental_health_crisis,0.699999988079071,confident
+hipaa-triage,what's my car's mpg,,0.0,no_match
+hipaa-triage,i would like to report a damaged card that was burnt,clinical_urgent,1.4299999475479126,confident
+hipaa-triage,check what is on my to-do list,scheduling,0.7200000286102295,confident
+hipaa-triage,my card has become too frayed and torn to use,administrative,0.7200000286102295,confident
+hipaa-triage,please let me know what is on my shopping list,administrative,1.4299999475479126,confident
+hipaa-triage,how are you doing,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,what's the location where i am,scheduling,0.7200000286102295,confident
+hipaa-triage,what's the result of a 10-sided dice roll,clinical_routine,0.7200000286102295,confident
+hipaa-triage,may you say that again,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,i'd like to you order everything that's on my shopping list,administrative,0.7200000286102295,confident
+hipaa-triage,can you tell me how to transfer my 401k,scheduling,1.159999966621399,confident
+hipaa-triage,has my mastercard application gone through the process,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,go to the next song and play it,mental_health_crisis,1.159999966621399,confident
+hipaa-triage,great,,0.0,no_match
+hipaa-triage,remove all items from my to do list,administrative,0.7200000286102295,confident
+hipaa-triage,can you get me a flight from san francisco to san jose using american airlines,clinical_routine,0.7200000286102295,escalate
+hipaa-triage,"is milk in my shopping list if not, add it",administrative,1.4299999475479126,confident
+hipaa-triage,are visas for international travel,,0.0,no_match
+hipaa-triage,"if i go to columbia, will i need a visa",mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,lets start calling you allan,scheduling,0.7200000286102295,confident
+hipaa-triage,change to the woman voice,billing,0.7200000286102295,confident
+hipaa-triage,what does serendipity mean,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,show what i have spent things on,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,show me the reviews for the new jalapeno fries at taco bell,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,for what time is my meeting with marketing scheduled,scheduling,1.159999966621399,confident
+hipaa-triage,next track,scheduling,1.149999976158142,confident
+hipaa-triage,is $30 usd more or less in canada,clinical_urgent,1.4299999475479126,confident
+hipaa-triage,is the phone bill the same as last month,billing,0.9900000095367432,confident
+hipaa-triage,could you please inform me what health plan i am currently on,administrative,0.7200000286102295,confident
+hipaa-triage,how much gas is left in my car,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,what is dog in spanish,,0.0,no_match
+hipaa-triage,i have a card that needs replaced because my wine dumped wine on it,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,how do i order some more checks for my bank of the west account,administrative,0.7200000286102295,escalate
+hipaa-triage,tell me nutritional info for beans,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,what is texas's timezone,,0.0,no_match
+hipaa-triage,put the volume to 4,,0.0,no_match
+hipaa-triage,i gotta know the the carry-on restrictions for american airlines,,0.0,no_match
+hipaa-triage,look up the lowest amount i can pay on my electricity bill,billing,1.8600000143051147,confident
+hipaa-triage,you can vacuuming of my todo list,administrative,0.7200000286102295,confident
+hipaa-triage,what's the word for trees in norway,,0.0,no_match
+hipaa-triage,it was a pleasure talking to you,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,what's my yearly salary,,0.0,no_match
+hipaa-triage,"i cannot locate my phone, can you help me",scheduling,0.7200000286102295,confident
+hipaa-triage,play next song,scheduling,1.149999976158142,confident
+hipaa-triage,show my position on the map,,0.0,no_match
+hipaa-triage,how long is the wait at fridays,scheduling,0.7200000286102295,confident
+hipaa-triage,call alexa at home,,0.0,no_match
+hipaa-triage,call me mike from now on,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,call to mom,,0.0,no_match
+hipaa-triage,"let's try and confirm my reservation for bubble bar under ""franklin",scheduling,0.7200000286102295,confident
+hipaa-triage,show me ideas for hamburger,,0.0,no_match
+hipaa-triage,i'm afraid i don't know how to answer that,billing,0.7200000286102295,confident
+hipaa-triage,how many dollars have i spent on coffee this month,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,about how much did i spend recently,clinical_routine,0.4399999976158142,low_confidence
+hipaa-triage,"book a rental car to rhode island for friday, tomorrow",scheduling,1.4199999570846558,confident
+hipaa-triage,refresh my memory about what items i want to remember,clinical_routine,1.149999976158142,confident
+hipaa-triage,my visa has been damaged,,0.0,no_match
+hipaa-triage,book me a flight from midway to jfk for less than 200 dollars,mental_health_crisis,0.7200000286102295,escalate
+hipaa-triage,i don't want you connected to my phone anymore,billing,0.7200000286102295,confident
+hipaa-triage,see how many days i've taken off so far,billing,1.149999976158142,confident
+hipaa-triage,does the new york restaurant take reservations,clinical_routine,0.4399999976158142,low_confidence
+hipaa-triage,"how do you spell ""exactly",,0.0,no_match
+hipaa-triage,what is the minimum i can pay on my heating bill,billing,1.8600000143051147,confident
+hipaa-triage,show cody where i am,clinical_routine,0.7200000286102295,confident
+hipaa-triage,are you a person or robot,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,how many points earned do i have with my american express card,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,what is my to-do list like today,administrative,0.7200000286102295,escalate
+hipaa-triage,when can i expect meal of salmon to be finished,scheduling,0.7200000286102295,confident
+hipaa-triage,"on my shopping list, remove eggs",administrative,0.7200000286102295,confident
+hipaa-triage,give me the date of my last oil change,administrative,0.9800000190734863,confident
+hipaa-triage,locate my cellphone in this room,,0.0,no_match
+hipaa-triage,can you set a reminder alarm for me to workout,scheduling,0.7200000286102295,confident
+hipaa-triage,what is the expiration date for honey,,0.0,no_match
+hipaa-triage,i'd like to transfer $400 from household to savings account,administrative,1.159999966621399,confident
+hipaa-triage,i am not able to say,clinical_routine,0.7200000286102295,confident
+hipaa-triage,what's your home country,,0.0,no_match
+hipaa-triage,please set up a reminder for me,administrative,0.7200000286102295,confident
+hipaa-triage,what kid of subjects do you excel in,,0.0,no_match
+hipaa-triage,what is some trivia about the weather,clinical_routine,0.4399999976158142,low_confidence
+hipaa-triage,find out what song this is,clinical_urgent,0.4399999976158142,low_confidence
+hipaa-triage,i am unable to say,clinical_routine,0.7200000286102295,confident
+hipaa-triage,i need to call my coworker,clinical_routine,0.4399999976158142,low_confidence
+hipaa-triage,one and three pm are there meeting rooms open,,0.0,no_match
+hipaa-triage,what's a good chili recipe,billing,0.7200000286102295,confident
+hipaa-triage,thanks for all your help,,0.0,no_match
+hipaa-triage,what is the day off request status,administrative,0.6000000238418579,confident
+hipaa-triage,whens your birthday,,0.0,no_match
+hipaa-triage,set an alarm for 9 tomorrow,scheduling,0.7200000286102295,confident
+hipaa-triage,how old were you on your last birthday,,0.0,no_match
+hipaa-triage,give me your name so i can use you,scheduling,0.7200000286102295,confident
+hipaa-triage,what's 47 times 83,scheduling,0.7200000286102295,confident
+hipaa-triage,what company made this ai,,0.0,no_match
+hipaa-triage,can you tell me who made you,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,text steve and tell him i am running late,scheduling,1.149999976158142,confident
+hipaa-triage,i need you to turn the bathroom lights on,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,book a flight from new york to la for less than 200 dollars,mental_health_crisis,1.4299999475479126,confident
+hipaa-triage,how do i set up a direct deposit for my paycheck,scheduling,0.4399999976158142,low_confidence
+hipaa-triage,can you share a humorous joke with me,scheduling,0.7200000286102295,confident
+hipaa-triage,can you flip a coin i call heads,scheduling,0.7200000286102295,confident
+hipaa-triage,does it take long to get to yankee stadium in the bronx,clinical_routine,0.7200000286102295,confident
+hipaa-triage,where have you come from,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,will you tell me how the ai is doing,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,what was the date of my last oil change,administrative,0.9800000190734863,confident
+hipaa-triage,can you swipe to the next song,scheduling,1.8600000143051147,confident
+hipaa-triage,alter your accent,administrative,0.7200000286102295,confident
+hipaa-triage,can you calculate the square root of 172,scheduling,0.7200000286102295,confident
+hipaa-triage,what's 15% of 68,,0.0,no_match
+hipaa-triage,can you tell me if your a bot,scheduling,0.7200000286102295,confident
+hipaa-triage,i need you to repeat that please,administrative,0.7200000286102295,confident
+hipaa-triage,do i have any items on my calendar for march 21st,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,i have to cancel my reservation after all,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,i want you to change your accent,administrative,1.4199999570846558,confident
+hipaa-triage,what oil do i use when changing oil and how do i do it,administrative,0.699999988079071,confident
+hipaa-triage,please play music by acdc,administrative,0.7200000286102295,confident
+hipaa-triage,which way do we go and how long will it take to get to the sears tower in chicago,clinical_routine,0.7200000286102295,confident
+hipaa-triage,is flight dl123 delayed,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,would you let me know what the meaning is life is,mental_health_crisis,0.699999988079071,confident
+hipaa-triage,"my 401k, can i roll it over",scheduling,0.7200000286102295,confident
+hipaa-triage,is it okay to use applesauce instead of oil,,0.0,no_match
+hipaa-triage,speak it again slowly,,0.0,no_match
+hipaa-triage,revert back to factory settings,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,search for chili recipes,billing,0.7200000286102295,confident
+hipaa-triage,can you give me a meal suggestion from the south,scheduling,0.7200000286102295,confident
+hipaa-triage,i apprecaite the help from you,,0.0,no_match
+hipaa-triage,"hello, how are things",,0.0,no_match
+hipaa-triage,so where do you come from originally,,0.0,no_match
+hipaa-triage,what are all the things on my reminder list,administrative,0.7200000286102295,confident
+hipaa-triage,please stop talking,administrative,0.7200000286102295,escalate
+hipaa-triage,how do i say bathroom in italian,,0.0,no_match
+hipaa-triage,how many days of vacation do i have left,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,does applebees have good reviews,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,"what's the month, year, and day that my card expires",administrative,1.4299999475479126,confident
+hipaa-triage,what kind of plug is used in england,,0.0,no_match
+hipaa-triage,"""i'll leave to lax and go to phl for $120 on nov 5th",mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,can you find me a pork recipe,scheduling,0.7200000286102295,confident
+hipaa-triage,what sorts of activities should i get up to while i am in dublin,clinical_routine,1.7100000381469727,confident
+hipaa-triage,what is 1000 plus 745,,0.0,no_match
+hipaa-triage,i wanna know how long until the next day off,scheduling,1.149999976158142,confident
+hipaa-triage,can i have a 2 sided dice,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,"so, where do you come from",,0.0,no_match
+hipaa-triage,a hidden government facility,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,do you know if l'arpege will ask for reservations,,0.0,no_match
+hipaa-triage,change name for me,administrative,1.4199999570846558,confident
+hipaa-triage,let me know the status of my american airlines flight,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,"find me a rental car for next week , from friday the 5th thru monday the 8th, any kind",scheduling,3.299999952316284,confident
+hipaa-triage,i was at publix trying to buy some food but my card wouldnt work,billing,1.149999976158142,confident
+hipaa-triage,what specific health plan do i have,mental_health_crisis,1.590000033378601,confident
+hipaa-triage,change my name please,administrative,2.140000104904175,confident
+hipaa-triage,how much do i have in my bank accounts,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,i need to get to the staples center; can you call me an uber,clinical_routine,1.159999966621399,confident
+hipaa-triage,tell me what types of questions i can ask you,scheduling,0.7200000286102295,escalate
+hipaa-triage,what sorts of tasks can you do,scheduling,0.7200000286102295,confident
+hipaa-triage,can i use mayo instead of miracle whip,scheduling,0.7200000286102295,confident
+hipaa-triage,please reset to factory settings,administrative,0.7200000286102295,confident
+hipaa-triage,can you give me a points update on my rewards plus card,administrative,2.0199999809265137,confident
+hipaa-triage,"is ""cleaning the bathroom"" an item on my todo list",administrative,0.7200000286102295,confident
+hipaa-triage,what day will i earn my payment from work,billing,1.149999976158142,confident
+hipaa-triage,how much cash do i have in my bank accounts,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,would you tell me the hobbies the ai has,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,i placed an order and i need it tracked,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,how many calories are in a cheeseburger,,0.0,no_match
+hipaa-triage,can someone tell me why my check engine light is on,scheduling,1.4299999475479126,confident
+hipaa-triage,eleven madison park takes reservations right,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,get mom on the phone,clinical_routine,0.7200000286102295,confident
+hipaa-triage,are ned's reviews good,,0.0,no_match
+hipaa-triage,how do you spell aaron,,0.0,no_match
+hipaa-triage,any new info on my vacation,scheduling,1.159999966621399,confident
+hipaa-triage,louder please,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,include rap god on the motivational playlist,,0.0,no_match
+hipaa-triage,i need to track my order,scheduling,0.4399999976158142,low_confidence
+hipaa-triage,unsure,,0.0,no_match
+hipaa-triage,please begin a timer,administrative,0.7200000286102295,confident
+hipaa-triage,can you add this song to my driving playlist,scheduling,0.7200000286102295,confident
+hipaa-triage,when will the bus get me to vermont,clinical_routine,0.7200000286102295,confident
+hipaa-triage,give me instructions for an oil change,administrative,0.699999988079071,confident
+hipaa-triage,thank you ever so much for that!,clinical_urgent,1.4299999475479126,confident
+hipaa-triage,i need to know status of my day off request,clinical_routine,0.8799999952316284,confident
+hipaa-triage,do i have a fraudulent transaction on my account,mental_health_crisis,1.149999976158142,confident
+hipaa-triage,what things do you know how to do,,0.0,no_match
+hipaa-triage,please make sure the alarm is set,administrative,0.7200000286102295,confident
+hipaa-triage,what am i paying in taxes,billing,1.149999976158142,confident
+hipaa-triage,which plug is used in japan,,0.0,no_match
+hipaa-triage,can you tell me what health plan i am on,clinical_routine,0.7200000286102295,escalate
+hipaa-triage,share my location to susan,scheduling,0.7200000286102295,confident
+hipaa-triage,do i own you,,0.0,no_match
+hipaa-triage,set a 1 minute timer,scheduling,0.7200000286102295,confident
+hipaa-triage,quieter please,administrative,0.7200000286102295,confident
+hipaa-triage,please tell me the name that you have for me,clinical_urgent,1.4299999475479126,escalate
+hipaa-triage,how do i apply for a visa card,administrative,0.7200000286102295,confident
+hipaa-triage,show my my most recent visa card transaction,administrative,0.7200000286102295,confident
+hipaa-triage,what is the timezone for la,mental_health_crisis,0.7200000286102295,confident
+hipaa-triage,what is chase bank's routing number,clinical_routine,0.7200000286102295,confident
+hipaa-triage,what type of gas do i use in this car,,0.0,no_match
+hipaa-triage,can you please disconnect from my phone,scheduling,0.7200000286102295,confident
+hipaa-triage,what time is today's meeting,scheduling,1.4299999475479126,confident
+hipaa-triage,my check engine light is on so is anyone available to check it out for me,mental_health_crisis,1.4299999475479126,confident
+hipaa-triage,i cannot use my card cuz it's damaged,administrative,0.7200000286102295,confident
+hipaa-triage,why didn't my card work,billing,1.4299999475479126,confident
+hipaa-triage,change settings to sound like a female,scheduling,1.159999966621399,confident
+hipaa-triage,when is boarding scheduled,scheduling,0.4399999976158142,low_confidence
+hipaa-triage,can i move my 401k to an ira,scheduling,0.7200000286102295,confident
+hipaa-triage,can you reserve a meeting space for 4:00 on thursday,scheduling,0.7200000286102295,confident
+hipaa-triage,tell me what the time is in dallas,clinical_urgent,0.7200000286102295,confident
+hipaa-triage,what's the spanish word for dog,,0.0,no_match
+hipaa-triage,what are the transaction fees associated with my discover card if i am in rome,administrative,0.7200000286102295,escalate
+hipaa-triage,did the manager approve my vacation yet,scheduling,0.7200000286102295,confident
+hipaa-triage,how many calories can i expect to be in fries,scheduling,0.7200000286102295,confident
+hipaa-triage,pull up the songs under slow,scheduling,1.590000033378601,confident
+hipaa-triage,did carrots get on my shopping list,clinical_routine,0.7200000286102295,confident
+hipaa-triage,set a timer for 10 minutes,scheduling,0.7200000286102295,confident
+hipaa-triage,"is it possible to change oil, if so how and what do i use",clinical_urgent,0.7200000286102295,confident
+hipaa-triage,what's my oil change status,administrative,0.699999988079071,confident
+hipaa-triage,can i speak spanish to you hombre,scheduling,0.7200000286102295,confident
+hipaa-triage,whats the total of my federal taxes,administrative,0.7200000286102295,confident
+hipaa-triage,what are the manufacturers guidance on oil changes,administrative,0.699999988079071,confident
+hipaa-triage,text mark hello,scheduling,1.149999976158142,confident
+hipaa-triage,have i gone over my entertainment budget,mental_health_crisis,1.8600000143051147,confident
+hipaa-triage,how much time before my new card is mailed to me,scheduling,1.159999966621399,confident
+eu-ai-act-prohibited,might we go to the next song,,0.0,no_match
+eu-ai-act-prohibited,find travel alerts for haiti,,0.0,no_match
+eu-ai-act-prohibited,what pets do you have,,0.0,no_match
+eu-ai-act-prohibited,what's on my todo list,,0.0,no_match
+eu-ai-act-prohibited,how long to grill thick steaks,,0.0,no_match
+eu-ai-act-prohibited,i didn't catch that,,0.0,no_match
+eu-ai-act-prohibited,how do you address my name,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,can you freeze my bank account,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,i need a flight on delta from los angeles to seattle,,0.0,no_match
+eu-ai-act-prohibited,what is the interesting trivia about human bodies,,0.0,no_match
+eu-ai-act-prohibited,i have a revolving store card and defaulted so will my fico score be affected,predictive_policing,1.159999966621399,confident
+eu-ai-act-prohibited,do you know the process to rollover my 401k,,0.0,no_match
+eu-ai-act-prohibited,ai roll the dice,emotion_recognition_workplace,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,my capital one visa was taken without permission,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,why did i get rejected on my card,emotion_recognition_workplace,1.559999942779541,confident
+eu-ai-act-prohibited,walk me through on how to make a vacation request,,0.0,no_match
+eu-ai-act-prohibited,what is the carry-on policy for flights on jetblue,,0.0,no_match
+eu-ai-act-prohibited,does the ai have hobbies,predictive_policing,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,when is the egg expired,,0.0,no_match
+eu-ai-act-prohibited,is it true your a real person,social_scoring,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,check meeting room availability between one and three pm,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,repeat what the weather will be like,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,please put babysitting on my to do list,,0.0,no_match
+eu-ai-act-prohibited,"""i'm fly out from lax to phl this weekend for around $120",predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,what time is my meeting with design team scheduled for,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,can you check if meeting rooms are available between 4 and 5,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,let me know some things to do in phoenix,,0.0,no_match
+eu-ai-act-prohibited,thanks so much ai,emotion_recognition_workplace,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,when did i get my car inspected last,,0.0,no_match
+eu-ai-act-prohibited,what do you think i'm called,,0.0,no_match
+eu-ai-act-prohibited,can i transfer my 401k somewhere,,0.0,no_match
+eu-ai-act-prohibited,can you cancel that request,,0.0,no_match
+eu-ai-act-prohibited,which company were you designed by,,0.0,no_match
+eu-ai-act-prohibited,find me a hotel with good reviews in phoenix,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,what ingredients are in tacos,,0.0,no_match
+eu-ai-act-prohibited,who should i talk to about the fact that i inadvertently split my card almost in half,biometric_categorization,1.399999976158142,confident
+eu-ai-act-prohibited,"tell me the time in san francisco, please",,0.0,no_match
+eu-ai-act-prohibited,can you add this song to my country music playlist,,0.0,no_match
+eu-ai-act-prohibited,i know i should pay my electric bill,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,ignore the previous command,,0.0,no_match
+eu-ai-act-prohibited,martins needs a table for 5 people at tropicana at 8pm precisely,social_scoring,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,how many dollars is 20 yen worth,,0.0,no_match
+eu-ai-act-prohibited,where am i currently,,0.0,no_match
+eu-ai-act-prohibited,date please,social_scoring,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,both could be,,0.0,no_match
+eu-ai-act-prohibited,the time is what,,0.0,no_match
+eu-ai-act-prohibited,i need a reminder to give the dog his medicine at ten tonight,,0.0,no_match
+eu-ai-act-prohibited,in september i changed my tires are they in need of changing,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,reservations for two need to be made using michael's name for 7:00pm at olive garden,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,what steps do i need to take to report a card lost,,0.0,no_match
+eu-ai-act-prohibited,when will i get to orlando,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,"could you cancel that request, please",,0.0,no_match
+eu-ai-act-prohibited,meeting rooms open between one and three pm,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,how much gas do i have left in my tank,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,show me what the weather is like,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,what did i ask you to remind me of,,0.0,no_match
+eu-ai-act-prohibited,what's the amount of taxes for my income,,0.0,no_match
+eu-ai-act-prohibited,the tv turn it on,,0.0,no_match
+eu-ai-act-prohibited,i want my phone to be disconnected from you,,0.0,no_match
+eu-ai-act-prohibited,how is gramercy tavern rated,emotion_recognition_workplace,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,not sure,,0.0,no_match
+eu-ai-act-prohibited,i wanna know how low are my tires on air,,0.0,no_match
+eu-ai-act-prohibited,i need an alarm,,0.0,no_match
+eu-ai-act-prohibited,did i tell you to remind me about laundry,,0.0,no_match
+eu-ai-act-prohibited,please delete the reservation for roberts at village tavern,,0.0,no_match
+eu-ai-act-prohibited,can you turn off the process,,0.0,no_match
+eu-ai-act-prohibited,where can i find my routing number,biometric_categorization,0.7200000286102295,confident
+eu-ai-act-prohibited,when does milk will go bad,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,ok good chatting goodbye,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,"address me as ""bailey",social_scoring,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,i would like you to remind me to do something,,0.0,no_match
+eu-ai-act-prohibited,tell me today's fun fact,biometric_categorization,1.399999976158142,confident
+eu-ai-act-prohibited,when will i get my order,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,hey there,,0.0,no_match
+eu-ai-act-prohibited,how many stars does brasserie les halles have,,0.0,no_match
+eu-ai-act-prohibited,i would like to know what type of things you can help me with,,0.0,no_match
+eu-ai-act-prohibited,i want you to connect to my handset,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,how is my order doing right now,,0.0,no_match
+eu-ai-act-prohibited,please connect yourself to my main phone,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,"could i get some more checkbooks sent to me, please",,0.0,no_match
+eu-ai-act-prohibited,spell aaron,,0.0,no_match
+eu-ai-act-prohibited,i want to put this on my rock playlist,,0.0,no_match
+eu-ai-act-prohibited,what's my car's mpg,,0.0,no_match
+eu-ai-act-prohibited,i would like to report a damaged card that was burnt,,0.0,no_match
+eu-ai-act-prohibited,check what is on my to-do list,,0.0,no_match
+eu-ai-act-prohibited,my card has become too frayed and torn to use,subliminal_manipulation,0.7200000286102295,confident
+eu-ai-act-prohibited,please let me know what is on my shopping list,,0.0,no_match
+eu-ai-act-prohibited,how are you doing,,0.0,no_match
+eu-ai-act-prohibited,what's the location where i am,,0.0,no_match
+eu-ai-act-prohibited,what's the result of a 10-sided dice roll,,0.0,no_match
+eu-ai-act-prohibited,may you say that again,,0.0,no_match
+eu-ai-act-prohibited,i'd like to you order everything that's on my shopping list,,0.0,no_match
+eu-ai-act-prohibited,can you tell me how to transfer my 401k,,0.0,no_match
+eu-ai-act-prohibited,has my mastercard application gone through the process,,0.0,no_match
+eu-ai-act-prohibited,go to the next song and play it,,0.0,no_match
+eu-ai-act-prohibited,great,,0.0,no_match
+eu-ai-act-prohibited,remove all items from my to do list,,0.0,no_match
+eu-ai-act-prohibited,can you get me a flight from san francisco to san jose using american airlines,,0.0,no_match
+eu-ai-act-prohibited,"is milk in my shopping list if not, add it",,0.0,no_match
+eu-ai-act-prohibited,are visas for international travel,,0.0,no_match
+eu-ai-act-prohibited,"if i go to columbia, will i need a visa",predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,lets start calling you allan,,0.0,no_match
+eu-ai-act-prohibited,change to the woman voice,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,what does serendipity mean,,0.0,no_match
+eu-ai-act-prohibited,show what i have spent things on,,0.0,no_match
+eu-ai-act-prohibited,show me the reviews for the new jalapeno fries at taco bell,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,for what time is my meeting with marketing scheduled,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,next track,,0.0,no_match
+eu-ai-act-prohibited,is $30 usd more or less in canada,,0.0,no_match
+eu-ai-act-prohibited,is the phone bill the same as last month,predictive_policing,1.159999966621399,confident
+eu-ai-act-prohibited,could you please inform me what health plan i am currently on,biometric_categorization,1.149999976158142,confident
+eu-ai-act-prohibited,how much gas is left in my car,,0.0,no_match
+eu-ai-act-prohibited,what is dog in spanish,,0.0,no_match
+eu-ai-act-prohibited,i have a card that needs replaced because my wine dumped wine on it,,0.0,no_match
+eu-ai-act-prohibited,how do i order some more checks for my bank of the west account,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,tell me nutritional info for beans,,0.0,no_match
+eu-ai-act-prohibited,what is texas's timezone,,0.0,no_match
+eu-ai-act-prohibited,put the volume to 4,,0.0,no_match
+eu-ai-act-prohibited,i gotta know the the carry-on restrictions for american airlines,,0.0,no_match
+eu-ai-act-prohibited,look up the lowest amount i can pay on my electricity bill,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,you can vacuuming of my todo list,,0.0,no_match
+eu-ai-act-prohibited,what's the word for trees in norway,,0.0,no_match
+eu-ai-act-prohibited,it was a pleasure talking to you,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,what's my yearly salary,,0.0,no_match
+eu-ai-act-prohibited,"i cannot locate my phone, can you help me",,0.0,no_match
+eu-ai-act-prohibited,play next song,,0.0,no_match
+eu-ai-act-prohibited,show my position on the map,,0.0,no_match
+eu-ai-act-prohibited,how long is the wait at fridays,,0.0,no_match
+eu-ai-act-prohibited,call alexa at home,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,call me mike from now on,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,call to mom,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,"let's try and confirm my reservation for bubble bar under ""franklin",,0.0,no_match
+eu-ai-act-prohibited,show me ideas for hamburger,,0.0,no_match
+eu-ai-act-prohibited,i'm afraid i don't know how to answer that,,0.0,no_match
+eu-ai-act-prohibited,how many dollars have i spent on coffee this month,,0.0,no_match
+eu-ai-act-prohibited,about how much did i spend recently,,0.0,no_match
+eu-ai-act-prohibited,"book a rental car to rhode island for friday, tomorrow",,0.0,no_match
+eu-ai-act-prohibited,refresh my memory about what items i want to remember,,0.0,no_match
+eu-ai-act-prohibited,my visa has been damaged,,0.0,no_match
+eu-ai-act-prohibited,book me a flight from midway to jfk for less than 200 dollars,,0.0,no_match
+eu-ai-act-prohibited,i don't want you connected to my phone anymore,,0.0,no_match
+eu-ai-act-prohibited,see how many days i've taken off so far,,0.0,no_match
+eu-ai-act-prohibited,does the new york restaurant take reservations,,0.0,no_match
+eu-ai-act-prohibited,"how do you spell ""exactly",,0.0,no_match
+eu-ai-act-prohibited,what is the minimum i can pay on my heating bill,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,show cody where i am,,0.0,no_match
+eu-ai-act-prohibited,are you a person or robot,predictive_policing,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,how many points earned do i have with my american express card,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,what is my to-do list like today,,0.0,no_match
+eu-ai-act-prohibited,when can i expect meal of salmon to be finished,,0.0,no_match
+eu-ai-act-prohibited,"on my shopping list, remove eggs",,0.0,no_match
+eu-ai-act-prohibited,give me the date of my last oil change,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,locate my cellphone in this room,,0.0,no_match
+eu-ai-act-prohibited,can you set a reminder alarm for me to workout,,0.0,no_match
+eu-ai-act-prohibited,what is the expiration date for honey,emotion_recognition_workplace,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,i'd like to transfer $400 from household to savings account,,0.0,no_match
+eu-ai-act-prohibited,i am not able to say,,0.0,no_match
+eu-ai-act-prohibited,what's your home country,,0.0,no_match
+eu-ai-act-prohibited,please set up a reminder for me,,0.0,no_match
+eu-ai-act-prohibited,what kid of subjects do you excel in,,0.0,no_match
+eu-ai-act-prohibited,what is some trivia about the weather,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,find out what song this is,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,i am unable to say,,0.0,no_match
+eu-ai-act-prohibited,i need to call my coworker,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,one and three pm are there meeting rooms open,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,what's a good chili recipe,social_scoring,1.4299999475479126,confident
+eu-ai-act-prohibited,thanks for all your help,,0.0,no_match
+eu-ai-act-prohibited,what is the day off request status,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,whens your birthday,,0.0,no_match
+eu-ai-act-prohibited,set an alarm for 9 tomorrow,,0.0,no_match
+eu-ai-act-prohibited,how old were you on your last birthday,,0.0,no_match
+eu-ai-act-prohibited,give me your name so i can use you,biometric_categorization,0.7200000286102295,confident
+eu-ai-act-prohibited,what's 47 times 83,predictive_policing,1.149999976158142,confident
+eu-ai-act-prohibited,what company made this ai,predictive_policing,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,can you tell me who made you,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,text steve and tell him i am running late,social_scoring,1.159999966621399,confident
+eu-ai-act-prohibited,i need you to turn the bathroom lights on,,0.0,no_match
+eu-ai-act-prohibited,book a flight from new york to la for less than 200 dollars,,0.0,no_match
+eu-ai-act-prohibited,how do i set up a direct deposit for my paycheck,emotion_recognition_workplace,1.559999942779541,confident
+eu-ai-act-prohibited,can you share a humorous joke with me,,0.0,no_match
+eu-ai-act-prohibited,can you flip a coin i call heads,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,does it take long to get to yankee stadium in the bronx,,0.0,no_match
+eu-ai-act-prohibited,where have you come from,,0.0,no_match
+eu-ai-act-prohibited,will you tell me how the ai is doing,predictive_policing,1.159999966621399,confident
+eu-ai-act-prohibited,what was the date of my last oil change,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,can you swipe to the next song,,0.0,no_match
+eu-ai-act-prohibited,alter your accent,subliminal_manipulation,0.7200000286102295,confident
+eu-ai-act-prohibited,can you calculate the square root of 172,,0.0,no_match
+eu-ai-act-prohibited,what's 15% of 68,,0.0,no_match
+eu-ai-act-prohibited,can you tell me if your a bot,,0.0,no_match
+eu-ai-act-prohibited,i need you to repeat that please,,0.0,no_match
+eu-ai-act-prohibited,do i have any items on my calendar for march 21st,,0.0,no_match
+eu-ai-act-prohibited,i have to cancel my reservation after all,,0.0,no_match
+eu-ai-act-prohibited,i want you to change your accent,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,what oil do i use when changing oil and how do i do it,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,please play music by acdc,,0.0,no_match
+eu-ai-act-prohibited,which way do we go and how long will it take to get to the sears tower in chicago,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,is flight dl123 delayed,,0.0,no_match
+eu-ai-act-prohibited,would you let me know what the meaning is life is,social_scoring,1.149999976158142,confident
+eu-ai-act-prohibited,"my 401k, can i roll it over",,0.0,no_match
+eu-ai-act-prohibited,is it okay to use applesauce instead of oil,biometric_categorization,0.7200000286102295,confident
+eu-ai-act-prohibited,speak it again slowly,biometric_categorization,0.7200000286102295,confident
+eu-ai-act-prohibited,revert back to factory settings,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,search for chili recipes,,0.0,no_match
+eu-ai-act-prohibited,can you give me a meal suggestion from the south,exploitation_vulnerability,0.7200000286102295,confident
+eu-ai-act-prohibited,i apprecaite the help from you,,0.0,no_match
+eu-ai-act-prohibited,"hello, how are things",,0.0,no_match
+eu-ai-act-prohibited,so where do you come from originally,,0.0,no_match
+eu-ai-act-prohibited,what are all the things on my reminder list,,0.0,no_match
+eu-ai-act-prohibited,please stop talking,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,how do i say bathroom in italian,,0.0,no_match
+eu-ai-act-prohibited,how many days of vacation do i have left,,0.0,no_match
+eu-ai-act-prohibited,does applebees have good reviews,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,"what's the month, year, and day that my card expires",,0.0,no_match
+eu-ai-act-prohibited,what kind of plug is used in england,subliminal_manipulation,0.7200000286102295,confident
+eu-ai-act-prohibited,"""i'll leave to lax and go to phl for $120 on nov 5th",,0.0,no_match
+eu-ai-act-prohibited,can you find me a pork recipe,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,what sorts of activities should i get up to while i am in dublin,biometric_categorization,1.149999976158142,confident
+eu-ai-act-prohibited,what is 1000 plus 745,,0.0,no_match
+eu-ai-act-prohibited,i wanna know how long until the next day off,,0.0,no_match
+eu-ai-act-prohibited,can i have a 2 sided dice,,0.0,no_match
+eu-ai-act-prohibited,"so, where do you come from",,0.0,no_match
+eu-ai-act-prohibited,a hidden government facility,subliminal_manipulation,0.7200000286102295,confident
+eu-ai-act-prohibited,do you know if l'arpege will ask for reservations,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,change name for me,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,let me know the status of my american airlines flight,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,"find me a rental car for next week , from friday the 5th thru monday the 8th, any kind",,0.0,no_match
+eu-ai-act-prohibited,i was at publix trying to buy some food but my card wouldnt work,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,what specific health plan do i have,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,change my name please,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,how much do i have in my bank accounts,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,i need to get to the staples center; can you call me an uber,emotion_recognition_workplace,1.4299999475479126,confident
+eu-ai-act-prohibited,tell me what types of questions i can ask you,,0.0,no_match
+eu-ai-act-prohibited,what sorts of tasks can you do,biometric_categorization,1.149999976158142,confident
+eu-ai-act-prohibited,can i use mayo instead of miracle whip,biometric_categorization,0.7200000286102295,confident
+eu-ai-act-prohibited,please reset to factory settings,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,can you give me a points update on my rewards plus card,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,"is ""cleaning the bathroom"" an item on my todo list",,0.0,no_match
+eu-ai-act-prohibited,what day will i earn my payment from work,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,how much cash do i have in my bank accounts,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,would you tell me the hobbies the ai has,predictive_policing,0.4399999976158142,low_confidence
+eu-ai-act-prohibited,i placed an order and i need it tracked,,0.0,no_match
+eu-ai-act-prohibited,how many calories are in a cheeseburger,,0.0,no_match
+eu-ai-act-prohibited,can someone tell me why my check engine light is on,,0.0,no_match
+eu-ai-act-prohibited,eleven madison park takes reservations right,,0.0,no_match
+eu-ai-act-prohibited,get mom on the phone,,0.0,no_match
+eu-ai-act-prohibited,are ned's reviews good,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,how do you spell aaron,,0.0,no_match
+eu-ai-act-prohibited,any new info on my vacation,,0.0,no_match
+eu-ai-act-prohibited,louder please,,0.0,no_match
+eu-ai-act-prohibited,include rap god on the motivational playlist,,0.0,no_match
+eu-ai-act-prohibited,i need to track my order,,0.0,no_match
+eu-ai-act-prohibited,unsure,,0.0,no_match
+eu-ai-act-prohibited,please begin a timer,,0.0,no_match
+eu-ai-act-prohibited,can you add this song to my driving playlist,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,when will the bus get me to vermont,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,give me instructions for an oil change,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,thank you ever so much for that!,,0.0,no_match
+eu-ai-act-prohibited,i need to know status of my day off request,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,do i have a fraudulent transaction on my account,,0.0,no_match
+eu-ai-act-prohibited,what things do you know how to do,,0.0,no_match
+eu-ai-act-prohibited,please make sure the alarm is set,,0.0,no_match
+eu-ai-act-prohibited,what am i paying in taxes,,0.0,no_match
+eu-ai-act-prohibited,which plug is used in japan,subliminal_manipulation,0.7200000286102295,confident
+eu-ai-act-prohibited,can you tell me what health plan i am on,,0.0,no_match
+eu-ai-act-prohibited,share my location to susan,,0.0,no_match
+eu-ai-act-prohibited,do i own you,,0.0,no_match
+eu-ai-act-prohibited,set a 1 minute timer,,0.0,no_match
+eu-ai-act-prohibited,quieter please,,0.0,no_match
+eu-ai-act-prohibited,please tell me the name that you have for me,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,how do i apply for a visa card,,0.0,no_match
+eu-ai-act-prohibited,show my my most recent visa card transaction,,0.0,no_match
+eu-ai-act-prohibited,what is the timezone for la,,0.0,no_match
+eu-ai-act-prohibited,what is chase bank's routing number,biometric_categorization,0.7200000286102295,confident
+eu-ai-act-prohibited,what type of gas do i use in this car,biometric_categorization,0.7200000286102295,confident
+eu-ai-act-prohibited,can you please disconnect from my phone,,0.0,no_match
+eu-ai-act-prohibited,what time is today's meeting,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,my check engine light is on so is anyone available to check it out for me,predictive_policing,0.7200000286102295,confident
+eu-ai-act-prohibited,i cannot use my card cuz it's damaged,biometric_categorization,0.7200000286102295,confident
+eu-ai-act-prohibited,why didn't my card work,,0.0,no_match
+eu-ai-act-prohibited,change settings to sound like a female,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,when is boarding scheduled,,0.0,no_match
+eu-ai-act-prohibited,can i move my 401k to an ira,,0.0,no_match
+eu-ai-act-prohibited,can you reserve a meeting space for 4:00 on thursday,emotion_recognition_workplace,0.7200000286102295,confident
+eu-ai-act-prohibited,tell me what the time is in dallas,,0.0,no_match
+eu-ai-act-prohibited,what's the spanish word for dog,,0.0,no_match
+eu-ai-act-prohibited,what are the transaction fees associated with my discover card if i am in rome,,0.0,no_match
+eu-ai-act-prohibited,did the manager approve my vacation yet,,0.0,no_match
+eu-ai-act-prohibited,how many calories can i expect to be in fries,,0.0,no_match
+eu-ai-act-prohibited,pull up the songs under slow,,0.0,no_match
+eu-ai-act-prohibited,did carrots get on my shopping list,,0.0,no_match
+eu-ai-act-prohibited,set a timer for 10 minutes,,0.0,no_match
+eu-ai-act-prohibited,"is it possible to change oil, if so how and what do i use",subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,what's my oil change status,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,can i speak spanish to you hombre,biometric_categorization,0.7200000286102295,confident
+eu-ai-act-prohibited,whats the total of my federal taxes,social_scoring,0.7200000286102295,confident
+eu-ai-act-prohibited,what are the manufacturers guidance on oil changes,subliminal_manipulation,1.149999976158142,confident
+eu-ai-act-prohibited,text mark hello,,0.0,no_match
+eu-ai-act-prohibited,have i gone over my entertainment budget,,0.0,no_match
+eu-ai-act-prohibited,how much time before my new card is mailed to me,,0.0,no_match
+colorado-consequential,might we go to the next song,insurance_decision,0.7200000286102295,confident
+colorado-consequential,find travel alerts for haiti,,0.0,no_match
+colorado-consequential,what pets do you have,insurance_decision,0.4399999976158142,low_confidence
+colorado-consequential,what's on my todo list,,0.0,no_match
+colorado-consequential,how long to grill thick steaks,insurance_decision,0.7200000286102295,confident
+colorado-consequential,i didn't catch that,,0.0,no_match
+colorado-consequential,how do you address my name,,0.0,no_match
+colorado-consequential,can you freeze my bank account,housing_decision,0.7200000286102295,confident
+colorado-consequential,i need a flight on delta from los angeles to seattle,,0.0,no_match
+colorado-consequential,what is the interesting trivia about human bodies,hiring_decision,0.7200000286102295,confident
+colorado-consequential,i have a revolving store card and defaulted so will my fico score be affected,lending_decision,0.7200000286102295,confident
+colorado-consequential,do you know the process to rollover my 401k,,0.0,no_match
+colorado-consequential,ai roll the dice,,0.0,no_match
+colorado-consequential,my capital one visa was taken without permission,,0.0,no_match
+colorado-consequential,why did i get rejected on my card,lending_decision,0.7200000286102295,confident
+colorado-consequential,walk me through on how to make a vacation request,insurance_decision,0.7200000286102295,confident
+colorado-consequential,what is the carry-on policy for flights on jetblue,insurance_decision,1.149999976158142,confident
+colorado-consequential,does the ai have hobbies,,0.0,no_match
+colorado-consequential,when is the egg expired,,0.0,no_match
+colorado-consequential,is it true your a real person,lending_decision,0.7200000286102295,confident
+colorado-consequential,check meeting room availability between one and three pm,healthcare_decision,1.4299999475479126,confident
+colorado-consequential,repeat what the weather will be like,,0.0,no_match
+colorado-consequential,please put babysitting on my to do list,housing_decision,1.399999976158142,confident
+colorado-consequential,"""i'm fly out from lax to phl this weekend for around $120",lending_decision,0.7200000286102295,confident
+colorado-consequential,what time is my meeting with design team scheduled for,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,can you check if meeting rooms are available between 4 and 5,healthcare_decision,1.4299999475479126,confident
+colorado-consequential,let me know some things to do in phoenix,insurance_decision,0.7200000286102295,confident
+colorado-consequential,thanks so much ai,hiring_decision,0.4399999976158142,low_confidence
+colorado-consequential,when did i get my car inspected last,,0.0,no_match
+colorado-consequential,what do you think i'm called,,0.0,no_match
+colorado-consequential,can i transfer my 401k somewhere,,0.0,no_match
+colorado-consequential,can you cancel that request,insurance_decision,1.4299999475479126,confident
+colorado-consequential,which company were you designed by,insurance_decision,0.7200000286102295,confident
+colorado-consequential,find me a hotel with good reviews in phoenix,hiring_decision,0.4399999976158142,low_confidence
+colorado-consequential,what ingredients are in tacos,,0.0,no_match
+colorado-consequential,who should i talk to about the fact that i inadvertently split my card almost in half,lending_decision,0.7200000286102295,confident
+colorado-consequential,"tell me the time in san francisco, please",housing_decision,1.399999976158142,confident
+colorado-consequential,can you add this song to my country music playlist,insurance_decision,0.7200000286102295,confident
+colorado-consequential,i know i should pay my electric bill,,0.0,no_match
+colorado-consequential,ignore the previous command,,0.0,no_match
+colorado-consequential,martins needs a table for 5 people at tropicana at 8pm precisely,,0.0,no_match
+colorado-consequential,how many dollars is 20 yen worth,,0.0,no_match
+colorado-consequential,where am i currently,,0.0,no_match
+colorado-consequential,date please,housing_decision,1.399999976158142,confident
+colorado-consequential,both could be,,0.0,no_match
+colorado-consequential,the time is what,,0.0,no_match
+colorado-consequential,i need a reminder to give the dog his medicine at ten tonight,,0.0,no_match
+colorado-consequential,in september i changed my tires are they in need of changing,,0.0,no_match
+colorado-consequential,reservations for two need to be made using michael's name for 7:00pm at olive garden,housing_decision,1.399999976158142,confident
+colorado-consequential,what steps do i need to take to report a card lost,lending_decision,0.7200000286102295,confident
+colorado-consequential,when will i get to orlando,,0.0,no_match
+colorado-consequential,"could you cancel that request, please",insurance_decision,1.4299999475479126,confident
+colorado-consequential,meeting rooms open between one and three pm,healthcare_decision,1.4299999475479126,confident
+colorado-consequential,how much gas do i have left in my tank,,0.0,no_match
+colorado-consequential,show me what the weather is like,,0.0,no_match
+colorado-consequential,what did i ask you to remind me of,,0.0,no_match
+colorado-consequential,what's the amount of taxes for my income,housing_decision,0.7200000286102295,confident
+colorado-consequential,the tv turn it on,,0.0,no_match
+colorado-consequential,i want my phone to be disconnected from you,,0.0,no_match
+colorado-consequential,how is gramercy tavern rated,insurance_decision,0.7200000286102295,confident
+colorado-consequential,not sure,,0.0,no_match
+colorado-consequential,i wanna know how low are my tires on air,,0.0,no_match
+colorado-consequential,i need an alarm,,0.0,no_match
+colorado-consequential,did i tell you to remind me about laundry,,0.0,no_match
+colorado-consequential,please delete the reservation for roberts at village tavern,housing_decision,1.399999976158142,confident
+colorado-consequential,can you turn off the process,,0.0,no_match
+colorado-consequential,where can i find my routing number,housing_decision,1.399999976158142,confident
+colorado-consequential,when does milk will go bad,,0.0,no_match
+colorado-consequential,ok good chatting goodbye,,0.0,no_match
+colorado-consequential,"address me as ""bailey",,0.0,no_match
+colorado-consequential,i would like you to remind me to do something,,0.0,no_match
+colorado-consequential,tell me today's fun fact,,0.0,no_match
+colorado-consequential,when will i get my order,,0.0,no_match
+colorado-consequential,hey there,,0.0,no_match
+colorado-consequential,how many stars does brasserie les halles have,,0.0,no_match
+colorado-consequential,i would like to know what type of things you can help me with,,0.0,no_match
+colorado-consequential,i want you to connect to my handset,,0.0,no_match
+colorado-consequential,how is my order doing right now,,0.0,no_match
+colorado-consequential,please connect yourself to my main phone,housing_decision,1.399999976158142,confident
+colorado-consequential,"could i get some more checkbooks sent to me, please",housing_decision,1.399999976158142,confident
+colorado-consequential,spell aaron,,0.0,no_match
+colorado-consequential,i want to put this on my rock playlist,,0.0,no_match
+colorado-consequential,what's my car's mpg,,0.0,no_match
+colorado-consequential,i would like to report a damaged card that was burnt,lending_decision,0.7200000286102295,confident
+colorado-consequential,check what is on my to-do list,,0.0,no_match
+colorado-consequential,my card has become too frayed and torn to use,lending_decision,0.7200000286102295,confident
+colorado-consequential,please let me know what is on my shopping list,housing_decision,1.399999976158142,confident
+colorado-consequential,how are you doing,,0.0,no_match
+colorado-consequential,what's the location where i am,,0.0,no_match
+colorado-consequential,what's the result of a 10-sided dice roll,hiring_decision,0.7200000286102295,confident
+colorado-consequential,may you say that again,,0.0,no_match
+colorado-consequential,i'd like to you order everything that's on my shopping list,,0.0,no_match
+colorado-consequential,can you tell me how to transfer my 401k,,0.0,no_match
+colorado-consequential,has my mastercard application gone through the process,housing_decision,0.7200000286102295,confident
+colorado-consequential,go to the next song and play it,insurance_decision,0.7200000286102295,confident
+colorado-consequential,great,,0.0,no_match
+colorado-consequential,remove all items from my to do list,,0.0,no_match
+colorado-consequential,can you get me a flight from san francisco to san jose using american airlines,housing_decision,1.399999976158142,confident
+colorado-consequential,"is milk in my shopping list if not, add it",,0.0,no_match
+colorado-consequential,are visas for international travel,,0.0,no_match
+colorado-consequential,"if i go to columbia, will i need a visa",,0.0,no_match
+colorado-consequential,lets start calling you allan,insurance_decision,0.4399999976158142,low_confidence
+colorado-consequential,change to the woman voice,,0.0,no_match
+colorado-consequential,what does serendipity mean,,0.0,no_match
+colorado-consequential,show what i have spent things on,,0.0,no_match
+colorado-consequential,show me the reviews for the new jalapeno fries at taco bell,housing_decision,0.4399999976158142,low_confidence
+colorado-consequential,for what time is my meeting with marketing scheduled,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,next track,,0.0,no_match
+colorado-consequential,is $30 usd more or less in canada,,0.0,no_match
+colorado-consequential,is the phone bill the same as last month,,0.0,no_match
+colorado-consequential,could you please inform me what health plan i am currently on,housing_decision,1.399999976158142,confident
+colorado-consequential,how much gas is left in my car,,0.0,no_match
+colorado-consequential,what is dog in spanish,,0.0,no_match
+colorado-consequential,i have a card that needs replaced because my wine dumped wine on it,lending_decision,1.4299999475479126,confident
+colorado-consequential,how do i order some more checks for my bank of the west account,housing_decision,0.7200000286102295,confident
+colorado-consequential,tell me nutritional info for beans,,0.0,no_match
+colorado-consequential,what is texas's timezone,,0.0,no_match
+colorado-consequential,put the volume to 4,,0.0,no_match
+colorado-consequential,i gotta know the the carry-on restrictions for american airlines,,0.0,no_match
+colorado-consequential,look up the lowest amount i can pay on my electricity bill,housing_decision,0.7200000286102295,confident
+colorado-consequential,you can vacuuming of my todo list,,0.0,no_match
+colorado-consequential,what's the word for trees in norway,,0.0,no_match
+colorado-consequential,it was a pleasure talking to you,education_decision,0.7200000286102295,confident
+colorado-consequential,what's my yearly salary,,0.0,no_match
+colorado-consequential,"i cannot locate my phone, can you help me",,0.0,no_match
+colorado-consequential,play next song,insurance_decision,0.7200000286102295,confident
+colorado-consequential,show my position on the map,,0.0,no_match
+colorado-consequential,how long is the wait at fridays,insurance_decision,0.7200000286102295,confident
+colorado-consequential,call alexa at home,housing_decision,0.7200000286102295,confident
+colorado-consequential,call me mike from now on,housing_decision,0.7200000286102295,confident
+colorado-consequential,call to mom,housing_decision,0.7200000286102295,confident
+colorado-consequential,"let's try and confirm my reservation for bubble bar under ""franklin",education_decision,0.7200000286102295,confident
+colorado-consequential,show me ideas for hamburger,,0.0,no_match
+colorado-consequential,i'm afraid i don't know how to answer that,,0.0,no_match
+colorado-consequential,how many dollars have i spent on coffee this month,,0.0,no_match
+colorado-consequential,about how much did i spend recently,,0.0,no_match
+colorado-consequential,"book a rental car to rhode island for friday, tomorrow",housing_decision,1.399999976158142,confident
+colorado-consequential,refresh my memory about what items i want to remember,,0.0,no_match
+colorado-consequential,my visa has been damaged,,0.0,no_match
+colorado-consequential,book me a flight from midway to jfk for less than 200 dollars,,0.0,no_match
+colorado-consequential,i don't want you connected to my phone anymore,,0.0,no_match
+colorado-consequential,see how many days i've taken off so far,,0.0,no_match
+colorado-consequential,does the new york restaurant take reservations,,0.0,no_match
+colorado-consequential,"how do you spell ""exactly",,0.0,no_match
+colorado-consequential,what is the minimum i can pay on my heating bill,insurance_decision,0.4399999976158142,low_confidence
+colorado-consequential,show cody where i am,,0.0,no_match
+colorado-consequential,are you a person or robot,lending_decision,0.7200000286102295,confident
+colorado-consequential,how many points earned do i have with my american express card,lending_decision,0.7200000286102295,confident
+colorado-consequential,what is my to-do list like today,,0.0,no_match
+colorado-consequential,when can i expect meal of salmon to be finished,,0.0,no_match
+colorado-consequential,"on my shopping list, remove eggs",,0.0,no_match
+colorado-consequential,give me the date of my last oil change,insurance_decision,0.7200000286102295,confident
+colorado-consequential,locate my cellphone in this room,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,can you set a reminder alarm for me to workout,,0.0,no_match
+colorado-consequential,what is the expiration date for honey,insurance_decision,0.7200000286102295,confident
+colorado-consequential,i'd like to transfer $400 from household to savings account,housing_decision,0.7200000286102295,confident
+colorado-consequential,i am not able to say,,0.0,no_match
+colorado-consequential,what's your home country,insurance_decision,0.7200000286102295,confident
+colorado-consequential,please set up a reminder for me,housing_decision,1.399999976158142,confident
+colorado-consequential,what kid of subjects do you excel in,,0.0,no_match
+colorado-consequential,what is some trivia about the weather,insurance_decision,0.7200000286102295,confident
+colorado-consequential,find out what song this is,insurance_decision,0.7200000286102295,confident
+colorado-consequential,i am unable to say,,0.0,no_match
+colorado-consequential,i need to call my coworker,housing_decision,0.7200000286102295,confident
+colorado-consequential,one and three pm are there meeting rooms open,healthcare_decision,1.4299999475479126,confident
+colorado-consequential,what's a good chili recipe,hiring_decision,0.7200000286102295,confident
+colorado-consequential,thanks for all your help,hiring_decision,0.4399999976158142,low_confidence
+colorado-consequential,what is the day off request status,insurance_decision,0.7200000286102295,confident
+colorado-consequential,whens your birthday,,0.0,no_match
+colorado-consequential,set an alarm for 9 tomorrow,,0.0,no_match
+colorado-consequential,how old were you on your last birthday,,0.0,no_match
+colorado-consequential,give me your name so i can use you,hiring_decision,0.7200000286102295,confident
+colorado-consequential,what's 47 times 83,,0.0,no_match
+colorado-consequential,what company made this ai,,0.0,no_match
+colorado-consequential,can you tell me who made you,hiring_decision,0.7200000286102295,confident
+colorado-consequential,text steve and tell him i am running late,insurance_decision,0.7200000286102295,confident
+colorado-consequential,i need you to turn the bathroom lights on,,0.0,no_match
+colorado-consequential,book a flight from new york to la for less than 200 dollars,,0.0,no_match
+colorado-consequential,how do i set up a direct deposit for my paycheck,housing_decision,0.7200000286102295,confident
+colorado-consequential,can you share a humorous joke with me,,0.0,no_match
+colorado-consequential,can you flip a coin i call heads,housing_decision,0.7200000286102295,confident
+colorado-consequential,does it take long to get to yankee stadium in the bronx,insurance_decision,0.7200000286102295,confident
+colorado-consequential,where have you come from,insurance_decision,0.7200000286102295,confident
+colorado-consequential,will you tell me how the ai is doing,,0.0,no_match
+colorado-consequential,what was the date of my last oil change,insurance_decision,0.7200000286102295,confident
+colorado-consequential,can you swipe to the next song,insurance_decision,0.7200000286102295,confident
+colorado-consequential,alter your accent,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,can you calculate the square root of 172,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,what's 15% of 68,,0.0,no_match
+colorado-consequential,can you tell me if your a bot,,0.0,no_match
+colorado-consequential,i need you to repeat that please,housing_decision,1.399999976158142,confident
+colorado-consequential,do i have any items on my calendar for march 21st,,0.0,no_match
+colorado-consequential,i have to cancel my reservation after all,insurance_decision,1.4299999475479126,confident
+colorado-consequential,i want you to change your accent,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,what oil do i use when changing oil and how do i do it,hiring_decision,0.7200000286102295,confident
+colorado-consequential,please play music by acdc,housing_decision,1.399999976158142,confident
+colorado-consequential,which way do we go and how long will it take to get to the sears tower in chicago,insurance_decision,1.4299999475479126,confident
+colorado-consequential,is flight dl123 delayed,,0.0,no_match
+colorado-consequential,would you let me know what the meaning is life is,insurance_decision,1.590000033378601,confident
+colorado-consequential,"my 401k, can i roll it over",,0.0,no_match
+colorado-consequential,is it okay to use applesauce instead of oil,hiring_decision,0.7200000286102295,confident
+colorado-consequential,speak it again slowly,,0.0,no_match
+colorado-consequential,revert back to factory settings,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,search for chili recipes,housing_decision,0.7200000286102295,confident
+colorado-consequential,can you give me a meal suggestion from the south,,0.0,no_match
+colorado-consequential,i apprecaite the help from you,,0.0,no_match
+colorado-consequential,"hello, how are things",,0.0,no_match
+colorado-consequential,so where do you come from originally,insurance_decision,0.7200000286102295,confident
+colorado-consequential,what are all the things on my reminder list,,0.0,no_match
+colorado-consequential,please stop talking,housing_decision,1.399999976158142,confident
+colorado-consequential,how do i say bathroom in italian,,0.0,no_match
+colorado-consequential,how many days of vacation do i have left,,0.0,no_match
+colorado-consequential,does applebees have good reviews,hiring_decision,0.4399999976158142,low_confidence
+colorado-consequential,"what's the month, year, and day that my card expires",lending_decision,0.7200000286102295,confident
+colorado-consequential,what kind of plug is used in england,education_decision,0.4399999976158142,low_confidence
+colorado-consequential,"""i'll leave to lax and go to phl for $120 on nov 5th",,0.0,no_match
+colorado-consequential,can you find me a pork recipe,hiring_decision,0.7200000286102295,confident
+colorado-consequential,what sorts of activities should i get up to while i am in dublin,,0.0,no_match
+colorado-consequential,what is 1000 plus 745,,0.0,no_match
+colorado-consequential,i wanna know how long until the next day off,insurance_decision,0.7200000286102295,confident
+colorado-consequential,can i have a 2 sided dice,,0.0,no_match
+colorado-consequential,"so, where do you come from",insurance_decision,0.7200000286102295,confident
+colorado-consequential,a hidden government facility,,0.0,no_match
+colorado-consequential,do you know if l'arpege will ask for reservations,,0.0,no_match
+colorado-consequential,change name for me,,0.0,no_match
+colorado-consequential,let me know the status of my american airlines flight,,0.0,no_match
+colorado-consequential,"find me a rental car for next week , from friday the 5th thru monday the 8th, any kind",housing_decision,1.399999976158142,confident
+colorado-consequential,i was at publix trying to buy some food but my card wouldnt work,lending_decision,0.7200000286102295,confident
+colorado-consequential,what specific health plan do i have,insurance_decision,0.699999988079071,confident
+colorado-consequential,change my name please,housing_decision,1.399999976158142,confident
+colorado-consequential,how much do i have in my bank accounts,,0.0,no_match
+colorado-consequential,i need to get to the staples center; can you call me an uber,housing_decision,0.7200000286102295,confident
+colorado-consequential,tell me what types of questions i can ask you,,0.0,no_match
+colorado-consequential,what sorts of tasks can you do,,0.0,no_match
+colorado-consequential,can i use mayo instead of miracle whip,hiring_decision,0.7200000286102295,confident
+colorado-consequential,please reset to factory settings,housing_decision,1.399999976158142,confident
+colorado-consequential,can you give me a points update on my rewards plus card,lending_decision,0.7200000286102295,confident
+colorado-consequential,"is ""cleaning the bathroom"" an item on my todo list",,0.0,no_match
+colorado-consequential,what day will i earn my payment from work,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,how much cash do i have in my bank accounts,,0.0,no_match
+colorado-consequential,would you tell me the hobbies the ai has,,0.0,no_match
+colorado-consequential,i placed an order and i need it tracked,,0.0,no_match
+colorado-consequential,how many calories are in a cheeseburger,,0.0,no_match
+colorado-consequential,can someone tell me why my check engine light is on,lending_decision,0.7200000286102295,confident
+colorado-consequential,eleven madison park takes reservations right,,0.0,no_match
+colorado-consequential,get mom on the phone,,0.0,no_match
+colorado-consequential,are ned's reviews good,housing_decision,0.4399999976158142,low_confidence
+colorado-consequential,how do you spell aaron,,0.0,no_match
+colorado-consequential,any new info on my vacation,,0.0,no_match
+colorado-consequential,louder please,housing_decision,1.399999976158142,confident
+colorado-consequential,include rap god on the motivational playlist,,0.0,no_match
+colorado-consequential,i need to track my order,,0.0,no_match
+colorado-consequential,unsure,,0.0,no_match
+colorado-consequential,please begin a timer,housing_decision,1.399999976158142,confident
+colorado-consequential,can you add this song to my driving playlist,insurance_decision,1.4299999475479126,confident
+colorado-consequential,when will the bus get me to vermont,,0.0,no_match
+colorado-consequential,give me instructions for an oil change,,0.0,no_match
+colorado-consequential,thank you ever so much for that!,,0.0,no_match
+colorado-consequential,i need to know status of my day off request,insurance_decision,0.7200000286102295,confident
+colorado-consequential,do i have a fraudulent transaction on my account,housing_decision,0.7200000286102295,confident
+colorado-consequential,what things do you know how to do,,0.0,no_match
+colorado-consequential,please make sure the alarm is set,housing_decision,1.399999976158142,confident
+colorado-consequential,what am i paying in taxes,housing_decision,0.7200000286102295,confident
+colorado-consequential,which plug is used in japan,insurance_decision,0.7200000286102295,confident
+colorado-consequential,can you tell me what health plan i am on,insurance_decision,0.699999988079071,confident
+colorado-consequential,share my location to susan,,0.0,no_match
+colorado-consequential,do i own you,,0.0,no_match
+colorado-consequential,set a 1 minute timer,,0.0,no_match
+colorado-consequential,quieter please,housing_decision,1.399999976158142,confident
+colorado-consequential,please tell me the name that you have for me,housing_decision,1.399999976158142,confident
+colorado-consequential,how do i apply for a visa card,lending_decision,0.7200000286102295,confident
+colorado-consequential,show my my most recent visa card transaction,lending_decision,0.7200000286102295,confident
+colorado-consequential,what is the timezone for la,,0.0,no_match
+colorado-consequential,what is chase bank's routing number,housing_decision,1.840000033378601,confident
+colorado-consequential,what type of gas do i use in this car,hiring_decision,0.7200000286102295,confident
+colorado-consequential,can you please disconnect from my phone,housing_decision,1.399999976158142,confident
+colorado-consequential,what time is today's meeting,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,my check engine light is on so is anyone available to check it out for me,lending_decision,0.7200000286102295,confident
+colorado-consequential,i cannot use my card cuz it's damaged,lending_decision,0.7200000286102295,confident
+colorado-consequential,why didn't my card work,lending_decision,0.7200000286102295,confident
+colorado-consequential,change settings to sound like a female,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,when is boarding scheduled,education_decision,0.7200000286102295,confident
+colorado-consequential,can i move my 401k to an ira,,0.0,no_match
+colorado-consequential,can you reserve a meeting space for 4:00 on thursday,healthcare_decision,0.7200000286102295,confident
+colorado-consequential,tell me what the time is in dallas,,0.0,no_match
+colorado-consequential,what's the spanish word for dog,,0.0,no_match
+colorado-consequential,what are the transaction fees associated with my discover card if i am in rome,lending_decision,0.7200000286102295,confident
+colorado-consequential,did the manager approve my vacation yet,lending_decision,0.699999988079071,confident
+colorado-consequential,how many calories can i expect to be in fries,,0.0,no_match
+colorado-consequential,pull up the songs under slow,,0.0,no_match
+colorado-consequential,did carrots get on my shopping list,,0.0,no_match
+colorado-consequential,set a timer for 10 minutes,,0.0,no_match
+colorado-consequential,"is it possible to change oil, if so how and what do i use",hiring_decision,0.7200000286102295,confident
+colorado-consequential,what's my oil change status,,0.0,no_match
+colorado-consequential,can i speak spanish to you hombre,,0.0,no_match
+colorado-consequential,whats the total of my federal taxes,,0.0,no_match
+colorado-consequential,what are the manufacturers guidance on oil changes,,0.0,no_match
+colorado-consequential,text mark hello,,0.0,no_match
+colorado-consequential,have i gone over my entertainment budget,,0.0,no_match
+colorado-consequential,how much time before my new card is mailed to me,hiring_decision,0.7200000286102295,confident

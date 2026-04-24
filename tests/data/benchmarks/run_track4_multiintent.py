@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Track 4 — Multi-Intent Benchmark.
 
-Runs MixSNIPS and MixATIS through ASV.
+Runs MixSNIPS and MixATIS through MicroResolve.
 Uses multi-intent metrics: exact match, partial match, F1, recall.
 
 Usage:
@@ -82,7 +82,7 @@ def run_dataset(name: str, seeds_path: str, test_path: str) -> dict:
 
 def main():
     if not check_server():
-        print("Start the ASV server first.")
+        print("Start the MicroResolve server first.")
         sys.exit(1)
 
     os.makedirs(RESULTS_DIR, exist_ok=True)

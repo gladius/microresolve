@@ -1,5 +1,5 @@
 """
-Session simulation: replay customer sessions through ASV server API.
+Session simulation: replay customer sessions through MicroResolve server API.
 Uses tests/data/simulation_sessions.json — real-feeling customer conversations.
 
 Usage: python simulate_sessions.py [--reset] [--sessions path/to/sessions.json]

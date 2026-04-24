@@ -1,4 +1,4 @@
-# ASV Router — Roadmap
+# MicroResolve — Roadmap
 
 Ideas under consideration for versions after initial public release.
 Order is not priority.
@@ -6,7 +6,7 @@ Order is not priority.
 ## Language Packs — Decoupled Multilingual Expansion
 
 Move language-specific lexical knowledge out of the core crate into a
-dedicated companion repository (`asv-language-packs`).
+dedicated companion repository (`microresolve-language-packs`).
 
 **Shape:**
 - One JSON file per language: `en.json`, `de.json`, `ja.json`, etc.

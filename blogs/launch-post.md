@@ -7,7 +7,7 @@ A tiny embeddable engine that handles four jobs your AI stack needs but probably
 - **Prompt-injection / jailbreak first-pass filter** — catch the obvious attack patterns
 - **Custom entity detection** — define new entity types in plain English; the system distills patterns
 
-All on the same engine. Microseconds per call. No LLM at runtime. Embeds as a Rust crate, Python package, Node module, or WASM bundle. No service to deploy, no Python runtime requirement when called from Rust/Node.
+All on the same engine. Microseconds per call. No LLM at runtime. Embeds as a Rust crate, Python package, or Node module. No service to deploy, no Python runtime requirement when called from Rust/Node.
 
 ---
 
@@ -128,7 +128,7 @@ Same engine for all four jobs. Same continuous-learning loop. Same threshold cas
 
 1. **Microsecond at runtime.** Every routing call resolves in single- to double-digit microseconds. No exceptions.
 2. **No LLM at inference.** The LLM teaches at setup time; at query time only the lexical engine runs. Inference is $0 per call and works offline.
-3. **Embedded library, not a binary or sidecar.** Linked into your app as a Rust crate, Python/Node binding, or WASM bundle. No external service.
+3. **Embedded library, not a binary or sidecar.** Linked into your app as a Rust crate or Python/Node binding. No external service.
 4. **One library, many jobs.** Same engine handles routing, safety, PII, masking. Every new feature reuses existing primitives.
 5. **Continuous learning from real traffic.** Static rules and frozen models go stale. Patterns reinforced in production, corrections feed back in place. No retraining pipeline.
 
@@ -138,7 +138,6 @@ Same engine for all four jobs. Same continuous-learning loop. Same threshold cas
 - HTTP server with web UI: `cargo run --release --bin server --features server`
 - Python bindings: `pip install microresolve` (planned alongside launch)
 - Node bindings: `npm install microresolve` (planned alongside launch)
-- WASM bundle for browser/edge: in the `wasm` crate
 - 30+ built-in entity patterns: PII, credentials (AWS/GCP/Stripe/GitHub/OpenAI/Anthropic/JWT), identifiers (US passport, ZIP, NHS, Aadhaar, PAN), financial (IBAN, Bitcoin, Ethereum), web/tech (IPv4, IPv6, MAC, URL, UUID, MD5, SHA-256)
 - LLM distillation pipeline for custom entities
 - Per-namespace config UI: select which patterns are active, define custom entities

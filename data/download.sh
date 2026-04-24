@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-echo "=== ASV Router — Benchmark Dataset Download ==="
+echo "=== MicroResolve Router — Benchmark Dataset Download ==="
 echo ""
 
 # --------------------------------------------------------------------------

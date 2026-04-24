@@ -104,10 +104,10 @@ The HTTP server stores each namespace as a directory. You can load/save the same
 use std::path::Path;
 
 // Load from directory
-let router = Router::load_from_dir(Path::new("~/.local/share/asv/default"))?;
+let router = Router::load_from_dir(Path::new("~/.local/share/microresolve/default"))?;
 
 // Save back
-router.save_to_dir(Path::new("~/.local/share/asv/default"))?;
+router.save_to_dir(Path::new("~/.local/share/microresolve/default"))?;
 ```
 
 ## `resolve()` parameters

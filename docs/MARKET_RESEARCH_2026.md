@@ -141,7 +141,7 @@ MCP (Model Context Protocol) is everywhere but facing serious problems:
 | **Route0x** | 120 | Python | SetFit + anomaly detection | Yes (SetFit) |
 | **Arch-Router (Katanemo)** | — | Python | 1.5B fine-tuned Qwen | Yes (1.5B model) |
 | **NVIDIA llm-router** | 236 | Jupyter | Qwen 1.75B + CLIP | Yes (1.75B model) |
-| **MicroResolve** | — | Rust/WASM | Vocabulary-based | **NO** |
+| **MicroResolve** | — | Rust (+ Python/Node bindings) | Vocabulary-based | **NO** |
 
 ### Infrastructure/Gateway Layer
 
@@ -224,7 +224,7 @@ Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
 
 **F. Edge/Offline Routing**
 - Problem: Voice assistants, IoT, automotive need offline intent routing
-- MicroResolve: WASM build, runs on Raspberry Pi, no network dependency
+- MicroResolve: CPU-only, runs on Raspberry Pi, no network dependency
 - Market: Smart home, automotive, industrial, robotics
 - Evidence: r/LocalLLaMA privacy-first movement, self-hosted models growing
 
@@ -264,8 +264,8 @@ Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
 - MicroResolve: classify every log line at 30µs, learn from engineer corrections
 
 **N. Documentation / Static Site Search**
-- WASM in browser, classify search intent (tutorial vs troubleshooting vs API ref)
-- Zero backend, zero hosting cost, 200KB WASM bundle
+- Self-hosted behind a thin proxy, classify search intent (tutorial vs troubleshooting vs API ref)
+- Tiny binary, trivial hosting cost
 
 ---
 
@@ -309,7 +309,7 @@ Layer 4: Frontier model fallback       (Sonnet, GPT-4o)
 
 1. **Genuinely unoccupied niche** — no model-free, zero-embedding router exists in the 2026 landscape
 2. **30µs is 10,000x faster** than any embedding-based competitor
-3. **Zero dependency** — no GPU, no API key, no model download, runs in WASM
+3. **Zero dependency** — no GPU, no API key, no model download, pure CPU
 4. **CJK-native** — only vocabulary-based router with proper CJK tokenization
 5. **The hybrid architecture is consensus** — MicroResolve fits the exact slot everyone recommends
 

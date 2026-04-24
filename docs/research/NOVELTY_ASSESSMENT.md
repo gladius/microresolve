@@ -158,7 +158,7 @@ No existing system combines ALL five:
 2. **True online learning** — single-example weight updates without retraining, rebuilding, or batch processing
 3. **Non-neural multi-intent decomposition** with positional tracking and inter-intent relation detection (sequential, conditional, negation, parallel)
 4. **LLM-as-teacher knowledge distillation into sparse vectors** — semantic knowledge transferred via online corrections, not gradient descent
-5. **Zero external dependencies** — no embeddings, no GPU, no model files, compiles to WASM
+5. **Zero external dependencies** — no embeddings, no GPU, no model files, pure CPU
 
 ---
 

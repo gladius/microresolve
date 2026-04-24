@@ -1,6 +1,6 @@
-"""Shared utilities for ASV benchmark runners.
+"""Shared utilities for MicroResolve benchmark runners.
 
-All functions assume the ASV server is running on localhost:3001.
+All functions assume the MicroResolve server is running on localhost:3001.
 Namespace header: X-Namespace-ID
 """
 

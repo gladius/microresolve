@@ -8,7 +8,7 @@ Methodology:
   4. Re-test → record improved accuracy
   5. Repeat for multiple correction rounds
 
-This demonstrates the self-improving nature of ASV: the system learns from
+This demonstrates the self-improving nature of MicroResolve: the system learns from
 misrouted queries without retraining or LLM calls at inference time.
 
 Usage:

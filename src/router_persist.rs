@@ -81,7 +81,7 @@ impl Router {
     /// Resolve the effective routing threshold using the standard cascade:
     ///   per-request override (if any) → namespace default (if set) → fallback.
     ///
-    /// Centralized here so callers (HTTP server, WASM/Node/Python bindings,
+    /// Centralized here so callers (HTTP server, Node/Python bindings,
     /// embedded users) all apply the same precedence and stay in sync.
     pub fn resolve_threshold(&self, request_override: Option<f32>, fallback: f32) -> f32 {
         request_override

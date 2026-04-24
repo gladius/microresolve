@@ -86,11 +86,11 @@ The most exciting unexplored pattern. Plugs directly into the existing AI ecosys
 
 **Shape:** runs on-device. No cloud. No LLM. Privacy-first.
 
-Showcases the WASM target. Different deployment model from everything else.
+Different deployment model from everything else.
 
 ### Blog ideas
 
-- **Voice command routing on-device** — smart home, IoT, car commands. Runs in the browser via WASM, or natively via the Rust crate. No cloud round-trip.
+- **Voice command routing on-device** — smart home, IoT, car commands. Runs natively via the Rust crate. No cloud round-trip.
 - **IDE command routing** — VS Code extension that maps natural language to commands without sending text to a server. Privacy-preserving developer assistant.
 - **Offline assistant for regulated industries** — medical, legal, defense — places where you can't send queries to OpenAI.
 

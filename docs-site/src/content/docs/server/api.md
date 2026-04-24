@@ -17,7 +17,7 @@ cargo build --release --bin server --features server
 
 # Environment
 ANTHROPIC_API_KEY=sk-...  # required for auto-learn
-ASV_DATA_DIR=~/.local/share/asv  # optional
+MICRORESOLVE_DATA_DIR=~/.local/share/microresolve  # optional
 ```
 
 ## Resolve

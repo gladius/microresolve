@@ -72,6 +72,6 @@ The HTTP server adds a third signal: the LLM auto-learn pipeline reviews low-con
 
 | Mode | Use case | Learning |
 |------|----------|---------|
-| **Frozen** — `export_json()` + `import_json()` | Production deploy, edge, WASM | None — weights baked in |
+| **Frozen** — `export_json()` + `import_json()` | Production deploy, edge | None — weights baked in |
 | **Live** — HTTP server with auto-learn on | SaaS, support bots | Continuous |
 | **Library** — direct `add_phrase` / `correct` calls | Custom pipelines | Your control |

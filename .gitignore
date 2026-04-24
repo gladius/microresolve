@@ -38,7 +38,7 @@ examples/node/node_modules/
 
 # Claude Code
 .claude/
-asv_queries.jsonl
+microresolve_queries.jsonl
 data/*.json
 !data/ecommerce-demo.json
 !data/ecommerce-demo-seeds.json

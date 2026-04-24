@@ -157,7 +157,7 @@ The 60 µs / $0 numbers are eye-catching, but the real benefits are structural:
 
 **4. Inspectable.** Every routing decision has a trace: which tokens matched, which intents scored, what the IDF was. When something goes wrong, you can see why. LLM routers give you a token; this gives you reasoning.
 
-**5. Offline-capable.** Same library compiles to WASM. The router runs in the browser, in a desktop app, on-device — anywhere you don't want to send queries to a cloud API.
+**5. Offline-capable.** No network dependency. The router runs in-process — in a desktop app, on a device, in an air-gapped environment — anywhere you don't want to send queries to a cloud API.
 
 ---
 

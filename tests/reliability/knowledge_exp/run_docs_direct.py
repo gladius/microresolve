@@ -10,7 +10,7 @@ Phrases come from:
   2. Clause fragments (split on comma, dash, semicolon)
   3. Key noun-phrase windows (2-5 word sliding window over content tokens)
 
-Zero LLM calls. Fully deterministic. Tests whether ASV's inverted index
+Zero LLM calls. Fully deterministic. Tests whether MicroResolve's inverted index
 can match user queries against raw content tokens well enough.
 
 Baseline comparison:

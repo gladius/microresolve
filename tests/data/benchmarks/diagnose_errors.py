@@ -129,6 +129,6 @@ def run_diagnostic():
 
 if __name__ == "__main__":
     if not check_server():
-        print("Start the ASV server first.")
+        print("Start the MicroResolve server first.")
         sys.exit(1)
     run_diagnostic()

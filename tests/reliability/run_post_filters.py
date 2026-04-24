@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Evaluate post-processing filters (FP filter, char-ngram tiebreaker) as
-parallel layers on top of ASV's routing.
+parallel layers on top of MicroResolve's routing.
 
 PRIMARY test: bench_dense (15 intents, 12 phrases each — realistic production)
 SECONDARY test: scale-test (98 intents, 2-3 phrases — diagnostic for thin seeds)

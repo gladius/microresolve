@@ -82,7 +82,7 @@ pub async fn route_multi(
         match routers.get(&app_id) {
             Some(router) => {
                 // Threshold cascade: request override > namespace default > compile-time default.
-                // Logic centralized in Router so all bindings (Node/Python/WASM) stay in sync.
+                // Logic centralized in Router so all bindings (Node/Python) stay in sync.
                 let effective_threshold = router.resolve_threshold(req.threshold, default_threshold());
 
                 // Entity layer (optional): augments query with mr_pii_<label>

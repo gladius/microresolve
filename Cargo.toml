@@ -23,22 +23,21 @@ serde_yaml = "0.9"
 regex = "1"
 thiserror = "1"
 url = "2"
-wasm-bindgen = { version = "0.2", optional = true }
 axum = { version = "0.8", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 tower-http = { version = "0.6", features = ["cors", "fs"], optional = true }
 reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+toml = { version = "0.8", optional = true }
+directories = { version = "6", optional = true }
+open = { version = "5", optional = true }
 
 
 [features]
 default = []
-wasm = ["wasm-bindgen"]
 connect = ["reqwest"]
-server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect"]
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect", "clap", "toml", "directories", "open"]
 
 [[bin]]
 name = "server"

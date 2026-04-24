@@ -17,7 +17,6 @@
 
 ### 3. "Zero Models, Zero Embeddings, Zero API Keys — Intent Routing That Runs Anywhere"
 - The pitch for edge/offline/privacy use cases
-- WASM demo in browser
 - Raspberry Pi benchmark
 - Compare: what you need to deploy MicroResolve vs Aurelio semantic-router vs vLLM-SR
 
@@ -101,7 +100,7 @@
 ### 16. "MicroResolve vs Dialogflow vs Rasa in 2026"
 - Dialogflow: cloud lock-in, no learning, no multi-intent
 - Rasa: heavy, moving to CALM (LLM-augmented), open-source version in maintenance
-- MicroResolve: lightweight, self-hosted, learns, multi-intent, runs in WASM
+- MicroResolve: lightweight, self-hosted, learns, multi-intent, pure-CPU
 - Migration guide from Dialogflow/Rasa to MicroResolve
 
 ## Community / Ecosystem Blogs

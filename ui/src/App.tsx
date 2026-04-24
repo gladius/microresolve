@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import HomePage from '@/pages/HomePage';
 import RouterPage from '@/pages/RouterPage';
 import SimulatePage from '@/pages/SimulatePage';
 import LayersPage from '@/pages/LayersPage';
@@ -110,8 +111,9 @@ export default function App() {
     <AppContext.Provider value={store}>
       <BrowserRouter>
         <Routes>
+          {/* Standalone — no sidebar */}
+          <Route path="/" element={<HomePage />} />
           <Route element={<Layout />}>
-            <Route path="/" element={<Navigate to="/resolve" replace />} />
             <Route path="/resolve" element={<RouterPage />} />
             <Route path="/simulate" element={<SimulatePage />} />
             <Route path="/layers" element={<LayersPage />} />

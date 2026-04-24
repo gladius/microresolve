@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Track 1 — Intent Classification Benchmark.
 
-Runs CLINC150, BANKING77, HWU64, MASSIVE through ASV.
+Runs CLINC150, BANKING77, HWU64, MASSIVE through MicroResolve.
 Two passes per dataset: seed-only, then after direct learning from misses.
 
 Usage:
@@ -128,7 +128,7 @@ def run_massive():
 
 def main():
     if not check_server():
-        print("Start the ASV server first: cargo run --release --bin server --features server -- --data ./data")
+        print("Start the MicroResolve server first: cargo run --release --bin server --features server -- --data ./data")
         sys.exit(1)
 
     os.makedirs(RESULTS_DIR, exist_ok=True)

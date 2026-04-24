@@ -1,5 +1,5 @@
 #!/bin/bash
-# Basic ASV Router usage via HTTP API.
+# Basic MicroResolve usage via HTTP API.
 # Requires: server running on localhost:3001
 
 BASE="http://localhost:3001/api"

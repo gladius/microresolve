@@ -2,7 +2,7 @@
 """Multilingual intent routing benchmark.
 
 5 intents seeded in 5 languages (EN, JA, KO, Tamil, ZH).
-Tests that ASV routes correctly regardless of query language.
+Tests that MicroResolve routes correctly regardless of query language.
 
 Usage:
   python3 benchmarks/scripts/bench_multilingual.py

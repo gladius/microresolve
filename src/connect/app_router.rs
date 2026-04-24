@@ -55,9 +55,9 @@ impl AppRouter {
         let config   = self.config.clone();
         let log_buf  = Arc::clone(&self.log_buf);
         std::thread::Builder::new()
-            .name("asv-connect-sync".into())
+            .name("microresolve-connect-sync".into())
             .spawn(move || super::sync::run_background(apps, versions, config, log_buf))
-            .expect("failed to spawn asv-connect thread")
+            .expect("failed to spawn microresolve-connect thread")
     }
 
     /// Push a log entry (non-blocking, dropped if buffer full).

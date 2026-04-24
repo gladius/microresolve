@@ -1,11 +1,11 @@
-# ASV Reliability — Consolidated Findings (2026-04-16)
+# MicroResolve Reliability — Consolidated Findings (2026-04-16)
 
-Branch: `experiments-thursday`. Single-day research arc on ASV's real reliability
+Branch: `experiments-thursday`. Single-day research arc on MicroResolve's real reliability
 under held-out validation, with rigorous experiment design.
 
 ## TL;DR
 
-**ASV's algorithm works — especially for multi-intent.** The determining factor for single-intent accuracy is **seed phrase density per intent**; multi-intent decomposition is the distinctive strength that scales cleanly.
+**MicroResolve's algorithm works — especially for multi-intent.** The determining factor for single-intent accuracy is **seed phrase density per intent**; multi-intent decomposition is the distinctive strength that scales cleanly.
 
 **Single-intent (at 12 phrases/intent, held-out):**
 - 15 intents (1 domain): **91.2% top-1 / 97.1% top-3**
@@ -100,7 +100,7 @@ Token-consumption decomposes the query correctly; it just can't route a sub-quer
 
 ### Bottom-line honest claim
 
-ASV multi-intent on enterprise queries at 125-intent, 5-domain scale, with 12 seeds/intent:
+MicroResolve multi-intent on enterprise queries at 125-intent, 5-domain scale, with 12 seeds/intent:
 - **100% any-correct-in-top-5** — downstream LLM always has something to work with
 - **84% recall@5** — on average captures 84% of expected intents in a compound query
 - **70% all-correct-in-top-5** — majority of compounds fully decomposed
@@ -108,7 +108,7 @@ ASV multi-intent on enterprise queries at 125-intent, 5-domain scale, with 12 se
 
 ### Why this matters
 
-Most intent classifiers (Rasa DIET, SetFit, LLM-based) can't do multi-intent at all. They pick one winning intent. ASV's token-consumption algorithm decomposes compound queries into non-overlapping sub-queries and scores each — producing a ranked list where multiple intents coexist. That's the distinctive claim, validated at realistic enterprise scale with honest numbers.
+Most intent classifiers (Rasa DIET, SetFit, LLM-based) can't do multi-intent at all. They pick one winning intent. MicroResolve's token-consumption algorithm decomposes compound queries into non-overlapping sub-queries and scores each — producing a ranked list where multiple intents coexist. That's the distinctive claim, validated at realistic enterprise scale with honest numbers.
 
 ## Full Benchmark Results
 
@@ -154,14 +154,14 @@ Multi-intent partial@3 of 83.3% is measured on small n.
 
 | Component | Cost |
 |---|---|
-| ASV-internal routing (300µs-540µs for 98 intents) | Core pipeline: L0 + L2 IDF + token consumption + cross-provider + L3 inhibition + (optional) tiebreaker |
+| MicroResolve-internal routing (300µs-540µs for 98 intents) | Core pipeline: L0 + L2 IDF + token consumption + cross-provider + L3 inhibition + (optional) tiebreaker |
 | HTTP round-trip + JSON + Python urllib | ~2.4ms overhead |
 | **Total end-to-end** | 2-4ms |
 
 At 125 intents, server-internal routing is ~600-900µs. HTTP adds ~3ms.
 For library users (in-process): sub-millisecond. For HTTP server clients: 2-4ms.
 
-Compared to LLM classification (1-3 seconds, $0.0005-0.002 per call): ASV is
+Compared to LLM classification (1-3 seconds, $0.0005-0.002 per call): MicroResolve is
 100-1000x faster, $0 per call.
 
 ## Methodology Notes & Honest Caveats

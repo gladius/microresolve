@@ -9,7 +9,7 @@ This is the core cost-reduction pattern. At 10M queries/day:
 import anthropic  # pip install anthropic
 from microresolve import Router
 
-# Initialize ASV router
+# Initialize MicroResolve router
 router = Router()
 router.add_intent("cancel_order", ["cancel my order", "stop my order", "I want to cancel"])
 router.add_intent("track_order", ["where is my package", "track my order", "shipping status"])
@@ -22,17 +22,17 @@ CONFIDENCE_THRESHOLD = 0.8
 
 
 def route_query(query: str) -> dict:
-    """Route a query using ASV first, LLM fallback for low confidence."""
+    """Route a query using MicroResolve first, LLM fallback for low confidence."""
 
-    # Step 1: ASV routing (30μs, $0)
+    # Step 1: MicroResolve routing (30μs, $0)
     results = router.route(query)
 
     if results and results[0]["score"] >= CONFIDENCE_THRESHOLD:
-        # High confidence — ASV handles it directly
+        # High confidence — MicroResolve handles it directly
         return {
             "intent": results[0]["id"],
             "score": results[0]["score"],
-            "source": "asv",
+            "source": "microresolve",
             "cost": 0.0,
         }
 
@@ -48,7 +48,7 @@ def route_query(query: str) -> dict:
     )
     llm_intent = response.content[0].text.strip()
 
-    # Teach ASV for next time (so this query won't need LLM again)
+    # Teach MicroResolve for next time (so this query won't need LLM again)
     if llm_intent in intents:
         router.learn(query, llm_intent)
 
@@ -63,10 +63,10 @@ def route_query(query: str) -> dict:
 if __name__ == "__main__":
     # Test queries
     queries = [
-        "cancel my order please",          # high confidence → ASV
+        "cancel my order please",          # high confidence → MicroResolve
         "I changed my mind about buying",   # low confidence → LLM → learns
-        "I changed my mind about buying",   # now ASV handles it (learned)
-        "where is my stuff",                # high confidence → ASV
+        "I changed my mind about buying",   # now MicroResolve handles it (learned)
+        "where is my stuff",                # high confidence → MicroResolve
     ]
 
     for q in queries:

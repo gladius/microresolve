@@ -29,13 +29,13 @@ Company's Infrastructure
 ## Two Modes
 
 ### Local Mode (dev/testing/edge)
-- `Router::new()` or `Router::load("asv.json")`
+- `Router::new()` or `Router::load("microresolve.json")`
 - Full control: add intents, seeds, learn, save
 - No server, no network
 - For: getting started, development, edge/IoT, simple use cases
 
 ### Connected Mode (production)
-- `Router::with_config(RouterConfig { server: "http://asv-server:3001", app_id: "my-app" })`
+- `Router::with_config(RouterConfig { server: "http://microresolve-server:3001", app_id: "my-app" })`
 - Routes locally at full speed (30μs)
 - Sends EVERY query + results to server (full text, full results)
 - Server manages intents, reviews failures, pushes updates

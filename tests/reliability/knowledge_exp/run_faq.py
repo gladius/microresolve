@@ -3,8 +3,8 @@
 Knowledge-as-intents experiment.
 
 Test the hypothesis: an LLM can distill unstructured FAQ content
-into ASV context intents (routable triggers + bound answer), and
-ASV can route natural user queries to the correct FAQ at 30µs with
+into MicroResolve context intents (routable triggers + bound answer), and
+MicroResolve can route natural user queries to the correct FAQ at 30µs with
 no RAG / no embeddings.
 
 Success = >=80% top-1 on naturally-phrased held-out queries.

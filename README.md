@@ -1,11 +1,24 @@
 # MicroResolve
 
-**The microsecond pre-LLM decision layer.** Intent routing, PII detection,
-safety filtering, and MCP tool prefiltering — ~30μs per call, CPU-only,
-continuous learning. No embeddings, no GPU, no MLOps.
+**The reflex layer for AI applications. Your LLM's System 1.**
 
-Drop into any Python, Node, Rust, or browser application as a single
-embedded library. One engine handles every job.
+Your LLM is System 2 — slow, deliberate, expensive. MicroResolve is System 1 —
+fast, learned, cheap. Classify intents, detect PII, filter jailbreaks,
+pre-select tools — all in ~30μs, the way a trained reflex fires before your
+brain thinks.
+
+|  | **System 2 — your LLM** | **System 1 — MicroResolve** |
+|---|---|---|
+| **Role** | Slow, deliberate reasoning | Fast, learned pattern-match |
+| **Latency** | 200–2,000 ms | **~30 μs** |
+| **Cost / query** | $0.001 – $0.03 | **$0** |
+| **Dependencies** | GPU or API key | **None — CPU-only** |
+| **Improves from use** | Retraining pipeline | **Continuously, in place** |
+| **Good at** | Novel, open-ended, generative | **Repetitive, bounded, classified** |
+| **Handles** | The hard 20 % that needs thought | **The easy 80 % that doesn't** |
+
+Drop into any Python, Node, Rust, or browser application as a single embedded
+library. One reflex engine handles every job.
 
 ## Design Principles
 
@@ -21,9 +34,9 @@ violates one is, by definition, out of scope.
    $0 per call and works offline.
 3. **Embedded library, not a binary or sidecar.** MicroResolve is built
    to be linked into your application — as a Rust crate, a Python package,
-   a Node module, or a WASM bundle in the browser. No external service,
-   no Python runtime requirement when used from Rust/Node, no separate
-   process to run. Your code calls a function; the library returns a result.
+   or a Node module. No external service, no Python runtime requirement
+   when used from Rust/Node, no separate process to run. Your code calls
+   a function; the library returns a result.
 4. **One library, many jobs.** The same engine — character n-grams,
    morphology graph, IDF-weighted intent index, optional entity layer —
    serves intent routing, safety filtering, PII detection / extraction /
@@ -181,7 +194,7 @@ This closes the loop — the router gets better from every production failure.
 
 ## Multi-Intent
 
-ASV natively detects when a single query contains multiple intents:
+MicroResolve natively detects when a single query contains multiple intents:
 
 ```
 "cancel my order and track the other package"
@@ -194,7 +207,7 @@ Detected relations: `sequential`, `conditional`, `negation`, `parallel`.
 
 ## Projected Context
 
-ASV tracks which intents fire together and uses co-occurrence patterns to predict what auxiliary data your workflow will need — even when the user doesn't ask for it explicitly.
+MicroResolve tracks which intents fire together and uses co-occurrence patterns to predict what auxiliary data your workflow will need — even when the user doesn't ask for it explicitly.
 
 ```
 Query: "I want a refund"
@@ -202,9 +215,9 @@ Query: "I want a refund"
 → projected:      check_balance (21%), warranty_lookup (13%)
 ```
 
-The user only asked for a refund. But from past routing patterns, ASV knows refund workflows typically also need balance and warranty data. Your orchestrator can pre-fetch both in parallel — eliminating LLM round-trips.
+The user only asked for a refund. But from past routing patterns, MicroResolve knows refund workflows typically also need balance and warranty data. Your orchestrator can pre-fetch both in parallel — eliminating LLM round-trips.
 
-These relationships are not configured. They emerge from accumulated co-occurrence across real queries. ASV discovers your domain's dependency graph automatically.
+These relationships are not configured. They emerge from accumulated co-occurrence across real queries. MicroResolve discovers your domain's dependency graph automatically.
 
 ## Import Formats
 
@@ -227,7 +240,8 @@ Send `X-Namespace-ID: my-namespace` to isolate intents per namespace. No header 
 POST /api/route_multi          — route a query (multi-intent)
 GET  /api/intents              — list intents
 POST /api/intents              — add intent
-POST /api/intents/phrase       — add training phrase
+POST /api/intents/{id}/phrases — add training phrase
+PATCH /api/intents/{id}        — update intent fields (description, persona, ...)
 POST /api/learn                — teach the router
 POST /api/learn/now            — synchronous learn (bypasses queue)
 POST /api/correct              — fix a misroute
@@ -248,14 +262,12 @@ GET  /api/events               — SSE stream (live routing events)
 
 ## Why Server-Side
 
-ASV is designed for server-side deployment. A WASM build exists for demos, but production routing belongs on the server:
+MicroResolve is designed for server-side deployment:
 
-- **Seed phrases are your business logic.** Shipping them to the browser exposes your entire intent taxonomy — competitors can inspect it, attackers can game it.
+- **Seed phrases are your business logic.** Your intent taxonomy stays behind your API — competitors can't inspect it, attackers can't game it.
 - **Learned weights contain user patterns.** If the router has learned from corrections, those weights reflect real user behaviour. They belong on your server.
-- **The hybrid pattern needs a decision point.** Route the easy 80% with ASV ($0, 30µs), send the hard 20% to your LLM. This logic lives on the server where you control the fallback.
+- **The hybrid pattern needs a decision point.** Route the easy 80% with MicroResolve ($0, 30µs), send the hard 20% to your LLM. This logic lives on the server where you control the fallback.
 - **Namespaces.** The server supports multiple isolated namespaces via `X-Namespace-ID`, each with independent intents and persistence.
-
-WASM is appropriate for: public demos, open-source intent sets, offline tools, and edge devices with no server available.
 
 ## Architecture
 
@@ -276,4 +288,32 @@ Native Chinese, Japanese, and Korean via Aho-Corasick automaton + character bigr
 
 ## License
 
-MIT OR Apache-2.0
+Dual-licensed under either of:
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall
+be dual-licensed as above, without any additional terms or conditions.
+
+---
+
+## Commercial support
+
+MicroResolve is built and maintained by **Gladius Thayalarajan** — 15 years
+of engineering experience, now available for consulting engagements.
+
+Hire me for:
+
+- Custom seed packs and intent taxonomies for your domain
+- Production integration (Python / Node / Rust / HTTP)
+- Multilingual tuning, non-English benchmarks
+- Safety / PII layer design for your LLM application
+- Performance tuning at scale (millions of queries/day)
+
+**Contact:** [gladius.thayalarajan@gmail.com](mailto:gladius.thayalarajan@gmail.com)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Scale test: 125 intents across 5 domains, 12 phrases each.
-Tests whether ASV maintains 90%+ top-1 / 97%+ top-3 at 8x the bench_dense scale.
+Tests whether MicroResolve maintains 90%+ top-1 / 97%+ top-3 at 8x the bench_dense scale.
 """
 import json
 import time

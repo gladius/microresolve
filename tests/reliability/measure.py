@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-ASV Reliability Measurement Harness
+MicroResolve Reliability Measurement Harness
 ====================================
 
 Runs the enterprise query set against a given namespace via /api/route_multi,
 scoring top-1, top-3, false-positive, false-negative, and OOS rejection.
 
-No LLM calls. Pure ASV routing. Fast enough to run in under a minute for 105 queries.
+No LLM calls. Pure MicroResolve routing. Fast enough to run in under a minute for 105 queries.
 
 Usage:
     python3 tests/reliability/measure.py                     # default: namespace=scale-test, label=baseline

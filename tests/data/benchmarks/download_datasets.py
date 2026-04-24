@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download and prepare benchmark datasets for ASV Router evaluation.
+"""Download and prepare benchmark datasets for MicroResolve evaluation.
 
 Datasets:
   1. MixSNIPS — Multi-intent voice assistant (7 intents, 40K train / 2.2K test)

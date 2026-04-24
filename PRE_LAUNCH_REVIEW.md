@@ -108,14 +108,14 @@ Currently exposed in Rust lib core: intent CRUD, routing, correction, descriptio
 
 **Missing from the Rust library public API (or missing from Python/Node bindings):**
 
-| # | Feature | In Rust core? | Python binding? | Node binding? | WASM? |
-|---|---------|---------------|-----------------|---------------|-------|
-| 2.7 | Entity layer (detect/extract/mask/augment) | Yes (`EntityLayer::detect`...) | **No** | **No** | **No** |
-| 2.8 | Per-namespace entity config | Yes | **No** | **No** | No |
-| 2.9 | Threshold cascade | Yes (`resolve_threshold`) | **No** | **No** | No |
-| 2.10 | Persistence (`save_to_dir`, `load_from_dir`) | Yes | **No** | **No** | No |
-| 2.11 | Built-in pattern introspection (list patterns, categories) | Yes | **No** | **No** | No |
-| 2.12 | LLM-mediated features (distill, training/generate) | No (server-only; needs API key + async runtime) | N/A | N/A | N/A |
+| # | Feature | In Rust core? | Python binding? | Node binding? |
+|---|---------|---------------|-----------------|---------------|
+| 2.7 | Entity layer (detect/extract/mask/augment) | Yes (`EntityLayer::detect`...) | **No** | **No** |
+| 2.8 | Per-namespace entity config | Yes | **No** | **No** |
+| 2.9 | Threshold cascade | Yes (`resolve_threshold`) | **No** | **No** |
+| 2.10 | Persistence (`save_to_dir`, `load_from_dir`) | Yes | **No** | **No** |
+| 2.11 | Built-in pattern introspection (list patterns, categories) | Yes | **No** | **No** |
+| 2.12 | LLM-mediated features (distill, training/generate) | No (server-only; needs API key + async runtime) | N/A | N/A |
 
 **Legitimately server-only** (should stay): HTTP routes, LLM API calls, SSE, background worker, log_store (though could be exposed later), MCP/OpenAPI network imports.
 
@@ -125,30 +125,30 @@ Currently exposed in Rust lib core: intent CRUD, routing, correction, descriptio
 
 ---
 
-## 3. Bindings parity — Rust vs Python vs Node vs WASM
+## 3. Bindings parity — Rust vs Python vs Node
 
 ### Method-by-method comparison
 
-| Method | Rust core | Python | Node | WASM |
-|--------|-----------|--------|------|------|
-| `new` | ✓ | ✓ | ✓ | ✓ |
-| `add_intent` | ✓ | ✓ | ✓ | ✓ |
-| `add_intent_multilingual` | ✓ | ✓ | ✗ | ✓ |
-| `resolve` / `route` | ✓ | ✓ | ✓ | ✗ (different shape) |
-| `add_phrase` | ✓ | ✓ | ✓ | ✓ |
-| `remove_phrase` | ✓ | ✓ | ✓ | ✗ |
-| `delete_intent` / `remove_intent` | ✓ | ✓ | ✓ | ✓ |
-| `intent_ids` | ✓ | ✓ | ✓ | ✗ |
-| `set_intent_type` / `get_intent_type` | ✓ | ✓ (set) | ✓ (set) | ✓ |
-| `set/get_description` | ✓ | ✓ | ✓ | ✗ |
-| `set/get_instructions/persona` | ✓ | ✗ | ✗ | ✓ |
-| `correct` | ✓ | ✓ | ✓ | ✓ |
-| `export_json` / `import_json` | ✓ | ✓ | ✓ | ✓ |
-| `check_phrase` | ✓ | ✓ | ✗ | ✗ |
-| **Entity ops** (detect/extract/mask) | ✓ | **✗** | **✗** | **✗** |
-| **Per-namespace threshold** | ✓ | **✗** | **✗** | **✗** |
-| **Per-namespace entity config** | ✓ | **✗** | **✗** | **✗** |
-| **`save_to_dir` / `load_from_dir`** | ✓ | **✗** | **✗** | **✗** |
+| Method | Rust core | Python | Node |
+|--------|-----------|--------|------|
+| `new` | ✓ | ✓ | ✓ |
+| `add_intent` | ✓ | ✓ | ✓ |
+| `add_intent_multilingual` | ✓ | ✓ | ✗ |
+| `resolve` / `route` | ✓ | ✓ | ✓ |
+| `add_phrase` | ✓ | ✓ | ✓ |
+| `remove_phrase` | ✓ | ✓ | ✓ |
+| `delete_intent` / `remove_intent` | ✓ | ✓ | ✓ |
+| `intent_ids` | ✓ | ✓ | ✓ |
+| `set_intent_type` / `get_intent_type` | ✓ | ✓ (set) | ✓ (set) |
+| `set/get_description` | ✓ | ✓ | ✓ |
+| `set/get_instructions/persona` | ✓ | ✗ | ✗ |
+| `correct` | ✓ | ✓ | ✓ |
+| `export_json` / `import_json` | ✓ | ✓ | ✓ |
+| `check_phrase` | ✓ | ✓ | ✗ |
+| **Entity ops** (detect/extract/mask) | ✓ | **✗** | **✗** |
+| **Per-namespace threshold** | ✓ | **✗** | **✗** |
+| **Per-namespace entity config** | ✓ | **✗** | **✗** |
+| **`save_to_dir` / `load_from_dir`** | ✓ | **✗** | **✗** |
 
 ### Action items
 
@@ -157,13 +157,11 @@ Currently exposed in Rust lib core: intent CRUD, routing, correction, descriptio
 | 3.1 | Python binding missing entity layer + threshold cascade + persistence | **[ ] Add `EntityLayer` / `detect` / `extract` / `mask` / `augment`, `set_namespace_default_threshold`, `save_to_dir` / `load_from_dir` to Python binding** |
 | 3.2 | Node binding missing same features | **[ ] Add same to Node binding** |
 | 3.3 | Node missing `add_intent_multilingual`, `check_phrase` (parity gaps with Python) | **[ ] Add for Python↔Node parity** |
-| 3.4 | Python missing `set/get_instructions/persona` (WASM has them) | **[ ] Add to Python** |
-| 3.5 | WASM missing `resolve` — has old API shape | **[ ] Either add modern resolve shape OR document WASM as intentionally minimal** |
-| 3.6 | WASM as a target — keep or shrink? | **[ ] Decide: keep for browser/edge demos with minimal API OR invest to match Python/Node** |
+| 3.4 | Python missing `set/get_instructions/persona` | **[ ] Add to Python** |
 
 ### Verdict
 
-❌ **The launch story ("drop into Python/Node/Rust/WASM as an embedded library") is not true for the v1.0 features.** Bindings are stuck at "v0.5" — they expose basic intent CRUD but none of the entity layer, threshold, or persistence work. This is the biggest gap.
+❌ **The launch story ("drop into Python/Node/Rust as an embedded library") is not true for the v1.0 features.** Bindings are stuck at "v0.5" — they expose basic intent CRUD but none of the entity layer, threshold, or persistence work. This is the biggest gap.
 
 ---
 
@@ -186,7 +184,6 @@ Currently exposed in Rust lib core: intent CRUD, routing, correction, descriptio
 - **[ ] 1.2** — persist `version` counter across restarts OR document. ~10 min if persist.
 - **[ ] 1.3** — audit log store cleanup on namespace delete. ~10 min.
 - **[ ] 3.3, 3.4** — bindings parity polish.
-- **[ ] 3.5, 3.6** — WASM decision + documentation.
 
 ### Defer
 - **[ ] 2.5** — auth for export/import endpoints (post-launch security work).

@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/api/client';
@@ -109,14 +109,19 @@ export default function Layout() {
       <aside className={`${sidebarWidth} shrink-0 flex flex-col border-r border-zinc-800 bg-zinc-950 transition-all duration-150`}>
         {/* Brand + collapse */}
         <div className="h-12 flex items-center px-3 border-b border-zinc-800">
-          {collapsed ? (
-            <span className="text-violet-400 font-bold text-xl leading-none" title="μResolve">μ</span>
-          ) : (
-            <span className="flex items-baseline gap-1">
-              <span className="text-violet-400 font-bold text-lg leading-none">μ</span>
-              <span className="text-zinc-100 font-bold text-base tracking-tight">Resolve</span>
-            </span>
-          )}
+          <Link to="/" className="hover:opacity-80 transition-opacity" aria-label="Home" title="Home">
+            {collapsed ? (
+              <span className="text-violet-400 font-bold text-xl leading-none">μ</span>
+            ) : (
+              <span className="flex items-baseline gap-1.5">
+                <span className="flex items-baseline gap-1">
+                  <span className="text-violet-400 font-bold text-lg leading-none">μ</span>
+                  <span className="text-zinc-100 font-bold text-base tracking-tight">Resolve</span>
+                </span>
+                <span className="text-[9px] font-semibold text-zinc-500 uppercase tracking-[0.15em] leading-none pb-px">Studio</span>
+              </span>
+            )}
+          </Link>
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="ml-auto text-zinc-600 hover:text-zinc-300 text-xs px-2 py-1 rounded hover:bg-zinc-800 transition-colors"

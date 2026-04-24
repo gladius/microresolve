@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Post-processing layers applied on top of ASV's ranked output.
+Post-processing layers applied on top of MicroResolve's ranked output.
 
 Layer 1: N-gram FP filter — demote top-1 if query has zero distinctive bigram match
 Layer 2: Char n-gram Jaccard tiebreaker — break close top-1/top-2 using char overlap

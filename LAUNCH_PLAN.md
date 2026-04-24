@@ -1,6 +1,6 @@
-# ASV — 2-Day Open Source Launch Plan
+# MicroResolve — 2-Day Open Source Launch Plan
 
-Target: ship **ASV** as a standalone Rust library with honest positioning and a minimal Python binding (if time permits). This plan covers ASV only. Intent Programming / Prosessor launches separately on its own track.
+Target: ship **MicroResolve** as a standalone Rust library with honest positioning and a minimal Python binding (if time permits). This plan covers MicroResolve only. Intent Programming / Prosessor launches separately on its own track.
 
 ## Positioning
 
@@ -9,14 +9,14 @@ Target: ship **ASV** as a standalone Rust library with honest positioning and a 
 - *Your classifier layer, built for scale.*
 - *The prefilter that makes LLM routing cheap.*
 
-**Who ASV is for:**
+**Who MicroResolve is for:**
 - Teams paying per-token for intent classification
 - Multi-agent systems needing a fast dispatcher
 - Command palettes, in-app help search, voice assistant frontends
 - Anyone building MCP tool selection over 100+ tools
 - Enterprise classifier pipelines that want sub-10ms routing
 
-**Who ASV is NOT for (say this plainly):**
+**Who MicroResolve is NOT for (say this plainly):**
 - People expecting frontier-LLM semantic understanding out of the box
 - Cold-start consumer agents with no training data
 - Domains with highly abstract or poetic queries
@@ -41,7 +41,7 @@ Target: ship **ASV** as a standalone Rust library with honest positioning and a 
 - [ ] "Who this is for" with 5 concrete use cases
 - [ ] Quick start (install → create router → add intents → route)
 - [ ] Honest limitations section (see positioning above)
-- [ ] Comparison table: ASV vs Rasa vs LLM classification vs embedding search (latency, cost, accuracy, cold-start)
+- [ ] Comparison table: MicroResolve vs Rasa vs LLM classification vs embedding search (latency, cost, accuracy, cold-start)
 - [ ] Link to benchmarks
 
 ### Evening — Reproducible benchmarks (3-4h)
@@ -58,7 +58,7 @@ Target: ship **ASV** as a standalone Rust library with honest positioning and a 
 - [ ] **If tight: skip this day-2-morning item; announce "Python binding coming" in README**
 
 ### Afternoon — Launch artifacts (2-3h)
-- [ ] Blog post draft: "ASV — a fast, learning intent router"
+- [ ] Blog post draft: "MicroResolve — a fast, learning intent router"
 - [ ] Twitter/X thread (8-10 tweets with code snippets)
 - [ ] HN submission (title + comment with context)
 - [ ] Reddit posts: r/rust, r/MachineLearning, r/LocalLLaMA
@@ -76,7 +76,7 @@ Target: ship **ASV** as a standalone Rust library with honest positioning and a 
 - Benchmark harness code (pattern-match from `tests/`)
 - Python binding boilerplate (pyo3 has conventions to follow)
 - Launch copy in multiple registers (technical, marketing, HN-style)
-- Migration guide snippets (ASV vs Rasa, ASV vs sklearn classifiers)
+- Migration guide snippets (MicroResolve vs Rasa, MicroResolve vs sklearn classifiers)
 
 ## Time-boxing discipline
 
@@ -108,4 +108,4 @@ Community will NOT fix the core algorithm. They WILL:
 
 ## Separation from Intent Programming / Prosessor
 
-This launch is ASV ONLY. Language Programming / Prosessor is a separate product on a separate track. Do not bundle. Do not cross-promote heavily. Users who adopt ASV for classifier work become a natural pipeline for Prosessor later — but don't force the connection at launch.
+This launch is MicroResolve ONLY. Language Programming / Prosessor is a separate product on a separate track. Do not bundle. Do not cross-promote heavily. Users who adopt MicroResolve for classifier work become a natural pipeline for Prosessor later — but don't force the connection at launch.

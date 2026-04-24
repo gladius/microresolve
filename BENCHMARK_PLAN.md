@@ -1,6 +1,6 @@
-# ASV Benchmark Plan — Launch Edition
+# MicroResolve Benchmark Plan — Launch Edition
 
-**Goal**: Produce credible, reproducible benchmark numbers that prove ASV's value across
+**Goal**: Produce credible, reproducible benchmark numbers that prove MicroResolve's value across
 its real use cases. Not just intent classification — tool routing, guardrails, multi-intent,
 multilingual, and latency vs alternatives.
 
@@ -14,7 +14,7 @@ is a different product category.
 
 ### Track 1 — Intent Classification (foundational credibility)
 
-These are the benchmarks every NLP evaluator knows. They establish ASV as a serious
+These are the benchmarks every NLP evaluator knows. They establish MicroResolve as a serious
 routing system, not a toy.
 
 | Dataset | Source | Intents | Examples | Domain |
@@ -37,21 +37,21 @@ intent. Then re-evaluate the same test queries. Report delta.
 
 ### Track 2 — Tool / API Routing (MCP / OpenAPI use case)
 
-The hottest benchmark category in 2026. Maps directly to ASV's MCP and OpenAPI import.
-Shows ASV can pre-select the right tool before the LLM sees the full tool list.
+The hottest benchmark category in 2026. Maps directly to MicroResolve's MCP and OpenAPI import.
+Shows MicroResolve can pre-select the right tool before the LLM sees the full tool list.
 
 | Dataset | Source | Tools | Task |
 |---|---|---|---|
 | BFCL v3 | `gorilla-llm/Berkeley-Function-Calling-Leaderboard` | 2000+ | Function selection from natural language |
 | ToolBench (subset) | `ToolBench/ToolBench` | 500 APIs (curated subset) | API endpoint selection |
 
-**BFCL strategy**: use the "simple" and "multiple" function call subsets. ASV routes to the
+**BFCL strategy**: use the "simple" and "multiple" function call subsets. MicroResolve routes to the
 correct function name — latency and accuracy vs LLM-based selectors.
 
 **Seed strategy**: each tool's `description` + `name` becomes an intent. Parameters become
 metadata. No seed phrases needed — import directly via `/api/import/spec`.
 
-**Key metric**: what % of tool selections does ASV get right before the LLM is invoked?
+**Key metric**: what % of tool selections does MicroResolve get right before the LLM is invoked?
 Even 70% correct at 30µs vs 100% correct at 400ms is a compelling cost/latency trade.
 
 ---
@@ -76,13 +76,13 @@ Proves the guardrail namespace use case with real attack data.
 Seeds come from known attack patterns in the datasets. Test on held-out attacks.
 
 **Key metric**: detection rate (true positive) and false positive rate on clean queries.
-The claim: ASV detects attacks in 30µs before the LLM ever sees the payload.
+The claim: MicroResolve detects attacks in 30µs before the LLM ever sees the payload.
 
 ---
 
 ### Track 4 — Multi-Intent Decomposition (unique differentiator)
 
-No other router benchmarks multi-intent natively. This is a clean ASV win.
+No other router benchmarks multi-intent natively. This is a clean MicroResolve win.
 
 | Dataset | Source | Intents | Multi-intent % |
 |---|---|---|---|
@@ -103,15 +103,15 @@ Not a dataset — a controlled head-to-head latency comparison on the same query
 
 | System | Type | Latency | Cost/1M queries | Accuracy |
 |---|---|---|---|---|
-| ASV (seed-only) | Deterministic | 30µs | $0 | TBD |
-| ASV (+ learning) | Deterministic | 30µs | $0 | TBD |
+| MicroResolve (seed-only) | Deterministic | 30µs | $0 | TBD |
+| MicroResolve (+ learning) | Deterministic | 30µs | $0 | TBD |
 | sentence-transformers (MiniLM) | Embedding | ~8ms | $0 + GPU | TBD |
 | OpenAI text-embedding-3-small | Embedding API | ~80ms | ~$20 | TBD |
 | GPT-4o-mini (zero-shot classify) | LLM | ~400ms | ~$100 | TBD |
 
 **Methodology**: same 150 intents, same test queries, measure wall-clock latency
-(p50/p95/p99) and accuracy. ASV runs locally. Embedding models via sentence-transformers.
-LLM via API. Report honest numbers — ASV wins on latency/cost, LLM wins on accuracy.
+(p50/p95/p99) and accuracy. MicroResolve runs locally. Embedding models via sentence-transformers.
+LLM via API. Report honest numbers — MicroResolve wins on latency/cost, LLM wins on accuracy.
 The story is the trade-off, not a false claim of superiority.
 
 ---

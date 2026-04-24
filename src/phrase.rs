@@ -1,7 +1,6 @@
 //! Phrase generation — prompt building and response parsing.
 //!
-//! All LLM prompt logic lives here. The WASM layer exposes these functions
-//! so the UI only handles HTTP transport.
+//! All LLM prompt logic lives here.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

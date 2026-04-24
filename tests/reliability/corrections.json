@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "purpose": "Corrections used in the warm-learning phase. Feed via /api/correct to train ASV. Disjoint from dev and validation sets.",
+    "purpose": "Corrections used in the warm-learning phase. Feed via /api/correct to train MicroResolve. Disjoint from dev and validation sets.",
     "namespace": "scale-test"
   },
   "corrections": [

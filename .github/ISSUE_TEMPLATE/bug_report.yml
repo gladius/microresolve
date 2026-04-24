@@ -1,0 +1,78 @@
+name: Bug report
+description: Something is broken or behaves incorrectly.
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. A minimal reproducible example makes a fix 10x more likely.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues and this has not been reported.
+          required: true
+        - label: I am using a recent version of MicroResolve.
+          required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Rust library (microresolve crate)
+        - Python bindings (pip install microresolve)
+        - Node bindings (npm install microresolve)
+        - HTTP server
+        - Docs / examples
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Package version, commit SHA, or release tag.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code snippet / command that reproduces the issue. Please include the exact query, seed phrases, and config.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include error messages, stack traces, or unexpected routing output.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, language version (Rust / Python / Node), relevant library versions.
+      placeholder: |
+        - OS: macOS 14.5 (arm64)
+        - Rust: 1.78
+        - microresolve: 0.1.0
+    validations:
+      required: false
