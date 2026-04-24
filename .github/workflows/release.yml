@@ -51,7 +51,7 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist
           manylinux: auto
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheel-${{ matrix.target }}
           path: python/dist/*.whl
@@ -103,7 +103,7 @@ jobs:
       - name: build
         working-directory: node
         run: npx napi build --release --target ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: node-${{ matrix.target }}
           path: node/*.node
