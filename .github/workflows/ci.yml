@@ -47,7 +47,7 @@ jobs:
 
       - name: connected example (live-sync loop)
         run: |
-          ./target/release/server --port 3099 --no-open --data /tmp/mr_ci > /tmp/server.log 2>&1 &
+          ./target/release/server --port 3001 --no-open --data /tmp/mr_ci > /tmp/server.log 2>&1 &
           SERVER_PID=$!
           sleep 2
           cargo run --release --features connect --example connected
