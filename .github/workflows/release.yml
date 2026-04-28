@@ -177,6 +177,9 @@ jobs:
           pattern: node-*
           path: node/artifacts
           merge-multiple: true
+      - name: create npm platform dirs
+        working-directory: node
+        run: npx napi create-npm-dirs --npm-dir npm
       - name: distribute artifacts into npm sub-packages
         working-directory: node
         run: npx napi artifacts --output-dir artifacts --npm-dir npm

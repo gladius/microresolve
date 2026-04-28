@@ -1,0 +1,32 @@
+{
+  "name": "microresolve-darwin-arm64",
+  "version": "0.1.2",
+  "cpu": [
+    "arm64"
+  ],
+  "main": "microresolve.darwin-arm64.node",
+  "files": [
+    "microresolve.darwin-arm64.node"
+  ],
+  "description": "Pre-LLM reflex layer — embedded decision engine for intent, safety, tool selection. Sub-millisecond classification with continuous learning.",
+  "keywords": [
+    "intent",
+    "classification",
+    "nlp",
+    "pre-llm",
+    "safety"
+  ],
+  "author": "Gladius Thayalarajan",
+  "homepage": "https://github.com/gladius/microresolve",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gladius/microresolve.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gladius/microresolve/issues"
+  },
+  "os": [
+    "darwin"
+  ]
+}

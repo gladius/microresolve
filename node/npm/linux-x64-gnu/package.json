@@ -1,0 +1,35 @@
+{
+  "name": "microresolve-linux-x64-gnu",
+  "version": "0.1.2",
+  "cpu": [
+    "x64"
+  ],
+  "main": "microresolve.linux-x64-gnu.node",
+  "files": [
+    "microresolve.linux-x64-gnu.node"
+  ],
+  "description": "Pre-LLM reflex layer — embedded decision engine for intent, safety, tool selection. Sub-millisecond classification with continuous learning.",
+  "keywords": [
+    "intent",
+    "classification",
+    "nlp",
+    "pre-llm",
+    "safety"
+  ],
+  "author": "Gladius Thayalarajan",
+  "homepage": "https://github.com/gladius/microresolve",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gladius/microresolve.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gladius/microresolve/issues"
+  },
+  "os": [
+    "linux"
+  ],
+  "libc": [
+    "glibc"
+  ]
+}
