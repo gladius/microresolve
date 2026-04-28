@@ -24,7 +24,12 @@ pub async fn backup(State(state): State<AppState>) -> Result<Response, (StatusCo
     let data_dir = state
         .data_dir
         .as_deref()
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, "No data directory configured".to_string()))?
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                "No data directory configured".to_string(),
+            )
+        })?
         .to_string();
 
     let zip_bytes = tokio::task::spawn_blocking(move || build_zip(&data_dir))
@@ -63,7 +68,12 @@ pub async fn restore(
     let data_dir = state
         .data_dir
         .as_deref()
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, "No data directory configured".to_string()))?
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                "No data directory configured".to_string(),
+            )
+        })?
         .to_string();
 
     // Read the zip bytes from the multipart field.
@@ -81,7 +91,10 @@ pub async fn restore(
         break;
     }
     let zip_bytes = zip_bytes.ok_or_else(|| {
-        (StatusCode::BAD_REQUEST, "No file field in multipart body".to_string())
+        (
+            StatusCode::BAD_REQUEST,
+            "No file field in multipart body".to_string(),
+        )
     })?;
 
     let ns_ids = state.engine.namespaces();
@@ -270,8 +283,7 @@ mod tests {
 
         assert!(!zip_bytes.is_empty());
 
-        let mut archive =
-            zip::ZipArchive::new(std::io::Cursor::new(&zip_bytes)).unwrap();
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(&zip_bytes)).unwrap();
         let names: Vec<String> = (0..archive.len())
             .map(|i| archive.by_index(i).unwrap().name().to_string())
             .collect();
@@ -293,11 +305,14 @@ mod tests {
         let dir = make_test_data_dir();
         let git = dir.path().join(".git");
         std::fs::create_dir_all(&git).unwrap();
-        std::fs::write(git.join("config"), b"[core]\n\trepositoryformatversion = 0\n").unwrap();
+        std::fs::write(
+            git.join("config"),
+            b"[core]\n\trepositoryformatversion = 0\n",
+        )
+        .unwrap();
 
         let zip_bytes = build_zip(dir.path().to_str().unwrap()).unwrap();
-        let mut archive =
-            zip::ZipArchive::new(std::io::Cursor::new(&zip_bytes)).unwrap();
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(&zip_bytes)).unwrap();
         let names: Vec<String> = (0..archive.len())
             .map(|i| archive.by_index(i).unwrap().name().to_string())
             .collect();
@@ -333,6 +348,10 @@ mod tests {
 
         let dest = tempfile::tempdir().unwrap();
         let err = unpack_and_swap(buf, dest.path().to_str().unwrap()).unwrap_err();
-        assert!(err.contains("_ns.json"), "Expected validation error, got: {}", err);
+        assert!(
+            err.contains("_ns.json"),
+            "Expected validation error, got: {}",
+            err
+        );
     }
 }
