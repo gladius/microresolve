@@ -263,36 +263,7 @@ function DataSection() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-zinc-100">Data</h2>
-        <p className="text-xs text-zinc-500 mt-1">Export, import, or reset router state.</p>
-      </div>
-
-      <div className="flex gap-3 flex-wrap">
-        <button
-          onClick={async () => {
-            const data = await api.exportState();
-            const blob = new Blob([data], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'microresolve-export.json'; a.click();
-            URL.revokeObjectURL(url);
-          }}
-          className="text-xs text-violet-400 hover:text-violet-300 px-3 py-1.5 border border-violet-400/30 rounded transition-colors"
-        >
-          Export State
-        </button>
-        <label className="text-xs text-violet-400 hover:text-violet-300 px-3 py-1.5 border border-violet-400/30 rounded cursor-pointer transition-colors">
-          Import State
-          <input type="file" accept=".json" className="hidden" onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const text = await file.text();
-            try {
-              await api.importState(text);
-              alert('Imported successfully');
-              window.location.reload();
-            } catch { alert('Import failed — select a valid .json export file'); }
-          }} />
-        </label>
+        <p className="text-xs text-zinc-500 mt-1">Reset router state. To export or import the full instance, use Export / Import in the sidebar.</p>
       </div>
 
       {/* Danger zone */}

@@ -130,7 +130,7 @@ export default function Layout() {
       label: 'Build',
       items: [
         { to: '/intents',    label: 'L2 — Intent Index',  icon: '◆', hint: 'Manage intents, training phrases, metadata' },
-        { to: '/vocabulary', label: 'L1 — Vocabulary',    icon: '⧉', hint: 'Morphology, synonym, and abbreviation edges' },
+        { to: '/vocabulary', label: 'L1 — Lexical Graph',  icon: '⧉', hint: 'Morphology, synonym, and abbreviation edges' },
       ],
     },
     {
@@ -290,7 +290,7 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Backup / Restore dropdown */}
+        {/* Export / Import dropdown */}
         <div ref={backupMenuRef} className="relative px-2 py-2 border-t border-zinc-800/60">
           {restoreStatus && (
             <div className="mb-1 text-[10px] text-violet-400 px-1">{restoreStatus}</div>
@@ -298,10 +298,10 @@ export default function Layout() {
           <button
             onClick={() => setShowBackupMenu(!showBackupMenu)}
             className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors"
-            title="Backup / Restore"
+            title="Export / Import instance"
           >
-            <span className="w-4 text-center text-zinc-500 shrink-0">⬡</span>
-            {!collapsed && <span className="flex-1 text-left">Backup</span>}
+            <span className="w-4 text-center text-zinc-500 shrink-0">⇅</span>
+            {!collapsed && <span className="flex-1 text-left">Export / Import</span>}
             {!collapsed && (
               <svg className="w-3 h-3 text-zinc-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -314,13 +314,13 @@ export default function Layout() {
                 onClick={handleDownloadBackup}
                 className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 rounded-t-lg transition-colors"
               >
-                Download backup
+                Export instance
               </button>
               <button
                 onClick={handleRestoreBackup}
                 className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 rounded-b-lg transition-colors border-t border-zinc-800"
               >
-                Restore from backup…
+                Import instance…
               </button>
             </div>
           )}
