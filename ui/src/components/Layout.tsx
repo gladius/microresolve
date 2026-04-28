@@ -26,11 +26,13 @@ export default function Layout() {
   const [reviewPending, setReviewPending] = useState(0);
   const [showBackupMenu, setShowBackupMenu] = useState(false);
   const [restoreStatus,  setRestoreStatus]  = useState<string | null>(null);
+  const [appVersion,     setAppVersion]     = useState<string | null>(null);
   const nsMenuRef     = useRef<HTMLDivElement>(null);
   const backupMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
+    fetch('/api/version').then(r => r.json()).then(d => setAppVersion(d.app_version)).catch(() => {});
   }, []);
 
   // Poll review queue count + refresh on SSE events
@@ -329,7 +331,7 @@ export default function Layout() {
         {/* Footer */}
         {!collapsed && (
           <div className="px-3 py-2 border-t border-zinc-800/60 text-[10px] text-zinc-600">
-            v0.1 · sub-ms routing
+            {appVersion ? `v${appVersion}` : '…'}
           </div>
         )}
       </aside>

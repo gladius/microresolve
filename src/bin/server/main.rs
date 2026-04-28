@@ -323,5 +323,9 @@ async fn get_version(State(state): State<AppState>, headers: HeaderMap) -> Json<
         .try_namespace(&app_id)
         .map(|h| h.with_resolver(|r| r.version()))
         .unwrap_or(0);
-    Json(serde_json::json!({"version": version, "project_id": app_id}))
+    Json(serde_json::json!({
+        "version": version,
+        "project_id": app_id,
+        "app_version": env!("CARGO_PKG_VERSION"),
+    }))
 }
