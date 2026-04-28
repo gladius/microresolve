@@ -36,7 +36,9 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "microresolve") | .version')
-          HTTP=$(curl -sf -o /dev/null -w "%{http_code}" "https://crates.io/api/v1/crates/microresolve/$VERSION")
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "User-Agent: microresolve-ci/1.0" \
+            "https://crates.io/api/v1/crates/microresolve/$VERSION")
           if [ "$HTTP" = "200" ]; then
             echo "microresolve $VERSION already published on crates.io — skipping"
           else
@@ -83,7 +85,6 @@ jobs:
     name: Build Node binary (${{ matrix.target }})
     needs: preflight
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
@@ -95,8 +96,6 @@ jobs:
             target: x86_64-unknown-linux-musl
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            # napi-rs container provides aarch64 cross-gcc; Rust is updated via dtolnay below
-            container: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
           - os: macos-latest
             target: aarch64-apple-darwin
           - os: macos-latest
@@ -106,24 +105,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Runs on all rows including the aarch64 container — upgrades the container's
-      # bundled Rust 1.82 to current stable so edition2024 deps resolve correctly.
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      # Only needed on bare runners — container rows have Node already.
       - uses: actions/setup-node@v4
-        if: ${{ !matrix.container }}
         with:
           node-version: "20"
 
-      # musl-tools provides musl-gcc for the x86_64-musl target on bare ubuntu.
+      # Debian cross-compiler for musl — provides musl-gcc.
       - name: install musl toolchain
         if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y musl-tools
+        run: sudo apt-get update -q && sudo apt-get install -y musl-tools
+
+      # Debian cross-compiler for aarch64 — complete toolchain with all C headers.
+      - name: install aarch64 cross toolchain
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get update -q && sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: install deps
         working-directory: node
@@ -133,6 +131,8 @@ jobs:
         working-directory: node
         env:
           CC_x86_64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
         run: npx napi build --platform --release --target ${{ matrix.target }}
 
       - uses: actions/upload-artifact@v4
