@@ -76,9 +76,8 @@ pub async fn restore(
         })?
         .to_string();
 
-    // Read the zip bytes from the multipart field.
-    let mut zip_bytes: Option<Vec<u8>> = None;
-    while let Some(field) = multipart
+    // Read the zip bytes from the first multipart field.
+    let zip_bytes = if let Some(field) = multipart
         .next_field()
         .await
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("Multipart error: {}", e)))?
@@ -87,9 +86,10 @@ pub async fn restore(
             .bytes()
             .await
             .map_err(|e| (StatusCode::BAD_REQUEST, format!("Read error: {}", e)))?;
-        zip_bytes = Some(data.to_vec());
-        break;
-    }
+        Some(data.to_vec())
+    } else {
+        None
+    };
     let zip_bytes = zip_bytes.ok_or_else(|| {
         (
             StatusCode::BAD_REQUEST,
