@@ -164,10 +164,7 @@ impl NgramIndex {
                     None
                 }
             })
-            .min_by(|(ai, ad), (bi, bd)| {
-                ad.cmp(bd)
-                    .then_with(|| self.vocab[*ai].cmp(&self.vocab[*bi]))
-            })
+            .min_by_key(|(_, d)| *d)
             .map(|(vi, _)| self.vocab[vi].clone())
     }
 
