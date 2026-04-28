@@ -1,6 +1,6 @@
 [package]
 name = "microresolve"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["Gladius Thayalarajan"]
 description = "Pre-LLM decision engine: intent classification, tool selection, request triage. ~30μs per call, CPU-only, continuous learning."
