@@ -7,8 +7,11 @@
 [![CI](https://github.com/gladius/microresolve/actions/workflows/ci.yml/badge.svg)](https://github.com/gladius/microresolve/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-A pre-LLM reflex layer for AI agents — intent routing and tool prefilter
-in tens of microseconds. Embedded library with optional HTTP server.
+A reflex layer for LLM agents. Your agent makes the same routing
+decisions millions of times — which tool, which intent, is this PII,
+is this safe. MicroResolve handles those repeated decisions in tens of
+microseconds and learns continuously from your existing LLM calls, so
+your LLM only thinks about the parts that actually need thinking.
 
 > **v0.1 — early release.** API may change before 1.0. Pin exact versions
 > in production.
@@ -31,12 +34,12 @@ in tens of microseconds. Embedded library with optional HTTP server.
                           for the LLM, with no LLM call yet
 ```
 
-**Your LLM is System 2** — slow, deliberate, expensive. **MicroResolve is
-System 1** — fast, learned, cheap. Pattern-match the easy 80% of queries
-in microseconds; let the LLM reason about the hard 20%. MicroResolve
-**learns continuously from LLM-judged corrections** — every misroute the
-LLM fixes flows back into the index, so the candidate set sharpens from
-production traffic alone.
+LLMs do everything: reason, compose, generate, choose tools, handle
+context. MicroResolve only handles the *routing decisions that get
+repeated millions of times* — which tool, which intent, what's PII,
+is this safe. It **learns continuously from your existing LLM calls** —
+every misroute the LLM corrects flows back into the index, so the
+candidate set sharpens from production traffic alone.
 
 **Use it for:**
 
