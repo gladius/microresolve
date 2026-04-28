@@ -48,6 +48,9 @@ mod resolver_persist;
 mod engine;
 pub use engine::{Engine, NamespaceHandle};
 
+pub(crate) type FxHashMap<K, V> = std::collections::HashMap<K, V, rustc_hash::FxBuildHasher>;
+pub(crate) type FxHashSet<T> = std::collections::HashSet<T, rustc_hash::FxBuildHasher>;
+
 pub use types::*;
 
 use std::collections::HashMap;

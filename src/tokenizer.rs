@@ -3,6 +3,7 @@
 //! Produces unigrams + bigrams from natural language, filtering stop words.
 //! Also converts training phrases into term-weight maps for seeding intents.
 
+use crate::FxHashSet;
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
@@ -224,7 +225,7 @@ pub fn tokenize(query: &str) -> Vec<String> {
     // "I don't trust this. Just cancel it" → sentence 1 negates "trust"; sentence 2 is clean.
     // '.' '!' '?' are already stripped during word splitting, so we must split *before* that.
     let mut all_terms: Vec<String> = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
+    let mut seen: FxHashSet<String> = FxHashSet::default();
 
     for segment in expanded.split(['.', '!', '?']) {
         let segment = segment.trim();
@@ -294,7 +295,7 @@ fn tokenize_segment(text: &str) -> Vec<String> {
     let negated = find_negated_positions(&word_refs, stop_set);
 
     let mut terms: Vec<String> = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
+    let mut seen: FxHashSet<String> = FxHashSet::default();
 
     // Unigrams (excluding stop words, CJK stop chars; negated terms get not_ prefix)
     for (i, word) in words.iter().enumerate() {
@@ -613,7 +614,7 @@ pub fn find_cjk_negated_regions(text: &str) -> Vec<(usize, usize)> {
     let chars: Vec<char> = text.chars().collect();
     let text_len = chars.len();
     let mut regions = Vec::new();
-    let stop_set: HashSet<char> = CJK_CLAUSE_BOUNDARIES.iter().copied().collect();
+    let stop_set: FxHashSet<char> = CJK_CLAUSE_BOUNDARIES.iter().copied().collect();
 
     // Check single-char Chinese negation markers
     for (i, &c) in chars.iter().enumerate() {
@@ -819,7 +820,7 @@ fn byte_offset_from_char(chars: &[char], char_pos: usize) -> usize {
 /// Returns false for bigrams that are entirely stop characters or negation markers.
 pub fn is_learnable_cjk_bigram(bigram: &str) -> bool {
     let stop_set = cjk_stop_char_set();
-    let neg_chars: HashSet<char> = ['不', '没', '别', '未'].iter().copied().collect();
+    let neg_chars: FxHashSet<char> = ['不', '没', '别', '未'].iter().copied().collect();
     let chars: Vec<char> = bigram.chars().collect();
     if chars.len() < 2 {
         return false;

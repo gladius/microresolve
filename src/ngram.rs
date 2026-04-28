@@ -9,7 +9,7 @@
 //! - CJK tokens pass through unchanged (CJK has no space-separated misspellings)
 //! - Only corrects tokens ≥ 4 chars and with Jaccard ≥ 0.5
 
-use std::collections::{HashMap, HashSet};
+use crate::{FxHashMap, FxHashSet};
 
 const N: usize = 3;
 const MIN_TERM_LEN: usize = 4;
@@ -31,11 +31,11 @@ const MAX_EDIT_DIST_LONG: usize = 2; // length ≥ 5
 #[derive(Clone)]
 pub struct NgramIndex {
     /// trigram → vocab term indices that contain it
-    index: HashMap<String, Vec<usize>>,
+    index: FxHashMap<String, Vec<usize>>,
     /// all known vocabulary terms
     vocab: Vec<String>,
     /// O(1) membership check
-    vocab_set: HashSet<String>,
+    vocab_set: FxHashSet<String>,
 }
 
 impl Default for NgramIndex {
@@ -47,9 +47,9 @@ impl Default for NgramIndex {
 impl NgramIndex {
     pub fn new() -> Self {
         Self {
-            index: HashMap::new(),
+            index: FxHashMap::default(),
             vocab: Vec::new(),
-            vocab_set: HashSet::new(),
+            vocab_set: FxHashSet::default(),
         }
     }
 
@@ -91,12 +91,12 @@ impl NgramIndex {
             return None;
         }
 
-        let query_ngs: HashSet<String> = char_ngrams(token, N).into_iter().collect();
+        let query_ngs: FxHashSet<String> = char_ngrams(token, N).into_iter().collect();
         if query_ngs.is_empty() {
             return None;
         }
 
-        let mut hits: HashMap<usize, usize> = HashMap::new();
+        let mut hits: FxHashMap<usize, usize> = FxHashMap::default();
         for ng in &query_ngs {
             if let Some(idxs) = self.index.get(ng) {
                 for &vi in idxs {
@@ -164,7 +164,10 @@ impl NgramIndex {
                     None
                 }
             })
-            .min_by_key(|(_, dist)| *dist)
+            .min_by(|(ai, ad), (bi, bd)| {
+                ad.cmp(bd)
+                    .then_with(|| self.vocab[*ai].cmp(&self.vocab[*bi]))
+            })
             .map(|(vi, _)| self.vocab[vi].clone())
     }
 
@@ -254,15 +257,15 @@ pub fn build_for_namespace(
     lexical: Option<&crate::scoring::LexicalGraph>,
     intent_graph: Option<&crate::scoring::IntentIndex>,
 ) -> NgramIndex {
-    let mut terms: HashSet<String> = HashSet::new();
+    let mut terms: FxHashSet<String> = FxHashSet::default();
 
     // Always include L2 words — these are the scoring vocabulary.
-    let l2_words: HashSet<&str> = if let Some(ig) = intent_graph {
-        let w: HashSet<&str> = ig.word_intent.keys().map(|s| s.as_str()).collect();
+    let l2_words: FxHashSet<&str> = if let Some(ig) = intent_graph {
+        let w: FxHashSet<&str> = ig.word_intent.keys().map(|s| s.as_str()).collect();
         terms.extend(ig.word_intent.keys().cloned());
         w
     } else {
-        HashSet::new()
+        FxHashSet::default()
     };
 
     // Include L1 "from" words only when their target is in L2.
@@ -279,7 +282,12 @@ pub fn build_for_namespace(
         }
     }
 
-    NgramIndex::build(terms)
+    // Sort before building so vocab indices are deterministic regardless of
+    // HashMap/HashSet iteration order. Without this, same-edit-distance candidates
+    // in best_match are chosen by HashMap order (varies per process run).
+    let mut sorted: Vec<String> = terms.into_iter().collect();
+    sorted.sort_unstable();
+    NgramIndex::build(sorted)
 }
 
 #[cfg(test)]

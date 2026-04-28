@@ -1,6 +1,6 @@
 [package]
 name = "microresolve-python"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 authors = ["Gladius Thayalarajan"]
 description = "Pre-LLM reflex layer — embedded decision engine for intent, safety, tool selection. Sub-millisecond classification with continuous learning."
@@ -14,5 +14,5 @@ name = "microresolve_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.28", features = ["extension-module"] }
+pyo3 = { version = "0.28", features = ["extension-module", "abi3-py38"] }
 microresolve-core = { package = "microresolve", path = "..", features = ["connect"] }

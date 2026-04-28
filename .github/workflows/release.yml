@@ -82,6 +82,10 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
           - os: macos-latest
             target: aarch64-apple-darwin
           - os: macos-latest
@@ -136,14 +140,23 @@ jobs:
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
+      - name: install deps
+        working-directory: node
+        run: npm ci || npm install
       - uses: actions/download-artifact@v4
         with:
           pattern: node-*
           path: node/artifacts
           merge-multiple: true
-      - name: move artifacts into place
-        run: mv node/artifacts/*.node node/
-      - name: publish
+      - name: distribute artifacts into npm sub-packages
+        working-directory: node
+        run: npx napi artifacts --output-dir artifacts --npm-dir npm
+      - name: prepublish (write optionalDependencies + copy binaries)
+        working-directory: node
+        run: npx napi prepublish --no-gh-release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: publish main package
         working-directory: node
         run: npm publish --access public
         env:

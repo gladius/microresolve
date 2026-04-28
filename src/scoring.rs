@@ -34,6 +34,7 @@
 //! assert_eq!(r.normalized, "cancel my subscription");
 //! ```
 
+use crate::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -698,14 +699,14 @@ pub struct IntentIndex {
     /// Recomputed when a word's posting list changes length (add/remove intent).
     /// NOT serialized — rebuilt in one O(words) pass on load via rebuild_idf().
     #[serde(skip)]
-    idf_cache: HashMap<String, f32>,
+    idf_cache: FxHashMap<String, f32>,
 
     /// Distinct intent IDs seen across all posting lists.
     /// Maintained incrementally in learn_word so intent_count is correct for
     /// namespaces built in memory (not loaded from disk) without needing rebuild_idf().
     /// NOT serialized — rebuilt from posting lists in rebuild_idf().
     #[serde(skip)]
-    known_intents: std::collections::HashSet<String>,
+    known_intents: FxHashSet<String>,
 }
 
 impl IntentIndex {
@@ -856,7 +857,7 @@ impl IntentIndex {
             return ranked;
         }
         let chars: Vec<char> = s.chars().collect();
-        let mut q_ngrams: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut q_ngrams: FxHashSet<String> = FxHashSet::default();
         for window in chars.windows(4) {
             let ngram: String = window.iter().collect();
             q_ngrams.insert(ngram);
@@ -944,7 +945,7 @@ impl IntentIndex {
     /// Returns indices of conjunction rules that fire for the given canonical word set.
     /// Used by auto-learn to know which conjunction bonuses contributed to a routing.
     pub fn fired_conjunction_indices(&self, words: &[&str]) -> Vec<usize> {
-        let word_set: std::collections::HashSet<&str> = words.iter().copied().collect();
+        let word_set: FxHashSet<&str> = words.iter().copied().collect();
         self.conjunctions
             .iter()
             .enumerate()
@@ -987,10 +988,10 @@ impl IntentIndex {
         };
 
         let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
-        let mut scores: HashMap<String, f32> = HashMap::new();
+        let mut scores: FxHashMap<String, f32> = FxHashMap::default();
         let mut has_negation = cjk_negated;
 
-        let all_bases: std::collections::HashSet<&str> = tokens
+        let all_bases: FxHashSet<&str> = tokens
             .iter()
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
@@ -1023,7 +1024,11 @@ impl IntentIndex {
         }
 
         let mut result: Vec<(String, f32)> = scores.into_iter().filter(|(_, s)| *s > 0.0).collect();
-        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        result.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
         (result, has_negation)
     }
 
@@ -1095,7 +1100,7 @@ impl IntentIndex {
 
         let mut remaining: Vec<String> = all_tokens;
         let mut confirmed: Vec<(String, f32)> = Vec::new();
-        let mut confirmed_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut confirmed_ids: FxHashSet<String> = FxHashSet::default();
         let mut original_top: f32 = 0.0;
         let mut trace_rounds: Vec<RoundTrace> = Vec::new();
         let mut stop_reason: Option<String> = None;
@@ -1180,7 +1185,7 @@ impl IntentIndex {
             });
 
             if with_trace {
-                let remaining_set: std::collections::HashSet<&String> = remaining.iter().collect();
+                let remaining_set: FxHashSet<&String> = remaining.iter().collect();
                 let consumed: Vec<String> = tokens_before
                     .iter()
                     .filter(|t| !remaining_set.contains(t))
@@ -1218,9 +1223,9 @@ impl IntentIndex {
     fn score_tokens(
         &self,
         tokens: &[String],
-        exclude_intents: &std::collections::HashSet<String>,
+        exclude_intents: &FxHashSet<String>,
     ) -> Vec<(String, f32)> {
-        let mut scores: HashMap<String, f32> = HashMap::new();
+        let mut scores: FxHashMap<String, f32> = FxHashMap::default();
 
         for token in tokens {
             let is_negated = token.starts_with("not_");
@@ -1243,7 +1248,7 @@ impl IntentIndex {
         }
 
         // Conjunction bonuses
-        let all_bases: std::collections::HashSet<&str> = tokens
+        let all_bases: FxHashSet<&str> = tokens
             .iter()
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
@@ -1256,7 +1261,11 @@ impl IntentIndex {
         }
 
         let mut result: Vec<(String, f32)> = scores.into_iter().filter(|(_, s)| *s > 0.0).collect();
-        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        result.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
         result
     }
 
@@ -1332,14 +1341,12 @@ impl IntentIndex {
     /// Cross-provider disambiguation: when the same action suffix appears from
     /// multiple providers, pick the one with the most unique query word matches.
     fn disambiguate_providers(&self, confirmed: &mut Vec<(String, f32)>, query: &str) {
-        use std::collections::HashSet;
-
         if confirmed.len() < 2 {
             return;
         }
 
         // Group by action name (part after ':')
-        let mut action_groups: HashMap<String, Vec<usize>> = HashMap::new();
+        let mut action_groups: FxHashMap<String, Vec<usize>> = FxHashMap::default();
         for (i, (id, _)) in confirmed.iter().enumerate() {
             let action = id.split(':').nth(1).unwrap_or(id.as_str());
             action_groups.entry(action.to_string()).or_default().push(i);
@@ -1356,10 +1363,10 @@ impl IntentIndex {
         }
 
         let tokens = crate::tokenizer::tokenize(query);
-        let confirmed_ids: HashSet<&str> = confirmed.iter().map(|(id, _)| id.as_str()).collect();
+        let confirmed_ids: FxHashSet<&str> = confirmed.iter().map(|(id, _)| id.as_str()).collect();
 
         // Count unique words per intent
-        let mut unique_count: HashMap<&str, usize> = HashMap::new();
+        let mut unique_count: FxHashMap<&str, usize> = FxHashMap::default();
         for token in &tokens {
             let base = token.strip_prefix("not_").unwrap_or(token.as_str());
             if let Some(activations) = self.word_intent.get(base) {
@@ -1374,7 +1381,7 @@ impl IntentIndex {
             }
         }
 
-        let mut to_remove: HashSet<usize> = HashSet::new();
+        let mut to_remove: FxHashSet<usize> = FxHashSet::default();
         for group in &duplicate_groups {
             let best = group.iter().max_by_key(|&&i| {
                 unique_count

@@ -1,6 +1,7 @@
 //! Resolver: constructor, configuration, persistence, accessors.
 
 use crate::*;
+use crate::{FxHashMap, FxHashSet};
 use std::collections::HashMap;
 
 impl Resolver {
@@ -37,7 +38,7 @@ impl Resolver {
     pub fn intent_ids(&self) -> Vec<String> {
         // Union of training keys and intent_types keys to include intents
         // that have a type/description set but no training phrases yet.
-        let mut ids: std::collections::HashSet<String> = self.training.keys().cloned().collect();
+        let mut ids: FxHashSet<String> = self.training.keys().cloned().collect();
         ids.extend(self.intent_types.keys().cloned());
         ids.extend(self.descriptions.keys().cloned());
         let mut v: Vec<String> = ids.into_iter().collect();
@@ -348,14 +349,12 @@ impl Resolver {
     /// candidate has any unique tokens, the group is left intact (genuinely
     /// ambiguous → caller decides).
     pub fn disambiguate_cross_provider(&self, scored: &mut Vec<(String, f32)>, query: &str) {
-        use std::collections::{HashMap, HashSet};
-
         if scored.len() < 2 {
             return;
         }
 
         // Group candidate intent indices by action name (part after ':').
-        let mut action_groups: HashMap<&str, Vec<usize>> = HashMap::new();
+        let mut action_groups: FxHashMap<&str, Vec<usize>> = FxHashMap::default();
         for (i, (id, _)) in scored.iter().enumerate() {
             let action = id.split(':').nth(1).unwrap_or(id.as_str());
             action_groups.entry(action).or_default().push(i);
@@ -370,11 +369,11 @@ impl Resolver {
         }
 
         let tokens = crate::tokenizer::tokenize(query);
-        let scored_ids: HashSet<&str> = scored.iter().map(|(id, _)| id.as_str()).collect();
+        let scored_ids: FxHashSet<&str> = scored.iter().map(|(id, _)| id.as_str()).collect();
 
         // For each token, count it toward an intent only if that intent is the
         // sole candidate it activates (within the current scored set).
-        let mut unique_count: HashMap<&str, usize> = HashMap::new();
+        let mut unique_count: FxHashMap<&str, usize> = FxHashMap::default();
         for token in &tokens {
             let base = token.strip_prefix("not_").unwrap_or(token.as_str());
             if let Some(activations) = self.l2.word_intent.get(base) {
@@ -389,7 +388,7 @@ impl Resolver {
             }
         }
 
-        let mut to_remove: HashSet<usize> = HashSet::new();
+        let mut to_remove: FxHashSet<usize> = FxHashSet::default();
         for group in &duplicate_groups {
             let best = group
                 .iter()

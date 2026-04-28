@@ -2,7 +2,7 @@
 
 use crate::types::MAX_PHRASES_PER_LANGUAGE;
 use crate::*;
-use std::collections::HashMap;
+use crate::{FxHashMap, FxHashSet};
 
 impl Resolver {
     /// Add an intent with seed phrases.
@@ -15,17 +15,17 @@ impl Resolver {
     /// [`MAX_PHRASES_PER_LANGUAGE`]). The `Result` shape is reserved so
     /// future validation paths can surface errors without breaking callers.
     pub fn add_intent(&mut self, id: &str, seeds: impl Into<IntentSeeds>) -> Result<usize, Error> {
-        let seeds_by_lang: HashMap<String, Vec<String>> = match seeds.into() {
+        let seeds_by_lang: FxHashMap<String, Vec<String>> = match seeds.into() {
             IntentSeeds::Mono(phrases) => {
-                let mut m = HashMap::new();
+                let mut m = FxHashMap::default();
                 m.insert("en".to_string(), phrases);
                 m
             }
-            IntentSeeds::Multi(m) => m,
+            IntentSeeds::Multi(m) => m.into_iter().collect(),
         };
 
         // Truncate per-language to the configured cap.
-        let truncated: HashMap<String, Vec<String>> = seeds_by_lang
+        let truncated: FxHashMap<String, Vec<String>> = seeds_by_lang
             .into_iter()
             .map(|(lang, seeds)| {
                 let limited: Vec<String> =
@@ -42,7 +42,8 @@ impl Resolver {
                 total_phrases += 1;
             }
         }
-        self.training.insert(id.to_string(), truncated);
+        self.training
+            .insert(id.to_string(), truncated.into_iter().collect());
         self.rebuild_l0();
         self.version += 1;
 
@@ -185,7 +186,7 @@ impl Resolver {
 
     /// All unique namespace prefixes present in this namespace.
     pub fn list_namespaces(&self) -> Vec<String> {
-        let mut set = std::collections::HashSet::new();
+        let mut set = FxHashSet::default();
         for id in self.training.keys() {
             if let Some(ns) = Self::intent_namespace(id) {
                 set.insert(ns.to_string());
