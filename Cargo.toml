@@ -45,7 +45,7 @@ serde_yaml = "0.9"
 regex = "1"
 thiserror = "2"
 url = "2"
-axum = { version = "0.8", optional = true }
+axum = { version = "0.8", features = ["multipart"], optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 tower-http = { version = "0.6", features = ["cors", "fs"], optional = true }
@@ -56,6 +56,7 @@ directories = { version = "6", optional = true }
 open = { version = "5", optional = true }
 rand = { version = "0.9", optional = true }
 hex = { version = "0.4", optional = true }
+zip = { version = "2", optional = true }
 
 
 [features]
@@ -67,7 +68,7 @@ default = ["connect"]
 connect = ["reqwest"]
 # Server binary build — pulls in axum/tokio/tower-http/clap/etc. Kept
 # opt-in so embedded library users do not pay for the HTTP server stack.
-server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect", "clap", "toml", "directories", "open", "rand", "hex"]
+server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect", "clap", "toml", "directories", "open", "rand", "hex", "zip"]
 
 [[bin]]
 name = "server"
@@ -78,6 +79,7 @@ required-features = ["server"]
 reqwest = { version = "0.13", features = ["json", "blocking"] }
 serde_json = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3"
 
 [[bench]]
 name = "resolve"

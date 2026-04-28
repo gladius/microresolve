@@ -24,7 +24,10 @@ export default function Layout() {
   const [nsFilter,      setNsFilter]      = useState('');
   const [collapsed,     setCollapsed]     = useState(false);
   const [reviewPending, setReviewPending] = useState(0);
-  const nsMenuRef = useRef<HTMLDivElement>(null);
+  const [showBackupMenu, setShowBackupMenu] = useState(false);
+  const [restoreStatus,  setRestoreStatus]  = useState<string | null>(null);
+  const nsMenuRef     = useRef<HTMLDivElement>(null);
+  const backupMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
@@ -60,6 +63,57 @@ export default function Layout() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showNsMenu]);
+
+  useEffect(() => {
+    if (!showBackupMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (backupMenuRef.current && !backupMenuRef.current.contains(e.target as Node)) {
+        setShowBackupMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showBackupMenu]);
+
+  const handleDownloadBackup = () => {
+    setShowBackupMenu(false);
+    const a = document.createElement('a');
+    a.href = '/api/backup';
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleRestoreBackup = () => {
+    setShowBackupMenu(false);
+    if (!window.confirm('This will replace ALL current namespaces. Continue?')) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.zip';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const form = new FormData();
+      form.append('file', file);
+      setRestoreStatus('Restoring…');
+      try {
+        const res = await fetch('/api/restore', { method: 'POST', body: form });
+        if (!res.ok) {
+          const msg = await res.text();
+          setRestoreStatus(null);
+          alert(`Restore failed: ${msg}`);
+          return;
+        }
+        setRestoreStatus(null);
+        window.location.reload();
+      } catch (err) {
+        setRestoreStatus(null);
+        alert(`Restore failed: ${err}`);
+      }
+    };
+    input.click();
+  };
 
   const switchNamespace = (namespaceId: string) => {
     setSelectedNamespaceId(namespaceId);
@@ -235,6 +289,42 @@ export default function Layout() {
             </div>
           ))}
         </nav>
+
+        {/* Backup / Restore dropdown */}
+        <div ref={backupMenuRef} className="relative px-2 py-2 border-t border-zinc-800/60">
+          {restoreStatus && (
+            <div className="mb-1 text-[10px] text-violet-400 px-1">{restoreStatus}</div>
+          )}
+          <button
+            onClick={() => setShowBackupMenu(!showBackupMenu)}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors"
+            title="Backup / Restore"
+          >
+            <span className="w-4 text-center text-zinc-500 shrink-0">⬡</span>
+            {!collapsed && <span className="flex-1 text-left">Backup</span>}
+            {!collapsed && (
+              <svg className="w-3 h-3 text-zinc-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
+          {showBackupMenu && (
+            <div className={`absolute ${collapsed ? 'left-full ml-1' : 'left-2 right-2'} bottom-full mb-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 min-w-[10rem]`}>
+              <button
+                onClick={handleDownloadBackup}
+                className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 rounded-t-lg transition-colors"
+              >
+                Download backup
+              </button>
+              <button
+                onClick={handleRestoreBackup}
+                className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 rounded-b-lg transition-colors border-t border-zinc-800"
+              >
+                Restore from backup…
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Footer */}
         {!collapsed && (

@@ -13,6 +13,7 @@ mod routes_auth;
 mod routes_connect;
 mod routes_core;
 mod routes_events;
+mod routes_backup;
 mod routes_git;
 mod routes_hebbian;
 mod routes_import;
@@ -214,6 +215,7 @@ async fn main() {
         .merge(routes_hebbian::routes())
         .merge(routes_stopwords::routes())
         .merge(routes_git::routes())
+        .merge(routes_backup::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
