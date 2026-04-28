@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
 A reflex layer for LLM agents. Your agent makes the same routing
-decisions millions of times — which tool, which intent, is this PII,
+decisions on every call — which tool, which intent, is this PII,
 is this safe. MicroResolve handles those repeated decisions in tens of
 microseconds and learns continuously from your existing LLM calls, so
 your LLM only thinks about the parts that actually need thinking.
