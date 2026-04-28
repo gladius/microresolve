@@ -1,0 +1,85 @@
+---
+title: Python — Connect to Server
+description: Sync a local Python engine with the self-hosted MicroResolve server.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The embedded `Engine` runs entirely in-process. For teams that want a shared training pipeline — auto-learn, Studio UI, review queue — you can call the self-hosted server directly over HTTP or use the sync client.
+
+## Call the server over HTTP
+
+The simplest integration: point your code at the server's REST API.
+
+```python
+import httpx
+
+BASE = "http://localhost:3001"
+HEADERS = {"X-Namespace-ID": "support"}
+
+def classify(query: str) -> list[dict]:
+    r = httpx.post(f"{BASE}/api/route_multi",
+                   headers=HEADERS,
+                   json={"query": query})
+    r.raise_for_status()
+    return r.json()["intents"]
+
+matches = classify("cancel my order")
+print(matches)
+# [{"id": "cancel_order", "score": 0.91}]
+```
+
+<Aside type="note">
+Always set `X-Namespace-ID`. Omitting it routes to the `default` namespace, which will silently miss your trained intents.
+</Aside>
+
+## Add phrases via HTTP
+
+```python
+def add_phrase(intent_id: str, phrase: str, lang: str = "en"):
+    r = httpx.post(f"{BASE}/api/intents/{intent_id}/phrases",
+                   headers=HEADERS,
+                   json={"phrase": phrase, "lang": lang})
+    r.raise_for_status()
+    return r.json()
+```
+
+## Correct a misclassification via HTTP
+
+```python
+def correct(query: str, wrong: str | None, correct: str):
+    r = httpx.post(f"{BASE}/api/correct",
+                   headers=HEADERS,
+                   json={"query": query, "wrong": wrong, "correct": correct})
+    r.raise_for_status()
+```
+
+## Hybrid: local engine + server sync
+
+For the lowest possible classification latency, run a local engine and treat the server as the training hub. Use the Rust library's built-in connected mode for this pattern — see [Rust — Connect to Server](/rust/connect/) for details.
+
+From Python the simplest approach is to run all classifications through the server's HTTP API. The server classifies in-process, so HTTP latency is the only overhead (~2–3ms on localhost).
+
+```python
+import httpx
+
+BASE = "http://localhost:3001"
+
+def classify(query: str, ns: str = "support") -> list[dict]:
+    r = httpx.post(f"{BASE}/api/route_multi",
+                   headers={"X-Namespace-ID": ns},
+                   json={"query": query})
+    r.raise_for_status()
+    return r.json()["intents"]
+
+def report_correction(query: str, wrong: str | None, correct: str, ns: str = "support"):
+    httpx.post(f"{BASE}/api/correct",
+               headers={"X-Namespace-ID": ns},
+               json={"query": query, "wrong": wrong, "correct": correct}).raise_for_status()
+```
+
+## Next
+
+- [Server Install](/server/install/) — set up the self-hosted server
+- [Server API Reference](/server/api/) — full HTTP API
+- [Git Data Layer](/server/git-data/) — how training data is stored and versioned

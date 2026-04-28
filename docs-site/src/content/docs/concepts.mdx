@@ -1,0 +1,121 @@
+---
+title: Concepts
+description: What is a namespace, an intent, and how MicroResolve classifies queries.
+---
+
+MicroResolve is a deterministic decision engine. It classifies natural language queries against a set of named intents you define, using a weighted lexical index that improves from corrections. This page explains the core concepts.
+
+## Engine
+
+The `Engine` is the top-level object. One engine instance can hold many namespaces. It manages data persistence: when a `data_dir` is configured, namespaces are stored on disk and auto-loaded on startup.
+
+```rust
+use microresolve::{Engine, EngineConfig};
+
+let engine = Engine::new(EngineConfig {
+    data_dir: Some("~/.local/share/microresolve".into()),
+    default_threshold: 0.3,
+    ..Default::default()
+})?;
+```
+
+## Namespace
+
+A namespace is an isolated classifier. It has its own set of intents, its own learned weights, and its own threshold configuration. Namespaces do not share vocabulary or signal — a word that means "cancel" in your support namespace has no effect on your security namespace.
+
+Use namespaces to separate concerns:
+
+| Namespace | Purpose |
+|-----------|---------|
+| `support` | Customer intent classification |
+| `security` | Prompt injection / abuse detection |
+| `tools` | MCP tool pre-selection |
+| `mood` | Sentiment / tone filtering |
+
+```rust
+let ns = engine.namespace("support");
+
+// Or with a custom threshold
+use microresolve::NamespaceConfig;
+let ns = engine.namespace_with("security", NamespaceConfig {
+    default_threshold: Some(1.3),
+    ..Default::default()
+});
+```
+
+## Intent
+
+An intent is a named category you want to classify into. Each intent has:
+
+- **ID** — machine-readable name (`cancel_order`, `jailbreak_attempt`)
+- **Seed phrases** — representative natural language examples used to build the index
+- **Learned weights** — accumulated from corrections and phrase additions over time
+
+```rust
+use microresolve::IntentSeeds;
+
+ns.add_intent("cancel_order", &IntentSeeds::Phrases(vec![
+    "cancel my order".into(),
+    "I want to cancel".into(),
+    "stop my order".into(),
+]))?;
+```
+
+## Classification
+
+Classification (called `resolve`) takes a query string and returns a ranked list of matching intents with scores. A score above the threshold means the engine is confident enough to act.
+
+```rust
+let matches = ns.resolve("I need to cancel this");
+// [Match { id: "cancel_order", score: 0.91 }]
+```
+
+The engine uses a weighted lexical index: tokens in the query are looked up in a word→intent weight table. Each token's weight is multiplied by its IDF (inverse document frequency) — common words like "the" contribute little; distinctive words like "jailbreak" contribute a lot. Scores are summed across tokens.
+
+## Threshold and gap
+
+Two parameters control what gets returned:
+
+- **Threshold** — minimum score to include an intent. Default: `0.3`. Raise it for noisy domains (safety filters) where shared vocabulary causes false positives.
+- **Gap** — score ratio between the top match and the runner-up before the top is accepted alone. Default: `1.5`. Lower it to surface multi-intent queries.
+
+See [Threshold Tuning](/threshold-tuning/) for detailed guidance.
+
+```rust
+use microresolve::ResolveOptions;
+
+let matches = ns.resolve_with("cancel my order and get a refund", ResolveOptions {
+    threshold: 0.3,
+    gap: 1.5,
+});
+```
+
+## Corrections
+
+When the engine classifies incorrectly, call `correct()`. This moves signal toward the right intent and suppresses the wrong one for similar queries. No batch retraining. The improvement takes effect immediately.
+
+```rust
+ns.correct("stop my shipment", Some("cancel_order"), "track_order")?;
+```
+
+Pass `None` as the wrong intent if the engine returned no matches (you are teaching it from a miss rather than a misfire).
+
+## Continuous learning
+
+MicroResolve is designed to improve from live traffic, not just bootstrap data. Every correction, every added phrase, every auto-learn pass makes future classifications more accurate. See [Threshold Tuning](/threshold-tuning/) and the [Server Studio](/server/studio/) for the full auto-learn pipeline.
+
+## Git data layer
+
+When a `data_dir` is configured, every mutation (intent added, phrase added, correction applied) is auto-committed to a git repository inside that directory. This gives you:
+
+- Full audit trail of every change
+- Rollback to any historical state per namespace
+- Optional remote sync via `git remote`
+
+See [Git Data Layer](/server/git-data/) for details.
+
+## Next
+
+- [Rust Quickstart](/rust/quickstart/) — embed the engine in a Rust app
+- [Threshold Tuning](/threshold-tuning/) — choose the right threshold for your namespace
+- [Server Studio](/server/studio/) — manage intents and review misclassifications via UI

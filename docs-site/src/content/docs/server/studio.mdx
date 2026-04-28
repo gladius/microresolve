@@ -1,0 +1,65 @@
+---
+title: Studio UI
+description: Manage intents, review misclassifications, and trigger auto-learn via the Studio web interface.
+---
+
+The Studio UI is served at the server root (`http://localhost:3001`). It provides a visual interface for every operation available in the HTTP API, without writing any code.
+
+## Tabs
+
+### Manual
+
+The Manual tab is where you define and edit intents.
+
+- **Create intent** — enter an ID and an optional description; press Add.
+- **Add phrases** — type a phrase and pick the language; phrases are indexed immediately.
+- **Edit metadata** — set the description, instructions, and persona that downstream LLM calls can use.
+- **Delete intent** — removes the intent and all its phrases.
+
+Every change auto-commits to the git data layer. Use [History](/server/git-data/) to see or roll back changes.
+
+### Simulate
+
+The Simulate tab lets you test the engine against a batch of queries without affecting the live data.
+
+- **Enter queries** one per line (or upload a CSV).
+- **Run simulation** — each query is classified and the result is shown alongside the score.
+- **Adjust threshold** inline to see how changing the cutoff affects results.
+- **Promote to training** — mark individual results as correct; they are added as phrases.
+
+### Review
+
+When the server receives low-confidence classifications, they enter the review queue. The Review tab shows these queued items.
+
+- **Approve** — mark the classification as correct; the phrase is added to the winning intent.
+- **Fix** — reassign to the correct intent.
+- **Reject** — discard; the query is not learned from.
+- **Analyze** — send the batch to the LLM for suggested assignments (requires `ANTHROPIC_API_KEY`).
+
+Review stats (queue depth, approval rate) are available at `GET /api/review/stats`.
+
+### Auto
+
+The Auto tab controls the LLM auto-learn pipeline.
+
+- **Learn now** — trigger an immediate auto-learn pass: the LLM reviews the queue, extracts canonical phrases, and calls `add_phrase` for each approved item.
+- **Learn words** — extract and index individual vocabulary terms without full phrase extraction.
+- **Schedule** — configure the auto-learn interval (requires server restart to apply).
+
+Auto-learn cost is low: one Claude Haiku call per batch of ~20 queued items costs roughly $0.004.
+
+## Namespace selector
+
+The namespace selector (top of every tab) determines which namespace you are editing. Changes apply only to the selected namespace. The `X-Namespace-ID` header mirrors this selection in the API.
+
+## History page
+
+The History page (top navigation) shows the git commit log for the current namespace. Each row is a commit with a timestamp and a description of the change. Click a commit to see the semantic diff, or click **Roll back** to restore the namespace to that state.
+
+See [Git Data Layer](/server/git-data/) for the underlying mechanics and the corresponding HTTP API.
+
+## Next
+
+- [Git Data Layer](/server/git-data/) — audit trail, rollback, remote sync
+- [Server API Reference](/server/api/) — call the same operations programmatically
+- [Auth](/server/auth/) — restrict access to the Studio and API

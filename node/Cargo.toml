@@ -1,0 +1,21 @@
+[package]
+name = "microresolve-node"
+version = "0.1.0"
+edition = "2021"
+authors = ["Gladius Thayalarajan"]
+description = "Pre-LLM reflex layer — embedded decision engine for intent, safety, tool selection. Sub-millisecond classification with continuous learning."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/gladius/microresolve"
+homepage = "https://github.com/gladius/microresolve"
+publish = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3", features = ["napi8"] }
+napi-derive = "3"
+microresolve-core = { package = "microresolve", path = "..", features = ["connect"] }
+
+[build-dependencies]
+napi-build = "2"

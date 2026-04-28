@@ -1,0 +1,18 @@
+[package]
+name = "microresolve-python"
+version = "0.1.0"
+edition = "2021"
+authors = ["Gladius Thayalarajan"]
+description = "Pre-LLM reflex layer — embedded decision engine for intent, safety, tool selection. Sub-millisecond classification with continuous learning."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/gladius/microresolve"
+homepage = "https://github.com/gladius/microresolve"
+publish = true
+
+[lib]
+name = "microresolve_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.28", features = ["extension-module"] }
+microresolve-core = { package = "microresolve", path = "..", features = ["connect"] }

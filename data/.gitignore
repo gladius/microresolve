@@ -1,0 +1,4 @@
+# Downloaded benchmark datasets
+*.json
+*.csv
+*.parquet

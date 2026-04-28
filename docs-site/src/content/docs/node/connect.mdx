@@ -1,0 +1,100 @@
+---
+title: Node.js — Connect to Server
+description: Sync a local Node.js engine with the self-hosted MicroResolve server.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The embedded `Engine` runs entirely in-process. For teams that want a shared training pipeline, you can call the self-hosted server directly over HTTP.
+
+## Call the server over HTTP
+
+```typescript
+const BASE = 'http://localhost:3001';
+const HEADERS = {
+  'X-Namespace-ID': 'support',
+  'Content-Type': 'application/json',
+};
+
+async function classify(query: string) {
+  const res = await fetch(`${BASE}/api/route_multi`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: JSON.stringify({ query }),
+  });
+  const data = await res.json();
+  return data.intents as Array<{ id: string; score: number }>;
+}
+
+const matches = await classify('cancel my order');
+console.log(matches);
+// [{ id: 'cancel_order', score: 0.91 }]
+```
+
+<Aside type="note">
+Always set `X-Namespace-ID`. Omitting it routes to the `default` namespace, which will silently miss your trained intents.
+</Aside>
+
+## Add phrases via HTTP
+
+```typescript
+async function addPhrase(intentId: string, phrase: string, lang = 'en') {
+  const res = await fetch(`${BASE}/api/intents/${intentId}/phrases`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: JSON.stringify({ phrase, lang }),
+  });
+  return res.json();
+}
+```
+
+## Correct a misclassification via HTTP
+
+```typescript
+async function correct(query: string, wrong: string | null, correct: string) {
+  await fetch(`${BASE}/api/correct`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: JSON.stringify({ query, wrong, correct }),
+  });
+}
+```
+
+## Hybrid: local engine + server sync
+
+For the lowest possible latency, run a local engine in-process and use the server as the training hub. Built-in connected mode is available in the Rust library — see [Rust — Connect to Server](/rust/connect/).
+
+From Node.js the recommended pattern is to route all calls through the server's HTTP API. The server classifies in-process; HTTP latency on localhost is typically 2–3ms.
+
+```typescript
+const BASE = 'http://localhost:3001';
+
+async function classify(query: string, ns = 'support') {
+  const res = await fetch(`${BASE}/api/route_multi`, {
+    method: 'POST',
+    headers: { 'X-Namespace-ID': ns, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+  const data = await res.json();
+  return data.intents as Array<{ id: string; score: number }>;
+}
+
+async function reportCorrection(
+  query: string,
+  wrong: string | null,
+  correct: string,
+  ns = 'support',
+) {
+  await fetch(`${BASE}/api/correct`, {
+    method: 'POST',
+    headers: { 'X-Namespace-ID': ns, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, wrong, correct }),
+  });
+}
+```
+
+## Next
+
+- [Server Install](/server/install/) — set up the self-hosted server
+- [Server API Reference](/server/api/) — full HTTP API
+- [Git Data Layer](/server/git-data/) — how training data is stored and versioned

@@ -1,0 +1,100 @@
+---
+title: Server Install
+description: Install and run the self-hosted MicroResolve server.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The MicroResolve server is a single Rust binary. It exposes a REST API on port 3001 and serves the Studio UI. Data is stored in a git-tracked directory on disk.
+
+## Prerequisites
+
+- Rust 1.75+ (for building from source)
+- `git` on the `PATH` (used by the data layer for auto-commits and rollback)
+
+## Build from source
+
+```bash
+git clone https://github.com/gladius/microresolve
+cd microresolve
+
+cargo build --release --bin server --features server
+```
+
+The binary lands at `./target/release/server`.
+
+## Run
+
+```bash
+# Defaults: port 3001, data at ~/.local/share/microresolve
+./target/release/server
+
+# Custom data directory
+./target/release/server --data /var/lib/microresolve
+
+# Custom port
+./target/release/server --port 8080
+```
+
+## Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | — | Required for auto-learn and LLM import |
+| `ASV_DATA_DIR` | `~/.local/share/microresolve` | Data directory (overridden by `--data` flag) |
+
+Create a `.env` file next to the binary and the server reads it on startup:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+## Verify
+
+```bash
+curl http://localhost:3001/api/health
+# {"status":"ok"}
+
+curl http://localhost:3001/api/version
+# {"version":"0.1.0"}
+```
+
+## Studio UI
+
+The Studio UI is served at `http://localhost:3001` (the root, not a subpath). Open it in your browser to manage intents, run simulations, and review the auto-learn queue.
+
+See [Studio](/server/studio/) for a full walkthrough.
+
+## Data directory layout
+
+```
+~/.local/share/microresolve/
+  .git/               ← git repo (auto-created on first run)
+  default/            ← "default" namespace
+    intents.json
+    learned.json
+  support/            ← "support" namespace
+    intents.json
+    learned.json
+```
+
+Every namespace mutation triggers a `git commit` inside this directory. You can push to a remote with:
+
+```bash
+curl -X PUT http://localhost:3001/api/settings/git \
+  -H "Content-Type: application/json" \
+  -d '{"remote_url": "git@github.com:your-org/microresolve-data.git"}'
+
+curl -X POST http://localhost:3001/api/git/push
+```
+
+<Aside type="note">
+The server sets `user.name = microresolve` and `user.email = microresolve@local` locally if no global git identity is configured.
+</Aside>
+
+## Next
+
+- [Server Studio](/server/studio/) — manage intents and review misclassifications via UI
+- [Server API Reference](/server/api/) — full HTTP API
+- [Git Data Layer](/server/git-data/) — audit trail, rollback, remote sync
+- [Auth](/server/auth/) — API key authentication

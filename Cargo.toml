@@ -1,0 +1,83 @@
+[package]
+name = "microresolve"
+version = "0.1.0"
+edition = "2021"
+authors = ["Gladius Thayalarajan"]
+description = "Pre-LLM decision engine: intent classification, tool selection, request triage. ~30μs per call, CPU-only, continuous learning."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/gladius/microresolve"
+homepage = "https://github.com/gladius/microresolve"
+documentation = "https://docs.rs/microresolve"
+readme = "README.md"
+keywords = ["intent", "classification", "nlp", "sparse-vectors", "pre-llm"]
+categories = ["text-processing", "algorithms"]
+
+# Strip non-library artifacts from the crates.io tarball. Cargo's default
+# is "everything tracked by git not in target/" plus any READMEs/CHANGELOGs
+# under directories on disk, which sweeps in node_modules of the docs site.
+exclude = [
+    "ui/**",
+    "docs-site/**",
+    "node/**",
+    "python/**",
+    "scripts/**",
+    "data/**",
+    ".github/**",
+    "_internal/**",
+    "examples/curl/**",
+    "examples/node/**",
+    "examples/python/**",
+    "examples/rust/**",
+    "src/bin/test_hebbian.rs",
+    ".env.example",
+    ".gitignore",
+]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+aho-corasick = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+regex = "1"
+thiserror = "2"
+url = "2"
+axum = { version = "0.8", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+tokio-stream = { version = "0.1", features = ["sync"], optional = true }
+tower-http = { version = "0.6", features = ["cors", "fs"], optional = true }
+reqwest = { version = "0.13", features = ["json", "blocking"], optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+toml = { version = "1", optional = true }
+directories = { version = "6", optional = true }
+open = { version = "5", optional = true }
+rand = { version = "0.9", optional = true }
+hex = { version = "0.4", optional = true }
+
+
+[features]
+# Connected mode (live sync against a server) ships in the default build —
+# it is a core capability of the library, not an optional extension. Users
+# who want a smaller dep tree (no reqwest) can opt out:
+#   microresolve = { version = "0.1", default-features = false }
+default = ["connect"]
+connect = ["reqwest"]
+# Server binary build — pulls in axum/tokio/tower-http/clap/etc. Kept
+# opt-in so embedded library users do not pay for the HTTP server stack.
+server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect", "clap", "toml", "directories", "open", "rand", "hex"]
+
+[[bin]]
+name = "server"
+path = "src/bin/server/main.rs"
+required-features = ["server"]
+
+[dev-dependencies]
+reqwest = { version = "0.13", features = ["json", "blocking"] }
+serde_json = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "resolve"
+harness = false

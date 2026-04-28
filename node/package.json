@@ -1,0 +1,42 @@
+{
+  "name": "microresolve",
+  "version": "0.1.0",
+  "description": "Pre-LLM reflex layer — embedded decision engine for intent, safety, tool selection. Sub-millisecond classification with continuous learning.",
+  "author": "Gladius Thayalarajan",
+  "license": "MIT OR Apache-2.0",
+  "homepage": "https://github.com/gladius/microresolve",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gladius/microresolve.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gladius/microresolve/issues"
+  },
+  "keywords": [
+    "intent",
+    "classification",
+    "nlp",
+    "pre-llm",
+    "safety"
+  ],
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "binaryName": "microresolve",
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-apple-darwin",
+      "x86_64-apple-darwin",
+      "x86_64-pc-windows-msvc"
+    ]
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.0.0"
+  }
+}

@@ -1,0 +1,73 @@
+---
+title: Rust — Connect to Server
+description: Sync a local Rust engine with the self-hosted MicroResolve server.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The embedded `Engine` runs entirely in-process. For teams that want a shared training pipeline — auto-learn, Studio UI, review queue — you can point the engine at a self-hosted server using connected mode.
+
+## What connected mode does
+
+In connected mode the local engine:
+
+1. Still classifies locally (zero added latency on the hot path)
+2. Pulls approved training updates from the server on a background thread at a configurable interval
+3. Buffers low-confidence queries and flushes them to the server's ingest endpoint on each sync tick
+4. Pushes corrections to the server immediately when `correct()` is called
+
+Training happens in the server (Studio UI, auto-learn pipeline, review queue). All connected clients receive the update on the next sync tick. No manual sync call is required — the background thread handles it.
+
+## Configure
+
+```rust
+use microresolve::{Engine, EngineConfig, ServerConfig};
+
+let engine = Engine::new(EngineConfig {
+    data_dir: Some("~/.local/share/microresolve".into()),
+    default_threshold: 0.3,
+    server: Some(ServerConfig {
+        url: "http://localhost:3001".into(),
+        api_key: std::env::var("MICRORESOLVE_API_KEY").ok(),
+        subscribe: vec!["support".into(), "security".into()],
+        ..Default::default()
+    }),
+    ..Default::default()
+})?;
+
+// Namespaces listed in `subscribe` are pulled from the server on startup
+// and kept in sync by the background thread. Use them like any other namespace:
+let ns = engine.namespace("support");
+let matches = ns.resolve("cancel my order");
+```
+
+The `subscribe` list tells the engine which namespaces to pull. On startup, each is fetched from `GET /api/sync`. The background poll runs every `sync_interval_secs` (default: 60).
+
+## Corrections are pushed immediately
+
+```rust
+// This call is forwarded to POST /api/correct on the server in addition to
+// updating the local engine. No extra step required.
+ns.correct("stop shipment", Some("cancel_order"), "track_order")?;
+```
+
+## Calling the server directly over HTTP
+
+For operations not covered by the embedded API (reviewing the queue, triggering auto-learn), call the server's REST API directly.
+
+```bash
+curl -X POST http://localhost:3001/api/learn/now \
+  -H "X-Namespace-ID: support" \
+  -H "X-Api-Key: $MICRORESOLVE_API_KEY"
+```
+
+<Aside type="note">
+Always set `X-Namespace-ID`. Omitting it routes to the `default` namespace, which will silently miss your trained intents.
+</Aside>
+
+## Next
+
+- [Server Install](/server/install/) — set up the self-hosted server
+- [Server Studio](/server/studio/) — manage intents and review misclassifications via UI
+- [Server API Reference](/server/api/) — full HTTP API
+- [Git Data Layer](/server/git-data/) — how training data is stored and versioned

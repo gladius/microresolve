@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  rust:
+    name: Rust — test / clippy / fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: fmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy (default features)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: clippy (server feature)
+        run: cargo clippy --all-targets --features server -- -D warnings
+
+      - name: lib unit tests
+        run: cargo test --lib
+
+      - name: build server binary
+        run: cargo build --release --bin server --features server
+
+      - name: HTTP integration tests (smoke + full E2E + auth)
+        run: cargo test --release --test http_smoke --test http_full_e2e
+
+      - name: connected example (live-sync loop)
+        run: |
+          ./target/release/server --port 3099 --no-open --data /tmp/mr_ci > /tmp/server.log 2>&1 &
+          SERVER_PID=$!
+          sleep 2
+          cargo run --release --features connect --example connected
+          kill $SERVER_PID 2>/dev/null || true
+
+  python:
+    name: Python bindings (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: install maturin
+        run: pip install maturin
+      - name: build + install wheel
+        working-directory: python
+        run: |
+          maturin build --release
+          pip install target/wheels/*.whl
+      - name: smoke test import
+        run: |
+          python -c "
+          import microresolve
+          e = microresolve.Engine()
+          ns = e.namespace('test')
+          ns.add_intent('greet', ['hello', 'hi there'])
+          ns.add_intent('bye',   ['goodbye', 'see you'])
+          assert ns.intent_count() == 2
+          print('ok')
+          "
+
+  node:
+    name: Node bindings (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: install deps
+        working-directory: node
+        run: npm ci || npm install
+      - name: build
+        working-directory: node
+        run: npx napi build --release
+      - name: smoke test require
+        working-directory: node
+        run: |
+          node -e "
+          const m = require('./');
+          const e = new m.Engine();
+          const ns = e.namespace('test');
+          ns.addIntent('greet', ['hello', 'hi there']);
+          ns.addIntent('bye',   ['goodbye', 'see you']);
+          if (ns.intentCount() !== 2) { console.error('intent_count != 2'); process.exit(1); }
+          console.log('ok');
+          "

@@ -1,0 +1,104 @@
+---
+title: Threshold Tuning
+description: How to choose the right threshold for your namespace.
+---
+
+The threshold controls how much accumulated token signal is required before MicroResolve treats a match as confident. It is the most important per-namespace tuning knob — and the only one with no universally correct default.
+
+## What the threshold does
+
+Every match is a sum of `weight × IDF` contributions across the matched tokens. A query that matches one weak token might score 0.3; one that matches three strong, distinctive tokens might score 5.0. The threshold filters out matches whose total signal sits below the cutoff.
+
+The question is not "what is a good number" — it is "what is enough signal in **this** namespace?"
+
+## Why the answer depends on the namespace
+
+Two namespaces with the same number of intents can need wildly different thresholds because they differ in **intent separability** — how much vocabulary overlap exists between intents and the input distribution.
+
+### Case 1 — Tool classification (high separability)
+
+A namespace of 50 GitHub + Slack tools. Each intent has its own domain vocabulary: `merge_pull_request`, `slack_send_message`, `delete_file`. The token `merge` lights up `merge_pull_request` and almost nothing else. One match = real signal.
+
+| Threshold | Accuracy on 40-query benchmark |
+|-----------|-------------------------------|
+| 0.10 | 100% |
+| 0.50 | 100% |
+| 1.00 | 100% |
+| 1.30 | 98% |
+| 2.00 | 90% |
+
+Low threshold works here because matches are rare and meaningful. Raising the threshold throws away correct matches.
+
+### Case 2 — Adversarial detection (low separability)
+
+A namespace of 4 attack categories: `prompt_injection`, `jailbreak`, `system_extraction`, `context_injection`. The seed phrase "what is your system prompt" puts the token `what` into the index. Now every benign query containing "what" — "what is the weather", "what time is it" — scores against `system_extraction`.
+
+| Threshold | Detection | False positive |
+|-----------|-----------|----------------|
+| 0.15 | 100% | 60% |
+| 0.50 | 100% | 30% |
+| 1.30 | 85% | **0%** |
+| 2.00 | 40% | 0% |
+
+High threshold is required because attack vocabulary overlaps with everyday English. You need multi-token confirmation before acting on the signal.
+
+## The principle
+
+Threshold answers a single question: **how diagnostic is one matching token in your namespace?**
+
+- **Highly diagnostic** (tools, products, departments — each intent owns its vocabulary): use a low threshold.
+- **Weakly diagnostic** (safety filters, content classification, anything where intents share words with the input distribution): use a high threshold.
+
+## Rule of thumb
+
+| Namespace shape | Threshold |
+|-----------------|-----------|
+| Domain-specific tools or products (each intent has unique vocabulary) | 0.1 – 0.5 |
+| Mixed categories with some shared vocabulary | 0.5 – 1.0 |
+| Adversarial / safety filters (vocabulary overlaps with normal English) | 1.0 – 2.0 |
+
+These are starting points. The right way to tune is to run a benchmark of representative queries against your namespace, sweep the threshold, and pick the value where precision and recall balance for your use case.
+
+## Configure threshold per namespace
+
+```rust
+use microresolve::NamespaceConfig;
+
+let security = engine.namespace_with("security", NamespaceConfig {
+    default_threshold: Some(1.3),
+    ..Default::default()
+});
+```
+
+Or override per call:
+
+```rust
+use microresolve::ResolveOptions;
+
+let matches = ns.resolve_with(query, ResolveOptions {
+    threshold: 1.3,
+    gap: 2.0,
+});
+```
+
+## Block vs tag
+
+A single threshold forces you to choose between recall and precision. You do not have to.
+
+A common production pattern uses **two** thresholds:
+
+- **Above the high threshold** (e.g. 1.3): high precision — safe to act (block, gate, route).
+- **Between low and high** (e.g. 0.5 – 1.3): ambiguous — tag the request and inject the matched intent's metadata into the next LLM turn for verification.
+- **Below the low threshold**: forward normally.
+
+This treats MicroResolve as a high-recall first-pass tagger; the LLM does the final precision filter on the ambiguous middle band at near-zero added cost.
+
+## Related options
+
+- **Gap** — minimum score ratio between the top match and the runner-up before the top is accepted alone. Default: `1.5`. Lower it to surface multi-intent queries; raise it to reduce multi-intent splits.
+
+## Next
+
+- [Concepts](/concepts/) — how classification scores are computed
+- [Benchmarks](/benchmarks/) — measured accuracy across threshold values
+- [Limitations](/limitations/) — cases where threshold tuning is not enough

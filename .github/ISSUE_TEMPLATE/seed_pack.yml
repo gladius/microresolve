@@ -1,0 +1,54 @@
+name: Seed pack contribution
+description: Share a domain-specific set of intents + seed phrases for reuse.
+title: "[seeds]: "
+labels: ["seed-pack"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Seed packs are curated lists of intents and seed phrases for a specific domain (SaaS, MCP, e-commerce, gaming, legal, etc.) that others can import directly. Sharing one helps everyone bootstrap faster.
+
+  - type: input
+    id: domain
+    attributes:
+      label: Domain
+      description: One-line summary of the domain or use case.
+      placeholder: "Shopify merchant support — order / refund / shipping / catalog"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options:
+        - English
+        - Multilingual
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: intents
+    attributes:
+      label: Intent list
+      description: One intent per line — `intent_id: seed_phrase_1, seed_phrase_2, ...`. Or attach a JSON / YAML file in a follow-up comment.
+      render: yaml
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything a user of this pack should know — assumptions, expected multi-intent patterns, known edge cases.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: licence
+    attributes:
+      label: Licensing
+      options:
+        - label: I agree this seed pack is contributed under MIT OR Apache-2.0, consistent with the project licence.
+          required: true

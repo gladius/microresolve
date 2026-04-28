@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & discussion
+    url: https://github.com/gladius/microresolve/discussions
+    about: For general questions, ideas, or show-and-tell — not bug reports.
+  - name: Consulting & custom integration
+    url: mailto:gladius.thayalarajan@gmail.com
+    about: For paid consulting, custom seed packs, or integration help.

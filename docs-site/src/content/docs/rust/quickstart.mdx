@@ -1,0 +1,125 @@
+---
+title: Rust Quickstart
+description: Embed the MicroResolve decision engine in a Rust application.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+MicroResolve is a pure-Rust decision engine. Add it to your `Cargo.toml` and start classifying queries in under 50 lines.
+
+## Install
+
+```toml title="Cargo.toml"
+[dependencies]
+microresolve = "0.1"
+```
+
+## Basic usage
+
+```rust
+use microresolve::{Engine, EngineConfig, IntentSeeds};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let engine = Engine::new(EngineConfig::default())?;
+    let ns = engine.namespace("support");
+
+    ns.add_intent("cancel_order", &IntentSeeds::Phrases(vec![
+        "cancel my order".into(),
+        "I want to cancel".into(),
+        "stop my order".into(),
+    ]))?;
+    ns.add_intent("track_order", &IntentSeeds::Phrases(vec![
+        "where is my package".into(),
+        "track my order".into(),
+        "shipping status".into(),
+    ]))?;
+
+    let matches = ns.resolve("I need to cancel");
+    for m in &matches {
+        println!("{}: {:.2}", m.id, m.score);
+    }
+    // cancel_order: 0.91
+
+    Ok(())
+}
+```
+
+## Persist to disk
+
+Set `data_dir` and call `engine.flush()` — namespaces are stored as git-tracked directories and auto-loaded on the next startup.
+
+```rust
+use microresolve::{Engine, EngineConfig};
+use std::path::PathBuf;
+
+let engine = Engine::new(EngineConfig {
+    data_dir: Some(PathBuf::from("~/.local/share/microresolve")),
+    ..Default::default()
+})?;
+
+let ns = engine.namespace("support");
+// ... add intents, add phrases ...
+
+engine.flush()?;
+```
+
+## Custom threshold
+
+Different namespaces need different thresholds. Security / safety namespaces typically need a higher threshold to avoid false positives on common vocabulary.
+
+```rust
+use microresolve::NamespaceConfig;
+
+let security = engine.namespace_with("security", NamespaceConfig {
+    default_threshold: Some(1.3),
+    ..Default::default()
+});
+```
+
+## Override threshold per call
+
+```rust
+use microresolve::ResolveOptions;
+
+let matches = ns.resolve_with("cancel my order and get a refund", ResolveOptions {
+    threshold: 0.3,
+    gap: 1.5,
+});
+```
+
+## Add phrases at runtime
+
+```rust
+let result = ns.add_phrase("cancel_order", "abort my order", "en");
+println!("added: {}", result.added);
+println!("new terms: {:?}", result.new_terms);
+```
+
+## Correct a wrong classification
+
+```rust
+// "stop shipment" classified as cancel_order, should be track_order
+ns.correct("stop shipment", Some("cancel_order"), "track_order")?;
+
+// Teach from a miss (engine returned nothing)
+ns.correct("where did my parcel go", None, "track_order")?;
+```
+
+## List namespaces and intents
+
+```rust
+let ns_ids: Vec<String> = engine.namespaces();
+
+let intent_ids: Vec<String> = ns.intent_ids();
+println!("intents: {}", ns.intent_count());
+```
+
+<Aside type="tip">
+For the full method listing see the [Rust API Reference](/rust/api/).
+</Aside>
+
+## Next
+
+- [Rust API Reference](/rust/api/) — complete method listing
+- [Connect to server](/rust/connect/) — sync a local engine with the self-hosted server
+- [Threshold Tuning](/threshold-tuning/) — choose the right threshold for your namespace

@@ -1,0 +1,94 @@
+---
+title: Auth
+description: API key authentication for the MicroResolve server.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+By default the MicroResolve server accepts all requests without authentication. This is appropriate for local development and single-user setups. For multi-user or network-exposed deployments, enable API key auth.
+
+## How it works
+
+Authentication is opt-in. Creating the first API key enables it — from that point every request must include the key. Deleting the last key disables authentication again.
+
+Pass the key in the `X-Api-Key` header:
+
+```bash
+curl http://localhost:3001/api/intents \
+  -H "X-Namespace-ID: support" \
+  -H "X-Api-Key: mr_a1b2c3d4e5f6..."
+```
+
+<Aside type="note">
+The Studio UI prompts for the API key after your first key is created. Enter it once; it is stored in browser local storage.
+</Aside>
+
+## Create an API key
+
+```bash
+curl -X POST http://localhost:3001/api/auth/keys \
+  -H "Content-Type: application/json" \
+  -d '{"name": "production"}'
+```
+
+**Response:**
+
+```json
+{
+  "name": "production",
+  "key": "mr_a1b2c3d4e5f6...",
+  "warning": "This key is shown once. Save it now — it cannot be retrieved later."
+}
+```
+
+<Aside type="caution">
+The full key value is only returned once at creation time. Copy it to a secrets manager immediately.
+</Aside>
+
+Keys are prefixed with `mr_` followed by a hex string.
+
+## List API keys
+
+```bash
+curl http://localhost:3001/api/auth/keys \
+  -H "X-Api-Key: mr_a1b2c3d4e5f6..."
+```
+
+**Response:**
+
+```json
+{
+  "enabled": true,
+  "keys": [
+    {
+      "name": "production",
+      "prefix": "mr_a1b2c3d4…",
+      "created_at": 1745748000
+    }
+  ]
+}
+```
+
+`created_at` is a Unix timestamp (seconds). The `prefix` field shows the first 12 characters of the key — enough to identify which key is which without exposing the secret.
+
+## Delete an API key
+
+```bash
+curl -X DELETE http://localhost:3001/api/auth/keys/production \
+  -H "X-Api-Key: mr_a1b2c3d4e5f6..."
+```
+
+Returns `204 No Content` on success. Deleting the last key disables authentication — all subsequent requests are accepted without a key.
+
+## Recommended setup
+
+For a production deployment:
+
+1. Create one key per client — one per service, one for the Studio UI.
+2. Store keys in environment variables or a secrets manager, never in source code.
+3. Rotate a key by creating the replacement first, updating all clients, then deleting the old one.
+
+## Next
+
+- [Server Install](/server/install/) — set up the server
+- [Server API Reference](/server/api/) — full HTTP API

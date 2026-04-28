@@ -1,0 +1,144 @@
+---
+title: Node.js / TypeScript Quickstart
+description: Embed the MicroResolve decision engine in a Node.js or TypeScript application.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+MicroResolve ships a Node.js package with pre-built native binaries. No build step, no native compiler needed.
+
+## Install
+
+```bash
+npm install microresolve
+# or
+yarn add microresolve
+# or
+pnpm add microresolve
+```
+
+Pre-built binaries for Linux, macOS, and Windows (x86_64 and arm64).
+
+## Basic usage
+
+```typescript
+import { Engine } from 'microresolve';
+
+const engine = new Engine();
+const ns = engine.namespace('support');
+
+ns.addIntent('cancel_order', [
+  'cancel my order',
+  'I want to cancel',
+  'stop my order',
+]);
+ns.addIntent('track_order', [
+  'where is my package',
+  'track my order',
+  'shipping status',
+]);
+
+const matches = ns.resolve('I need to cancel');
+for (const { id, score } of matches) {
+  console.log(`${id}: ${score.toFixed(2)}`);
+}
+// cancel_order: 0.91
+```
+
+## CommonJS
+
+```javascript
+const { Engine } = require('microresolve');
+const engine = new Engine();
+```
+
+## Persist to disk
+
+```typescript
+import { Engine } from 'microresolve';
+
+const engine = new Engine({ dataDir: '~/.local/share/microresolve' });
+const ns = engine.namespace('support');
+// ... add intents and phrases ...
+await engine.flush();
+```
+
+## Custom threshold per namespace
+
+```typescript
+const security = engine.namespaceWith('security', { defaultThreshold: 1.3 });
+```
+
+## Override threshold per call
+
+```typescript
+import type { ResolveOptions } from 'microresolve';
+
+const opts: ResolveOptions = { threshold: 0.3, gap: 1.5 };
+const matches = ns.resolveWith('cancel my order and get a refund', opts);
+```
+
+## Add phrases at runtime
+
+```typescript
+const result = ns.addPhrase('cancel_order', 'abort my order');
+console.log(result.added);      // true
+console.log(result.redundant);  // false if new
+
+// Specify language
+ns.addPhrase('cancel_order', '取消我的订单', 'zh');
+```
+
+## Correct a wrong classification
+
+```typescript
+// "stop shipment" classified as cancel_order, should be track_order
+ns.correct('stop shipment', 'cancel_order', 'track_order');
+
+// Teach from a miss (engine returned nothing)
+ns.correct('where did my parcel go', null, 'track_order');
+```
+
+## TypeScript types
+
+```typescript
+import type { Match, PhraseResult } from 'microresolve';
+
+const matches: Match[] = ns.resolve('cancel my order');
+// Match = { id: string; score: number }
+
+const result: PhraseResult = ns.addPhrase('cancel_order', 'abort order');
+// PhraseResult = { added: boolean; redundant: boolean; newTerms: string[]; warning?: string }
+```
+
+## Vercel AI SDK integration
+
+```typescript
+import { Engine } from 'microresolve';
+import { generateText } from 'ai';
+
+const engine = new Engine({ dataDir: '~/.local/share/microresolve' });
+const ns = engine.namespace('support');
+
+async function handleMessage(message: string) {
+  const matches = ns.resolve(message);
+
+  if (matches.length > 0 && matches[0].score > 0.7) {
+    // High confidence — handle directly
+    return handleIntent(matches[0].id, message);
+  }
+
+  // Low confidence — fall back to LLM
+  return generateText({ model: /* ... */, prompt: message });
+}
+```
+
+<Aside type="tip">
+For the full method listing see the [Node.js API Reference](/node/api/).
+</Aside>
+
+## Next
+
+- [Node.js API Reference](/node/api/) — complete method listing
+- [Connect to server](/node/connect/) — sync a local engine with the self-hosted server
+- [Threshold Tuning](/threshold-tuning/) — choose the right threshold for your namespace

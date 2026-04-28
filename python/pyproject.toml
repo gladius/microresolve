@@ -1,0 +1,21 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "microresolve"
+version = "0.1.0"
+description = "Pre-LLM reflex layer — embedded decision engine for intent classification, safety filtering, tool selection. Sub-millisecond, CPU-only, continuous learning."
+requires-python = ">=3.8"
+license = "MIT OR Apache-2.0"
+authors = [{ name = "Gladius Thayalarajan" }]
+keywords = ["intent", "classification", "nlp", "pre-llm", "safety"]
+
+[project.urls]
+Homepage = "https://github.com/gladius/microresolve"
+Repository = "https://github.com/gladius/microresolve"
+Issues = "https://github.com/gladius/microresolve/issues"
+
+[tool.maturin]
+features = []
+module-name = "microresolve"

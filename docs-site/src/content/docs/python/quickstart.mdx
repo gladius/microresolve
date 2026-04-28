@@ -1,0 +1,120 @@
+---
+title: Python Quickstart
+description: Embed the MicroResolve decision engine in a Python application.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+MicroResolve ships a Python package (`microresolve`) with pre-built wheels. No build step, no native compiler needed.
+
+## Install
+
+```bash
+pip install microresolve
+```
+
+Requires Python 3.8+. Pre-built wheels for Linux, macOS, and Windows (x86_64 and arm64).
+
+## Basic usage
+
+```python
+from microresolve import Engine
+
+engine = Engine()
+ns = engine.namespace("support")
+
+ns.add_intent("cancel_order", [
+    "cancel my order",
+    "I want to cancel",
+    "stop my order",
+])
+ns.add_intent("track_order", [
+    "where is my package",
+    "track my order",
+    "shipping status",
+])
+
+matches = ns.resolve("I need to cancel")
+for m in matches:
+    print(f"{m['id']}: {m['score']:.2f}")
+# cancel_order: 0.91
+```
+
+## Persist to disk
+
+```python
+from microresolve import Engine
+
+engine = Engine(data_dir="~/.local/share/microresolve")
+ns = engine.namespace("support")
+# ... add intents and phrases ...
+engine.flush()
+```
+
+On the next startup, namespaces are auto-loaded from `data_dir`.
+
+## Custom threshold per namespace
+
+```python
+ns_security = engine.namespace_with("security", threshold=1.3)
+```
+
+## Override threshold per call
+
+```python
+matches = ns.resolve("cancel my order and get a refund", threshold=0.3, gap=1.5)
+```
+
+## Add phrases at runtime
+
+```python
+result = ns.add_phrase("cancel_order", "abort my order")
+print(result["added"])      # True
+print(result["redundant"])  # False if new
+
+# Specify language explicitly
+ns.add_phrase("cancel_order", "取消我的订单", lang="zh")
+```
+
+## Correct a wrong classification
+
+```python
+# "stop shipment" classified as cancel_order, should be track_order
+ns.correct("stop shipment", wrong="cancel_order", correct="track_order")
+
+# Teach from a miss (engine returned nothing)
+ns.correct("where did my parcel go", wrong=None, correct="track_order")
+```
+
+## List namespaces and intents
+
+```python
+ns_ids = engine.namespaces()
+intent_ids = ns.intent_ids()
+print(ns.intent_count())
+```
+
+## LangChain / LLM fallback pattern
+
+```python
+from microresolve import Engine
+
+engine = Engine(data_dir="~/.local/share/microresolve")
+ns = engine.namespace("support")
+
+def handle(query: str) -> str:
+    matches = ns.resolve(query)
+    if matches and matches[0]["score"] > 0.7:
+        return handle_intent(matches[0]["id"], query)
+    return llm_fallback(query)
+```
+
+<Aside type="tip">
+For the full method listing see the [Python API Reference](/python/api/).
+</Aside>
+
+## Next
+
+- [Python API Reference](/python/api/) — complete method listing
+- [Connect to server](/python/connect/) — sync a local engine with the self-hosted server
+- [Threshold Tuning](/threshold-tuning/) — choose the right threshold for your namespace

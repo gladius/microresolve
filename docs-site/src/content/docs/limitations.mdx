@@ -1,0 +1,62 @@
+---
+title: Limitations
+description: Honest trade-offs and when not to use MicroResolve.
+---
+
+MicroResolve is a lexical decision engine. It works by matching words and learned term weights — not by understanding meaning. These properties have real consequences.
+
+## Cold start accuracy
+
+With only a handful of seed phrases per intent, expect 60–75% exact match accuracy. The engine improves rapidly with corrections — CLINC150 goes from 74.8% to 90.3% in three correction rounds — but the cold start is real.
+
+**Mitigation:** Use the LLM import pipeline to generate diverse seed phrases at setup time. 10–20 phrases per intent significantly improves cold start accuracy.
+
+## Out-of-vocabulary terms
+
+If a user writes something with no vocabulary overlap with any intent's phrases, the engine will return no matches or low-confidence matches.
+
+```
+# No phrases contain "refund" or "money back" → poor match
+ns.resolve("I want my money back")  # low confidence if not trained
+```
+
+**Mitigation:** Add synonym phrases to the intent. The LLM import pipeline does this automatically for common terms.
+
+## Polysemy and ambiguity
+
+Words shared across intents reduce confidence. "Cancel" appears in both `cancel_order` and `cancel_subscription` — without additional context words, the engine may be uncertain.
+
+**Mitigation:** The scoring layer handles many cases automatically through IDF weighting. For persistent ambiguity, raise the `gap` parameter to require a stronger score separation before committing to a single intent.
+
+## Not a semantic search engine
+
+MicroResolve does not understand paraphrase, metaphor, or abstract language:
+
+```
+"I'm done with this service"   → may not match cancel_subscription
+"my delivery is lost in space" → may not match track_order
+```
+
+**Mitigation:** Use MicroResolve as a prefilter. High-confidence matches (score > 0.7) handle directly. Low-confidence queries fall through to an LLM.
+
+## 100+ intent scale
+
+At 100+ intents with overlapping terminology, exact match decreases but recall stays high (94.7% in our MCP benchmark). The correct intent is usually in the top results.
+
+**Mitigation:** Use top-K results with a secondary LLM pass for disambiguation. This is cheaper than full LLM classification on every query.
+
+## When to use MicroResolve
+
+| Good fit | Not a good fit |
+|----------|----------------|
+| Structured domains (support, e-commerce, tools) | Free-form creative or conversational queries |
+| Known intent taxonomy | Fully open-ended intent discovery |
+| Low-latency classification at the edge | One-off queries with no training data |
+| Prefilter before LLM | Cases requiring deep semantic understanding |
+| Cost-sensitive at scale | Small volume where LLM cost does not matter |
+
+## Next
+
+- [Benchmarks](/benchmarks/) — measured accuracy under real conditions
+- [Threshold Tuning](/threshold-tuning/) — reduce false positives without sacrificing recall
+- [Concepts](/concepts/) — how the scoring model works

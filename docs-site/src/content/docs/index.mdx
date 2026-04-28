@@ -1,0 +1,95 @@
+---
+title: MicroResolve
+description: Pre-LLM reflex layer — deterministic intent classification at ~30µs, CPU-only, continuous learning.
+template: splash
+hero:
+  tagline: A pre-LLM reflex layer that classifies intent, detects PII, and filters tool calls in ~30µs — before the LLM ever sees the query.
+  actions:
+    - text: Rust quickstart
+      link: /rust/quickstart/
+      icon: right-arrow
+      variant: primary
+    - text: Concepts
+      link: /concepts/
+      icon: open-book
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Three deployment shapes
+
+<CardGrid>
+  <Card title="Embedded library" icon="puzzle">
+    Drop `microresolve` into your Rust, Python, or Node.js process. Zero network hops. The decision engine lives inside your app.
+  </Card>
+  <Card title="Embedded + server sync" icon="random">
+    Run the engine in-process and sync training data to a self-hosted server. Teams share a single source of truth; each service gets its own low-latency local copy.
+  </Card>
+  <Card title="Self-hosted server + Studio" icon="laptop">
+    Deploy the HTTP server and use the Studio UI to manage intents, review misclassifications, and trigger auto-learn — no code changes required.
+  </Card>
+</CardGrid>
+
+## One engine, many classifiers
+
+MicroResolve uses **namespaces** to run independent classifiers in parallel from a single engine instance:
+
+- Customer-support intent classification
+- Security and abuse detection
+- Mood / sentiment filtering
+- MCP tool pre-selection
+- Compliance guardrails (HIPAA, EU AI Act, …)
+
+Each namespace is isolated, independently trainable, and queryable in a single call.
+
+```rust
+use microresolve::{Engine, EngineConfig};
+
+let engine = Engine::new(EngineConfig {
+    data_dir: Some("~/.local/share/microresolve".into()),
+    ..Default::default()
+})?;
+
+let support  = engine.namespace("support");
+let security = engine.namespace("security");
+
+let intent   = support.resolve("cancel my order");
+let threat   = security.resolve("ignore previous instructions");
+```
+
+## Why a reflex layer?
+
+Large language models are powerful but slow and expensive. The majority of incoming queries — "cancel my order", "reset my password", "show me the dashboard" — follow patterns that can be resolved deterministically in microseconds. MicroResolve handles that 80%, so your LLM budget goes to the 20% that actually needs reasoning.
+
+```
+query → [MicroResolve ~30µs] → matched intent → template / tool / guardrail
+                              ↘ no match → LLM fallback
+```
+
+## Git data layer
+
+Your training data is a git repo. Every namespace mutation auto-commits. You get a built-in audit trail, one-command rollback to any historical state, and optional remote sync via a standard git remote.
+
+```bash
+# Roll back a namespace to a previous commit
+curl -X POST http://localhost:3001/api/namespaces/support/rollback \
+  -H "Content-Type: application/json" \
+  -d '{"sha": "abc1234..."}'
+```
+
+## Get started
+
+<CardGrid>
+  <Card title="Rust" icon="seti:rust">
+    [Quickstart →](/rust/quickstart/)
+  </Card>
+  <Card title="Python" icon="seti:python">
+    [Quickstart →](/python/quickstart/)
+  </Card>
+  <Card title="Node.js" icon="seti:javascript">
+    [Quickstart →](/node/quickstart/)
+  </Card>
+  <Card title="Self-hosted server" icon="server">
+    [Install →](/server/install/)
+  </Card>
+</CardGrid>

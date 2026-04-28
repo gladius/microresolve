@@ -1,0 +1,47 @@
+# Build
+/target/
+
+# Data files (downloaded via data/download.sh)
+data/*.json
+data/*.csv
+data/*.parquet
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+python/.venv/
+python/target/
+
+# Node
+node/node_modules/
+node/target/
+examples/node/node_modules/
+*.node
+
+# Logs
+*.jsonl
+
+# Claude Code
+.claude/
+microresolve_queries.jsonl
+data/*.json
+!data/ecommerce-demo.json
+!data/ecommerce-demo-seeds.json
+
+# Internal launch / planning notes (private to the maintainer's working copy)
+_internal/
