@@ -298,10 +298,10 @@ export default function Layout() {
           <button
             onClick={() => setShowBackupMenu(!showBackupMenu)}
             className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors"
-            title="Export / Import instance"
+            title="Export / Import State"
           >
             <span className="w-4 text-center text-zinc-500 shrink-0">⇅</span>
-            {!collapsed && <span className="flex-1 text-left">Export / Import</span>}
+            {!collapsed && <span className="flex-1 text-left">Export / Import State</span>}
             {!collapsed && (
               <svg className="w-3 h-3 text-zinc-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

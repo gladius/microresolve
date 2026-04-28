@@ -263,7 +263,7 @@ function DataSection() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-zinc-100">Data</h2>
-        <p className="text-xs text-zinc-500 mt-1">Reset router state. To export or import the full instance, use Export / Import in the sidebar.</p>
+        <p className="text-xs text-zinc-500 mt-1">Reset router state. To export or import the full instance state, use Export / Import State in the sidebar.</p>
       </div>
 
       {/* Danger zone */}
