@@ -1,7 +1,7 @@
 //! Instance backup and restore endpoints.
 //!
-//! - `GET  /api/backup`  — stream the entire data_dir as a zip file
-//! - `POST /api/restore` — accept a zip via multipart, validate, and atomic-swap into data_dir
+//! - `GET  /api/state/export`  — stream the entire data_dir as a zip file
+//! - `POST /api/state/import` — accept a zip via multipart, validate, and atomic-swap into data_dir
 
 use crate::state::*;
 use axum::{
@@ -15,8 +15,8 @@ use std::io::Write as _;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/backup", get(backup))
-        .route("/api/restore", post(restore))
+        .route("/api/state/export", get(backup))
+        .route("/api/state/import", post(restore))
 }
 
 /// Stream the entire data_dir as a zip archive, excluding any `.git/` subtree.
@@ -46,7 +46,7 @@ pub async fn backup(State(state): State<AppState>) -> Result<Response, (StatusCo
         let (y, m, d) = days_to_ymd(days);
         format!("{:04}-{:02}-{:02}", y, m, d)
     };
-    let filename = format!("microresolve-backup-{}.zip", today);
+    let filename = format!("microresolve-state-{}.zip", today);
 
     Ok(Response::builder()
         .status(200)

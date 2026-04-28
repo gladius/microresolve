@@ -80,7 +80,7 @@ export default function Layout() {
   const handleDownloadBackup = () => {
     setShowBackupMenu(false);
     const a = document.createElement('a');
-    a.href = '/api/backup';
+    a.href = '/api/state/export';
     a.download = '';
     document.body.appendChild(a);
     a.click();
@@ -100,7 +100,7 @@ export default function Layout() {
       form.append('file', file);
       setRestoreStatus('Restoring…');
       try {
-        const res = await fetch('/api/restore', { method: 'POST', body: form });
+        const res = await fetch('/api/state/import', { method: 'POST', body: form });
         if (!res.ok) {
           const msg = await res.text();
           setRestoreStatus(null);

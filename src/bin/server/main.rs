@@ -10,7 +10,6 @@ mod key_store;
 mod log_store;
 mod pipeline;
 mod routes_auth;
-mod routes_backup;
 mod routes_connect;
 mod routes_core;
 mod routes_events;
@@ -23,6 +22,7 @@ mod routes_phrases;
 mod routes_projects;
 mod routes_review;
 mod routes_settings;
+mod routes_state;
 mod routes_stopwords;
 mod routes_training;
 mod routes_ui_settings;
@@ -215,7 +215,7 @@ async fn main() {
         .merge(routes_hebbian::routes())
         .merge(routes_stopwords::routes())
         .merge(routes_git::routes())
-        .merge(routes_backup::routes())
+        .merge(routes_state::routes())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
