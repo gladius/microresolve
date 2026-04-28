@@ -2,7 +2,8 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-  site: 'https://microresolve.dev',
+  site: 'https://gladius.github.io',
+  base: '/microresolve',
   integrations: [
     starlight({
       title: 'MicroResolve',
