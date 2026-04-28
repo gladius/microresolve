@@ -175,7 +175,7 @@ function EdgeColumn({ kind, label, color, defaultWeight, emptyHint }: (typeof CO
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function VocabularyPage() {
+export default function LexicalPage() {
   return (
     <Page title="Lexical Graph" subtitle="Morphology · Synonyms · Abbreviations" fullscreen>
       <div className="h-full flex gap-4 p-4 min-h-0">
