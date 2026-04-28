@@ -486,9 +486,6 @@ function SnippetBlock({ lang, nsId }: { lang: 'rust' | 'python' | 'node'; nsId: 
     }
     if (lang === 'python') {
       return [
-        `# Export the namespace from Studio first:`,
-        `#   curl -H "X-Namespace-ID: ${nsId}" http://localhost:3001/api/export > ${nsId}.json`,
-        ``,
         `from microresolve import Resolver`,
         ``,
         `with open("${nsId}.json") as f:`,
@@ -500,9 +497,6 @@ function SnippetBlock({ lang, nsId }: { lang: 'rust' | 'python' | 'node'; nsId: 
       ].join('\n');
     }
     return [
-      `// Export the namespace from Studio first:`,
-      `//   curl -H "X-Namespace-ID: ${nsId}" http://localhost:3001/api/export > ${nsId}.json`,
-      ``,
       `import { readFileSync } from 'node:fs';`,
       `import { Resolver } from '@microresolve/core';`,
       ``,

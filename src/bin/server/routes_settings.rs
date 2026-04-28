@@ -1,45 +1,17 @@
-//! Settings: reset, defaults, export/import, languages, analytics data.
+//! Settings: reset, defaults, languages, analytics data.
 
 use crate::state::*;
 use axum::{
     extract::State,
-    http::{HeaderMap, StatusCode},
-    routing::{delete, get, post},
+    http::StatusCode,
+    routing::{delete, get},
     Json,
 };
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/export", get(export_state))
-        .route("/api/import", post(import_state))
         .route("/api/languages", get(get_languages))
         .route("/api/data/all", delete(delete_all_data))
-}
-
-// --- Export / Import ---
-
-pub async fn export_state(State(state): State<AppState>, headers: HeaderMap) -> String {
-    let app_id = app_id_from_headers(&headers);
-    match state.engine.try_namespace(&app_id) {
-        Some(h) => h.with_resolver(|r| r.export_json()),
-        None => format!("{{\"error\": \"app '{}' not found\"}}", app_id),
-    }
-}
-
-pub async fn import_state(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    body: String,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let app_id = app_id_from_headers(&headers);
-    let new_resolver = microresolve::Resolver::import_json(&body)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    let h = state.engine.namespace(&app_id);
-    h.with_resolver_mut(|r| {
-        *r = new_resolver;
-    });
-    maybe_commit(&state, &app_id);
-    Ok(StatusCode::OK)
 }
 
 // --- Languages ---

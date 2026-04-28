@@ -238,15 +238,6 @@ export const api = {
   setModels: (models: NamespaceModel[]) =>
     patch<void>('/settings', { models }),
 
-  // State
-  exportState: async () => {
-    const res = await fetch(`${BASE}/export`, { headers: appHeaders() });
-    return res.text();
-  },
-  importState: (data: string) =>
-    fetch(`${BASE}/import`, { method: 'POST', headers: appHeaders(), body: data }).then(r => {
-      if (!r.ok) throw new Error('Import failed');
-    }),
   clearAllData: () =>
     fetch(`${BASE}/data/all`, { method: 'DELETE', headers: appHeaders() }).then(r => {
       if (!r.ok) throw new Error('Clear failed');
