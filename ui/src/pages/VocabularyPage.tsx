@@ -177,7 +177,7 @@ function EdgeColumn({ kind, label, color, defaultWeight, emptyHint }: (typeof CO
 
 export default function VocabularyPage() {
   return (
-    <Page title="Lexical Graph" subtitle="Morphology · Synonyms · Abbreviations" fullscreen>
+    <Page title="Vocabulary" subtitle="Morphology · Synonyms · Abbreviations" fullscreen>
       <div className="h-full flex gap-4 p-4 min-h-0">
         {COLUMNS.map(col => (
           <EdgeColumn key={col.kind} {...col} />
