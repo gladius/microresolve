@@ -940,8 +940,8 @@ pub async fn apply_review(
     added
 }
 
-/// Ask the LLM for morphological variants and abbreviation expansions of newly discovered words.
-/// Fires only for words not yet in L1, so LLM load stays proportional to new vocabulary rate.
+/// Ask the LLM for morphological variants of newly discovered words and add them to L1.
+/// This closes the gap where L2 learns "ping"→send_message but L1 doesn't know "pinging"→"ping".
 async fn learn_l1_morphology(
     state: &AppState,
     app_id: &str,
@@ -952,29 +952,6 @@ async fn learn_l1_morphology(
         return;
     }
 
-    // Only short tokens are plausible abbreviations — skip the abbrev question for long words.
-    let abbrev_candidates: Vec<&str> = new_words
-        .iter()
-        .filter(|w| w.len() <= 5)
-        .map(|w| w.as_str())
-        .collect();
-    let abbrev_section = if abbrev_candidates.is_empty() {
-        String::new()
-    } else {
-        let candidates_str = abbrev_candidates.join(", ");
-        format!(
-            "\n\nSome of those words are short and might be abbreviations: [{candidates_str}]\n\
-             For each, if it is an UNAMBIGUOUS, standard abbreviation with a single obvious expansion\n\
-             (e.g. \"acct\"→\"account\", \"mgr\"→\"manager\", \"num\"→\"number\"), add it to\n\
-             \"abbreviations\" as {{\"short_form\": \"canonical_word\"}}.\n\
-             Rules:\n\
-             - Only include if you are certain — omit anything ambiguous or context-dependent\n\
-             - The canonical form must be a single word (no phrases)\n\
-             - Do NOT invent domain jargon you are unsure about\n\
-             - Empty object {{}} is the right answer when nothing qualifies"
-        )
-    };
-
     let words_str = new_words.join(", ");
     let prompt = format!(
         "These words appeared in a user query (\"{context_query}\") and were just learned by an intent classification engine:\n\
@@ -983,77 +960,58 @@ async fn learn_l1_morphology(
          - verb forms: -ing, -ed, -s, -ion, -er suffixes\n\
          - Do NOT include synonyms or semantically related words — only inflected forms of the same word\n\
          - Do NOT include the word itself\n\
-         - Skip words that have no useful variants (e.g. nouns like 'team')\
-         {abbrev_section}\n\n\
+         - Skip words that have no useful variants (e.g. nouns like 'team')\n\n\
          Respond with ONLY JSON:\n\
-         {{\"variants\": {{\"canonical_word\": [\"variant1\", \"variant2\"]}}, \"abbreviations\": {{\"short\": \"canonical\"}}}}\n\
-         Example: {{\"variants\": {{\"ping\": [\"pinging\", \"pinged\", \"pings\"]}}, \"abbreviations\": {{\"acct\": \"account\"}}}}"
+         {{\"variants\": {{\"canonical_word\": [\"variant1\", \"variant2\"]}}}}\n\
+         Example: {{\"variants\": {{\"ping\": [\"pinging\", \"pinged\", \"pings\", \"pinged\"]}}}}"
     );
 
-    match call_llm(state, &prompt, 500).await {
+    match call_llm(state, &prompt, 400).await {
         Ok(response) => {
             let json_str = extract_json(&response);
             match serde_json::from_str::<serde_json::Value>(json_str) {
                 Ok(parsed) => {
-                    if let Some(h) = state.engine.try_namespace(app_id) {
-                        let mut learned = 0usize;
-
-                        // ── morphological variants ────────────────────────────
-                        if let Some(variants_map) = parsed["variants"].as_object() {
+                    if let Some(variants_map) = parsed["variants"].as_object() {
+                        if let Some(h) = state.engine.try_namespace(app_id) {
+                            let mut learned = 0usize;
                             for (canonical, var_list) in variants_map {
                                 if let Some(arr) = var_list.as_array() {
                                     for v in arr {
                                         if let Some(variant) = v.as_str() {
                                             let variant = variant.trim().to_lowercase();
-                                            if !variant.is_empty() && variant != canonical.as_str() {
+                                            let canonical_s = canonical.clone();
+                                            if !variant.is_empty()
+                                                && variant != canonical_s.as_str()
+                                            {
                                                 h.with_resolver_mut(|r| {
-                                                    r.l1_mut().add(
-                                                        &variant, canonical, 0.97,
-                                                        microresolve::scoring::EdgeKind::Morphological,
-                                                    )
+                                                    r.l1_mut().add(&variant, &canonical_s, 0.97,
+                                                    microresolve::scoring::EdgeKind::Morphological)
                                                 });
-                                                eprintln!("[auto-learn/L1] {} → {} (morphological)", variant, canonical);
+                                                eprintln!(
+                                                    "[auto-learn/L1] {} → {} (morphological)",
+                                                    variant, canonical_s
+                                                );
                                                 learned += 1;
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
-
-                        // ── abbreviations ─────────────────────────────────────
-                        if let Some(abbrev_map) = parsed["abbreviations"].as_object() {
-                            for (short, canonical_val) in abbrev_map {
-                                if let Some(canonical) = canonical_val.as_str() {
-                                    let short = short.trim().to_lowercase();
-                                    let canonical = canonical.trim().to_lowercase();
-                                    // Guard: short form must actually be shorter than canonical
-                                    if !short.is_empty()
-                                        && !canonical.is_empty()
-                                        && short != canonical
-                                        && short.len() < canonical.len()
-                                    {
-                                        h.with_resolver_mut(|r| {
-                                            r.l1_mut().add(
-                                                &short, &canonical, 0.99,
-                                                microresolve::scoring::EdgeKind::Abbreviation,
-                                            )
-                                        });
-                                        eprintln!("[auto-learn/L1] {} → {} (abbreviation)", short, canonical);
-                                        learned += 1;
-                                    }
+                            if learned > 0 {
+                                if let Err(e) = h.flush() {
+                                    eprintln!("[auto-learn/L1] flush error: {}", e);
+                                } else {
+                                    eprintln!(
+                                        "[auto-learn/L1] {} edges added, state persisted",
+                                        learned
+                                    );
                                 }
-                            }
-                        }
-
-                        if learned > 0 {
-                            if let Err(e) = h.flush() {
-                                eprintln!("[auto-learn/L1] flush error: {}", e);
                             } else {
-                                eprintln!("[auto-learn/L1] {} edges added, state persisted", learned);
+                                eprintln!(
+                                    "[auto-learn/L1] no morphological variants found for {:?}",
+                                    new_words
+                                );
                             }
-                        } else {
-                            eprintln!("[auto-learn/L1] no variants found for {:?}", new_words);
                         }
                     }
                 }
