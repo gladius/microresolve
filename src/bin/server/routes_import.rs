@@ -1,15 +1,15 @@
 //! Spec import endpoints (OpenAPI, Postman).
 
+use crate::pipeline::*;
+use crate::state::*;
 use axum::{
-    extract::{State, Query},
-    http::{StatusCode, HeaderMap},
+    extract::{Query, State},
+    http::{HeaderMap, StatusCode},
     routing::{get, post},
     Json,
 };
-use std::collections::HashMap;
 use microresolve::IntentType;
-use crate::state::*;
-use crate::pipeline::*;
+use std::collections::HashMap;
 
 /// Seed L1 (LexicalGraph) using the accepted phrases as canonical vocabulary context.
 ///
@@ -24,13 +24,22 @@ pub async fn seed_into_l1_pub(state: &AppState, app_id: &str, accepted: &[(Strin
 }
 
 async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
-    eprintln!("[import/L1] seed_into_l1 called: {} accepted phrases, llm_key={}", accepted.len(), state.llm_key.is_some());
-    if accepted.is_empty() || state.llm_key.is_none() { return; }
+    eprintln!(
+        "[import/L1] seed_into_l1 called: {} accepted phrases, llm_key={}",
+        accepted.len(),
+        state.llm_key.is_some()
+    );
+    if accepted.is_empty() || state.llm_key.is_none() {
+        return;
+    }
 
     // Group phrases by intent_id
     let mut by_intent: std::collections::HashMap<&str, Vec<&str>> = Default::default();
     for (id, phrase) in accepted {
-        by_intent.entry(id.as_str()).or_default().push(phrase.as_str());
+        by_intent
+            .entry(id.as_str())
+            .or_default()
+            .push(phrase.as_str());
     }
     eprintln!("[import/L1] {} unique intents", by_intent.len());
 
@@ -41,23 +50,30 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
             eprintln!("[import/L1] ERROR: namespace not found for '{}'", app_id);
             return;
         };
-        let mut blocks: Vec<String> = by_intent.iter().map(|(&id, phrases)| {
-            let desc = h.intent(id).map(|i| i.description).unwrap_or_default();
-            let phrase_list = phrases.iter().take(2)
-                .map(|p| format!("  \"{}\"", p))
-                .collect::<Vec<_>>().join("\n");
-            if desc.is_empty() {
-                format!("{}:\n{}", id, phrase_list)
-            } else {
-                format!("{} ({}): \n{}", id, desc, phrase_list)
-            }
-        }).collect();
+        let mut blocks: Vec<String> = by_intent
+            .iter()
+            .map(|(&id, phrases)| {
+                let desc = h.intent(id).map(|i| i.description).unwrap_or_default();
+                let phrase_list = phrases
+                    .iter()
+                    .take(2)
+                    .map(|p| format!("  \"{}\"", p))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if desc.is_empty() {
+                    format!("{}:\n{}", id, phrase_list)
+                } else {
+                    format!("{} ({}): \n{}", id, desc, phrase_list)
+                }
+            })
+            .collect();
         blocks.sort();
         blocks
     };
 
     // Source words already in L1 — skip to avoid regenerating (incremental safety)
-    let existing_from_words: std::collections::HashSet<String> = state.engine
+    let existing_from_words: std::collections::HashSet<String> = state
+        .engine
         .try_namespace(app_id)
         .map(|h| h.with_resolver(|r| r.l1().edges.keys().cloned().collect()))
         .unwrap_or_default();
@@ -65,8 +81,15 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
     let skip_hint = if existing_from_words.is_empty() {
         String::new()
     } else {
-        format!("\nAlready mapped (skip FROM these): {}\n",
-            existing_from_words.iter().take(60).cloned().collect::<Vec<_>>().join(", "))
+        format!(
+            "\nAlready mapped (skip FROM these): {}\n",
+            existing_from_words
+                .iter()
+                .take(60)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     };
 
     let prompt = format!(
@@ -92,14 +115,28 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
     );
 
     // ── Turn 1: generate candidate edges ────────────────────────────────────
-    eprintln!("[import/L1] Turn 1: generating candidates ({} intent blocks, prompt ~{} chars)", intent_blocks.len(), prompt.len());
+    eprintln!(
+        "[import/L1] Turn 1: generating candidates ({} intent blocks, prompt ~{} chars)",
+        intent_blocks.len(),
+        prompt.len()
+    );
     let t1_response = match call_llm(state, &prompt, 4096).await {
         Ok(r) => r,
-        Err((_, e)) => { eprintln!("[import/L1] Turn 1 failed: {}", e); return; }
+        Err((_, e)) => {
+            eprintln!("[import/L1] Turn 1 failed: {}", e);
+            return;
+        }
     };
     let t1_json = match serde_json::from_str::<serde_json::Value>(extract_json(&t1_response)) {
         Ok(j) => j,
-        Err(e) => { eprintln!("[import/L1] Turn 1 parse failed: {} — raw: {}", e, &t1_response[..t1_response.len().min(200)]); return; }
+        Err(e) => {
+            eprintln!(
+                "[import/L1] Turn 1 parse failed: {} — raw: {}",
+                e,
+                &t1_response[..t1_response.len().min(200)]
+            );
+            return;
+        }
     };
     let Some(candidates) = t1_json.get("edges").and_then(|e| e.as_array()) else {
         eprintln!("[import/L1] Turn 1: no 'edges' array");
@@ -125,46 +162,93 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
         candidates_json
     );
 
-    eprintln!("[import/L1] Turn 2: verifying {} candidates", candidates.len());
+    eprintln!(
+        "[import/L1] Turn 2: verifying {} candidates",
+        candidates.len()
+    );
     let t2_response = match call_llm(state, &verify_prompt, 4096).await {
         Ok(r) => r,
-        Err((_, e)) => { eprintln!("[import/L1] Turn 2 failed: {}", e); return; }
+        Err((_, e)) => {
+            eprintln!("[import/L1] Turn 2 failed: {}", e);
+            return;
+        }
     };
     let t2_json = match serde_json::from_str::<serde_json::Value>(extract_json(&t2_response)) {
         Ok(j) => j,
-        Err(e) => { eprintln!("[import/L1] Turn 2 parse failed: {}", e); return; }
+        Err(e) => {
+            eprintln!("[import/L1] Turn 2 parse failed: {}", e);
+            return;
+        }
     };
     let Some(edges) = t2_json.get("edges").and_then(|e| e.as_array()) else {
         eprintln!("[import/L1] Turn 2: no 'edges' array");
         return;
     };
-    eprintln!("[import/L1] Turn 2: {} edges after verification (removed {})", edges.len(), candidates.len().saturating_sub(edges.len()));
+    eprintln!(
+        "[import/L1] Turn 2: {} edges after verification (removed {})",
+        edges.len(),
+        candidates.len().saturating_sub(edges.len())
+    );
 
-    let Some(h) = state.engine.try_namespace(app_id) else { return; };
+    let Some(h) = state.engine.try_namespace(app_id) else {
+        return;
+    };
 
     let mut n_abbrev = 0usize;
-    let mut n_morph  = 0usize;
-    let mut n_syn    = 0usize;
+    let mut n_morph = 0usize;
+    let mut n_syn = 0usize;
 
     for edge in edges {
-        let from   = edge.get("from").and_then(|v| v.as_str()).unwrap_or_default().trim().to_string();
-        let to     = edge.get("to").and_then(|v| v.as_str()).unwrap_or_default().trim().to_string();
+        let from = edge
+            .get("from")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        let to = edge
+            .get("to")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
         let weight = edge.get("weight").and_then(|v| v.as_f64()).unwrap_or(0.9) as f32;
-        let kind_s = edge.get("kind").and_then(|v| v.as_str()).unwrap_or("synonym").to_string();
-        if from.is_empty() || to.is_empty() || from == to { continue; }
-        if h.with_resolver(|r| r.l1().edges.contains_key(&*from)) { continue; }
+        let kind_s = edge
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .unwrap_or("synonym")
+            .to_string();
+        if from.is_empty() || to.is_empty() || from == to {
+            continue;
+        }
+        if h.with_resolver(|r| r.l1().edges.contains_key(&*from)) {
+            continue;
+        }
 
         let kind = match kind_s.as_str() {
-            "abbreviation"  => { n_abbrev += 1; microresolve::scoring::EdgeKind::Abbreviation }
-            "morphological" => { n_morph  += 1; microresolve::scoring::EdgeKind::Morphological }
-            _               => { n_syn    += 1; microresolve::scoring::EdgeKind::Synonym }
+            "abbreviation" => {
+                n_abbrev += 1;
+                microresolve::scoring::EdgeKind::Abbreviation
+            }
+            "morphological" => {
+                n_morph += 1;
+                microresolve::scoring::EdgeKind::Morphological
+            }
+            _ => {
+                n_syn += 1;
+                microresolve::scoring::EdgeKind::Synonym
+            }
         };
-        eprintln!("[import/L1] {:>14}: {} → {} (w={:.2})", kind_s, from, to, weight);
+        eprintln!(
+            "[import/L1] {:>14}: {} → {} (w={:.2})",
+            kind_s, from, to, weight
+        );
         h.with_resolver_mut(|r| r.l1_mut().add(&from, &to, weight, kind));
     }
 
-    eprintln!("[import/L1] total: {} abbreviations + {} morphological + {} synonyms for '{}'",
-        n_abbrev, n_morph, n_syn, app_id);
+    eprintln!(
+        "[import/L1] total: {} abbreviations + {} morphological + {} synonyms for '{}'",
+        n_abbrev, n_morph, n_syn, app_id
+    );
 
     if let Err(e) = h.flush() {
         eprintln!("[import/L1] flush error for {}: {}", app_id, e);
@@ -175,14 +259,22 @@ async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, Strin
 ///
 /// Called once after all batch phrase-generation is complete.
 pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
-    if accepted.is_empty() { return; }
-    let Some(h) = state.engine.try_namespace(app_id) else { return; };
+    if accepted.is_empty() {
+        return;
+    }
+    let Some(h) = state.engine.try_namespace(app_id) else {
+        return;
+    };
 
     for (intent_id, phrase) in accepted {
         h.with_resolver_mut(|r| r.index_phrase(intent_id, phrase));
     }
     h.with_resolver_mut(|r| r.l2_mut().rebuild_idf());
-    eprintln!("[import/L2] seeded {} phrases into count model for '{}'", accepted.len(), app_id);
+    eprintln!(
+        "[import/L2] seeded {} phrases into count model for '{}'",
+        accepted.len(),
+        app_id
+    );
     if let Err(e) = h.flush() {
         eprintln!("[import/L2] flush error for {}: {}", app_id, e);
     }
@@ -224,13 +316,13 @@ pub struct ImportParamsQuery {
     #[serde(default = "default_tool_count")]
     num_tools: usize,
 }
-fn default_tool_count() -> usize { 10 }
+fn default_tool_count() -> usize {
+    10
+}
 
 /// GET /api/import/params?num_langs=N&num_tools=M
 /// Returns the generation plan so the UI can show the user exactly what will happen.
-pub async fn import_params(
-    Query(q): Query<ImportParamsQuery>,
-) -> Json<serde_json::Value> {
+pub async fn import_params(Query(q): Query<ImportParamsQuery>) -> Json<serde_json::Value> {
     let (batch_size, max_tokens, tokens_per_tool) = seed_gen_params(q.num_langs);
     let total_batches = (q.num_tools + batch_size - 1) / batch_size;
     // Expected output per batch: batch_size tools × tokens_per_tool (max_tokens=8192 is the ceiling)
@@ -263,7 +355,9 @@ pub struct McpSearchParams {
     limit: usize,
 }
 
-pub fn default_page_size() -> usize { 20 }
+pub fn default_page_size() -> usize {
+    20
+}
 
 /// Search MCP servers on Smithery registry.
 pub async fn mcp_search(
@@ -272,19 +366,30 @@ pub async fn mcp_search(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let url = format!(
         "https://api.smithery.ai/servers?q={}&pageSize={}",
-        urlencoding(&params.q), params.limit
+        urlencoding(&params.q),
+        params.limit
     );
 
-    let resp = state.http.get(&url)
-        .send().await
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Smithery fetch failed: {}", e)))?;
+    let resp = state.http.get(&url).send().await.map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            format!("Smithery fetch failed: {}", e),
+        )
+    })?;
 
     if !resp.status().is_success() {
-        return Err((StatusCode::BAD_GATEWAY, format!("Smithery returned {}", resp.status())));
+        return Err((
+            StatusCode::BAD_GATEWAY,
+            format!("Smithery returned {}", resp.status()),
+        ));
     }
 
-    let data: serde_json::Value = resp.json().await
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Smithery parse failed: {}", e)))?;
+    let data: serde_json::Value = resp.json().await.map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            format!("Smithery parse failed: {}", e),
+        )
+    })?;
 
     Ok(Json(data))
 }
@@ -299,30 +404,45 @@ pub async fn mcp_fetch(
     State(state): State<AppState>,
     Query(params): Query<McpFetchParams>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let url = format!("https://api.smithery.ai/servers/{}", urlencoding(&params.name));
+    let url = format!(
+        "https://api.smithery.ai/servers/{}",
+        urlencoding(&params.name)
+    );
 
-    let resp = state.http.get(&url)
-        .send().await
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Smithery fetch failed: {}", e)))?;
+    let resp = state.http.get(&url).send().await.map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            format!("Smithery fetch failed: {}", e),
+        )
+    })?;
 
     if !resp.status().is_success() {
-        return Err((StatusCode::BAD_GATEWAY, format!("Smithery returned {} for '{}'", resp.status(), params.name)));
+        return Err((
+            StatusCode::BAD_GATEWAY,
+            format!("Smithery returned {} for '{}'", resp.status(), params.name),
+        ));
     }
 
-    let data: serde_json::Value = resp.json().await
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Smithery parse failed: {}", e)))?;
+    let data: serde_json::Value = resp.json().await.map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            format!("Smithery parse failed: {}", e),
+        )
+    })?;
 
     Ok(Json(data))
 }
 
 fn urlencoding(s: &str) -> String {
-    s.chars().map(|c| match c {
-        ' ' => "%20".to_string(),
-        '/' => "%2F".to_string(),
-        '@' => "%40".to_string(),
-        _ if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' => c.to_string(),
-        _ => format!("%{:02X}", c as u8),
-    }).collect()
+    s.chars()
+        .map(|c| match c {
+            ' ' => "%20".to_string(),
+            '/' => "%2F".to_string(),
+            '@' => "%40".to_string(),
+            _ if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' => c.to_string(),
+            _ => format!("%{:02X}", c as u8),
+        })
+        .collect()
 }
 
 #[derive(serde::Deserialize)]
@@ -334,33 +454,40 @@ pub struct ImportParseRequest {
 pub async fn import_parse(
     Json(req): Json<ImportParseRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let parsed = microresolve::import::parse_spec(&req.spec)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let parsed =
+        microresolve::import::parse_spec(&req.spec).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    let operations: Vec<serde_json::Value> = parsed.operations.iter().map(|op| {
-        serde_json::json!({
-            "id": op.id,
-            "name": op.name,
-            "method": op.method,
-            "path": op.path,
-            "summary": op.summary,
-            "description": op.description,
-            "tags": op.tags,
-            "parameters": op.parameters.iter().map(|p| serde_json::json!({
-                "name": p.name,
-                "in": p.location,
-                "required": p.required,
-            })).collect::<Vec<_>>(),
-            "has_body": op.request_body.is_some(),
+    let operations: Vec<serde_json::Value> = parsed
+        .operations
+        .iter()
+        .map(|op| {
+            serde_json::json!({
+                "id": op.id,
+                "name": op.name,
+                "method": op.method,
+                "path": op.path,
+                "summary": op.summary,
+                "description": op.description,
+                "tags": op.tags,
+                "parameters": op.parameters.iter().map(|p| serde_json::json!({
+                    "name": p.name,
+                    "in": p.location,
+                    "required": p.required,
+                })).collect::<Vec<_>>(),
+                "has_body": op.request_body.is_some(),
+            })
         })
-    }).collect();
+        .collect();
 
     // Collect tags from operations if top-level tags are empty
     let tags = if parsed.tags.is_empty() {
-        let mut t: Vec<String> = parsed.operations.iter()
+        let mut t: Vec<String> = parsed
+            .operations
+            .iter()
             .flat_map(|op| op.tags.clone())
             .collect::<std::collections::HashSet<_>>()
-            .into_iter().collect();
+            .into_iter()
+            .collect();
         t.sort();
         t
     } else {
@@ -396,26 +523,31 @@ pub async fn import_apply(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
 
-    let parsed = microresolve::import::parse_spec(&req.spec)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let parsed =
+        microresolve::import::parse_spec(&req.spec).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     // Filter to selected operations only
-    let selected_set: std::collections::HashSet<&str> = req.selected.iter().map(|s| s.as_str()).collect();
-    let selected_ops: Vec<&microresolve::import::openapi::ParsedOperation> = parsed.operations.iter()
+    let selected_set: std::collections::HashSet<&str> =
+        req.selected.iter().map(|s| s.as_str()).collect();
+    let selected_ops: Vec<&microresolve::import::openapi::ParsedOperation> = parsed
+        .operations
+        .iter()
         .filter(|op| selected_set.contains(op.id.as_str()))
         .collect();
 
     if selected_ops.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "No operations selected".to_string()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "No operations selected".to_string(),
+        ));
     }
 
     // Create intents with description-based seeds first
     {
         let h = state.engine.namespace(&app_id);
         for op in &selected_ops {
-            let base_name = microresolve::import::to_snake_case(
-                op.operation_id.as_deref().unwrap_or(&op.id)
-            );
+            let base_name =
+                microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
             let intent_name = if req.domain.is_empty() {
                 base_name
             } else {
@@ -423,10 +555,14 @@ pub async fn import_apply(
             };
 
             let name_words = op.name.to_lowercase();
-            if name_words.is_empty() { continue; }
+            if name_words.is_empty() {
+                continue;
+            }
             let _ = h.add_intent(&intent_name, &[name_words.as_str()][..]);
 
-            let description = op.summary.as_deref()
+            let description = op
+                .summary
+                .as_deref()
                 .or(Some(op.name.as_str()))
                 .unwrap_or("");
             let intent_type = match op.method.as_str() {
@@ -448,16 +584,26 @@ pub async fn import_apply(
                 "has_body": op.request_body.is_some(),
             });
 
-            let _ = h.update_intent(&intent_name, microresolve::IntentEdit {
-                description: if description.is_empty() { None } else { Some(description.to_string()) },
-                intent_type: Some(intent_type),
-                source: Some(microresolve::IntentSource::new("openapi")
-                    .with_label(parsed.title.clone())),
-                schema: Some(schema),
-                target: Some(microresolve::IntentTarget::new("api_endpoint")
-                    .with_handler(endpoint.clone())),
-                ..Default::default()
-            });
+            let _ = h.update_intent(
+                &intent_name,
+                microresolve::IntentEdit {
+                    description: if description.is_empty() {
+                        None
+                    } else {
+                        Some(description.to_string())
+                    },
+                    intent_type: Some(intent_type),
+                    source: Some(
+                        microresolve::IntentSource::new("openapi").with_label(parsed.title.clone()),
+                    ),
+                    schema: Some(schema),
+                    target: Some(
+                        microresolve::IntentTarget::new("api_endpoint")
+                            .with_handler(endpoint.clone()),
+                    ),
+                    ..Default::default()
+                },
+            );
         }
         maybe_commit(&state, &app_id);
     }
@@ -476,22 +622,52 @@ pub async fn import_apply(
         let (batch_size, max_tokens, _) = seed_gen_params(setting_langs.len());
 
         for batch in selected_ops.chunks(batch_size) {
-            let ops_desc: Vec<String> = batch.iter().map(|op| {
-                let base = microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
-                let intent_name = if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) };
-                format!("- {} ({}): {} — {}",
-                    intent_name, op.method,
-                    op.summary.as_deref().unwrap_or(&op.name),
-                    if op.description.len() > 100 { &op.description[..100] } else { &op.description })
-            }).collect();
+            let ops_desc: Vec<String> = batch
+                .iter()
+                .map(|op| {
+                    let base = microresolve::import::to_snake_case(
+                        op.operation_id.as_deref().unwrap_or(&op.id),
+                    );
+                    let intent_name = if req.domain.is_empty() {
+                        base
+                    } else {
+                        format!("{}:{}", req.domain, base)
+                    };
+                    format!(
+                        "- {} ({}): {} — {}",
+                        intent_name,
+                        op.method,
+                        op.summary.as_deref().unwrap_or(&op.name),
+                        if op.description.len() > 100 {
+                            &op.description[..100]
+                        } else {
+                            &op.description
+                        }
+                    )
+                })
+                .collect();
 
-            let existing_seeds: String = state.engine.try_namespace(&app_id)
-                .map(|h| batch.iter().map(|op| {
-                    let base = microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
-                    let name = if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) };
-                    let seeds = h.with_resolver(|r| r.training(&name).unwrap_or_default());
-                    format!("  {}: {:?}", name, seeds.iter().take(3).collect::<Vec<_>>())
-                }).collect::<Vec<_>>().join("\n"))
+            let existing_seeds: String = state
+                .engine
+                .try_namespace(&app_id)
+                .map(|h| {
+                    batch
+                        .iter()
+                        .map(|op| {
+                            let base = microresolve::import::to_snake_case(
+                                op.operation_id.as_deref().unwrap_or(&op.id),
+                            );
+                            let name = if req.domain.is_empty() {
+                                base
+                            } else {
+                                format!("{}:{}", req.domain, base)
+                            };
+                            let seeds = h.with_resolver(|r| r.training(&name).unwrap_or_default());
+                            format!("  {}: {:?}", name, seeds.iter().take(3).collect::<Vec<_>>())
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                })
                 .unwrap_or_default();
 
             let langs: Vec<&str> = setting_langs.iter().map(|s| s.as_str()).collect();
@@ -500,13 +676,23 @@ pub async fn import_apply(
             // Build an example using the first real intent name from this batch
             let example_intent = {
                 let op = &batch[0];
-                let base = microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
-                if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) }
+                let base = microresolve::import::to_snake_case(
+                    op.operation_id.as_deref().unwrap_or(&op.id),
+                );
+                if req.domain.is_empty() {
+                    base
+                } else {
+                    format!("{}:{}", req.domain, base)
+                }
             };
 
             let (lang_instruction, response_format) = if is_multilang {
                 let lang_list = langs.join(", ");
-                let lang_keys: String = langs.iter().map(|l| format!("\"{}\": [\"phrase1\", \"phrase2\"]", l)).collect::<Vec<_>>().join(", ");
+                let lang_keys: String = langs
+                    .iter()
+                    .map(|l| format!("\"{}\": [\"phrase1\", \"phrase2\"]", l))
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 (
                     format!("Generate training phrases in ALL of these languages: {}. Include phrases for EACH language.\n\n", lang_list),
                     format!("Respond with ONLY valid JSON (no extra text):\n{{\"phrases_by_intent\": {{\"{}\": {{{}}}}}}}\n", example_intent, lang_keys),
@@ -530,23 +716,46 @@ pub async fn import_apply(
             );
 
             if let Ok(response) = call_llm(&state, &prompt, max_tokens).await {
-                if let Ok(seeds_json) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
-                    if let Some(sbi) = seeds_json.get("phrases_by_intent").or_else(|| seeds_json.get("seeds_by_intent")).and_then(|v| v.as_object()) {
+                if let Ok(seeds_json) =
+                    serde_json::from_str::<serde_json::Value>(extract_json(&response))
+                {
+                    if let Some(sbi) = seeds_json
+                        .get("phrases_by_intent")
+                        .or_else(|| seeds_json.get("seeds_by_intent"))
+                        .and_then(|v| v.as_object())
+                    {
                         if is_multilang {
                             // Grouped format: {"intent": {"en": [...], "zh": [...]}}
                             for lang in &langs {
-                                let lang_map: HashMap<String, Vec<String>> = sbi.iter()
+                                let lang_map: HashMap<String, Vec<String>> = sbi
+                                    .iter()
                                     .filter_map(|(intent, by_lang)| {
-                                        by_lang.get(lang)
-                                            .and_then(|v| v.as_array())
-                                            .map(|arr| (intent.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect()))
-                                    }).collect();
+                                        by_lang.get(lang).and_then(|v| v.as_array()).map(|arr| {
+                                            (
+                                                intent.clone(),
+                                                arr.iter()
+                                                    .filter_map(|s| s.as_str().map(String::from))
+                                                    .collect(),
+                                            )
+                                        })
+                                    })
+                                    .collect();
                                 if !lang_map.is_empty() {
-                                    let result = phrase_pipeline(&state, &app_id, &lang_map, true, lang).await;
-                                    for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
-                                    for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
+                                    let result =
+                                        phrase_pipeline(&state, &app_id, &lang_map, true, lang)
+                                            .await;
+                                    for (id, _) in &result.added {
+                                        *per_intent_added.entry(id.clone()).or_default() += 1;
+                                    }
+                                    for (id, _, _) in &result.blocked {
+                                        *per_intent_blocked.entry(id.clone()).or_default() += 1;
+                                    }
                                     if result.recovered_by_retry > 0 {
-                                        *per_intent_recovered.entry(lang_map.keys().next().cloned().unwrap_or_default()).or_default() += result.recovered_by_retry;
+                                        *per_intent_recovered
+                                            .entry(
+                                                lang_map.keys().next().cloned().unwrap_or_default(),
+                                            )
+                                            .or_default() += result.recovered_by_retry;
                                     }
                                     all_accepted.extend(result.added.iter().cloned());
                                     total_added += result.added.len();
@@ -555,15 +764,28 @@ pub async fn import_apply(
                             }
                         } else {
                             // Flat format: {"intent": [...]}
-                            let phrases_map: HashMap<String, Vec<String>> = sbi.iter()
+                            let phrases_map: HashMap<String, Vec<String>> = sbi
+                                .iter()
                                 .filter_map(|(k, v)| {
                                     v.as_array().map(|arr| {
-                                        (k.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+                                        (
+                                            k.clone(),
+                                            arr.iter()
+                                                .filter_map(|s| s.as_str().map(String::from))
+                                                .collect(),
+                                        )
                                     })
-                                }).collect();
-                            let result = phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0]).await;
-                            for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
-                            for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
+                                })
+                                .collect();
+                            let result =
+                                phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0])
+                                    .await;
+                            for (id, _) in &result.added {
+                                *per_intent_added.entry(id.clone()).or_default() += 1;
+                            }
+                            for (id, _, _) in &result.blocked {
+                                *per_intent_blocked.entry(id.clone()).or_default() += 1;
+                            }
                             all_accepted.extend(result.added.iter().cloned());
                             total_added += result.added.len();
                             total_blocked += result.blocked.len();
@@ -579,10 +801,18 @@ pub async fn import_apply(
     // Seed L1 lexical graph with synonym/morphology edges for new domain vocabulary
     seed_into_l1(&state, &app_id, &all_accepted).await;
 
-    let intent_names: Vec<String> = selected_ops.iter().map(|op| {
-        let base = microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
-        if req.domain.is_empty() { base } else { format!("{}:{}", req.domain, base) }
-    }).collect();
+    let intent_names: Vec<String> = selected_ops
+        .iter()
+        .map(|op| {
+            let base =
+                microresolve::import::to_snake_case(op.operation_id.as_deref().unwrap_or(&op.id));
+            if req.domain.is_empty() {
+                base
+            } else {
+                format!("{}:{}", req.domain, base)
+            }
+        })
+        .collect();
 
     let per_intent: Vec<serde_json::Value> = intent_names.iter().map(|name| {
         let added = per_intent_added.get(name).copied().unwrap_or(0);
@@ -591,7 +821,9 @@ pub async fn import_apply(
         serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
     }).collect();
 
-    let (l2_words, l1_edges) = state.engine.try_namespace(&app_id)
+    let (l2_words, l1_edges) = state
+        .engine
+        .try_namespace(&app_id)
         .map(|h| h.with_resolver(|r| (r.l2().word_intent.len(), r.l1().edges.len())))
         .unwrap_or((0, 0));
 
@@ -660,7 +892,9 @@ fn detect_source_type(tool: &serde_json::Value) -> &'static str {
 
 /// Extract and normalize the tools array from any supported input format.
 /// Returns (normalized_tools, source_types).
-fn extract_tools(parsed: &serde_json::Value) -> Result<Vec<serde_json::Value>, (StatusCode, String)> {
+fn extract_tools(
+    parsed: &serde_json::Value,
+) -> Result<Vec<serde_json::Value>, (StatusCode, String)> {
     let raw = if let Some(arr) = parsed.as_array() {
         arr.clone()
     } else if let Some(arr) = parsed.get("tools").and_then(|t| t.as_array()) {
@@ -673,7 +907,9 @@ fn extract_tools(parsed: &serde_json::Value) -> Result<Vec<serde_json::Value>, (
 }
 
 /// Extract tools retaining the original source type per tool.
-fn extract_tools_with_source(parsed: &serde_json::Value) -> Result<Vec<(serde_json::Value, &'static str)>, (StatusCode, String)> {
+fn extract_tools_with_source(
+    parsed: &serde_json::Value,
+) -> Result<Vec<(serde_json::Value, &'static str)>, (StatusCode, String)> {
     let raw = if let Some(arr) = parsed.as_array() {
         arr.clone()
     } else if let Some(arr) = parsed.get("tools").and_then(|t| t.as_array()) {
@@ -682,7 +918,10 @@ fn extract_tools_with_source(parsed: &serde_json::Value) -> Result<Vec<(serde_js
         return Err((StatusCode::BAD_REQUEST,
             "Expected array of tools or {\"tools\": [...]}. Supports MCP, OpenAI function calling, and LangChain tool formats.".to_string()));
     };
-    Ok(raw.iter().map(|t| (normalize_tool(t), detect_source_type(t))).collect())
+    Ok(raw
+        .iter()
+        .map(|t| (normalize_tool(t), detect_source_type(t)))
+        .collect())
 }
 
 /// Parse MCP / OpenAI / LangChain tools — return normalized list for selection.
@@ -694,38 +933,54 @@ pub async fn mcp_parse(
 
     let tools_array = extract_tools(&parsed)?;
 
-    let tools: Vec<serde_json::Value> = tools_array.iter().map(|tool| {
-        let name = tool.get("name").and_then(|v| v.as_str()).unwrap_or("unnamed");
-        let description = tool.get("description").and_then(|v| v.as_str()).unwrap_or("");
-        let has_input = tool.get("inputSchema").is_some();
+    let tools: Vec<serde_json::Value> = tools_array
+        .iter()
+        .map(|tool| {
+            let name = tool
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unnamed");
+            let description = tool
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let has_input = tool.get("inputSchema").is_some();
 
-        // Extract parameter names from inputSchema
-        let params: Vec<String> = tool.get("inputSchema")
-            .and_then(|s| s.get("properties"))
-            .and_then(|p| p.as_object())
-            .map(|props| props.keys().cloned().collect())
-            .unwrap_or_default();
+            // Extract parameter names from inputSchema
+            let params: Vec<String> = tool
+                .get("inputSchema")
+                .and_then(|s| s.get("properties"))
+                .and_then(|p| p.as_object())
+                .map(|props| props.keys().cloned().collect())
+                .unwrap_or_default();
 
-        let required: Vec<String> = tool.get("inputSchema")
-            .and_then(|s| s.get("required"))
-            .and_then(|r| r.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-            .unwrap_or_default();
+            let required: Vec<String> = tool
+                .get("inputSchema")
+                .and_then(|s| s.get("required"))
+                .and_then(|r| r.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
 
-        let read_only = tool.get("annotations")
-            .and_then(|a| a.get("readOnlyHint"))
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+            let read_only = tool
+                .get("annotations")
+                .and_then(|a| a.get("readOnlyHint"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
 
-        serde_json::json!({
-            "name": name,
-            "description": description,
-            "has_input": has_input,
-            "params": params,
-            "required_params": required,
-            "read_only": read_only,
+            serde_json::json!({
+                "name": name,
+                "description": description,
+                "has_input": has_input,
+                "params": params,
+                "required_params": required,
+                "read_only": read_only,
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(Json(serde_json::json!({
         "total_tools": tools.len(),
@@ -757,11 +1012,14 @@ pub async fn mcp_apply(
 
     let tools_with_source = extract_tools_with_source(&parsed)?;
 
-    let selected_set: std::collections::HashSet<&str> = req.selected.iter().map(|s| s.as_str()).collect();
+    let selected_set: std::collections::HashSet<&str> =
+        req.selected.iter().map(|s| s.as_str()).collect();
 
-    let selected_tools: Vec<(&serde_json::Value, &str)> = tools_with_source.iter()
+    let selected_tools: Vec<(&serde_json::Value, &str)> = tools_with_source
+        .iter()
         .filter(|(t, _)| {
-            t.get("name").and_then(|n| n.as_str())
+            t.get("name")
+                .and_then(|n| n.as_str())
                 .map(|n| selected_set.contains(n))
                 .unwrap_or(false)
         })
@@ -776,32 +1034,52 @@ pub async fn mcp_apply(
     {
         let h = state.engine.namespace(&app_id);
         for (tool, source_type) in &selected_tools {
-            let base_name = tool.get("name").and_then(|v| v.as_str()).unwrap_or("unnamed");
+            let base_name = tool
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unnamed");
             let name = if req.domain.is_empty() {
                 base_name.to_string()
             } else {
                 format!("{}:{}", req.domain, base_name)
             };
-            let description = tool.get("description").and_then(|v| v.as_str()).unwrap_or("");
+            let description = tool
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             let name_words = base_name.replace('_', " ");
             let _ = h.add_intent(&name, &[name_words.as_str()][..]);
 
-            let read_only = tool.get("annotations")
+            let read_only = tool
+                .get("annotations")
                 .and_then(|a| a.get("readOnlyHint"))
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
 
-            let _ = h.update_intent(&name, microresolve::IntentEdit {
-                description: if description.is_empty() { None } else { Some(description.to_string()) },
-                intent_type: Some(if read_only { IntentType::Context } else { IntentType::Action }),
-                source: Some(microresolve::IntentSource::new(*source_type)),
-                schema: Some((*tool).clone()),
-                target: Some(microresolve::IntentTarget::new(
-                    if *source_type == "mcp" { "mcp_server" } else { "handler" }
-                )),
-                ..Default::default()
-            });
+            let _ = h.update_intent(
+                &name,
+                microresolve::IntentEdit {
+                    description: if description.is_empty() {
+                        None
+                    } else {
+                        Some(description.to_string())
+                    },
+                    intent_type: Some(if read_only {
+                        IntentType::Context
+                    } else {
+                        IntentType::Action
+                    }),
+                    source: Some(microresolve::IntentSource::new(*source_type)),
+                    schema: Some((*tool).clone()),
+                    target: Some(microresolve::IntentTarget::new(if *source_type == "mcp" {
+                        "mcp_server"
+                    } else {
+                        "handler"
+                    })),
+                    ..Default::default()
+                },
+            );
         }
         maybe_commit(&state, &app_id);
     }
@@ -819,20 +1097,39 @@ pub async fn mcp_apply(
         let (batch_size, max_tokens, _) = seed_gen_params(setting_langs.len());
 
         for batch in selected_tools.chunks(batch_size) {
-            let tools_desc: Vec<String> = batch.iter().map(|(t, _)| {
-                let base = t.get("name").and_then(|v| v.as_str()).unwrap_or("?");
-                let name = if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) };
-                let desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("");
-                format!("- {} : {}", name, &desc[..desc.len().min(100)])
-            }).collect();
-
-            let existing_seeds: String = state.engine.try_namespace(&app_id)
-                .map(|h| batch.iter().map(|(t, _)| {
+            let tools_desc: Vec<String> = batch
+                .iter()
+                .map(|(t, _)| {
                     let base = t.get("name").and_then(|v| v.as_str()).unwrap_or("?");
-                    let name = if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) };
-                    let seeds = h.with_resolver(|r| r.training(&name).unwrap_or_default());
-                    format!("  {}: {:?}", name, seeds.iter().take(3).collect::<Vec<_>>())
-                }).collect::<Vec<_>>().join("\n"))
+                    let name = if req.domain.is_empty() {
+                        base.to_string()
+                    } else {
+                        format!("{}:{}", req.domain, base)
+                    };
+                    let desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                    format!("- {} : {}", name, &desc[..desc.len().min(100)])
+                })
+                .collect();
+
+            let existing_seeds: String = state
+                .engine
+                .try_namespace(&app_id)
+                .map(|h| {
+                    batch
+                        .iter()
+                        .map(|(t, _)| {
+                            let base = t.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                            let name = if req.domain.is_empty() {
+                                base.to_string()
+                            } else {
+                                format!("{}:{}", req.domain, base)
+                            };
+                            let seeds = h.with_resolver(|r| r.training(&name).unwrap_or_default());
+                            format!("  {}: {:?}", name, seeds.iter().take(3).collect::<Vec<_>>())
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                })
                 .unwrap_or_default();
 
             let langs: Vec<&str> = setting_langs.iter().map(|s| s.as_str()).collect();
@@ -840,13 +1137,25 @@ pub async fn mcp_apply(
 
             // Build example using the first real tool name from this batch
             let example_intent = {
-                let base = batch[0].0.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
-                if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) }
+                let base = batch[0]
+                    .0
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("tool");
+                if req.domain.is_empty() {
+                    base.to_string()
+                } else {
+                    format!("{}:{}", req.domain, base)
+                }
             };
 
             let (lang_instruction, response_format) = if is_multilang {
                 let lang_list = langs.join(", ");
-                let lang_keys: String = langs.iter().map(|l| format!("\"{}\": [\"phrase1\", \"phrase2\"]", l)).collect::<Vec<_>>().join(", ");
+                let lang_keys: String = langs
+                    .iter()
+                    .map(|l| format!("\"{}\": [\"phrase1\", \"phrase2\"]", l))
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 (
                     format!("Generate training phrases in ALL of these languages: {}. Include phrases for EACH language.\n\n", lang_list),
                     format!("Respond with ONLY valid JSON (no extra text):\n{{\"phrases_by_intent\": {{\"{}\": {{{}}}}}}}\n", example_intent, lang_keys),
@@ -870,23 +1179,46 @@ pub async fn mcp_apply(
             );
 
             if let Ok(response) = call_llm(&state, &prompt, max_tokens).await {
-                if let Ok(seeds_json) = serde_json::from_str::<serde_json::Value>(extract_json(&response)) {
-                    if let Some(sbi) = seeds_json.get("phrases_by_intent").or_else(|| seeds_json.get("seeds_by_intent")).and_then(|v| v.as_object()) {
+                if let Ok(seeds_json) =
+                    serde_json::from_str::<serde_json::Value>(extract_json(&response))
+                {
+                    if let Some(sbi) = seeds_json
+                        .get("phrases_by_intent")
+                        .or_else(|| seeds_json.get("seeds_by_intent"))
+                        .and_then(|v| v.as_object())
+                    {
                         if is_multilang {
                             // Grouped format: {"tool": {"en": [...], "zh": [...]}}
                             for lang in &langs {
-                                let lang_map: HashMap<String, Vec<String>> = sbi.iter()
+                                let lang_map: HashMap<String, Vec<String>> = sbi
+                                    .iter()
                                     .filter_map(|(intent, by_lang)| {
-                                        by_lang.get(lang)
-                                            .and_then(|v| v.as_array())
-                                            .map(|arr| (intent.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect()))
-                                    }).collect();
+                                        by_lang.get(lang).and_then(|v| v.as_array()).map(|arr| {
+                                            (
+                                                intent.clone(),
+                                                arr.iter()
+                                                    .filter_map(|s| s.as_str().map(String::from))
+                                                    .collect(),
+                                            )
+                                        })
+                                    })
+                                    .collect();
                                 if !lang_map.is_empty() {
-                                    let result = phrase_pipeline(&state, &app_id, &lang_map, true, lang).await;
-                                    for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
-                                    for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
+                                    let result =
+                                        phrase_pipeline(&state, &app_id, &lang_map, true, lang)
+                                            .await;
+                                    for (id, _) in &result.added {
+                                        *per_intent_added.entry(id.clone()).or_default() += 1;
+                                    }
+                                    for (id, _, _) in &result.blocked {
+                                        *per_intent_blocked.entry(id.clone()).or_default() += 1;
+                                    }
                                     if result.recovered_by_retry > 0 {
-                                        *per_intent_recovered.entry(lang_map.keys().next().cloned().unwrap_or_default()).or_default() += result.recovered_by_retry;
+                                        *per_intent_recovered
+                                            .entry(
+                                                lang_map.keys().next().cloned().unwrap_or_default(),
+                                            )
+                                            .or_default() += result.recovered_by_retry;
                                     }
                                     all_accepted.extend(result.added.iter().cloned());
                                     total_added += result.added.len();
@@ -895,15 +1227,28 @@ pub async fn mcp_apply(
                             }
                         } else {
                             // Flat format: {"tool": [...]}
-                            let phrases_map: HashMap<String, Vec<String>> = sbi.iter()
+                            let phrases_map: HashMap<String, Vec<String>> = sbi
+                                .iter()
                                 .filter_map(|(k, v)| {
                                     v.as_array().map(|arr| {
-                                        (k.clone(), arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+                                        (
+                                            k.clone(),
+                                            arr.iter()
+                                                .filter_map(|s| s.as_str().map(String::from))
+                                                .collect(),
+                                        )
                                     })
-                                }).collect();
-                            let result = phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0]).await;
-                            for (id, _) in &result.added { *per_intent_added.entry(id.clone()).or_default() += 1; }
-                            for (id, _, _) in &result.blocked { *per_intent_blocked.entry(id.clone()).or_default() += 1; }
+                                })
+                                .collect();
+                            let result =
+                                phrase_pipeline(&state, &app_id, &phrases_map, true, langs[0])
+                                    .await;
+                            for (id, _) in &result.added {
+                                *per_intent_added.entry(id.clone()).or_default() += 1;
+                            }
+                            for (id, _, _) in &result.blocked {
+                                *per_intent_blocked.entry(id.clone()).or_default() += 1;
+                            }
                             all_accepted.extend(result.added.iter().cloned());
                             total_added += result.added.len();
                             total_blocked += result.blocked.len();
@@ -919,10 +1264,17 @@ pub async fn mcp_apply(
     // Seed L1 lexical graph with synonym/morphology edges for new domain vocabulary
     seed_into_l1(&state, &app_id, &all_accepted).await;
 
-    let tool_names: Vec<String> = selected_tools.iter()
-        .filter_map(|(t, _)| t.get("name").and_then(|v| v.as_str()).map(|base| {
-            if req.domain.is_empty() { base.to_string() } else { format!("{}:{}", req.domain, base) }
-        }))
+    let tool_names: Vec<String> = selected_tools
+        .iter()
+        .filter_map(|(t, _)| {
+            t.get("name").and_then(|v| v.as_str()).map(|base| {
+                if req.domain.is_empty() {
+                    base.to_string()
+                } else {
+                    format!("{}:{}", req.domain, base)
+                }
+            })
+        })
         .collect();
 
     let per_intent: Vec<serde_json::Value> = tool_names.iter().map(|name| {
@@ -932,7 +1284,9 @@ pub async fn mcp_apply(
         serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
     }).collect();
 
-    let (l2_words, l1_edges) = state.engine.try_namespace(&app_id)
+    let (l2_words, l1_edges) = state
+        .engine
+        .try_namespace(&app_id)
         .map(|h| h.with_resolver(|r| (r.l2().word_intent.len(), r.l1().edges.len())))
         .unwrap_or((0, 0));
 
@@ -946,4 +1300,3 @@ pub async fn mcp_apply(
         "per_intent": per_intent,
     })))
 }
-

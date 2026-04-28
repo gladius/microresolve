@@ -41,8 +41,7 @@ pub fn import_spec(router: &mut Resolver, spec: &ParsedSpec) -> ImportResult {
     let mut skipped = Vec::new();
 
     for op in &spec.operations {
-        let intent_id = op.operation_id.as_deref()
-            .unwrap_or(&op.id);
+        let intent_id = op.operation_id.as_deref().unwrap_or(&op.id);
         let intent_name = to_snake_case(intent_id);
 
         // Only use operation name as minimal phrase — descriptions are metadata, not phrases
@@ -63,11 +62,18 @@ pub fn import_spec(router: &mut Resolver, spec: &ParsedSpec) -> ImportResult {
 
         // Store description for LLM context (not as seed)
         let desc = op.summary.as_deref().or(Some(&op.name)).unwrap_or("");
-        let _ = router.update_intent(&intent_name, crate::IntentEdit {
-            intent_type: Some(intent_type),
-            description: if desc.is_empty() { None } else { Some(desc.to_string()) },
-            ..Default::default()
-        });
+        let _ = router.update_intent(
+            &intent_name,
+            crate::IntentEdit {
+                intent_type: Some(intent_type),
+                description: if desc.is_empty() {
+                    None
+                } else {
+                    Some(desc.to_string())
+                },
+                ..Default::default()
+            },
+        );
 
         let endpoint = format!("{} {}", op.method, op.path);
 
@@ -91,15 +97,19 @@ pub fn import_spec(router: &mut Resolver, spec: &ParsedSpec) -> ImportResult {
 pub fn parse_spec(input: &str) -> Result<ParsedSpec, String> {
     // Try Postman first (has "info.schema" with postman URL)
     if let Ok(collection) = serde_json::from_str::<postman::PostmanCollection>(input) {
-        if collection.info.schema.as_ref().map_or(false, |s| s.contains("postman")) {
+        if collection
+            .info
+            .schema
+            .as_ref()
+            .is_some_and(|s| s.contains("postman"))
+        {
             return postman::convert_postman(&collection)
                 .map_err(|e| format!("Postman parse error: {}", e));
         }
     }
 
     // Try OpenAPI
-    openapi::parse_openapi(input)
-        .map_err(|e| format!("OpenAPI parse error: {}", e))
+    openapi::parse_openapi(input).map_err(|e| format!("OpenAPI parse error: {}", e))
 }
 
 /// Convert a string to snake_case intent name.
@@ -125,7 +135,10 @@ mod tests {
     #[test]
     fn test_to_snake_case() {
         assert_eq!(to_snake_case("getOrder"), "get_order");
-        assert_eq!(to_snake_case("createPaymentIntent"), "create_payment_intent");
+        assert_eq!(
+            to_snake_case("createPaymentIntent"),
+            "create_payment_intent"
+        );
         assert_eq!(to_snake_case("list-users"), "list_users");
         assert_eq!(to_snake_case("cancelOrder"), "cancel_order");
     }
@@ -186,9 +199,18 @@ paths:
         assert_eq!(result.skipped.len(), 0);
 
         // Check intent types
-        assert_eq!(router.intent("list_orders").map(|i| i.intent_type), Some(IntentType::Context));
-        assert_eq!(router.intent("create_order").map(|i| i.intent_type), Some(IntentType::Action));
-        assert_eq!(router.intent("cancel_order").map(|i| i.intent_type), Some(IntentType::Action));
+        assert_eq!(
+            router.intent("list_orders").map(|i| i.intent_type),
+            Some(IntentType::Context)
+        );
+        assert_eq!(
+            router.intent("create_order").map(|i| i.intent_type),
+            Some(IntentType::Action)
+        );
+        assert_eq!(
+            router.intent("cancel_order").map(|i| i.intent_type),
+            Some(IntentType::Action)
+        );
 
         // Check phrases were stored
         let cancel_phrases = router.training("cancel_order").unwrap_or_default();

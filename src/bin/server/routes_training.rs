@@ -7,20 +7,23 @@
 //! - `/api/training/review` — review a failure: delegates to `full_review` (Turn 1 skipped via GT set math)
 //! - `/api/training/apply` — apply a `FullReviewResult`: delegates to `apply_review` (full L0–L3 pipeline)
 
+use crate::pipeline::*;
+use crate::state::*;
 use axum::{
-    extract::{State},
-    http::{StatusCode, HeaderMap},
+    extract::State,
+    http::{HeaderMap, StatusCode},
     routing::{get, post},
     Json,
 };
-use crate::state::*;
-use crate::pipeline::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/simulate/turn", post(simulate_turn))
         .route("/api/simulate/respond", post(simulate_respond))
-        .route("/api/simulate/history", get(sim_history_get).post(sim_history_save))
+        .route(
+            "/api/simulate/history",
+            get(sim_history_get).post(sim_history_save),
+        )
         .route("/api/training/generate", post(training_generate))
         .route("/api/training/run", post(training_run))
         .route("/api/training/review", post(training_review))
@@ -29,14 +32,14 @@ pub fn routes() -> axum::Router<AppState> {
 
 #[derive(serde::Deserialize)]
 pub struct SimulateTurnRequest {
-    personality: String,     // e.g. "frustrated", "polite", "terse"
-    sophistication: String,  // e.g. "low", "medium", "high"
-    verbosity: String,       // e.g. "short", "medium", "long"
+    personality: String,             // e.g. "frustrated", "polite", "terse"
+    sophistication: String,          // e.g. "low", "medium", "high"
+    verbosity: String,               // e.g. "short", "medium", "long"
     history: Vec<serde_json::Value>, // previous turns [{role, message}]
-    intents: Vec<String>,    // available intent IDs
-    mode: String,            // "normal" or "adversarial"
+    intents: Vec<String>,            // available intent IDs
+    mode: String,                    // "normal" or "adversarial"
     #[serde(default)]
-    language: String,        // e.g. "English", "Spanish", "Chinese", "French", "German" — defaults to "English"
+    language: String, // e.g. "English", "Spanish", "Chinese", "French", "German" — defaults to "English"
 }
 
 pub async fn simulate_turn(
@@ -46,14 +49,19 @@ pub async fn simulate_turn(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
     let intent_defs = {
-        let h = state.engine.try_namespace(&app_id)
+        let h = state
+            .engine
+            .try_namespace(&app_id)
             .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
         let mut defs = Vec::new();
-        let filter: std::collections::HashSet<&str> = req.intents.iter().map(|s| s.as_str()).collect();
+        let filter: std::collections::HashSet<&str> =
+            req.intents.iter().map(|s| s.as_str()).collect();
         let mut ids = h.intent_ids();
         ids.sort();
         for id in &ids {
-            if !filter.is_empty() && !filter.contains(id.as_str()) { continue; }
+            if !filter.is_empty() && !filter.contains(id.as_str()) {
+                continue;
+            }
             let seeds = h.with_resolver(|r| r.training(id).unwrap_or_default());
             defs.push(format!(
                 "- {}: {}",
@@ -67,9 +75,17 @@ pub async fn simulate_turn(
     let history_text = if req.history.is_empty() {
         "This is the first message in the conversation.".to_string()
     } else {
-        let turns: Vec<String> = req.history.iter().map(|t| {
-            format!("{}: {}", t["role"].as_str().unwrap_or("?"), t["message"].as_str().unwrap_or(""))
-        }).collect();
+        let turns: Vec<String> = req
+            .history
+            .iter()
+            .map(|t| {
+                format!(
+                    "{}: {}",
+                    t["role"].as_str().unwrap_or("?"),
+                    t["message"].as_str().unwrap_or("")
+                )
+            })
+            .collect();
         turns.join("\n")
     };
 
@@ -86,9 +102,13 @@ ADVERSARIAL MODE: Deliberately try to break the classification engine:
         ""
     };
 
-    let language = if req.language.is_empty() { "English".to_string() } else { req.language.clone() };
+    let language = if req.language.is_empty() {
+        "English".to_string()
+    } else {
+        req.language.clone()
+    };
     let prompt = format!(
-r#"You are simulating a customer interacting with a support system. Generate the next customer message.
+        r#"You are simulating a customer interacting with a support system. Generate the next customer message.
 
 ## Your persona:
 - Personality: {personality}
@@ -139,12 +159,22 @@ Rules:
 
     let text = call_llm(&state, &prompt, 512).await?;
 
-    let json_str = text.find('{')
+    let json_str = text
+        .find('{')
         .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))
-        .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No JSON in LLM response".to_string()))?;
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_GATEWAY,
+                "No JSON in LLM response".to_string(),
+            )
+        })?;
 
-    let val: serde_json::Value = serde_json::from_str(json_str)
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Invalid JSON from LLM: {}", e)))?;
+    let val: serde_json::Value = serde_json::from_str(json_str).map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            format!("Invalid JSON from LLM: {}", e),
+        )
+    })?;
 
     Ok(Json(val))
 }
@@ -163,15 +193,23 @@ pub async fn simulate_respond(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
     let intent_defs = {
-        let h = state.engine.try_namespace(&app_id)
+        let h = state
+            .engine
+            .try_namespace(&app_id)
             .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
         let mut defs = Vec::new();
         for intent in &req.routed_intents {
             let id = intent["id"].as_str().unwrap_or("");
-            let intent_type = h.intent(id).map(|i| i.intent_type)
+            let intent_type = h
+                .intent(id)
+                .map(|i| i.intent_type)
                 .unwrap_or(microresolve::IntentType::Action);
-            defs.push(format!("- {} ({:?}, score: {})", id, intent_type,
-                intent["score"].as_f64().unwrap_or(0.0)));
+            defs.push(format!(
+                "- {} ({:?}, score: {})",
+                id,
+                intent_type,
+                intent["score"].as_f64().unwrap_or(0.0)
+            ));
         }
         defs.join("\n")
     };
@@ -179,14 +217,22 @@ pub async fn simulate_respond(
     let history_text = if req.history.is_empty() {
         String::new()
     } else {
-        let turns: Vec<String> = req.history.iter().map(|t| {
-            format!("{}: {}", t["role"].as_str().unwrap_or("?"), t["message"].as_str().unwrap_or(""))
-        }).collect();
+        let turns: Vec<String> = req
+            .history
+            .iter()
+            .map(|t| {
+                format!(
+                    "{}: {}",
+                    t["role"].as_str().unwrap_or("?"),
+                    t["message"].as_str().unwrap_or("")
+                )
+            })
+            .collect();
         format!("\n## Previous conversation:\n{}", turns.join("\n"))
     };
 
     let prompt = format!(
-r#"You are a helpful customer support agent. Respond to the customer's message based on the routing results.
+        r#"You are a helpful customer support agent. Respond to the customer's message based on the routing results.
 
 ## Customer message:
 "{query}"
@@ -212,12 +258,22 @@ Return ONLY a JSON object:
 
     let text = call_llm(&state, &prompt, 512).await?;
 
-    let json_str = text.find('{')
+    let json_str = text
+        .find('{')
         .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))
-        .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No JSON in respond response".to_string()))?;
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_GATEWAY,
+                "No JSON in respond response".to_string(),
+            )
+        })?;
 
-    let respond_val: serde_json::Value = serde_json::from_str(json_str)
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Invalid JSON from respond: {}", e)))?;
+    let respond_val: serde_json::Value = serde_json::from_str(json_str).map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            format!("Invalid JSON from respond: {}", e),
+        )
+    })?;
 
     Ok(Json(respond_val))
 }
@@ -234,7 +290,7 @@ pub struct TrainingGenerateRequest {
     turns: usize,
     scenario: Option<String>,
     #[serde(default)]
-    language: String,  // e.g. "English", "Spanish", "Chinese" — defaults to "English"
+    language: String, // e.g. "English", "Spanish", "Chinese" — defaults to "English"
 }
 
 pub async fn training_generate(
@@ -244,18 +300,23 @@ pub async fn training_generate(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
     let intent_defs = {
-        let h = state.engine.try_namespace(&app_id)
+        let h = state
+            .engine
+            .try_namespace(&app_id)
             .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
         let mut defs = Vec::new();
         let mut ids = h.intent_ids();
         ids.sort();
         for id in &ids {
             let seeds = h.with_resolver(|r| r.training(id).unwrap_or_default());
-            let intent_type = h.intent(id).map(|i| i.intent_type)
+            let intent_type = h
+                .intent(id)
+                .map(|i| i.intent_type)
                 .unwrap_or(microresolve::IntentType::Action);
             defs.push(format!(
                 "- {} ({:?}): {}",
-                id, intent_type,
+                id,
+                intent_type,
                 seeds.iter().take(3).cloned().collect::<Vec<_>>().join(", ")
             ));
         }
@@ -268,9 +329,13 @@ pub async fn training_generate(
         "\nGenerate a random customer support conversation. Pick different intents across turns to test variety.\n".to_string()
     };
 
-    let language = if req.language.is_empty() { "English".to_string() } else { req.language.clone() };
+    let language = if req.language.is_empty() {
+        "English".to_string()
+    } else {
+        req.language.clone()
+    };
     let prompt = format!(
-r#"You are generating a simulated customer support conversation for testing an intent classification engine.
+        r#"You are generating a simulated customer support conversation for testing an intent classification engine.
 
 ## Customer persona:
 - Personality: {personality}
@@ -315,12 +380,22 @@ Rules:
 
     let text = call_llm(&state, &prompt, 8192).await?;
 
-    let json_str = text.find('{')
+    let json_str = text
+        .find('{')
         .and_then(|start| text.rfind('}').map(|end| &text[start..=end]))
-        .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No JSON in generate response".to_string()))?;
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_GATEWAY,
+                "No JSON in generate response".to_string(),
+            )
+        })?;
 
-    let gen_val: serde_json::Value = serde_json::from_str(json_str)
-        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Invalid JSON from generate: {}", e)))?;
+    let gen_val: serde_json::Value = serde_json::from_str(json_str).map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            format!("Invalid JSON from generate: {}", e),
+        )
+    })?;
 
     Ok(Json(gen_val))
 }
@@ -346,30 +421,56 @@ pub async fn training_run(
 
     for turn in &req.turns {
         // Route via L0→L1→L2+L3 — same pipeline as production /api/route_multi.
-        let scored = state.engine.try_namespace(&app_id)
+        let scored = state
+            .engine
+            .try_namespace(&app_id)
             .map(|h| h.with_resolver(|r| r.resolve(&turn.message)))
             .unwrap_or_default();
         let max_score = scored.iter().map(|m| m.score).fold(0f32, f32::max);
-        let confirmed: Vec<String> = scored.iter()
+        let confirmed: Vec<String> = scored
+            .iter()
             .filter(|m| m.score >= max_score * 0.5)
             .map(|m| m.id.clone())
             .collect();
-        let candidates: Vec<String> = scored.iter()
+        let candidates: Vec<String> = scored
+            .iter()
             .filter(|m| m.score < max_score * 0.5)
             .map(|m| m.id.clone())
             .collect();
 
-        let ground_set: std::collections::HashSet<&str> = turn.ground_truth.iter().map(|s| s.as_str()).collect();
-        let confirmed_set: std::collections::HashSet<&str> = confirmed.iter().map(|s| s.as_str()).collect();
-        let candidate_set: std::collections::HashSet<&str> = candidates.iter().map(|s| s.as_str()).collect();
+        let ground_set: std::collections::HashSet<&str> =
+            turn.ground_truth.iter().map(|s| s.as_str()).collect();
+        let confirmed_set: std::collections::HashSet<&str> =
+            confirmed.iter().map(|s| s.as_str()).collect();
+        let candidate_set: std::collections::HashSet<&str> =
+            candidates.iter().map(|s| s.as_str()).collect();
 
         // Pass/fail: confirmed matches ground truth
-        let matched: Vec<&str> = turn.ground_truth.iter().map(|s| s.as_str()).filter(|s| confirmed_set.contains(s)).collect();
+        let matched: Vec<&str> = turn
+            .ground_truth
+            .iter()
+            .map(|s| s.as_str())
+            .filter(|s| confirmed_set.contains(s))
+            .collect();
         // Candidates that match GT — auto-promotable, not true misses
-        let promotable: Vec<&str> = turn.ground_truth.iter().map(|s| s.as_str()).filter(|s| !confirmed_set.contains(s) && candidate_set.contains(s)).collect();
+        let promotable: Vec<&str> = turn
+            .ground_truth
+            .iter()
+            .map(|s| s.as_str())
+            .filter(|s| !confirmed_set.contains(s) && candidate_set.contains(s))
+            .collect();
         // True misses — not in confirmed OR candidates
-        let missed: Vec<&str> = turn.ground_truth.iter().map(|s| s.as_str()).filter(|s| !confirmed_set.contains(s) && !candidate_set.contains(s)).collect();
-        let extra: Vec<&str> = confirmed.iter().map(|s| s.as_str()).filter(|s| !ground_set.contains(s)).collect();
+        let missed: Vec<&str> = turn
+            .ground_truth
+            .iter()
+            .map(|s| s.as_str())
+            .filter(|s| !confirmed_set.contains(s) && !candidate_set.contains(s))
+            .collect();
+        let extra: Vec<&str> = confirmed
+            .iter()
+            .map(|s| s.as_str())
+            .filter(|s| !ground_set.contains(s))
+            .collect();
 
         // Pass = all GT in confirmed, no extras. Promotable candidates don't count as misses.
         let status = if missed.is_empty() && promotable.is_empty() && extra.is_empty() {
@@ -404,7 +505,10 @@ pub async fn training_run(
     }
 
     let pass_count = results.iter().filter(|r| r["status"] == "pass").count();
-    let promotable_count = results.iter().filter(|r| r["status"] == "promotable").count();
+    let promotable_count = results
+        .iter()
+        .filter(|r| r["status"] == "promotable")
+        .count();
     let detected_count = pass_count + promotable_count; // router found the right intents
     let total = results.len();
     Ok(Json(serde_json::json!({
@@ -438,9 +542,15 @@ pub async fn training_review(
     Json(req): Json<TrainingReviewRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let result = full_review(&state, &app_id, &req.message, &req.detected, Some(&req.ground_truth))
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    let result = full_review(
+        &state,
+        &app_id,
+        &req.message,
+        &req.detected,
+        Some(&req.ground_truth),
+    )
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(serde_json::to_value(&result).unwrap()))
 }
 
@@ -495,18 +605,26 @@ pub async fn sim_history_save(
 
 fn sim_history_path(state: &crate::state::AppState, app_id: &str) -> Option<std::path::PathBuf> {
     state.data_dir.as_ref().map(|d| {
-        std::path::PathBuf::from(d).join(app_id).join("simulations.json")
+        std::path::PathBuf::from(d)
+            .join(app_id)
+            .join("simulations.json")
     })
 }
 
 fn load_sim_history(state: &crate::state::AppState, app_id: &str) -> Vec<serde_json::Value> {
-    let Some(path) = sim_history_path(state, app_id) else { return vec![] };
-    let Ok(json) = std::fs::read_to_string(&path) else { return vec![] };
+    let Some(path) = sim_history_path(state, app_id) else {
+        return vec![];
+    };
+    let Ok(json) = std::fs::read_to_string(&path) else {
+        return vec![];
+    };
     serde_json::from_str::<Vec<serde_json::Value>>(&json).unwrap_or_default()
 }
 
 fn save_sim_history(state: &crate::state::AppState, app_id: &str, runs: &[serde_json::Value]) {
-    let Some(path) = sim_history_path(state, app_id) else { return };
+    let Some(path) = sim_history_path(state, app_id) else {
+        return;
+    };
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }

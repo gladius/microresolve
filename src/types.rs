@@ -117,7 +117,10 @@ pub struct ResolveOptions {
 
 impl Default for ResolveOptions {
     fn default() -> Self {
-        Self { threshold: 0.3, gap: 1.5 }
+        Self {
+            threshold: 0.3,
+            gap: 1.5,
+        }
     }
 }
 
@@ -188,13 +191,19 @@ pub struct IntentSource {
 
 impl IntentSource {
     pub fn new(source_type: impl Into<String>) -> Self {
-        Self { source_type: source_type.into(), label: None, url: None }
+        Self {
+            source_type: source_type.into(),
+            label: None,
+            url: None,
+        }
     }
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
-        self.label = Some(label.into()); self
+        self.label = Some(label.into());
+        self
     }
     pub fn with_url(mut self, url: impl Into<String>) -> Self {
-        self.url = Some(url.into()); self
+        self.url = Some(url.into());
+        self
     }
 }
 
@@ -217,16 +226,24 @@ pub struct IntentTarget {
 
 impl IntentTarget {
     pub fn new(target_type: impl Into<String>) -> Self {
-        Self { target_type: target_type.into(), url: None, model: None, handler: None }
+        Self {
+            target_type: target_type.into(),
+            url: None,
+            model: None,
+            handler: None,
+        }
     }
     pub fn with_url(mut self, url: impl Into<String>) -> Self {
-        self.url = Some(url.into()); self
+        self.url = Some(url.into());
+        self
     }
     pub fn with_model(mut self, model: impl Into<String>) -> Self {
-        self.model = Some(model.into()); self
+        self.model = Some(model.into());
+        self
     }
     pub fn with_handler(mut self, handler: impl Into<String>) -> Self {
-        self.handler = Some(handler.into()); self
+        self.handler = Some(handler.into());
+        self
     }
 }
 
@@ -285,7 +302,9 @@ impl<const N: usize> From<&[&str; N]> for IntentSeeds {
     }
 }
 impl From<Vec<String>> for IntentSeeds {
-    fn from(s: Vec<String>) -> Self { IntentSeeds::Mono(s) }
+    fn from(s: Vec<String>) -> Self {
+        IntentSeeds::Mono(s)
+    }
 }
 impl From<Vec<&str>> for IntentSeeds {
     fn from(s: Vec<&str>) -> Self {

@@ -22,10 +22,14 @@
 // target) reaches into them directly, but `#[doc(hidden)]` keeps them out
 // of rustdoc + IDE autocomplete. Library users go through `Engine` +
 // `NamespaceHandle`; these modules are not part of the semver surface.
-#[doc(hidden)] pub mod scoring;
-#[doc(hidden)] pub mod ngram;
-#[doc(hidden)] pub mod phrase;
-#[doc(hidden)] pub mod tokenizer;
+#[doc(hidden)]
+pub mod ngram;
+#[doc(hidden)]
+pub mod phrase;
+#[doc(hidden)]
+pub mod scoring;
+#[doc(hidden)]
+pub mod tokenizer;
 
 pub mod import;
 pub mod types;

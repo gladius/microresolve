@@ -5,14 +5,14 @@
 //!   Domain:    logical intent group derived from "domain:intent_id" prefix
 //!   Intent:    leaf routing target
 
+use crate::data_git;
+use crate::state::*;
 use axum::{
     extract::{Path, Query, State},
-    http::{StatusCode, HeaderMap},
-    routing::{get, post, delete, patch},
+    http::{HeaderMap, StatusCode},
+    routing::{delete, get, patch, post},
     Json,
 };
-use crate::state::*;
-use crate::data_git;
 use std::path::PathBuf;
 
 pub fn routes() -> axum::Router<AppState> {
@@ -46,10 +46,15 @@ pub async fn namespace_history(
     Path(id): Path<String>,
     Query(params): Query<HistoryParams>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let dir = state.data_dir.as_ref()
-        .ok_or((StatusCode::SERVICE_UNAVAILABLE, "server has no data_dir; history unavailable".into()))?;
+    let dir = state.data_dir.as_ref().ok_or((
+        StatusCode::SERVICE_UNAVAILABLE,
+        "server has no data_dir; history unavailable".into(),
+    ))?;
     if !state.engine.has_namespace(&id) {
-        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", id)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("namespace '{}' not found", id),
+        ));
     }
     let limit = params.limit.unwrap_or(20).min(200);
     let commits = data_git::log(&PathBuf::from(dir), &id, limit);
@@ -73,14 +78,18 @@ pub async fn namespace_rollback(
     Path(id): Path<String>,
     Json(req): Json<RollbackRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let dir = state.data_dir.as_ref()
-        .ok_or((StatusCode::SERVICE_UNAVAILABLE, "server has no data_dir; rollback unavailable".into()))?;
+    let dir = state.data_dir.as_ref().ok_or((
+        StatusCode::SERVICE_UNAVAILABLE,
+        "server has no data_dir; rollback unavailable".into(),
+    ))?;
     if !state.engine.has_namespace(&id) {
-        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", id)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("namespace '{}' not found", id),
+        ));
     }
     let dir_path = PathBuf::from(dir);
-    data_git::rollback(&dir_path, &req.sha)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    data_git::rollback(&dir_path, &req.sha).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     // Reload every loaded namespace from the rolled-back disk state.
     // Also pick up any namespace dirs that may have come back via the reset.
@@ -101,9 +110,9 @@ pub async fn namespace_rollback(
     let mut dropped = Vec::new();
     for ns_id in all_ids {
         match state.engine.reload_namespace(&ns_id) {
-            Ok(true)  => reloaded.push(ns_id),
+            Ok(true) => reloaded.push(ns_id),
             Ok(false) => dropped.push(ns_id),
-            Err(e)    => eprintln!("[rollback] reload {} failed: {}", ns_id, e),
+            Err(e) => eprintln!("[rollback] reload {} failed: {}", ns_id, e),
         }
     }
     Ok(Json(serde_json::json!({
@@ -126,10 +135,15 @@ pub async fn namespace_diff(
     Path(id): Path<String>,
     Query(params): Query<DiffParams>,
 ) -> Result<Json<data_git::NamespaceDiff>, (StatusCode, String)> {
-    let dir = state.data_dir.as_ref()
-        .ok_or((StatusCode::SERVICE_UNAVAILABLE, "server has no data_dir".into()))?;
+    let dir = state.data_dir.as_ref().ok_or((
+        StatusCode::SERVICE_UNAVAILABLE,
+        "server has no data_dir".into(),
+    ))?;
     if !state.engine.has_namespace(&id) {
-        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", id)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("namespace '{}' not found", id),
+        ));
     }
     // Reject non-hex shas.
     for sha in [&params.from, &params.to] {
@@ -153,21 +167,33 @@ pub struct TrainNegativeRequest {
     alpha: f32,
 }
 
-fn default_alpha() -> f32 { 0.1 }
+fn default_alpha() -> f32 {
+    0.1
+}
 
 pub async fn train_negative(
     State(state): State<AppState>,
     Json(req): Json<TrainNegativeRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     if req.alpha <= 0.0 || req.alpha > 0.3 {
-        return Err((StatusCode::BAD_REQUEST, format!(
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!(
             "alpha must be in (0.0, 0.3]. Got {}. Recommended: 0.05 (gentle) to 0.15 (aggressive). \
              If you think you need more, run multiple rounds instead.",
             req.alpha
-        )));
+        ),
+        ));
     }
-    let h = state.engine.try_namespace(&req.namespace_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)))?;
+    let h = state
+        .engine
+        .try_namespace(&req.namespace_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                format!("namespace '{}' not found", req.namespace_id),
+            )
+        })?;
     let not_intents: Vec<String> = if req.not_intents.is_empty() {
         h.intent_ids()
     } else {
@@ -195,9 +221,18 @@ pub async fn rebuild_namespace(
     State(state): State<AppState>,
     Json(req): Json<RebuildRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let h = state.engine.try_namespace(&req.namespace_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)))?;
-    let n_phrases_before: usize = h.intent_ids().iter()
+    let h = state
+        .engine
+        .try_namespace(&req.namespace_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                format!("namespace '{}' not found", req.namespace_id),
+            )
+        })?;
+    let n_phrases_before: usize = h
+        .intent_ids()
+        .iter()
         .filter_map(|id| h.with_resolver(|r| r.training(id)))
         .map(|v| v.len())
         .sum();
@@ -212,11 +247,11 @@ pub async fn rebuild_namespace(
 
 // --- Namespaces ---
 
-pub async fn list_namespaces(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
+pub async fn list_namespaces(State(state): State<AppState>) -> Json<serde_json::Value> {
     let modes = state.review_mode.read().unwrap();
-    let mut namespaces: Vec<serde_json::Value> = state.engine.namespaces()
+    let mut namespaces: Vec<serde_json::Value> = state
+        .engine
+        .namespaces()
         .into_iter()
         .map(|id| {
             let h = state.engine.namespace(&id);
@@ -231,7 +266,10 @@ pub async fn list_namespaces(
         })
         .collect();
     namespaces.sort_by(|a, b| {
-        a["id"].as_str().unwrap_or("").cmp(b["id"].as_str().unwrap_or(""))
+        a["id"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["id"].as_str().unwrap_or(""))
     });
     Json(serde_json::json!(namespaces))
 }
@@ -249,19 +287,34 @@ pub async fn create_namespace(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let id = &req.namespace_id;
     if id.is_empty() || id.len() > 40 {
-        return Err((StatusCode::BAD_REQUEST, "namespace ID must be 1–40 characters".to_string()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "namespace ID must be 1–40 characters".to_string(),
+        ));
     }
-    if !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-') {
-        return Err((StatusCode::BAD_REQUEST, "namespace ID must contain only lowercase letters, digits, hyphens, and underscores".to_string()));
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "namespace ID must contain only lowercase letters, digits, hyphens, and underscores"
+                .to_string(),
+        ));
     }
     if state.engine.has_namespace(id.as_str()) {
-        return Err((StatusCode::CONFLICT, format!("namespace '{}' already exists", id)));
+        return Err((
+            StatusCode::CONFLICT,
+            format!("namespace '{}' already exists", id),
+        ));
     }
     let h = state.engine.namespace(id);
-    let _ = h.with_resolver_mut(|r| r.update_namespace(microresolve::NamespaceEdit {
-        description: Some(req.description.clone()),
-        ..Default::default()
-    }));
+    let _ = h.with_resolver_mut(|r| {
+        r.update_namespace(microresolve::NamespaceEdit {
+            description: Some(req.description.clone()),
+            ..Default::default()
+        })
+    });
     maybe_commit(&state, &req.namespace_id);
     Ok(Json(serde_json::json!({"created": req.namespace_id})))
 }
@@ -276,10 +329,16 @@ pub async fn delete_namespace(
     Json(req): Json<DeleteNamespaceRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     if req.namespace_id == "default" {
-        return Err((StatusCode::BAD_REQUEST, "cannot delete default namespace".to_string()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "cannot delete default namespace".to_string(),
+        ));
     }
     if !state.engine.remove_namespace(&req.namespace_id) {
-        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("namespace '{}' not found", req.namespace_id),
+        ));
     }
     if let Some(ref dir) = state.data_dir {
         let _ = std::fs::remove_dir_all(format!("{}/{}", dir, req.namespace_id));
@@ -308,12 +367,21 @@ pub async fn update_namespace(
     Json(req): Json<UpdateNamespaceRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     {
-        let h = state.engine.try_namespace(&req.namespace_id)
-            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", req.namespace_id)))?;
+        let h = state
+            .engine
+            .try_namespace(&req.namespace_id)
+            .ok_or_else(|| {
+                (
+                    StatusCode::NOT_FOUND,
+                    format!("namespace '{}' not found", req.namespace_id),
+                )
+            })?;
         let edit = microresolve::NamespaceEdit {
             name: req.name.clone(),
             description: req.description.clone(),
-            default_threshold: req.default_threshold.map(|t| if t < 0.0 { None } else { Some(t) }),
+            default_threshold: req
+                .default_threshold
+                .map(|t| if t < 0.0 { None } else { Some(t) }),
             ..Default::default()
         };
         let _ = h.with_resolver_mut(|r| r.update_namespace(edit));
@@ -321,8 +389,14 @@ pub async fn update_namespace(
     }
     if let Some(auto_learn) = req.auto_learn {
         let mode = if auto_learn { "auto" } else { "manual" };
-        state.review_mode.write().unwrap().insert(req.namespace_id.clone(), mode.to_string());
-        if auto_learn { state.worker_notify.notify_one(); }
+        state
+            .review_mode
+            .write()
+            .unwrap()
+            .insert(req.namespace_id.clone(), mode.to_string());
+        if auto_learn {
+            state.worker_notify.notify_one();
+        }
     }
     Ok(Json(serde_json::json!({"updated": req.namespace_id})))
 }
@@ -337,7 +411,8 @@ pub async fn list_domain_groups(
     let domains: Vec<serde_json::Value> = {
         let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
         let mut names: std::collections::HashSet<String> = std::collections::HashSet::new();
-        let mut domain_descs: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut domain_descs: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
 
         if let Some(h) = state.engine.try_namespace(&namespace_id) {
             for id in h.intent_ids() {
@@ -353,14 +428,17 @@ pub async fn list_domain_groups(
         }
         let mut names: Vec<String> = names.into_iter().collect();
         names.sort();
-        names.into_iter().map(|name| {
-            let desc = domain_descs.get(&name).cloned().unwrap_or_default();
-            serde_json::json!({
-                "name": name,
-                "description": desc,
-                "intent_count": counts.get(&name).copied().unwrap_or(0),
+        names
+            .into_iter()
+            .map(|name| {
+                let desc = domain_descs.get(&name).cloned().unwrap_or_default();
+                serde_json::json!({
+                    "name": name,
+                    "description": desc,
+                    "intent_count": counts.get(&name).copied().unwrap_or(0),
+                })
             })
-        }).collect()
+            .collect()
     };
     Json(serde_json::json!(domains))
 }
@@ -379,17 +457,34 @@ pub async fn create_domain(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let id = &req.domain;
     if id.is_empty() || id.len() > 40 {
-        return Err((StatusCode::BAD_REQUEST, "domain ID must be 1–40 characters".to_string()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "domain ID must be 1–40 characters".to_string(),
+        ));
     }
-    if !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-') {
-        return Err((StatusCode::BAD_REQUEST, "domain ID must contain only lowercase letters, digits, hyphens, and underscores".to_string()));
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "domain ID must contain only lowercase letters, digits, hyphens, and underscores"
+                .to_string(),
+        ));
     }
     let namespace_id = app_id_from_headers(&headers);
-    let h = state.engine.try_namespace(&namespace_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", namespace_id)))?;
+    let h = state.engine.try_namespace(&namespace_id).ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("namespace '{}' not found", namespace_id),
+        )
+    })?;
     let already_exists = h.with_resolver(|r| r.domain_description(&req.domain).is_some());
     if already_exists {
-        return Err((StatusCode::CONFLICT, format!("domain '{}' already exists", req.domain)));
+        return Err((
+            StatusCode::CONFLICT,
+            format!("domain '{}' already exists", req.domain),
+        ));
     }
     h.with_resolver_mut(|r| r.set_domain_description(&req.domain, &req.description));
     maybe_commit(&state, &namespace_id);
@@ -407,11 +502,16 @@ pub async fn delete_domain(
     Json(req): Json<DeleteDomainRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let namespace_id = app_id_from_headers(&headers);
-    let h = state.engine.try_namespace(&namespace_id)
-        .ok_or_else(|| (StatusCode::NOT_FOUND, format!("namespace '{}' not found", namespace_id)))?;
+    let h = state.engine.try_namespace(&namespace_id).ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("namespace '{}' not found", namespace_id),
+        )
+    })?;
     h.with_resolver_mut(|r| r.remove_domain_description(&req.domain));
     let prefix = format!("{}:", req.domain);
-    let to_remove: Vec<String> = h.intent_ids()
+    let to_remove: Vec<String> = h
+        .intent_ids()
         .into_iter()
         .filter(|id| id.starts_with(&prefix))
         .collect();

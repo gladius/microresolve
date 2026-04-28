@@ -17,8 +17,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    Error, IntentEdit, IntentInfo, IntentSeeds, Match, NamespaceConfig,
-    PhraseCheckResult, Resolver, ResolveOptions, EngineConfig,
+    EngineConfig, Error, IntentEdit, IntentInfo, IntentSeeds, Match, NamespaceConfig,
+    PhraseCheckResult, ResolveOptions, Resolver,
 };
 
 #[cfg(feature = "connect")]
@@ -58,8 +58,9 @@ impl Engine {
         let mut namespaces: HashMap<String, NamespaceState> = HashMap::new();
 
         if let Some(dir) = &config.data_dir {
-            std::fs::create_dir_all(dir)
-                .map_err(|e| Error::Persistence(format!("cannot create {}: {}", dir.display(), e)))?;
+            std::fs::create_dir_all(dir).map_err(|e| {
+                Error::Persistence(format!("cannot create {}: {}", dir.display(), e))
+            })?;
             for entry in std::fs::read_dir(dir)
                 .map_err(|e| Error::Persistence(format!("cannot read {}: {}", dir.display(), e)))?
             {
@@ -75,13 +76,18 @@ impl Engine {
                 // Skip engine-reserved underscore-prefixed dirs and any
                 // dot-dir (.git, .DS_Store-style). Namespace IDs are
                 // restricted to lowercase alnum + hyphen + underscore.
-                if name.starts_with('_') || name.starts_with('.') || !path.is_dir() { continue; }
+                if name.starts_with('_') || name.starts_with('.') || !path.is_dir() {
+                    continue;
+                }
                 let resolver = Resolver::load_from_dir(&path)?;
-                namespaces.insert(name, NamespaceState {
-                    resolver,
-                    config: NamespaceConfig::default(),
-                    dirty: false,
-                });
+                namespaces.insert(
+                    name,
+                    NamespaceState {
+                        resolver,
+                        config: NamespaceConfig::default(),
+                        dirty: false,
+                    },
+                );
             }
         }
 
@@ -94,11 +100,14 @@ impl Engine {
             for app_id in &server.subscribe {
                 let pulled = state.pull(app_id)?;
                 let resolver = pulled.map(|(r, _v)| r).unwrap_or_else(Resolver::new);
-                namespaces.write().unwrap().insert(app_id.clone(), NamespaceState {
-                    resolver,
-                    config: NamespaceConfig::default(),
-                    dirty: false,
-                });
+                namespaces.write().unwrap().insert(
+                    app_id.clone(),
+                    NamespaceState {
+                        resolver,
+                        config: NamespaceConfig::default(),
+                        dirty: false,
+                    },
+                );
             }
             // Spawn the background sync thread.
             let ns_for_thread = Arc::clone(&namespaces);
@@ -137,7 +146,10 @@ impl Engine {
                 dirty: false,
             });
         }
-        NamespaceHandle { engine: self, id: id.to_string() }
+        NamespaceHandle {
+            engine: self,
+            id: id.to_string(),
+        }
     }
 
     /// Get a handle to a namespace, applying explicit per-namespace config.
@@ -153,7 +165,10 @@ impl Engine {
                 })
                 .config = config;
         }
-        NamespaceHandle { engine: self, id: id.to_string() }
+        NamespaceHandle {
+            engine: self,
+            id: id.to_string(),
+        }
     }
 
     /// IDs of all namespaces currently loaded into the engine.
@@ -172,7 +187,10 @@ impl Engine {
     /// create, unlike [`Engine::namespace`]).
     pub fn try_namespace(&self, id: &str) -> Option<NamespaceHandle<'_>> {
         if self.has_namespace(id) {
-            Some(NamespaceHandle { engine: self, id: id.to_string() })
+            Some(NamespaceHandle {
+                engine: self,
+                id: id.to_string(),
+            })
         } else {
             None
         }
@@ -190,24 +208,31 @@ impl Engine {
     /// the in-memory entry). Errors only when the directory exists but is
     /// corrupt or unreadable.
     pub fn reload_namespace(&self, id: &str) -> Result<bool, Error> {
-        let Some(ref dir) = self.config.data_dir else { return Ok(false); };
+        let Some(ref dir) = self.config.data_dir else {
+            return Ok(false);
+        };
         let path = dir.join(id);
         if !path.is_dir() {
             self.namespaces.write().unwrap().remove(id);
             return Ok(false);
         }
         let resolver = Resolver::load_from_dir(&path)?;
-        self.namespaces.write().unwrap().insert(id.to_string(), NamespaceState {
-            resolver,
-            config: NamespaceConfig::default(),
-            dirty: false,
-        });
+        self.namespaces.write().unwrap().insert(
+            id.to_string(),
+            NamespaceState {
+                resolver,
+                config: NamespaceConfig::default(),
+                dirty: false,
+            },
+        );
         Ok(true)
     }
 
     /// Flush all dirty namespaces to disk. No-op if `data_dir` is unset.
     pub fn flush(&self) -> Result<(), Error> {
-        let Some(dir) = &self.config.data_dir else { return Ok(()); };
+        let Some(dir) = &self.config.data_dir else {
+            return Ok(());
+        };
         let ns = self.namespaces.read().unwrap();
         for (id, state) in ns.iter() {
             if state.dirty {
@@ -218,7 +243,9 @@ impl Engine {
     }
 
     /// The engine's config (read-only view).
-    pub fn config(&self) -> &EngineConfig { &self.config }
+    pub fn config(&self) -> &EngineConfig {
+        &self.config
+    }
 
     // ── Effective config (cascade: namespace → engine) ─────────────────────
 
@@ -250,13 +277,21 @@ impl Engine {
 
     pub(crate) fn with_resolver<R>(&self, ns_id: &str, f: impl FnOnce(&Resolver) -> R) -> R {
         let ns = self.namespaces.read().unwrap();
-        let state = ns.get(ns_id).expect("namespace handle invariant: namespace must exist");
+        let state = ns
+            .get(ns_id)
+            .expect("namespace handle invariant: namespace must exist");
         f(&state.resolver)
     }
 
-    pub(crate) fn with_resolver_mut<R>(&self, ns_id: &str, f: impl FnOnce(&mut Resolver) -> R) -> R {
+    pub(crate) fn with_resolver_mut<R>(
+        &self,
+        ns_id: &str,
+        f: impl FnOnce(&mut Resolver) -> R,
+    ) -> R {
         let mut ns = self.namespaces.write().unwrap();
-        let state = ns.get_mut(ns_id).expect("namespace handle invariant: namespace must exist");
+        let state = ns
+            .get_mut(ns_id)
+            .expect("namespace handle invariant: namespace must exist");
         let r = f(&mut state.resolver);
         state.dirty = true;
         r
@@ -284,7 +319,9 @@ pub struct NamespaceHandle<'e> {
 
 impl<'e> NamespaceHandle<'e> {
     /// Namespace id.
-    pub fn id(&self) -> &str { &self.id }
+    pub fn id(&self) -> &str {
+        &self.id
+    }
 
     /// Add an intent with seed phrases. `seeds` accepts `&[&str]` (defaults
     /// to language `"en"`) or `HashMap<lang, Vec<phrase>>` for multilingual.
@@ -296,12 +333,14 @@ impl<'e> NamespaceHandle<'e> {
         seeds: impl Into<IntentSeeds>,
     ) -> Result<usize, Error> {
         let seeds = seeds.into();
-        self.engine.with_resolver_mut(&self.id, |r| r.add_intent(intent_id, seeds))
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.add_intent(intent_id, seeds))
     }
 
     /// Remove an intent and all its phrases/metadata from the namespace.
     pub fn remove_intent(&self, intent_id: &str) {
-        self.engine.with_resolver_mut(&self.id, |r| r.remove_intent(intent_id))
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.remove_intent(intent_id))
     }
 
     /// Read-only view of an intent and all its metadata.
@@ -311,12 +350,14 @@ impl<'e> NamespaceHandle<'e> {
 
     /// Patch metadata fields on an intent (description, instructions, etc.).
     pub fn update_intent(&self, intent_id: &str, edit: IntentEdit) -> Result<(), Error> {
-        self.engine.with_resolver_mut(&self.id, |r| r.update_intent(intent_id, edit))
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.update_intent(intent_id, edit))
     }
 
     /// Add a single phrase to an existing intent.
     pub fn add_phrase(&self, intent_id: &str, phrase: &str, lang: &str) -> PhraseCheckResult {
-        self.engine.with_resolver_mut(&self.id, |r| r.add_phrase_checked(intent_id, phrase, lang))
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.add_phrase_checked(intent_id, phrase, lang))
     }
 
     /// Resolve a query using the namespace's effective threshold (cascade
@@ -326,8 +367,13 @@ impl<'e> NamespaceHandle<'e> {
     /// background tick ships to the server.
     pub fn resolve(&self, query: &str) -> Vec<Match> {
         let threshold = self.engine.effective_threshold(&self.id);
-        let opts = ResolveOptions { threshold, gap: 1.5 };
-        let matches = self.engine.with_resolver(&self.id, |r| r.resolve_with(query, &opts));
+        let opts = ResolveOptions {
+            threshold,
+            gap: 1.5,
+        };
+        let matches = self
+            .engine
+            .with_resolver(&self.id, |r| r.resolve_with(query, &opts));
         #[cfg(feature = "connect")]
         self.maybe_log(query, &matches);
         matches
@@ -336,7 +382,9 @@ impl<'e> NamespaceHandle<'e> {
     /// Resolve with explicit options (overrides namespace config). In
     /// connected mode, also buffers a log entry.
     pub fn resolve_with(&self, query: &str, opts: ResolveOptions) -> Vec<Match> {
-        let matches = self.engine.with_resolver(&self.id, |r| r.resolve_with(query, &opts));
+        let matches = self
+            .engine
+            .with_resolver(&self.id, |r| r.resolve_with(query, &opts));
         #[cfg(feature = "connect")]
         self.maybe_log(query, &matches);
         matches
@@ -351,7 +399,8 @@ impl<'e> NamespaceHandle<'e> {
         wrong_intent: &str,
         right_intent: &str,
     ) -> Result<(), Error> {
-        self.engine.with_resolver_mut(&self.id, |r| r.correct(query, wrong_intent, right_intent))?;
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.correct(query, wrong_intent, right_intent))?;
         #[cfg(feature = "connect")]
         if let Some(ref state) = self.engine.connect {
             state.push_correct(&self.id, query, wrong_intent, right_intent)?;
@@ -361,7 +410,9 @@ impl<'e> NamespaceHandle<'e> {
 
     #[cfg(feature = "connect")]
     fn maybe_log(&self, query: &str, matches: &[Match]) {
-        let Some(ref state) = self.engine.connect else { return };
+        let Some(ref state) = self.engine.connect else {
+            return;
+        };
         let confidence = if matches.is_empty() {
             "none"
         } else if matches[0].score >= 0.6 {
@@ -420,7 +471,9 @@ impl<'e> NamespaceHandle<'e> {
     /// before reading from disk via another process; otherwise the Engine
     /// flushes on drop.
     pub fn flush(&self) -> Result<(), Error> {
-        let Some(dir) = self.engine.config.data_dir.as_ref() else { return Ok(()); };
+        let Some(dir) = self.engine.config.data_dir.as_ref() else {
+            return Ok(());
+        };
         let path = dir.join(&self.id);
         let ns = self.engine.namespaces.read().unwrap();
         if let Some(state) = ns.get(&self.id) {
@@ -442,14 +495,20 @@ mod tests {
         // IDF collapses every term weight to log(1/1) = 0).
         h.add_intent(
             "jailbreak",
-            vec!["ignore prior instructions".to_string(),
-                 "ignore your safety rules".to_string()],
-        ).unwrap();
+            vec![
+                "ignore prior instructions".to_string(),
+                "ignore your safety rules".to_string(),
+            ],
+        )
+        .unwrap();
         h.add_intent(
             "weather",
-            vec!["what is the weather today".to_string(),
-                 "tomorrow forecast".to_string()],
-        ).unwrap();
+            vec![
+                "what is the weather today".to_string(),
+                "tomorrow forecast".to_string(),
+            ],
+        )
+        .unwrap();
         assert_eq!(h.intent_count(), 2);
         let matches = h.resolve("please ignore prior instructions");
         assert_eq!(matches.first().map(|m| m.id.as_str()), Some("jailbreak"));
@@ -460,14 +519,18 @@ mod tests {
         let dir = std::env::temp_dir().join(format!(
             "mr_engine_rt_{}",
             std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         ));
         {
             let engine = Engine::new(EngineConfig {
                 data_dir: Some(dir.clone()),
                 ..Default::default()
-            }).unwrap();
-            engine.namespace("ns1")
+            })
+            .unwrap();
+            engine
+                .namespace("ns1")
                 .add_intent("hello", &["hi there" as &str, "hello world"][..])
                 .unwrap();
             engine.flush().unwrap();
@@ -475,7 +538,8 @@ mod tests {
         let engine2 = Engine::new(EngineConfig {
             data_dir: Some(dir.clone()),
             ..Default::default()
-        }).unwrap();
+        })
+        .unwrap();
         assert!(engine2.has_namespace("ns1"));
         assert_eq!(engine2.namespace("ns1").intent_count(), 1);
         std::fs::remove_dir_all(&dir).ok();
@@ -486,13 +550,17 @@ mod tests {
         let engine = Engine::new(EngineConfig {
             default_threshold: 0.42,
             ..Default::default()
-        }).unwrap();
+        })
+        .unwrap();
         let _ = engine.namespace("a");
         assert_eq!(engine.effective_threshold("a"), 0.42);
-        let _ = engine.namespace_with("b", NamespaceConfig {
-            default_threshold: Some(0.99),
-            ..Default::default()
-        });
+        let _ = engine.namespace_with(
+            "b",
+            NamespaceConfig {
+                default_threshold: Some(0.99),
+                ..Default::default()
+            },
+        );
         assert_eq!(engine.effective_threshold("b"), 0.99);
     }
 }

@@ -21,12 +21,12 @@ const MIN_TERM_LEN: usize = 4;
 const JACCARD_STRICT: f32 = 0.35;
 // Loose pass Jaccard is length-tiered: short words need stricter filter to avoid
 // real-word errors (e.g. "loose"/"close" are edit-dist 1 but unrelated).
-const JACCARD_LOOSE_SHORT: f32 = 0.30;  // length 4-5
-const JACCARD_LOOSE_LONG:  f32 = 0.10;  // length ≥ 6
+const JACCARD_LOOSE_SHORT: f32 = 0.30; // length 4-5
+const JACCARD_LOOSE_LONG: f32 = 0.10; // length ≥ 6
 
 // Max Damerau-Levenshtein edit distance between query and correction.
-const MAX_EDIT_DIST_SHORT: usize = 1;   // length == 4
-const MAX_EDIT_DIST_LONG:  usize = 2;   // length ≥ 5
+const MAX_EDIT_DIST_SHORT: usize = 1; // length == 4
+const MAX_EDIT_DIST_LONG: usize = 2; // length ≥ 5
 
 #[derive(Clone)]
 pub struct NgramIndex {
@@ -39,7 +39,9 @@ pub struct NgramIndex {
 }
 
 impl Default for NgramIndex {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl NgramIndex {
@@ -61,7 +63,9 @@ impl NgramIndex {
     }
 
     fn add(&mut self, term: String) {
-        if self.vocab_set.contains(&term) || term.len() < MIN_TERM_LEN { return; }
+        if self.vocab_set.contains(&term) || term.len() < MIN_TERM_LEN {
+            return;
+        }
         let vi = self.vocab.len();
         for ng in char_ngrams(&term, N) {
             self.index.entry(ng).or_default().push(vi);
@@ -70,32 +74,53 @@ impl NgramIndex {
         self.vocab.push(term);
     }
 
-    pub fn len(&self) -> usize { self.vocab.len() }
-    pub fn is_empty(&self) -> bool { self.vocab.is_empty() }
+    pub fn len(&self) -> usize {
+        self.vocab.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.vocab.is_empty()
+    }
 
     /// Best-match for an unknown token. Returns None if token is already in
     /// vocabulary, too short, or no match above threshold.
     pub fn best_match(&self, token: &str) -> Option<String> {
-        if self.vocab_set.contains(token) { return None; }
-        if token.chars().count() < MIN_TERM_LEN { return None; }
+        if self.vocab_set.contains(token) {
+            return None;
+        }
+        if token.chars().count() < MIN_TERM_LEN {
+            return None;
+        }
 
         let query_ngs: HashSet<String> = char_ngrams(token, N).into_iter().collect();
-        if query_ngs.is_empty() { return None; }
+        if query_ngs.is_empty() {
+            return None;
+        }
 
         let mut hits: HashMap<usize, usize> = HashMap::new();
         for ng in &query_ngs {
             if let Some(idxs) = self.index.get(ng) {
-                for &vi in idxs { *hits.entry(vi).or_insert(0) += 1; }
+                for &vi in idxs {
+                    *hits.entry(vi).or_insert(0) += 1;
+                }
             }
         }
 
         let query_chars: Vec<char> = token.chars().collect();
         let query_len = query_chars.len();
-        let max_dist    = if query_len >= 5 { MAX_EDIT_DIST_LONG }  else { MAX_EDIT_DIST_SHORT };
-        let loose_jacc  = if query_len >= 6 { JACCARD_LOOSE_LONG }  else { JACCARD_LOOSE_SHORT };
+        let max_dist = if query_len >= 5 {
+            MAX_EDIT_DIST_LONG
+        } else {
+            MAX_EDIT_DIST_SHORT
+        };
+        let loose_jacc = if query_len >= 6 {
+            JACCARD_LOOSE_LONG
+        } else {
+            JACCARD_LOOSE_SHORT
+        };
 
         // Compute Jaccard for each hit once; reuse across passes.
-        let scored: Vec<(usize, f32)> = hits.into_iter()
+        let scored: Vec<(usize, f32)> = hits
+            .into_iter()
             .map(|(vi, intersection)| {
                 let term = &self.vocab[vi];
                 let term_ng_count = term.chars().count().saturating_sub(N - 1).max(1);
@@ -106,7 +131,8 @@ impl NgramIndex {
             .collect();
 
         // Fast path: strict Jaccard ≥ 0.35 catches well-spelled queries quickly.
-        let strict: Vec<(usize, f32)> = scored.iter()
+        let strict: Vec<(usize, f32)> = scored
+            .iter()
             .filter(|(_, j)| *j >= JACCARD_STRICT)
             .cloned()
             .collect();
@@ -115,18 +141,28 @@ impl NgramIndex {
         } else {
             // Slow path: loose Jaccard fallback. Only runs when no strict candidate
             // exists — typically means a transposition typo.
-            scored.into_iter().filter(|(_, j)| *j >= loose_jacc).collect()
+            scored
+                .into_iter()
+                .filter(|(_, j)| *j >= loose_jacc)
+                .collect()
         };
 
-        candidates.into_iter()
+        candidates
+            .into_iter()
             .filter_map(|(vi, _)| {
                 let term = &self.vocab[vi];
                 let term_chars: Vec<char> = term.chars().collect();
                 // Block corrections that shrink the word by 2+ chars — those are
                 // substring collapses ("vacation"→"action", "oncall"→"call"), not typos.
-                if query_chars.len() > term_chars.len() + 1 { return None; }
+                if query_chars.len() > term_chars.len() + 1 {
+                    return None;
+                }
                 let dist = edit_distance(&query_chars, &term_chars);
-                if dist <= max_dist { Some((vi, dist)) } else { None }
+                if dist <= max_dist {
+                    Some((vi, dist))
+                } else {
+                    None
+                }
             })
             .min_by_key(|(_, dist)| *dist)
             .map(|(vi, _)| self.vocab[vi].clone())
@@ -135,8 +171,11 @@ impl NgramIndex {
     /// Correct all whitespace-split tokens in a query.
     /// CJK tokens pass through unchanged.
     pub fn correct_query(&self, query: &str) -> String {
-        if self.is_empty() { return query.to_string(); }
-        query.split_whitespace()
+        if self.is_empty() {
+            return query.to_string();
+        }
+        query
+            .split_whitespace()
             .map(|tok| {
                 if tok.chars().any(crate::tokenizer::is_cjk) {
                     tok.to_string()
@@ -155,24 +194,42 @@ impl NgramIndex {
 /// and O(mn) time. Language-agnostic; operates on Unicode codepoints.
 fn edit_distance(a: &[char], b: &[char]) -> usize {
     let (m, n) = (a.len(), b.len());
-    if m == 0 { return n; }
-    if n == 0 { return m; }
+    if m == 0 {
+        return n;
+    }
+    if n == 0 {
+        return m;
+    }
 
     // Full 2D matrix required so we can peek at dp[i-2][j-2] for the transposition rule.
     let mut dp = vec![vec![0usize; n + 1]; m + 1];
-    for i in 0..=m { dp[i][0] = i; }
-    for j in 0..=n { dp[0][j] = j; }
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..=m {
+        dp[i][0] = i;
+    }
+    #[allow(clippy::needless_range_loop)]
+    for j in 0..=n {
+        dp[0][j] = j;
+    }
 
     for i in 1..=m {
         for j in 1..=n {
-            let cost = if a[i-1] == b[j-1] { 0 } else { 1 };
-            let mut best = dp[i-1][j-1] + cost;                 // substitute / match
-            if dp[i-1][j] + 1 < best { best = dp[i-1][j] + 1; } // delete
-            if dp[i][j-1] + 1 < best { best = dp[i][j-1] + 1; } // insert
-            // Transposition: swapping a[i-1] with a[i-2] matches b[j-2..j]
-            if i >= 2 && j >= 2 && a[i-1] == b[j-2] && a[i-2] == b[j-1]
-                && dp[i-2][j-2] + 1 < best {
-                best = dp[i-2][j-2] + 1;
+            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
+            let mut best = dp[i - 1][j - 1] + cost; // substitute / match
+            if dp[i - 1][j] + 1 < best {
+                best = dp[i - 1][j] + 1;
+            } // delete
+            if dp[i][j - 1] + 1 < best {
+                best = dp[i][j - 1] + 1;
+            } // insert
+              // Transposition: swapping a[i-1] with a[i-2] matches b[j-2..j]
+            if i >= 2
+                && j >= 2
+                && a[i - 1] == b[j - 2]
+                && a[i - 2] == b[j - 1]
+                && dp[i - 2][j - 2] + 1 < best
+            {
+                best = dp[i - 2][j - 2] + 1;
             }
             dp[i][j] = best;
         }
@@ -183,7 +240,11 @@ fn edit_distance(a: &[char], b: &[char]) -> usize {
 fn char_ngrams(s: &str, n: usize) -> Vec<String> {
     let chars: Vec<char> = s.chars().collect();
     if chars.len() < n {
-        return if chars.is_empty() { vec![] } else { vec![s.to_string()] };
+        return if chars.is_empty() {
+            vec![]
+        } else {
+            vec![s.to_string()]
+        };
     }
     chars.windows(n).map(|w| w.iter().collect()).collect()
 }
@@ -218,7 +279,7 @@ pub fn build_for_namespace(
         }
     }
 
-    NgramIndex::build(terms.into_iter())
+    NgramIndex::build(terms)
 }
 
 #[cfg(test)]
@@ -227,7 +288,11 @@ mod tests {
 
     #[test]
     fn corrects_typo() {
-        let idx = NgramIndex::build(["cancel".to_string(), "subscription".to_string(), "refund".to_string()]);
+        let idx = NgramIndex::build([
+            "cancel".to_string(),
+            "subscription".to_string(),
+            "refund".to_string(),
+        ]);
         // "cancell" → "cancel"
         assert_eq!(idx.best_match("cancell"), Some("cancel".to_string()));
     }

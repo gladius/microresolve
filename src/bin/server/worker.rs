@@ -5,11 +5,11 @@
 //! applies fixes, and broadcasts `StudioEvent`s to SSE subscribers.
 //! In "manual" mode: sits idle.
 
+use crate::log_store::ReviewStatus;
+use crate::pipeline::{apply_review, full_review};
+use crate::state::{get_ns_mode, AppState, StudioEvent};
 use std::sync::Arc;
 use tokio::sync::Notify;
-use crate::state::{AppState, StudioEvent, get_ns_mode};
-use crate::log_store::ReviewStatus;
-use crate::pipeline::{full_review, apply_review};
 
 pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
     loop {
@@ -41,46 +41,79 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
             }
 
             // Mark as processing so we don't pick it up again
-            state.log_store.lock().unwrap().set_review_status(&app_id, id, ReviewStatus {
-                status: "processing".to_string(),
-                version_before: state.engine.try_namespace(&app_id)
-                    .map(|h| h.with_resolver(|r| r.version())).unwrap_or(0),
-                ..ReviewStatus::pending()
-            });
+            state.log_store.lock().unwrap().set_review_status(
+                &app_id,
+                id,
+                ReviewStatus {
+                    status: "processing".to_string(),
+                    version_before: state
+                        .engine
+                        .try_namespace(&app_id)
+                        .map(|h| h.with_resolver(|r| r.version()))
+                        .unwrap_or(0),
+                    ..ReviewStatus::pending()
+                },
+            );
 
             let _ = state.event_tx.send(StudioEvent::LlmStarted {
                 id,
                 query: record.query.clone(),
             });
 
-            let version_before = state.engine.try_namespace(&app_id)
-                .map(|h| h.with_resolver(|r| r.version())).unwrap_or(0);
+            let version_before = state
+                .engine
+                .try_namespace(&app_id)
+                .map(|h| h.with_resolver(|r| r.version()))
+                .unwrap_or(0);
 
             let model = std::env::var("LLM_MODEL")
                 .unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
 
-            match full_review(&state, &app_id, &record.query, &record.detected_intents, None).await {
+            match full_review(
+                &state,
+                &app_id,
+                &record.query,
+                &record.detected_intents,
+                None,
+            )
+            .await
+            {
                 Ok(review_result) => {
                     let phrases_added =
                         apply_review(&state, &app_id, &review_result, &record.query).await;
 
-                    let version_after = state.engine.try_namespace(&app_id)
-                        .map(|h| h.with_resolver(|r| r.version())).unwrap_or(0);
+                    let version_after = state
+                        .engine
+                        .try_namespace(&app_id)
+                        .map(|h| h.with_resolver(|r| r.version()))
+                        .unwrap_or(0);
 
                     // Resolve log entry (tombstone the binary record)
                     state.log_store.lock().unwrap().resolve(&app_id, id);
 
-                    state.log_store.lock().unwrap().set_review_status(&app_id, id, ReviewStatus {
-                        status: "done".to_string(),
-                        llm_reviewed: true,
-                        llm_model: Some(model),
-                        llm_result: serde_json::to_value(&review_result).ok(),
-                        applied: phrases_added > 0,
-                        phrases_added,
-                        version_before,
-                        version_after: if version_after != version_before { Some(version_after) } else { None },
-                        summary: if review_result.summary.is_empty() { None } else { Some(review_result.summary.clone()) },
-                    });
+                    state.log_store.lock().unwrap().set_review_status(
+                        &app_id,
+                        id,
+                        ReviewStatus {
+                            status: "done".to_string(),
+                            llm_reviewed: true,
+                            llm_model: Some(model),
+                            llm_result: serde_json::to_value(&review_result).ok(),
+                            applied: phrases_added > 0,
+                            phrases_added,
+                            version_before,
+                            version_after: if version_after != version_before {
+                                Some(version_after)
+                            } else {
+                                None
+                            },
+                            summary: if review_result.summary.is_empty() {
+                                None
+                            } else {
+                                Some(review_result.summary.clone())
+                            },
+                        },
+                    );
 
                     let _ = state.event_tx.send(StudioEvent::LlmDone {
                         id,
@@ -101,10 +134,14 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
                     }
                 }
                 Err(reason) => {
-                    state.log_store.lock().unwrap().set_review_status(&app_id, id, ReviewStatus {
-                        status: "escalated".to_string(),
-                        ..ReviewStatus::pending()
-                    });
+                    state.log_store.lock().unwrap().set_review_status(
+                        &app_id,
+                        id,
+                        ReviewStatus {
+                            status: "escalated".to_string(),
+                            ..ReviewStatus::pending()
+                        },
+                    );
                     let _ = state.event_tx.send(StudioEvent::Escalated { id, reason });
                 }
             }

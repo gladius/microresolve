@@ -102,7 +102,7 @@ jobs:
         run: npm ci || npm install
       - name: build
         working-directory: node
-        run: npx napi build --release --target ${{ matrix.target }}
+        run: npx napi build --platform --release --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
           name: node-${{ matrix.target }}

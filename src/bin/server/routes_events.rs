@@ -3,6 +3,7 @@
 //! `GET /api/events` — browser connects once, receives `StudioEvent` JSON objects
 //! as they happen (queued, llm_started, llm_done, fix_applied, escalated).
 
+use crate::state::{AppState, StudioEvent};
 use axum::{
     extract::State,
     response::sse::{Event, KeepAlive, Sse},
@@ -11,11 +12,9 @@ use axum::{
 use std::convert::Infallible;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt as _;
-use crate::state::{AppState, StudioEvent};
 
 pub fn routes() -> axum::Router<AppState> {
-    axum::Router::new()
-        .route("/api/events", get(sse_handler))
+    axum::Router::new().route("/api/events", get(sse_handler))
 }
 
 async fn sse_handler(

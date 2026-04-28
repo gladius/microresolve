@@ -1,18 +1,12 @@
 //! Primary routing endpoints — Hebbian L1+L2 is the sole router.
 
-use axum::{
-    extract::State,
-    http::HeaderMap,
-    routing::post,
-    Json,
-};
-use crate::state::*;
 use crate::log_store::LogRecord;
 use crate::routes_events::emit_queued;
+use crate::state::*;
+use axum::{extract::State, http::HeaderMap, routing::post, Json};
 
 pub fn routes() -> axum::Router<AppState> {
-    axum::Router::new()
-        .route("/api/route_multi", post(route_multi))
+    axum::Router::new().route("/api/route_multi", post(route_multi))
 }
 
 #[derive(serde::Deserialize)]
@@ -36,9 +30,15 @@ pub struct RouteMultiRequest {
     pub grounded_l1: bool,
 }
 
-fn default_threshold() -> f32 { 0.3 }
-fn default_gap() -> f32 { 1.5 }
-fn default_log() -> bool { true }
+fn default_threshold() -> f32 {
+    0.3
+}
+fn default_gap() -> f32 {
+    1.5
+}
+fn default_log() -> bool {
+    true
+}
 
 /// Multi-intent classification via Hebbian L1+L2.
 pub async fn route_multi(
@@ -54,16 +54,16 @@ pub async fn route_multi(
     // scoring captures a trace of rounds so the UI can render per-layer cards
     // without a second API call.
     type PipelineOut = (
-        Option<Vec<(String, f32)>>,              // confirmed (token-consumed)
-        Vec<(String, f32)>,                      // raw_ranked (single-pass)
-        bool,                                    // has_negation
-        String,                                  // l0_corrected
-        String,                                  // l1_normalized
-        String,                                  // l1_expanded (= processed)
-        Vec<String>,                             // l1_injected
-        Vec<String>,                             // l2_tokens
+        Option<Vec<(String, f32)>>, // confirmed (token-consumed)
+        Vec<(String, f32)>,         // raw_ranked (single-pass)
+        bool,                       // has_negation
+        String,                     // l0_corrected
+        String,                     // l1_normalized
+        String,                     // l1_expanded (= processed)
+        Vec<String>,                // l1_injected
+        Vec<String>,                // l2_tokens
         Option<microresolve::scoring::MultiIntentTrace>,
-        f32,                                     // effective_threshold (cascade-resolved)
+        f32, // effective_threshold (cascade-resolved)
     );
     let pipeline: PipelineOut = match state.engine.try_namespace(&app_id) {
         Some(h) => h.with_resolver(|router| {
@@ -86,8 +86,10 @@ pub async fn route_multi(
                 router.l1().preprocess(&q0)
             };
             if preprocessed.was_modified {
-                eprintln!("[hebbian/L1] {} | {:?} → {:?} (injected: {:?})",
-                    app_id, preprocessed.original, preprocessed.normalized, preprocessed.injected);
+                eprintln!(
+                    "[hebbian/L1] {} | {:?} → {:?} (injected: {:?})",
+                    app_id, preprocessed.original, preprocessed.normalized, preprocessed.injected
+                );
             }
             let processed = preprocessed.expanded.clone();
             let injected = preprocessed.injected.clone();
@@ -95,16 +97,49 @@ pub async fn route_multi(
             let tokens: Vec<String> = microresolve::tokenizer::tokenize(&processed);
             let (raw, neg) = router.l2().score_normalized(&processed);
             let (consumed, _neg2, trace) = router.l2().score_multi_normalized_traced(
-                &processed, effective_threshold, req.gap, true,
+                &processed,
+                effective_threshold,
+                req.gap,
+                true,
             );
-            (Some(consumed), raw, neg, q0, normalized, processed, injected, tokens, trace, effective_threshold)
+            (
+                Some(consumed),
+                raw,
+                neg,
+                q0,
+                normalized,
+                processed,
+                injected,
+                tokens,
+                trace,
+                effective_threshold,
+            )
         }),
-        None => (None, vec![], false, req.query.clone(), req.query.clone(),
-                req.query.clone(), vec![], vec![], None, default_threshold()),
+        None => (
+            None,
+            vec![],
+            false,
+            req.query.clone(),
+            req.query.clone(),
+            req.query.clone(),
+            vec![],
+            vec![],
+            None,
+            default_threshold(),
+        ),
     };
-    let (intent_graph_results, raw_ranked, query_has_negation,
-         l0_corrected, l1_normalized, processed_query, hebbian_injected, l2_tokens, multi_trace,
-         effective_threshold) = pipeline;
+    let (
+        intent_graph_results,
+        raw_ranked,
+        query_has_negation,
+        l0_corrected,
+        l1_normalized,
+        processed_query,
+        hebbian_injected,
+        l2_tokens,
+        multi_trace,
+        effective_threshold,
+    ) = pipeline;
 
     let latency_us = t0.elapsed().as_micros() as u64;
 
@@ -136,47 +171,63 @@ pub async fn route_multi(
             "confident"
         };
 
-        let intents: Vec<serde_json::Value> = scored.iter().map(|(id, score)| {
-            let confidence = if *score >= max_score * 0.8 { "high" }
-                else if *score >= max_score * 0.5 { "medium" }
-                else { "low" };
-            serde_json::json!({
-                "id": id,
-                "score": (*score * 100.0).round() / 100.0,
-                "confidence": confidence,
-                "source": "hebbian_l2",
-                "position": 0,
-                "span": [0, req.query.len()],
-                "intent_type": "Action",
-                "negated": query_has_negation,
+        let intents: Vec<serde_json::Value> = scored
+            .iter()
+            .map(|(id, score)| {
+                let confidence = if *score >= max_score * 0.8 {
+                    "high"
+                } else if *score >= max_score * 0.5 {
+                    "medium"
+                } else {
+                    "low"
+                };
+                serde_json::json!({
+                    "id": id,
+                    "score": (*score * 100.0).round() / 100.0,
+                    "confidence": confidence,
+                    "source": "hebbian_l2",
+                    "position": 0,
+                    "span": [0, req.query.len()],
+                    "intent_type": "Action",
+                    "negated": query_has_negation,
+                })
             })
-        }).collect();
+            .collect();
 
-        let confirmed: Vec<&serde_json::Value> = intents.iter()
+        let confirmed: Vec<&serde_json::Value> = intents
+            .iter()
             .filter(|i| i["confidence"].as_str() != Some("low"))
             .collect();
-        let candidates: Vec<&serde_json::Value> = intents.iter()
+        let candidates: Vec<&serde_json::Value> = intents
+            .iter()
             .filter(|i| i["confidence"].as_str() == Some("low"))
             .collect();
 
-        let detected_ids: Vec<String> = intents.iter()
+        let detected_ids: Vec<String> = intents
+            .iter()
             .map(|i| i["id"].as_str().unwrap_or("").to_string())
             .collect();
         let best_confidence = if !confirmed.is_empty() { "high" } else { "low" };
 
         if req.log {
-            let log_id = log_query(&state, LogRecord {
-                id: 0,
-                query: req.query.clone(),
-                app_id: app_id.clone(),
-                detected_intents: detected_ids,
-                confidence: best_confidence.to_string(),
-                session_id: None,
-                timestamp_ms: now_ms(),
-                router_version: state.engine.try_namespace(&app_id)
-                    .map(|h| h.with_resolver(|r| r.version())).unwrap_or(0),
-                source: "hebbian_l2".to_string(),
-            });
+            let log_id = log_query(
+                &state,
+                LogRecord {
+                    id: 0,
+                    query: req.query.clone(),
+                    app_id: app_id.clone(),
+                    detected_intents: detected_ids,
+                    confidence: best_confidence.to_string(),
+                    session_id: None,
+                    timestamp_ms: now_ms(),
+                    router_version: state
+                        .engine
+                        .try_namespace(&app_id)
+                        .map(|h| h.with_resolver(|r| r.version()))
+                        .unwrap_or(0),
+                    source: "hebbian_l2".to_string(),
+                },
+            );
             emit_queued(&state, log_id, &req.query, &app_id);
         }
 
@@ -218,18 +269,24 @@ pub async fn route_multi(
     // ── No match — log and return empty (triggers auto-learn in "auto" mode) ──
     let latency_us = t0.elapsed().as_micros() as u64;
     if req.log {
-        let log_id = log_query(&state, LogRecord {
-            id: 0,
-            query: req.query.clone(),
-            app_id: app_id.clone(),
-            detected_intents: vec![],
-            confidence: "none".to_string(),
-            session_id: None,
-            timestamp_ms: now_ms(),
-            router_version: state.engine.try_namespace(&app_id)
-                .map(|h| h.with_resolver(|r| r.version())).unwrap_or(0),
-            source: "none".to_string(),
-        });
+        let log_id = log_query(
+            &state,
+            LogRecord {
+                id: 0,
+                query: req.query.clone(),
+                app_id: app_id.clone(),
+                detected_intents: vec![],
+                confidence: "none".to_string(),
+                session_id: None,
+                timestamp_ms: now_ms(),
+                router_version: state
+                    .engine
+                    .try_namespace(&app_id)
+                    .map(|h| h.with_resolver(|r| r.version()))
+                    .unwrap_or(0),
+                source: "none".to_string(),
+            },
+        );
         emit_queued(&state, log_id, &req.query, &app_id);
     }
 
@@ -260,4 +317,3 @@ pub async fn route_multi(
         "trace": trace,
     }))
 }
-

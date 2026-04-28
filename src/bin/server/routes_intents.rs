@@ -1,19 +1,25 @@
 //! Intent management endpoints.
 
+use crate::state::*;
 use axum::{
-    extract::{State, Path},
-    http::{StatusCode, HeaderMap},
-    routing::{get, post, patch},
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode},
+    routing::{get, patch, post},
     Json,
 };
 use microresolve::IntentType;
-use crate::state::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/intents",                  get(list_intents).post(add_intent))
-        .route("/api/intents/{id}",             patch(patch_intent).delete(delete_intent_by_id))
-        .route("/api/intents/{id}/phrases",     post(add_phrase_to_intent).delete(remove_phrase_from_intent))
+        .route("/api/intents", get(list_intents).post(add_intent))
+        .route(
+            "/api/intents/{id}",
+            patch(patch_intent).delete(delete_intent_by_id),
+        )
+        .route(
+            "/api/intents/{id}/phrases",
+            post(add_phrase_to_intent).delete(remove_phrase_from_intent),
+        )
 }
 
 // ── New RESTful handlers ────────────────────────────────────────────────────
@@ -21,12 +27,18 @@ pub fn routes() -> axum::Router<AppState> {
 /// Partial update of an intent. Any subset of fields may be provided.
 #[derive(serde::Deserialize)]
 pub struct PatchIntentRequest {
-    #[serde(default)] pub intent_type: Option<IntentType>,
-    #[serde(default)] pub description: Option<String>,
-    #[serde(default)] pub instructions: Option<String>,
-    #[serde(default)] pub persona: Option<String>,
-    #[serde(default)] pub guardrails: Option<Vec<String>>,
-    #[serde(default)] pub target: Option<microresolve::IntentTarget>,
+    #[serde(default)]
+    pub intent_type: Option<IntentType>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub instructions: Option<String>,
+    #[serde(default)]
+    pub persona: Option<String>,
+    #[serde(default)]
+    pub guardrails: Option<Vec<String>>,
+    #[serde(default)]
+    pub target: Option<microresolve::IntentTarget>,
 }
 
 pub async fn patch_intent(
@@ -36,8 +48,10 @@ pub async fn patch_intent(
     Json(req): Json<PatchIntentRequest>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let h = state.engine.try_namespace(&app_id)
-        .ok_or((StatusCode::NOT_FOUND, format!("namespace '{}' not found", app_id)))?;
+    let h = state.engine.try_namespace(&app_id).ok_or((
+        StatusCode::NOT_FOUND,
+        format!("namespace '{}' not found", app_id),
+    ))?;
 
     let edit = microresolve::IntentEdit {
         intent_type: req.intent_type,
@@ -61,7 +75,9 @@ pub async fn delete_intent_by_id(
     Path(id): Path<String>,
 ) -> StatusCode {
     let app_id = app_id_from_headers(&headers);
-    let Some(h) = state.engine.try_namespace(&app_id) else { return StatusCode::NOT_FOUND; };
+    let Some(h) = state.engine.try_namespace(&app_id) else {
+        return StatusCode::NOT_FOUND;
+    };
     h.remove_intent(&id);
     maybe_commit(&state, &app_id);
     StatusCode::NO_CONTENT
@@ -74,7 +90,9 @@ pub struct PhrasePayload {
     pub lang: String,
 }
 
-pub fn default_lang() -> String { "en".to_string() }
+pub fn default_lang() -> String {
+    "en".to_string()
+}
 
 pub async fn add_phrase_to_intent(
     State(state): State<AppState>,
@@ -83,7 +101,9 @@ pub async fn add_phrase_to_intent(
     Json(req): Json<PhrasePayload>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let h = state.engine.try_namespace(&app_id)
+    let h = state
+        .engine
+        .try_namespace(&app_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
 
     let exists = h.with_resolver(|r| r.training(&id).is_some());
@@ -97,11 +117,15 @@ pub async fn add_phrase_to_intent(
         maybe_commit(&state, &app_id);
     }
 
-    let counts: std::collections::HashMap<String, usize> = h.with_resolver(|r|
+    let counts: std::collections::HashMap<String, usize> = h.with_resolver(|r| {
         r.training_by_lang(&id)
-            .map(|m| m.iter().map(|(lang, ps)| (lang.clone(), ps.len())).collect())
+            .map(|m| {
+                m.iter()
+                    .map(|(lang, ps)| (lang.clone(), ps.len()))
+                    .collect()
+            })
             .unwrap_or_default()
-    );
+    });
 
     Ok(Json(serde_json::json!({
         "added": result.added,
@@ -118,7 +142,9 @@ pub async fn remove_phrase_from_intent(
     Json(req): Json<PhrasePayload>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
-    let h = state.engine.try_namespace(&app_id)
+    let h = state
+        .engine
+        .try_namespace(&app_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
     let removed = h.with_resolver_mut(|r| r.remove_phrase(&id, &req.phrase));
     if removed {
@@ -194,11 +220,14 @@ pub async fn add_intent(
     }
 
     if req.intent_type.is_some() || req.description.is_some() {
-        let _ = h.update_intent(&req.id, microresolve::IntentEdit {
-            intent_type: req.intent_type,
-            description: req.description.filter(|d| !d.is_empty()),
-            ..Default::default()
-        });
+        let _ = h.update_intent(
+            &req.id,
+            microresolve::IntentEdit {
+                intent_type: req.intent_type,
+                description: req.description.filter(|d| !d.is_empty()),
+                ..Default::default()
+            },
+        );
     }
     maybe_commit(&state, &app_id);
     StatusCode::CREATED

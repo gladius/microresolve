@@ -1,17 +1,17 @@
 //! Query log endpoints — backed by LogStore.
 
+use crate::log_store::LogQuery;
+use crate::state::*;
 use axum::{
-    extract::{State, Query},
+    extract::{Query, State},
     http::HeaderMap,
     routing::get,
     Json,
 };
-use crate::state::*;
-use crate::log_store::LogQuery;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/logs",       get(get_logs))
+        .route("/api/logs", get(get_logs))
         .route("/api/logs/stats", get(log_stats))
 }
 
@@ -24,7 +24,9 @@ pub struct LogParams {
     /// "true" = resolved only, "false" = unresolved only, omit = all
     resolved: Option<bool>,
 }
-fn default_limit() -> usize { 100 }
+fn default_limit() -> usize {
+    100
+}
 
 pub async fn get_logs(
     State(state): State<AppState>,

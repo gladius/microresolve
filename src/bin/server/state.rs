@@ -1,12 +1,12 @@
 //! Server state, shared types, and helper functions.
 
-use microresolve::{Engine, EngineConfig};
+use crate::log_store::{LogRecord, LogStore};
 use axum::http::HeaderMap;
+use microresolve::{Engine, EngineConfig};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, Notify};
-use crate::log_store::{LogStore, LogRecord};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct UiSettings {
@@ -41,20 +41,50 @@ impl Default for UiSettings {
     }
 }
 
-fn default_namespace() -> String { "default".to_string() }
-fn default_threshold() -> f32 { 0.3 }
-fn default_languages() -> Vec<String> { vec!["en".to_string()] }
-fn default_review_skip_threshold() -> f32 { 0.0 }
+fn default_namespace() -> String {
+    "default".to_string()
+}
+fn default_threshold() -> f32 {
+    0.3
+}
+fn default_languages() -> Vec<String> {
+    vec!["en".to_string()]
+}
+fn default_review_skip_threshold() -> f32 {
+    0.0
+}
 
 /// Events broadcast to SSE subscribers (Studio page live feed).
 #[derive(Clone, serde::Serialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StudioEvent {
-    ItemQueued   { id: u64, query: String, app_id: String },
-    LlmStarted   { id: u64, query: String },
-    LlmDone      { id: u64, correct: Vec<String>, wrong: Vec<String>, phrases_added: usize, summary: String },
-    FixApplied   { id: u64, phrases_added: usize, phrases_replaced: usize, version_before: u64, version_after: u64 },
-    Escalated    { id: u64, reason: String },
+    ItemQueued {
+        id: u64,
+        query: String,
+        app_id: String,
+    },
+    LlmStarted {
+        id: u64,
+        query: String,
+    },
+    LlmDone {
+        id: u64,
+        correct: Vec<String>,
+        wrong: Vec<String>,
+        phrases_added: usize,
+        summary: String,
+    },
+    FixApplied {
+        id: u64,
+        phrases_added: usize,
+        phrases_replaced: usize,
+        version_before: u64,
+        version_after: u64,
+    },
+    Escalated {
+        id: u64,
+        reason: String,
+    },
 }
 
 pub struct ServerState {
@@ -113,7 +143,9 @@ pub fn load_ui_settings(data_dir: &str) -> UiSettings {
 }
 
 pub fn save_ui_settings(state: &ServerState) {
-    let Some(ref dir) = state.data_dir else { return };
+    let Some(ref dir) = state.data_dir else {
+        return;
+    };
     let settings = state.ui_settings.read().unwrap().clone();
     if let Ok(json) = serde_json::to_string_pretty(&settings) {
         let _ = std::fs::write(format!("{}/_settings.json", dir), json);
@@ -129,7 +161,11 @@ pub fn maybe_commit(state: &ServerState, app_id: &str) {
         }
     }
     if let Some(ref dir) = state.data_dir {
-        git_commit(dir, &format!("update {}", app_id), state.git_remote.read().unwrap().is_some());
+        git_commit(
+            dir,
+            &format!("update {}", app_id),
+            state.git_remote.read().unwrap().is_some(),
+        );
     }
 }
 
@@ -137,28 +173,40 @@ pub fn maybe_commit(state: &ServerState, app_id: &str) {
 /// When `push` is true, follows up with `git push origin HEAD` after the
 /// commit lands. Both run on the tokio pool so the caller never blocks.
 pub fn git_commit(data_dir: &str, message: &str, push: bool) {
-    if !std::path::Path::new(&format!("{}/.git", data_dir)).exists() { return; }
+    if !std::path::Path::new(&format!("{}/.git", data_dir)).exists() {
+        return;
+    }
     let dir = data_dir.to_string();
     let msg = message.to_string();
     tokio::spawn(async move {
         let _ = tokio::process::Command::new("git")
             .args(["add", "-A"])
             .current_dir(&dir)
-            .output().await;
+            .output()
+            .await;
         let commit_out = tokio::process::Command::new("git")
             .args(["commit", "--quiet", "-m", &msg])
             .current_dir(&dir)
-            .output().await;
+            .output()
+            .await;
         // Skip push if the commit itself failed (e.g., nothing to commit).
-        if push && commit_out.as_ref().map(|o| o.status.success()).unwrap_or(false) {
+        if push
+            && commit_out
+                .as_ref()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+        {
             let push_out = tokio::process::Command::new("git")
                 .args(["push", "--quiet", "--set-upstream", "origin", "HEAD"])
                 .current_dir(&dir)
-                .output().await;
+                .output()
+                .await;
             if let Ok(o) = push_out {
                 if !o.status.success() {
-                    eprintln!("[data_git] push failed: {}",
-                        String::from_utf8_lossy(&o.stderr).trim());
+                    eprintln!(
+                        "[data_git] push failed: {}",
+                        String::from_utf8_lossy(&o.stderr).trim()
+                    );
                 }
             }
         }
@@ -180,15 +228,24 @@ pub fn build_engine(data_dir: Option<&str>) -> Engine {
 
 /// Append a query record to the log store. Returns the assigned id.
 pub fn log_query(state: &ServerState, record: LogRecord) -> u64 {
-    state.log_store.lock().map(|mut s| s.append(record)).unwrap_or(0)
+    state
+        .log_store
+        .lock()
+        .map(|mut s| s.append(record))
+        .unwrap_or(0)
 }
 
 /// Get review mode for a namespace. Returns "manual" if not set.
 pub fn get_ns_mode(state: &ServerState, app_id: &str) -> String {
-    state.review_mode.read().unwrap()
+    state
+        .review_mode
+        .read()
+        .unwrap()
         .get(app_id)
         .cloned()
         .unwrap_or_else(|| "manual".to_string())
 }
 
-pub fn default_lang() -> String { "en".to_string() }
+pub fn default_lang() -> String {
+    "en".to_string()
+}

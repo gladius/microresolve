@@ -1,7 +1,7 @@
 //! Resolver: continuous learning — phrase moves between intents.
 
-use crate::*;
 use crate::tokenizer::is_cjk;
+use crate::*;
 
 impl Resolver {
     /// Move `query` from `wrong_intent` to `correct_intent` and reinforce.
@@ -40,8 +40,15 @@ impl Resolver {
         }
 
         // Add to the correct intent.
-        let lang = if query.chars().any(is_cjk) { "zh" } else { "en" };
-        let lang_map = self.training.get_mut(correct_intent).expect("checked above");
+        let lang = if query.chars().any(is_cjk) {
+            "zh"
+        } else {
+            "en"
+        };
+        let lang_map = self
+            .training
+            .get_mut(correct_intent)
+            .expect("checked above");
         let phrases = lang_map.entry(lang.to_string()).or_default();
         if !phrases.contains(&query.to_string()) {
             phrases.push(query.to_string());

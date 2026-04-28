@@ -4,38 +4,33 @@
 //!
 //! Default: http://localhost:3001
 
-mod state;
+mod cli;
+mod data_git;
 mod key_store;
-mod routes_auth;
+mod log_store;
 mod pipeline;
+mod routes_auth;
+mod routes_connect;
 mod routes_core;
+mod routes_events;
+mod routes_git;
+mod routes_hebbian;
+mod routes_import;
 mod routes_intents;
 mod routes_logs;
 mod routes_phrases;
-mod routes_settings;
-mod routes_training;
 mod routes_projects;
-mod log_store;
 mod routes_review;
-mod routes_import;
-mod routes_connect;
-mod routes_ui_settings;
-mod routes_events;
-mod routes_hebbian;
+mod routes_settings;
 mod routes_stopwords;
-mod routes_git;
+mod routes_training;
+mod routes_ui_settings;
+mod state;
 mod worker;
-mod cli;
-mod data_git;
 
-use state::*;
+use axum::{extract::State, http::HeaderMap, routing::get, Json};
 use log_store::LogStore;
-use axum::{
-    extract::State,
-    http::HeaderMap,
-    routing::get,
-    Json,
-};
+use state::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::{broadcast, Notify};
@@ -71,7 +66,9 @@ async fn main() {
             let mut loaded = 0;
             for line in env_content.lines() {
                 let line = line.trim();
-                if line.is_empty() || line.starts_with('#') { continue; }
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
                 if let Some((key, val)) = line.split_once('=') {
                     let key = key.trim();
                     let val = val.trim().trim_matches('"').trim_matches('\'');
@@ -118,7 +115,13 @@ async fn main() {
     // Pick up an existing `origin` so the in-memory state matches the repo
     // after a restart. Best-effort: empty/no-remote stays `None`.
     let git_remote: Option<String> = std::process::Command::new("git")
-        .args(["-C", &cfg.data_dir.display().to_string(), "remote", "get-url", "origin"])
+        .args([
+            "-C",
+            &cfg.data_dir.display().to_string(),
+            "remote",
+            "get-url",
+            "origin",
+        ])
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -145,13 +148,21 @@ async fn main() {
     // Build Engine — loads all namespace subdirectories from data_dir.
     let engine = build_engine(data_dir.as_deref());
     for id in engine.namespaces() {
-        let count = engine.namespace(&id).with_resolver(|r| r.l2().word_intent.len());
+        let count = engine
+            .namespace(&id)
+            .with_resolver(|r| r.l2().word_intent.len());
         let l0 = engine.namespace(&id).with_resolver(|r| r.l0().len());
-        println!("Loaded namespace: {} (L2 words: {}, L0 terms: {})", id, count, l0);
+        println!(
+            "Loaded namespace: {} (L2 words: {}, L0 terms: {})",
+            id, count, l0
+        );
     }
 
     let log_store = LogStore::new(data_dir.as_deref());
-    let ui_settings = data_dir.as_deref().map(load_ui_settings).unwrap_or_default();
+    let ui_settings = data_dir
+        .as_deref()
+        .map(load_ui_settings)
+        .unwrap_or_default();
 
     // API keys for connected-mode endpoints. Empty = open mode.
     // Managed via UI (Manage → Auth Keys) and stored at
@@ -211,13 +222,12 @@ async fn main() {
     // UI serving AND browser auto-open below — no cfg(debug_assertions), no
     // CWD fallback. The packaging convention is the signal.
     let app = if let Some(dist) = ui_dist.as_ref() {
-        use axum::response::IntoResponse;
         use axum::http::header;
+        use axum::response::IntoResponse;
 
         // Store the index.html path in a OnceLock so the fallback handler
         // (which must be a plain fn for axum to accept) can read it.
-        static UI_INDEX_PATH: std::sync::OnceLock<std::path::PathBuf> =
-            std::sync::OnceLock::new();
+        static UI_INDEX_PATH: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
         let _ = UI_INDEX_PATH.set(dist.join("index.html"));
 
         async fn spa_index() -> impl IntoResponse {
@@ -232,12 +242,11 @@ async fn main() {
         }
 
         println!("UI served from: {}", dist.display());
-        app
-            .nest_service(
-                "/assets",
-                tower_http::services::ServeDir::new(dist.join("assets")),
-            )
-            .fallback(spa_index)
+        app.nest_service(
+            "/assets",
+            tower_http::services::ServeDir::new(dist.join("assets")),
+        )
+        .fallback(spa_index)
     } else {
         println!("(dev) API-only — no ui/dist next to the binary. For the UI, run `cd ui && npm run dev` (http://localhost:3000).");
         app
@@ -248,8 +257,10 @@ async fn main() {
         println!("Data directory: {}", dir);
     }
 
-    let listener = tokio::net::TcpListener::bind(&addr).await
-        .expect(&format!("Failed to bind to {} — is the port already in use?", addr));
+    let listener = tokio::net::TcpListener::bind(&addr).await.expect(&format!(
+        "Failed to bind to {} — is the port already in use?",
+        addr
+    ));
 
     // Auto-open the browser — only for distributed installs. In dev builds
     // the Vite dev server on :3000 already owns the browser tab.
@@ -257,7 +268,10 @@ async fn main() {
         if !cfg.no_open && !cli::looks_headless() {
             let url = format!("http://localhost:{}/", cfg.port);
             if let Err(e) = open::that_detached(&url) {
-                eprintln!("(could not auto-open browser: {}. Visit {} manually.)", e, url);
+                eprintln!(
+                    "(could not auto-open browser: {}. Visit {} manually.)",
+                    e, url
+                );
             } else {
                 println!("Opening browser at {}", url);
             }
@@ -268,8 +282,7 @@ async fn main() {
         }
     }
 
-    axum::serve(listener, app).await
-        .expect("Server error");
+    axum::serve(listener, app).await.expect("Server error");
 }
 
 async fn health() -> &'static str {
@@ -284,9 +297,14 @@ async fn llm_status(State(state): State<AppState>) -> Json<serde_json::Value> {
         _ => "claude-haiku-4-5-20251001".to_string(),
     });
     let url = match provider.as_str() {
-        "gemini" => format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model),
-        "anthropic" => std::env::var("LLM_API_URL").unwrap_or_else(|_| "https://api.anthropic.com/v1/messages".to_string()),
-        _ => std::env::var("LLM_API_URL").unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string()),
+        "gemini" => format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+            model
+        ),
+        "anthropic" => std::env::var("LLM_API_URL")
+            .unwrap_or_else(|_| "https://api.anthropic.com/v1/messages".to_string()),
+        _ => std::env::var("LLM_API_URL")
+            .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string()),
     };
     Json(serde_json::json!({
         "configured": configured,
@@ -296,12 +314,11 @@ async fn llm_status(State(state): State<AppState>) -> Json<serde_json::Value> {
     }))
 }
 
-async fn get_version(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Json<serde_json::Value> {
+async fn get_version(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
-    let version = state.engine.try_namespace(&app_id)
+    let version = state
+        .engine
+        .try_namespace(&app_id)
         .map(|h| h.with_resolver(|r| r.version()))
         .unwrap_or(0);
     Json(serde_json::json!({"version": version, "project_id": app_id}))

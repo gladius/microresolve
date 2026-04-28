@@ -34,8 +34,8 @@
 //! assert_eq!(r.normalized, "cancel my subscription");
 //! ```
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,20 +77,20 @@ pub struct LexicalGraph {
 
 #[derive(Debug, Clone)]
 pub struct PreprocessResult {
-    pub original:     String,
+    pub original: String,
     /// After morphology + abbreviation substitution (the only rewrites that
     /// happen at query time).
-    pub normalized:   String,
+    pub normalized: String,
     /// Equal to `normalized` — kept as a separate field for backward-compat
     /// with code paths that read `expanded`. Synonym injection is OFF; this
     /// will never differ from `normalized`.
-    pub expanded:     String,
+    pub expanded: String,
     /// Always empty in v0.1 (synonym injection removed). Field retained so
     /// the Studio Layers panel keeps rendering. Deprecated; will go in a
     /// later release.
-    pub injected:     Vec<String>,
+    pub injected: Vec<String>,
     /// Semantic-weight edges that fired against the query (Studio inspection).
-    pub semantic_hits: Vec<(String, String, f32)>,  // (source, target, weight)
+    pub semantic_hits: Vec<(String, String, f32)>, // (source, target, weight)
     pub was_modified: bool,
 }
 
@@ -121,7 +121,7 @@ impl LexicalGraph {
     /// but never exceeds it regardless of how many reinforcements occur.
     pub fn reinforce(&mut self, from: &str, to: &str, delta: f32) {
         let from = from.to_lowercase();
-        let to   = to.to_lowercase();
+        let to = to.to_lowercase();
         if let Some(edges) = self.edges.get_mut(&from) {
             for e in edges.iter_mut() {
                 if e.target == to {
@@ -186,7 +186,7 @@ impl LexicalGraph {
             });
             match replacement {
                 Some(e) => out.push(e.target.clone()),
-                None    => out.push(word.clone()),
+                None => out.push(word.clone()),
             }
         }
         out.join(" ")
@@ -227,15 +227,15 @@ impl LexicalGraph {
     /// For semantic coverage, add training phrases (e.g. via "Generate phrases")
     /// instead of relying on synonym edges.
     pub fn preprocess(&self, query: &str) -> PreprocessResult {
-        let normalized    = self.normalize_query(query);
+        let normalized = self.normalize_query(query);
         let semantic_hits = self.semantic_hits(&normalized);
-        let was_modified  = normalized != query.to_lowercase();
+        let was_modified = normalized != query.to_lowercase();
 
         PreprocessResult {
-            original:  query.to_string(),
+            original: query.to_string(),
             normalized: normalized.clone(),
-            expanded:  normalized,
-            injected:  vec![],
+            expanded: normalized,
+            injected: vec![],
             semantic_hits,
             was_modified,
         }
@@ -255,10 +255,10 @@ impl LexicalGraph {
     /// This is **substitution, not expansion**: the original token is
     /// replaced (one token → one token), so it cannot inflate L2 scores
     /// the way the old query-expansion path did.
-    pub fn preprocess_grounded<'a>(
+    pub fn preprocess_grounded(
         &self,
         query: &str,
-        known_words: &std::collections::HashSet<&'a str>,
+        known_words: &std::collections::HashSet<&str>,
     ) -> PreprocessResult {
         let words = Self::l1_tokens(query);
         let mut out: Vec<String> = Vec::with_capacity(words.len());
@@ -342,111 +342,115 @@ pub fn saas_test_graph() -> LexicalGraph {
 
     // ── Morphological (0.99) ─────────────────────────────────────────────
     // cancel family
-    for v in &["canceling","cancelled","cancellation","cancels"] {
+    for v in &["canceling", "cancelled", "cancellation", "cancels"] {
         g.add(v, "cancel", 0.99, EdgeKind::Morphological);
     }
     // refund family
-    for v in &["refunding","refunded","refunds"] {
+    for v in &["refunding", "refunded", "refunds"] {
         g.add(v, "refund", 0.99, EdgeKind::Morphological);
     }
     // charge family
-    for v in &["charging","charged","charges"] {
+    for v in &["charging", "charged", "charges"] {
         g.add(v, "charge", 0.99, EdgeKind::Morphological);
     }
     // ship family
-    for v in &["shipped","shipment","shipments"] {
+    for v in &["shipped", "shipment", "shipments"] {
         g.add(v, "ship", 0.99, EdgeKind::Morphological);
     }
     // merge family
-    for v in &["merging","merged","merges"] {
+    for v in &["merging", "merged", "merges"] {
         g.add(v, "merge", 0.99, EdgeKind::Morphological);
     }
     // list family
-    for v in &["listing","listed","lists"] {
+    for v in &["listing", "listed", "lists"] {
         g.add(v, "list", 0.99, EdgeKind::Morphological);
     }
     // create family
-    for v in &["creating","created","creates","creation"] {
+    for v in &["creating", "created", "creates", "creation"] {
         g.add(v, "create", 0.99, EdgeKind::Morphological);
     }
     // schedule family
-    for v in &["scheduling","scheduled","schedules"] {
+    for v in &["scheduling", "scheduled", "schedules"] {
         g.add(v, "schedule", 0.99, EdgeKind::Morphological);
     }
     // invite family
-    for v in &["inviting","invited","invites"] {
+    for v in &["inviting", "invited", "invites"] {
         g.add(v, "invite", 0.99, EdgeKind::Morphological);
     }
     // send family
-    for v in &["sending","sent","sends"] {
+    for v in &["sending", "sent", "sends"] {
         g.add(v, "send", 0.99, EdgeKind::Morphological);
     }
     // close family
-    for v in &["closing","closed","closes"] {
+    for v in &["closing", "closed", "closes"] {
         g.add(v, "close", 0.99, EdgeKind::Morphological);
     }
 
     // ── Abbreviations (0.99) ─────────────────────────────────────────────
-    g.add("pr",    "pull request",   0.99, EdgeKind::Abbreviation);
-    g.add("prs",   "pull requests",  0.99, EdgeKind::Abbreviation);
-    g.add("repo",  "repository",     0.99, EdgeKind::Abbreviation);
-    g.add("repos", "repositories",   0.99, EdgeKind::Abbreviation);
-    g.add("sub",   "subscription",   0.99, EdgeKind::Abbreviation);
-    g.add("subs",  "subscriptions",  0.99, EdgeKind::Abbreviation);
-    g.add("msg",   "message",        0.99, EdgeKind::Abbreviation);
-    g.add("msgs",  "messages",       0.99, EdgeKind::Abbreviation);
-    g.add("chan",  "channel",        0.99, EdgeKind::Abbreviation);
+    g.add("pr", "pull request", 0.99, EdgeKind::Abbreviation);
+    g.add("prs", "pull requests", 0.99, EdgeKind::Abbreviation);
+    g.add("repo", "repository", 0.99, EdgeKind::Abbreviation);
+    g.add("repos", "repositories", 0.99, EdgeKind::Abbreviation);
+    g.add("sub", "subscription", 0.99, EdgeKind::Abbreviation);
+    g.add("subs", "subscriptions", 0.99, EdgeKind::Abbreviation);
+    g.add("msg", "message", 0.99, EdgeKind::Abbreviation);
+    g.add("msgs", "messages", 0.99, EdgeKind::Abbreviation);
+    g.add("chan", "channel", 0.99, EdgeKind::Abbreviation);
 
     // ── Synonyms + their morph variants ──────────────────────────────────
     // cancel synonyms
-    for (v, w) in &[("terminate",0.92f32),("terminating",0.92),("terminated",0.92)] {
+    for (v, w) in &[
+        ("terminate", 0.92f32),
+        ("terminating", 0.92),
+        ("terminated", 0.92),
+    ] {
         g.add(v, "cancel", *w, EdgeKind::Synonym);
     }
-    for (v, w) in &[("kill",0.85f32),("killing",0.85),("killed",0.85)] {
+    for (v, w) in &[("kill", 0.85f32), ("killing", 0.85), ("killed", 0.85)] {
         g.add(v, "cancel", *w, EdgeKind::Synonym);
     }
-    for (v, w) in &[("axe",0.83f32),("axed",0.83),("axing",0.83)] {
+    for (v, w) in &[("axe", 0.83f32), ("axed", 0.83), ("axing", 0.83)] {
         g.add(v, "cancel", *w, EdgeKind::Synonym);
     }
     g.add("ditch", "cancel", 0.80, EdgeKind::Synonym);
 
     // send synonyms
-    g.add("ping",   "send", 0.92, EdgeKind::Synonym);
-    g.add("dm",     "send", 0.90, EdgeKind::Synonym);
+    g.add("ping", "send", 0.92, EdgeKind::Synonym);
+    g.add("dm", "send", 0.90, EdgeKind::Synonym);
     g.add("notify", "send", 0.85, EdgeKind::Synonym);
-    g.add("blast",  "send", 0.80, EdgeKind::Synonym);
+    g.add("blast", "send", 0.80, EdgeKind::Synonym);
 
     // create synonyms
-    g.add("spin",  "create", 0.82, EdgeKind::Synonym);
-    g.add("make",  "create", 0.85, EdgeKind::Synonym);
+    g.add("spin", "create", 0.82, EdgeKind::Synonym);
+    g.add("make", "create", 0.85, EdgeKind::Synonym);
     g.add("build", "create", 0.82, EdgeKind::Synonym);
     // NOTE: "open" excluded — ambiguous ("open an issue" vs "open the settings")
 
     // refund synonyms
-    g.add("reimburse",    "refund", 0.90, EdgeKind::Synonym);
-    g.add("reimbursement","refund", 0.90, EdgeKind::Synonym);
-    g.add("compensate",   "refund", 0.80, EdgeKind::Synonym);
+    g.add("reimburse", "refund", 0.90, EdgeKind::Synonym);
+    g.add("reimbursement", "refund", 0.90, EdgeKind::Synonym);
+    g.add("compensate", "refund", 0.80, EdgeKind::Synonym);
 
     // charge synonyms
-    g.add("run",  "charge", 0.82, EdgeKind::Synonym);  // "run the card"
+    g.add("run", "charge", 0.82, EdgeKind::Synonym); // "run the card"
     g.add("bill", "charge", 0.85, EdgeKind::Synonym);
 
     // list synonyms
-    g.add("show",  "list", 0.85, EdgeKind::Synonym);
+    g.add("show", "list", 0.85, EdgeKind::Synonym);
     g.add("fetch", "list", 0.82, EdgeKind::Synonym);
     // NOTE: "get", "pull", "open" excluded — too ambiguous as standalone words
     // ("pull request" contains "pull", "open an account" vs "open a file")
 
     // merge synonyms
     g.add("integrate", "merge", 0.82, EdgeKind::Synonym);
-    g.add("squash",    "merge", 0.80, EdgeKind::Synonym);
+    g.add("squash", "merge", 0.80, EdgeKind::Synonym);
 
     // ── Semantic (0.60–0.79) — confidence boost only ──────────────────────
-    g.add("stop",  "cancel", 0.65, EdgeKind::Semantic);
-    g.add("end",   "cancel", 0.62, EdgeKind::Semantic);
-    g.add("drop",  "cancel", 0.68, EdgeKind::Semantic);
-    g.add("fire",  "send",   0.70, EdgeKind::Semantic);  // "fire off a message"
-    g.add("throw", "create", 0.65, EdgeKind::Semantic);  // "throw up a repo"
+    g.add("stop", "cancel", 0.65, EdgeKind::Semantic);
+    g.add("end", "cancel", 0.62, EdgeKind::Semantic);
+    g.add("drop", "cancel", 0.68, EdgeKind::Semantic);
+    g.add("fire", "send", 0.70, EdgeKind::Semantic); // "fire off a message"
+    g.add("throw", "create", 0.65, EdgeKind::Semantic); // "throw up a repo"
 
     g
 }
@@ -460,13 +464,19 @@ mod tests {
     #[test]
     fn morph_canceling() {
         let g = saas_test_graph();
-        assert_eq!(g.normalize_query("canceling my subscription"), "cancel my subscription");
+        assert_eq!(
+            g.normalize_query("canceling my subscription"),
+            "cancel my subscription"
+        );
     }
 
     #[test]
     fn morph_cancelled() {
         let g = saas_test_graph();
-        assert_eq!(g.normalize_query("the order was cancelled"), "the order was cancel");
+        assert_eq!(
+            g.normalize_query("the order was cancelled"),
+            "the order was cancel"
+        );
     }
 
     #[test]
@@ -481,7 +491,10 @@ mod tests {
     #[test]
     fn morph_shipped() {
         let g = saas_test_graph();
-        assert_eq!(g.normalize_query("get all shipped orders"), "get all ship orders");
+        assert_eq!(
+            g.normalize_query("get all shipped orders"),
+            "get all ship orders"
+        );
     }
 
     // ── Abbreviation normalization ────────────────────────────────────────
@@ -495,13 +508,19 @@ mod tests {
     #[test]
     fn abbrev_pr_and_repo() {
         let g = saas_test_graph();
-        assert_eq!(g.normalize_query("merge the pr in that repo"), "merge the pull request in that repository");
+        assert_eq!(
+            g.normalize_query("merge the pr in that repo"),
+            "merge the pull request in that repository"
+        );
     }
 
     #[test]
     fn abbrev_msg_chan() {
         let g = saas_test_graph();
-        assert_eq!(g.normalize_query("send a msg to the chan"), "send a message to the channel");
+        assert_eq!(
+            g.normalize_query("send a msg to the chan"),
+            "send a message to the channel"
+        );
     }
 
     // ── Morphology + abbreviation combined ────────────────────────────────
@@ -510,7 +529,10 @@ mod tests {
     fn combined_morph_and_abbrev() {
         let g = saas_test_graph();
         // "canceling" → "cancel", "sub" → "subscription"
-        assert_eq!(g.normalize_query("canceling my sub"), "cancel my subscription");
+        assert_eq!(
+            g.normalize_query("canceling my sub"),
+            "cancel my subscription"
+        );
     }
 
     #[test]
@@ -520,7 +542,10 @@ mod tests {
         let r = g.preprocess("canceling my sub");
         assert_eq!(r.normalized, "cancel my subscription");
         // "cancel" is already canonical so nothing extra injected
-        assert!(r.injected.is_empty(), "should not inject anything when already canonical");
+        assert!(
+            r.injected.is_empty(),
+            "should not inject anything when already canonical"
+        );
     }
 
     // ── Semantic hits (no expansion) ──────────────────────────────────────
@@ -530,9 +555,15 @@ mod tests {
         let g = saas_test_graph();
         let r = g.preprocess("stop sending me emails");
         // "stop" is Semantic weight 0.65; semantic edges never inject at query time.
-        assert!(!r.expanded.contains("cancel"), "semantic word should not expand query");
+        assert!(
+            !r.expanded.contains("cancel"),
+            "semantic word should not expand query"
+        );
         // But it should appear in semantic_hits
-        let hit = r.semantic_hits.iter().any(|(src, tgt, _)| src == "stop" && tgt == "cancel");
+        let hit = r
+            .semantic_hits
+            .iter()
+            .any(|(src, tgt, _)| src == "stop" && tgt == "cancel");
         assert!(hit, "stop → cancel should appear as semantic hit");
     }
 
@@ -570,7 +601,9 @@ mod tests {
     fn reinforce_creates_new_edge() {
         let mut g = saas_test_graph();
         g.reinforce("nuke", "cancel", 0.05);
-        let has_edge = g.edges.get("nuke")
+        let has_edge = g
+            .edges
+            .get("nuke")
             .map(|es| es.iter().any(|e| e.target == "cancel"))
             .unwrap_or(false);
         assert!(has_edge, "new word should get a learned edge");
@@ -688,7 +721,9 @@ impl IntentIndex {
     pub fn rebuild_idf(&mut self) {
         self.known_intents.clear();
         for entries in self.word_intent.values() {
-            for (id, _) in entries { self.known_intents.insert(id.clone()); }
+            for (id, _) in entries {
+                self.known_intents.insert(id.clone());
+            }
         }
         let n = self.known_intents.len();
         self.intent_count = n;
@@ -715,15 +750,22 @@ impl IntentIndex {
     #[inline]
     fn idf(&self, word: &str) -> f32 {
         self.idf_cache.get(word).copied().unwrap_or_else(|| {
-            self.word_intent.get(word)
-                .map(|e| (self.intent_count.max(1) as f32 / e.len() as f32).ln().max(0.0))
+            self.word_intent
+                .get(word)
+                .map(|e| {
+                    (self.intent_count.max(1) as f32 / e.len() as f32)
+                        .ln()
+                        .max(0.0)
+                })
                 .unwrap_or(0.0)
         })
     }
 
     /// Learn a single word → intent association with asymptotic Hebbian update.
     pub fn learn_word(&mut self, word: &str, intent: &str, rate: f32) {
-        if word.is_empty() { return; }
+        if word.is_empty() {
+            return;
+        }
         let entries = self.word_intent.entry(word.to_string()).or_default();
         if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent) {
             // Weight update only — posting list length unchanged, IDF unchanged.
@@ -762,8 +804,13 @@ impl IntentIndex {
     /// include word boundaries implicitly via spaces.
     pub fn index_char_ngrams(&mut self, phrase: &str, intent: &str) {
         let normalized: String = phrase.to_lowercase();
-        let s: String = format!("  {}  ", normalized.split_whitespace().collect::<Vec<_>>().join(" "));
-        if s.chars().count() < 4 { return; }
+        let s: String = format!(
+            "  {}  ",
+            normalized.split_whitespace().collect::<Vec<_>>().join(" ")
+        );
+        if s.chars().count() < 4 {
+            return;
+        }
         let chars: Vec<char> = s.chars().collect();
         let set = self.char_ngrams.entry(intent.to_string()).or_default();
         for window in chars.windows(4) {
@@ -786,40 +833,60 @@ impl IntentIndex {
         ratio_threshold: f32,
         alpha: f32,
     ) -> Vec<(String, f32)> {
-        if ranked.len() < 2 { return ranked; }
+        if ranked.len() < 2 {
+            return ranked;
+        }
         let top1 = ranked[0].1;
         let top2 = ranked[1].1;
-        if top1 + top2 <= 0.0 { return ranked; }
+        if top1 + top2 <= 0.0 {
+            return ranked;
+        }
         let ratio = top1 / (top1 + top2);
-        if ratio >= ratio_threshold { return ranked; }
+        if ratio >= ratio_threshold {
+            return ranked;
+        }
 
         // Extract char 4-grams from the query
         let normalized: String = query.to_lowercase();
-        let s: String = format!("  {}  ", normalized.split_whitespace().collect::<Vec<_>>().join(" "));
-        if s.chars().count() < 4 { return ranked; }
+        let s: String = format!(
+            "  {}  ",
+            normalized.split_whitespace().collect::<Vec<_>>().join(" ")
+        );
+        if s.chars().count() < 4 {
+            return ranked;
+        }
         let chars: Vec<char> = s.chars().collect();
         let mut q_ngrams: std::collections::HashSet<String> = std::collections::HashSet::new();
         for window in chars.windows(4) {
             let ngram: String = window.iter().collect();
             q_ngrams.insert(ngram);
         }
-        if q_ngrams.is_empty() { return ranked; }
+        if q_ngrams.is_empty() {
+            return ranked;
+        }
 
         // Re-rank top-5 (cap)
         let k = ranked.len().min(5);
         let (head, tail) = ranked.split_at(k);
-        let mut rescored: Vec<(String, f32)> = head.iter().map(|(id, score)| {
-            let intent_set = self.char_ngrams.get(id);
-            let jaccard = match intent_set {
-                Some(iset) if !iset.is_empty() => {
-                    let inter = q_ngrams.iter().filter(|n| iset.contains(*n)).count();
-                    let uni = q_ngrams.len() + iset.len() - inter;
-                    if uni == 0 { 0.0 } else { inter as f32 / uni as f32 }
-                }
-                _ => 0.0,
-            };
-            (id.clone(), score + alpha * jaccard)
-        }).collect();
+        let mut rescored: Vec<(String, f32)> = head
+            .iter()
+            .map(|(id, score)| {
+                let intent_set = self.char_ngrams.get(id);
+                let jaccard = match intent_set {
+                    Some(iset) if !iset.is_empty() => {
+                        let inter = q_ngrams.iter().filter(|n| iset.contains(*n)).count();
+                        let uni = q_ngrams.len() + iset.len() - inter;
+                        if uni == 0 {
+                            0.0
+                        } else {
+                            inter as f32 / uni as f32
+                        }
+                    }
+                    _ => 0.0,
+                };
+                (id.clone(), score + alpha * jaccard)
+            })
+            .collect();
         rescored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         rescored.extend_from_slice(tail);
         rescored
@@ -835,10 +902,14 @@ impl IntentIndex {
     }
 
     /// Routing threshold — identical in production and simulation.
-    pub fn default_threshold(&self) -> f32 { 0.3 }
+    pub fn default_threshold(&self) -> f32 {
+        0.3
+    }
 
     /// Multi-intent gap — identical in production and simulation.
-    pub fn default_gap(&self) -> f32 { 1.5 }
+    pub fn default_gap(&self) -> f32 {
+        1.5
+    }
 
     /// Hebbian reinforcement from a routing confirmation.
     /// `words` must already be Layer-1 normalized canonical terms.
@@ -874,7 +945,9 @@ impl IntentIndex {
     /// Used by auto-learn to know which conjunction bonuses contributed to a routing.
     pub fn fired_conjunction_indices(&self, words: &[&str]) -> Vec<usize> {
         let word_set: std::collections::HashSet<&str> = words.iter().copied().collect();
-        self.conjunctions.iter().enumerate()
+        self.conjunctions
+            .iter()
+            .enumerate()
             .filter(|(_, rule)| rule.words.iter().all(|w| word_set.contains(w.as_str())))
             .map(|(i, _)| i)
             .collect()
@@ -903,9 +976,12 @@ impl IntentIndex {
         const CJK_NEG: &[char] = &['不', '没', '别', '未'];
         let cjk_negated = normalized.chars().any(|c| CJK_NEG.contains(&c));
         let query_for_tokenize: std::borrow::Cow<str> = if cjk_negated {
-            std::borrow::Cow::Owned(normalized.chars()
-                .map(|c| if CJK_NEG.contains(&c) { ' ' } else { c })
-                .collect())
+            std::borrow::Cow::Owned(
+                normalized
+                    .chars()
+                    .map(|c| if CJK_NEG.contains(&c) { ' ' } else { c })
+                    .collect(),
+            )
         } else {
             std::borrow::Cow::Borrowed(normalized)
         };
@@ -914,14 +990,21 @@ impl IntentIndex {
         let mut scores: HashMap<String, f32> = HashMap::new();
         let mut has_negation = cjk_negated;
 
-        let all_bases: std::collections::HashSet<&str> = tokens.iter()
+        let all_bases: std::collections::HashSet<&str> = tokens
+            .iter()
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
 
         for token in &tokens {
             let is_negated = token.starts_with("not_");
-            let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
-            if is_negated { has_negation = true; }
+            let base = if is_negated {
+                &token["not_".len()..]
+            } else {
+                token.as_str()
+            };
+            if is_negated {
+                has_negation = true;
+            }
             if let Some(activations) = self.word_intent.get(base) {
                 let idf = self.idf(base);
                 for (intent, weight) in activations {
@@ -939,10 +1022,7 @@ impl IntentIndex {
             }
         }
 
-        let mut result: Vec<(String, f32)> = scores
-            .into_iter()
-            .filter(|(_, s)| *s > 0.0)
-            .collect();
+        let mut result: Vec<(String, f32)> = scores.into_iter().filter(|(_, s)| *s > 0.0).collect();
         result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         (result, has_negation)
     }
@@ -973,8 +1053,14 @@ impl IntentIndex {
     ///
     /// Token consumption: after confirming an intent, remove tokens that
     /// are primarily associated with it. Remaining tokens indicate additional intents.
-    pub fn score_multi_normalized(&self, normalized: &str, threshold: f32, gap: f32) -> (Vec<(String, f32)>, bool) {
-        let (results, neg, _trace) = self.score_multi_normalized_traced(normalized, threshold, gap, false);
+    pub fn score_multi_normalized(
+        &self,
+        normalized: &str,
+        threshold: f32,
+        gap: f32,
+    ) -> (Vec<(String, f32)>, bool) {
+        let (results, neg, _trace) =
+            self.score_multi_normalized_traced(normalized, threshold, gap, false);
         (results, neg)
     }
 
@@ -994,9 +1080,12 @@ impl IntentIndex {
         const CJK_NEG: &[char] = &['不', '没', '别', '未'];
         let cjk_negated = normalized.chars().any(|c| CJK_NEG.contains(&c));
         let query_for_tokenize: std::borrow::Cow<str> = if cjk_negated {
-            std::borrow::Cow::Owned(normalized.chars()
-                .map(|c| if CJK_NEG.contains(&c) { ' ' } else { c })
-                .collect())
+            std::borrow::Cow::Owned(
+                normalized
+                    .chars()
+                    .map(|c| if CJK_NEG.contains(&c) { ' ' } else { c })
+                    .collect(),
+            )
         } else {
             std::borrow::Cow::Borrowed(normalized)
         };
@@ -1014,15 +1103,20 @@ impl IntentIndex {
         for round in 0..MAX_ROUNDS {
             let scored = self.score_tokens(&remaining, &confirmed_ids);
             if scored.is_empty() {
-                if with_trace { stop_reason = Some("no scores".into()); }
+                if with_trace {
+                    stop_reason = Some("no scores".into());
+                }
                 break;
             }
 
             let round_top = scored[0].1;
-            if round == 0 { original_top = round_top; }
+            if round == 0 {
+                original_top = round_top;
+            }
             if round_top < threshold {
                 if with_trace {
-                    stop_reason = Some(format!("top {:.2} < threshold {:.2}", round_top, threshold));
+                    stop_reason =
+                        Some(format!("top {:.2} < threshold {:.2}", round_top, threshold));
                     trace_rounds.push(RoundTrace {
                         tokens_in: remaining.clone(),
                         scored: scored.iter().take(5).cloned().collect(),
@@ -1034,7 +1128,11 @@ impl IntentIndex {
             }
             if round > 0 && round_top < original_top * GATE_RATIO {
                 if with_trace {
-                    stop_reason = Some(format!("top {:.2} < gate {:.2}", round_top, original_top * GATE_RATIO));
+                    stop_reason = Some(format!(
+                        "top {:.2} < gate {:.2}",
+                        round_top,
+                        original_top * GATE_RATIO
+                    ));
                     trace_rounds.push(RoundTrace {
                         tokens_in: remaining.clone(),
                         scored: scored.iter().take(5).cloned().collect(),
@@ -1056,7 +1154,9 @@ impl IntentIndex {
             }
 
             if round_confirmed.is_empty() {
-                if with_trace { stop_reason = Some("no confirmed".into()); }
+                if with_trace {
+                    stop_reason = Some("no confirmed".into());
+                }
                 break;
             }
             confirmed.extend(round_confirmed.iter().cloned());
@@ -1067,7 +1167,8 @@ impl IntentIndex {
                 let base = token.strip_prefix("not_").unwrap_or(token.as_str());
                 if let Some(activations) = self.word_intent.get(base) {
                     // Token's strongest intent
-                    let best_intent = activations.iter()
+                    let best_intent = activations
+                        .iter()
                         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
                     match best_intent {
                         Some((id, _)) => !confirmed_ids.contains(id.as_str()),
@@ -1080,7 +1181,8 @@ impl IntentIndex {
 
             if with_trace {
                 let remaining_set: std::collections::HashSet<&String> = remaining.iter().collect();
-                let consumed: Vec<String> = tokens_before.iter()
+                let consumed: Vec<String> = tokens_before
+                    .iter()
                     .filter(|t| !remaining_set.contains(t))
                     .cloned()
                     .collect();
@@ -1093,7 +1195,9 @@ impl IntentIndex {
             }
 
             if remaining.is_empty() {
-                if with_trace { stop_reason = Some("all tokens consumed".into()); }
+                if with_trace {
+                    stop_reason = Some("all tokens consumed".into());
+                }
                 break;
             }
         }
@@ -1103,23 +1207,34 @@ impl IntentIndex {
                 rounds: trace_rounds,
                 stop_reason: stop_reason.unwrap_or_else(|| "max rounds reached".into()),
             })
-        } else { None };
+        } else {
+            None
+        };
 
         (confirmed, has_negation, trace)
     }
 
     /// Score a specific set of tokens (not a full query string).
-    fn score_tokens(&self, tokens: &[String],
-                    exclude_intents: &std::collections::HashSet<String>) -> Vec<(String, f32)> {
+    fn score_tokens(
+        &self,
+        tokens: &[String],
+        exclude_intents: &std::collections::HashSet<String>,
+    ) -> Vec<(String, f32)> {
         let mut scores: HashMap<String, f32> = HashMap::new();
 
         for token in tokens {
             let is_negated = token.starts_with("not_");
-            let base = if is_negated { &token["not_".len()..] } else { token.as_str() };
+            let base = if is_negated {
+                &token["not_".len()..]
+            } else {
+                token.as_str()
+            };
             if let Some(activations) = self.word_intent.get(base) {
                 let idf = self.idf(base);
                 for (intent, weight) in activations {
-                    if exclude_intents.contains(intent) { continue; }
+                    if exclude_intents.contains(intent) {
+                        continue;
+                    }
                     let delta = weight * idf;
                     *scores.entry(intent.clone()).or_insert(0.0) +=
                         if is_negated { -delta } else { delta };
@@ -1128,7 +1243,8 @@ impl IntentIndex {
         }
 
         // Conjunction bonuses
-        let all_bases: std::collections::HashSet<&str> = tokens.iter()
+        let all_bases: std::collections::HashSet<&str> = tokens
+            .iter()
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
         for rule in &self.conjunctions {
@@ -1139,23 +1255,19 @@ impl IntentIndex {
             }
         }
 
-        let mut result: Vec<(String, f32)> = scores.into_iter()
-            .filter(|(_, s)| *s > 0.0)
-            .collect();
+        let mut result: Vec<(String, f32)> = scores.into_iter().filter(|(_, s)| *s > 0.0).collect();
         result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         result
     }
 
     pub fn save(&self, path: &str) -> std::io::Result<()> {
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let json = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
         std::fs::write(path, json)
     }
 
     pub fn load(path: &str) -> std::io::Result<Self> {
         let json = std::fs::read_to_string(path)?;
-        serde_json::from_str(&json)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        serde_json::from_str(&json).map_err(std::io::Error::other)
     }
 
     // ── Library-level resolve API ───────────────────────────────────────────
@@ -1222,7 +1334,9 @@ impl IntentIndex {
     fn disambiguate_providers(&self, confirmed: &mut Vec<(String, f32)>, query: &str) {
         use std::collections::HashSet;
 
-        if confirmed.len() < 2 { return; }
+        if confirmed.len() < 2 {
+            return;
+        }
 
         // Group by action name (part after ':')
         let mut action_groups: HashMap<String, Vec<usize>> = HashMap::new();
@@ -1231,10 +1345,15 @@ impl IntentIndex {
             action_groups.entry(action.to_string()).or_default().push(i);
         }
 
-        let duplicate_groups: Vec<Vec<usize>> = action_groups.values()
-            .filter(|g| g.len() > 1).cloned().collect();
+        let duplicate_groups: Vec<Vec<usize>> = action_groups
+            .values()
+            .filter(|g| g.len() > 1)
+            .cloned()
+            .collect();
 
-        if duplicate_groups.is_empty() { return; }
+        if duplicate_groups.is_empty() {
+            return;
+        }
 
         let tokens = crate::tokenizer::tokenize(query);
         let confirmed_ids: HashSet<&str> = confirmed.iter().map(|(id, _)| id.as_str()).collect();
@@ -1244,9 +1363,11 @@ impl IntentIndex {
         for token in &tokens {
             let base = token.strip_prefix("not_").unwrap_or(token.as_str());
             if let Some(activations) = self.word_intent.get(base) {
-                let matching: Vec<&str> = activations.iter()
+                let matching: Vec<&str> = activations
+                    .iter()
                     .filter(|(id, _)| confirmed_ids.contains(id.as_str()))
-                    .map(|(id, _)| id.as_str()).collect();
+                    .map(|(id, _)| id.as_str())
+                    .collect();
                 if matching.len() == 1 {
                     *unique_count.entry(matching[0]).or_insert(0) += 1;
                 }
@@ -1255,12 +1376,23 @@ impl IntentIndex {
 
         let mut to_remove: HashSet<usize> = HashSet::new();
         for group in &duplicate_groups {
-            let best = group.iter()
-                .max_by_key(|&&i| unique_count.get(confirmed[i].0.as_str()).copied().unwrap_or(0));
+            let best = group.iter().max_by_key(|&&i| {
+                unique_count
+                    .get(confirmed[i].0.as_str())
+                    .copied()
+                    .unwrap_or(0)
+            });
             if let Some(&best_idx) = best {
-                if unique_count.get(confirmed[best_idx].0.as_str()).copied().unwrap_or(0) > 0 {
+                if unique_count
+                    .get(confirmed[best_idx].0.as_str())
+                    .copied()
+                    .unwrap_or(0)
+                    > 0
+                {
                     for &i in group {
-                        if i != best_idx { to_remove.insert(i); }
+                        if i != best_idx {
+                            to_remove.insert(i);
+                        }
                     }
                 }
             }
@@ -1268,16 +1400,23 @@ impl IntentIndex {
 
         if !to_remove.is_empty() {
             let mut i = 0;
-            confirmed.retain(|_| { let keep = !to_remove.contains(&i); i += 1; keep });
+            confirmed.retain(|_| {
+                let keep = !to_remove.contains(&i);
+                i += 1;
+                keep
+            });
         }
     }
 
     /// Stats: (unique_words, activation_edges, conjunctions).
     pub fn stats(&self) -> (usize, usize, usize) {
         let activation_edges: usize = self.word_intent.values().map(|v| v.len()).sum();
-        (self.word_intent.len(), activation_edges, self.conjunctions.len())
+        (
+            self.word_intent.len(),
+            activation_edges,
+            self.conjunctions.len(),
+        )
     }
-
 }
 
 /// Global English morphological base — shared across all namespaces.
@@ -1288,163 +1427,182 @@ pub fn english_morphology_base() -> LexicalGraph {
     let morph = EdgeKind::Morphological;
 
     // cancel family
-    for v in &["canceling","cancelling","cancelled","canceled","cancellation","cancels"] {
+    for v in &[
+        "canceling",
+        "cancelling",
+        "cancelled",
+        "canceled",
+        "cancellation",
+        "cancels",
+    ] {
         g.add(v, "cancel", 0.99, morph.clone());
     }
     // refund family
-    for v in &["refunding","refunded","refunds","reimbursing","reimbursed"] {
+    for v in &[
+        "refunding",
+        "refunded",
+        "refunds",
+        "reimbursing",
+        "reimbursed",
+    ] {
         g.add(v, "refund", 0.99, morph.clone());
     }
     // charge family
-    for v in &["charging","charged","charges"] {
+    for v in &["charging", "charged", "charges"] {
         g.add(v, "charge", 0.99, morph.clone());
     }
     // update family
-    for v in &["updating","updated","updates"] {
+    for v in &["updating", "updated", "updates"] {
         g.add(v, "update", 0.99, morph.clone());
     }
     // create family
-    for v in &["creating","created","creates","creation"] {
+    for v in &["creating", "created", "creates", "creation"] {
         g.add(v, "create", 0.99, morph.clone());
     }
     // delete family
-    for v in &["deleting","deleted","deletes","deletion"] {
+    for v in &["deleting", "deleted", "deletes", "deletion"] {
         g.add(v, "delete", 0.99, morph.clone());
     }
     // send family
-    for v in &["sending","sent","sends"] {
+    for v in &["sending", "sent", "sends"] {
         g.add(v, "send", 0.99, morph.clone());
     }
     // receive family
-    for v in &["receiving","received","receives"] {
+    for v in &["receiving", "received", "receives"] {
         g.add(v, "receive", 0.99, morph.clone());
     }
     // reset family
-    for v in &["resetting","resetted","resets"] {
+    for v in &["resetting", "resetted", "resets"] {
         g.add(v, "reset", 0.99, morph.clone());
     }
     // change family
-    for v in &["changing","changed","changes"] {
+    for v in &["changing", "changed", "changes"] {
         g.add(v, "change", 0.99, morph.clone());
     }
     // upgrade family
-    for v in &["upgrading","upgraded","upgrades"] {
+    for v in &["upgrading", "upgraded", "upgrades"] {
         g.add(v, "upgrade", 0.99, morph.clone());
     }
     // downgrade family
-    for v in &["downgrading","downgraded","downgrades"] {
+    for v in &["downgrading", "downgraded", "downgrades"] {
         g.add(v, "downgrade", 0.99, morph.clone());
     }
     // connect family
-    for v in &["connecting","connected","connects","connection"] {
+    for v in &["connecting", "connected", "connects", "connection"] {
         g.add(v, "connect", 0.99, morph.clone());
     }
     // disconnect family
-    for v in &["disconnecting","disconnected","disconnects"] {
+    for v in &["disconnecting", "disconnected", "disconnects"] {
         g.add(v, "disconnect", 0.99, morph.clone());
     }
     // install family
-    for v in &["installing","installed","installs","installation"] {
+    for v in &["installing", "installed", "installs", "installation"] {
         g.add(v, "install", 0.99, morph.clone());
     }
     // remove family
-    for v in &["removing","removed","removes","removal"] {
+    for v in &["removing", "removed", "removes", "removal"] {
         g.add(v, "remove", 0.99, morph.clone());
     }
     // enable family
-    for v in &["enabling","enabled","enables"] {
+    for v in &["enabling", "enabled", "enables"] {
         g.add(v, "enable", 0.99, morph.clone());
     }
     // disable family
-    for v in &["disabling","disabled","disables"] {
+    for v in &["disabling", "disabled", "disables"] {
         g.add(v, "disable", 0.99, morph.clone());
     }
     // block family
-    for v in &["blocking","blocked","blocks"] {
+    for v in &["blocking", "blocked", "blocks"] {
         g.add(v, "block", 0.99, morph.clone());
     }
     // report family
-    for v in &["reporting","reported","reports"] {
+    for v in &["reporting", "reported", "reports"] {
         g.add(v, "report", 0.99, morph.clone());
     }
     // transfer family
-    for v in &["transferring","transferred","transfers"] {
+    for v in &["transferring", "transferred", "transfers"] {
         g.add(v, "transfer", 0.99, morph.clone());
     }
     // schedule family
-    for v in &["scheduling","scheduled","schedules"] {
+    for v in &["scheduling", "scheduled", "schedules"] {
         g.add(v, "schedule", 0.99, morph.clone());
     }
     // merge family
-    for v in &["merging","merged","merges"] {
+    for v in &["merging", "merged", "merges"] {
         g.add(v, "merge", 0.99, morph.clone());
     }
     // ship family
-    for v in &["shipping","shipped","shipment","shipments"] {
+    for v in &["shipping", "shipped", "shipment", "shipments"] {
         g.add(v, "ship", 0.99, morph.clone());
     }
     // pay family
-    for v in &["paying","paid","pays","payment","payments"] {
+    for v in &["paying", "paid", "pays", "payment", "payments"] {
         g.add(v, "pay", 0.99, morph.clone());
     }
     // subscribe family
-    for v in &["subscribing","subscribed","subscribes","subscription","subscriptions"] {
+    for v in &[
+        "subscribing",
+        "subscribed",
+        "subscribes",
+        "subscription",
+        "subscriptions",
+    ] {
         g.add(v, "subscribe", 0.99, morph.clone());
     }
     // list family
-    for v in &["listing","listed","lists"] {
+    for v in &["listing", "listed", "lists"] {
         g.add(v, "list", 0.99, morph.clone());
     }
     // invite family
-    for v in &["inviting","invited","invites","invitation"] {
+    for v in &["inviting", "invited", "invites", "invitation"] {
         g.add(v, "invite", 0.99, morph.clone());
     }
     // verify family
-    for v in &["verifying","verified","verifies","verification"] {
+    for v in &["verifying", "verified", "verifies", "verification"] {
         g.add(v, "verify", 0.99, morph.clone());
     }
     // access family
-    for v in &["accessing","accessed","accesses"] {
+    for v in &["accessing", "accessed", "accesses"] {
         g.add(v, "access", 0.99, morph.clone());
     }
     // close family
-    for v in &["closing","closed","closes","closure"] {
+    for v in &["closing", "closed", "closes", "closure"] {
         g.add(v, "close", 0.99, morph.clone());
     }
     // open family
-    for v in &["opening","opened","opens"] {
+    for v in &["opening", "opened", "opens"] {
         g.add(v, "open", 0.99, morph.clone());
     }
     // configure family
-    for v in &["configuring","configured","configures","configuration"] {
+    for v in &["configuring", "configured", "configures", "configuration"] {
         g.add(v, "configure", 0.99, morph.clone());
     }
     // deploy family
-    for v in &["deploying","deployed","deploys","deployment"] {
+    for v in &["deploying", "deployed", "deploys", "deployment"] {
         g.add(v, "deploy", 0.99, morph.clone());
     }
     // detect family
-    for v in &["detecting","detected","detects","detection"] {
+    for v in &["detecting", "detected", "detects", "detection"] {
         g.add(v, "detect", 0.99, morph.clone());
     }
     // fail family
-    for v in &["failing","failed","fails","failure"] {
+    for v in &["failing", "failed", "fails", "failure"] {
         g.add(v, "fail", 0.99, morph.clone());
     }
     // expire family
-    for v in &["expiring","expired","expires","expiration"] {
+    for v in &["expiring", "expired", "expires", "expiration"] {
         g.add(v, "expire", 0.99, morph.clone());
     }
     // renew family
-    for v in &["renewing","renewed","renews","renewal"] {
+    for v in &["renewing", "renewed", "renews", "renewal"] {
         g.add(v, "renew", 0.99, morph.clone());
     }
     // approve family
-    for v in &["approving","approved","approves","approval"] {
+    for v in &["approving", "approved", "approves", "approval"] {
         g.add(v, "approve", 0.99, morph.clone());
     }
     // reject family
-    for v in &["rejecting","rejected","rejects","rejection"] {
+    for v in &["rejecting", "rejected", "rejects", "rejection"] {
         g.add(v, "reject", 0.99, morph.clone());
     }
 
@@ -1497,24 +1655,35 @@ mod intent_graph_tests {
     fn layer3_idf_disambiguates() {
         let (l1, ig) = mini_intent_graph();
         let (scores, _) = ig.score(&l1, "cancel order");
-        assert_eq!(scores[0].0, "cancel_order",
-            "IDF should push cancel_order above cancel_subscription (unique word 'order')");
+        assert_eq!(
+            scores[0].0, "cancel_order",
+            "IDF should push cancel_order above cancel_subscription (unique word 'order')"
+        );
     }
 
     #[test]
     fn layer3_reinforcement() {
         let (l1, mut ig) = mini_intent_graph();
         let (before, _) = ig.score(&l1, "kill the subscription");
-        let kill_sub_before = before.iter().find(|(id, _)| id == "cancel_subscription")
-            .map(|(_, s)| *s).unwrap_or(0.0);
+        let kill_sub_before = before
+            .iter()
+            .find(|(id, _)| id == "cancel_subscription")
+            .map(|(_, s)| *s)
+            .unwrap_or(0.0);
 
         ig.reinforce(&["kill"], "cancel_subscription", 0.80);
 
         let (after, _) = ig.score(&l1, "kill the subscription");
-        let kill_sub_after = after.iter().find(|(id, _)| id == "cancel_subscription")
-            .map(|(_, s)| *s).unwrap_or(0.0);
+        let kill_sub_after = after
+            .iter()
+            .find(|(id, _)| id == "cancel_subscription")
+            .map(|(_, s)| *s)
+            .unwrap_or(0.0);
 
-        assert!(kill_sub_after > kill_sub_before, "reinforcement should improve score");
+        assert!(
+            kill_sub_after > kill_sub_before,
+            "reinforcement should improve score"
+        );
     }
 
     #[test]
@@ -1522,7 +1691,10 @@ mod intent_graph_tests {
         let (l1, ig) = mini_intent_graph();
         let (results, _) = ig.score_multi(&l1, "cancel subscription and send message", 0.4, 2.0);
         let ids: Vec<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
-        assert!(ids.contains(&"cancel_subscription"), "should detect cancel_subscription");
+        assert!(
+            ids.contains(&"cancel_subscription"),
+            "should detect cancel_subscription"
+        );
         assert!(ids.contains(&"send_message"), "should detect send_message");
     }
 
@@ -1533,13 +1705,25 @@ mod intent_graph_tests {
         let (with_neg, neg_flag) = ig.score(&l1, "don't cancel my subscription");
         let (without_neg, _) = ig.score(&l1, "cancel my subscription");
 
-        let neg_score = with_neg.iter()
-            .find(|(id, _)| id == "cancel_subscription").map(|(_, s)| *s).unwrap_or(0.0);
-        let pos_score = without_neg.iter()
-            .find(|(id, _)| id == "cancel_subscription").map(|(_, s)| *s).unwrap_or(0.0);
+        let neg_score = with_neg
+            .iter()
+            .find(|(id, _)| id == "cancel_subscription")
+            .map(|(_, s)| *s)
+            .unwrap_or(0.0);
+        let pos_score = without_neg
+            .iter()
+            .find(|(id, _)| id == "cancel_subscription")
+            .map(|(_, s)| *s)
+            .unwrap_or(0.0);
 
-        assert!(neg_score <= 0.0, "cancel_subscription should be suppressed by negation (score={neg_score})");
-        assert!(pos_score > 0.0, "cancel_subscription should route without negation");
+        assert!(
+            neg_score <= 0.0,
+            "cancel_subscription should be suppressed by negation (score={neg_score})"
+        );
+        assert!(
+            pos_score > 0.0,
+            "cancel_subscription should route without negation"
+        );
         assert!(neg_flag, "has_negation flag should be true");
     }
 
@@ -1559,7 +1743,10 @@ mod intent_graph_tests {
         let (neg_scores, neg_flag) = ig.score_normalized("不取消订阅");
         assert!(neg_flag, "CJK negation marker 不 should set has_negation");
         let found = neg_scores.iter().any(|(id, _)| id == "cancel_subscription");
-        assert!(found, "cancel_subscription should still appear (intent is about cancellation)");
+        assert!(
+            found,
+            "cancel_subscription should still appear (intent is about cancellation)"
+        );
     }
 
     /// Regression test for the in-memory IDF-staleness bug.
@@ -1600,17 +1787,25 @@ mod intent_graph_tests {
 
         // Querying any of these words should produce non-zero scores.
         let (scores_foo, _) = ig.score(&lex, "foo");
-        assert!(!scores_foo.is_empty(),
-            "fresh-namespace IDF bug: 'foo' should score against intent_a and intent_b");
-        assert!(scores_foo.iter().all(|(_, s)| *s > 0.0),
-            "scores should be positive after the IDF rebuild on new intent");
+        assert!(
+            !scores_foo.is_empty(),
+            "fresh-namespace IDF bug: 'foo' should score against intent_a and intent_b"
+        );
+        assert!(
+            scores_foo.iter().all(|(_, s)| *s > 0.0),
+            "scores should be positive after the IDF rebuild on new intent"
+        );
 
         let (scores_bar, _) = ig.score(&lex, "bar");
-        assert!(scores_bar.iter().any(|(id, _)| id == "intent_b"),
-            "'bar' should score against intent_b");
+        assert!(
+            scores_bar.iter().any(|(id, _)| id == "intent_b"),
+            "'bar' should score against intent_b"
+        );
 
         let (scores_baz, _) = ig.score(&lex, "baz");
-        assert!(scores_baz.iter().any(|(id, _)| id == "intent_c"),
-            "'baz' should score against intent_c");
+        assert!(
+            scores_baz.iter().any(|(id, _)| id == "intent_c"),
+            "'baz' should score against intent_c"
+        );
     }
 }

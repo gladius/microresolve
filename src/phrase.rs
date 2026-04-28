@@ -93,7 +93,14 @@ pub fn build_prompt(intent_id: &str, description: &str, languages: &[String]) ->
     let configs = lang_configs();
 
     let guidelines = BASE_GUIDELINES
-        .replace("{intent_id}", if intent_id.is_empty() { "(unnamed)" } else { intent_id })
+        .replace(
+            "{intent_id}",
+            if intent_id.is_empty() {
+                "(unnamed)"
+            } else {
+                intent_id
+            },
+        )
         .replace("{description}", description);
 
     if languages.len() == 1 {
@@ -148,9 +155,7 @@ pub fn build_prompt(intent_id: &str, description: &str, languages: &[String]) ->
 ///
 /// Returns JSON: {"phrases_by_lang": {"en": [...], "es": [...]}, "total": N}
 pub fn parse_response(response_text: &str, languages: &[String]) -> Result<String, String> {
-    let phrases_by_lang: HashMap<String, Vec<String>>;
-
-    if languages.len() == 1 {
+    let phrases_by_lang: HashMap<String, Vec<String>> = if languages.len() == 1 {
         // Expect a JSON array
         let array_str = extract_json_array(response_text)
             .ok_or_else(|| "Could not parse response as JSON array".to_string())?;
@@ -158,15 +163,13 @@ pub fn parse_response(response_text: &str, languages: &[String]) -> Result<Strin
             serde_json::from_str(&array_str).map_err(|e| format!("JSON parse error: {}", e))?;
         let mut map = HashMap::new();
         map.insert(languages[0].clone(), parsed);
-        phrases_by_lang = map;
+        map
     } else {
         // Expect a JSON object
         let obj_str = extract_json_object(response_text)
             .ok_or_else(|| "Could not parse response as JSON object".to_string())?;
-        let parsed: HashMap<String, Vec<String>> =
-            serde_json::from_str(&obj_str).map_err(|e| format!("JSON parse error: {}", e))?;
-        phrases_by_lang = parsed;
-    }
+        serde_json::from_str(&obj_str).map_err(|e| format!("JSON parse error: {}", e))?
+    };
 
     let total: usize = phrases_by_lang.values().map(|v| v.len()).sum();
 
@@ -247,8 +250,7 @@ mod tests {
     #[test]
     fn parse_response_multi_lang() {
         let response = r#"{"en": ["cancel"], "es": ["cancelar", "anular"]}"#;
-        let result =
-            parse_response(response, &["en".to_string(), "es".to_string()]).unwrap();
+        let result = parse_response(response, &["en".to_string(), "es".to_string()]).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["total"], 3);
     }
@@ -266,5 +268,4 @@ mod tests {
         let result = parse_response("no json here", &["en".to_string()]);
         assert!(result.is_err());
     }
-
 }

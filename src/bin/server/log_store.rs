@@ -102,7 +102,7 @@ impl Default for LogQuery {
 }
 
 pub struct LogQueryResult {
-    pub total: usize,  // matching records before offset/limit
+    pub total: usize, // matching records before offset/limit
     pub records: Vec<LogRecord>,
 }
 
@@ -133,11 +133,21 @@ struct AppLog {
 
 impl AppLog {
     fn in_memory() -> Self {
-        Self { file: None, size: 0, index: Vec::new(), next_id: 0, review_status: HashMap::new() }
+        Self {
+            file: None,
+            size: 0,
+            index: Vec::new(),
+            next_id: 0,
+            review_status: HashMap::new(),
+        }
     }
 
     fn open(path: &PathBuf) -> std::io::Result<Self> {
-        let mut file = OpenOptions::new().read(true).write(true).create(true).open(path)?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
         let mut index = Vec::new();
         let mut offset = 0u64;
         let mut next_id = 0u64;
@@ -172,7 +182,13 @@ impl AppLog {
             offset += 5 + payload_len as u64;
         }
 
-        Ok(Self { file: Some(file), size: offset, index, next_id, review_status: HashMap::new() })
+        Ok(Self {
+            file: Some(file),
+            size: offset,
+            index,
+            next_id,
+            review_status: HashMap::new(),
+        })
     }
 }
 
@@ -192,7 +208,10 @@ impl LogStore {
             let _ = fs::create_dir_all(&p);
             p
         });
-        let mut store = Self { data_dir, apps: HashMap::new() };
+        let mut store = Self {
+            data_dir,
+            apps: HashMap::new(),
+        };
         store.scan_existing();
         store
     }
@@ -202,7 +221,9 @@ impl LogStore {
             Some(d) => d,
             None => return,
         };
-        let Ok(entries) = fs::read_dir(&dir) else { return };
+        let Ok(entries) = fs::read_dir(&dir) else {
+            return;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().map(|e| e == "bin").unwrap_or(false) {
@@ -224,7 +245,11 @@ impl LogStore {
         if self.apps.contains_key(app_id) {
             return self.apps.get_mut(app_id).unwrap();
         }
-        let app_log = match self.data_dir.as_ref().map(|d| d.join(format!("{}.bin", app_id))) {
+        let app_log = match self
+            .data_dir
+            .as_ref()
+            .map(|d| d.join(format!("{}.bin", app_id)))
+        {
             Some(path) => AppLog::open(&path).unwrap_or_else(|e| {
                 eprintln!("[log_store] cannot open {}: {}", path.display(), e);
                 AppLog::in_memory()
@@ -264,7 +289,11 @@ impl LogStore {
             timestamp_ms: record.timestamp_ms,
             confidence: record.confidence.clone(),
             alive: true,
-            cached: if al.file.is_none() { Some(payload) } else { None },
+            cached: if al.file.is_none() {
+                Some(payload)
+            } else {
+                None
+            },
         });
 
         record.id
@@ -300,13 +329,23 @@ impl LogStore {
         };
 
         // Collect owned copies of matching meta fields to avoid holding a borrow into self.apps
-        struct Candidate { app_id: String, offset: u64, payload_len: u32, timestamp_ms: u64, cached: Option<Vec<u8>> }
+        struct Candidate {
+            app_id: String,
+            offset: u64,
+            payload_len: u32,
+            timestamp_ms: u64,
+            cached: Option<Vec<u8>>,
+        }
 
         let mut candidates: Vec<Candidate> = Vec::new();
         for app_id in &app_ids {
-            let Some(al) = self.apps.get(app_id) else { continue };
+            let Some(al) = self.apps.get(app_id) else {
+                continue;
+            };
             for meta in &al.index {
-                if !Self::matches(meta, q) { continue; }
+                if !Self::matches(meta, q) {
+                    continue;
+                }
                 candidates.push(Candidate {
                     app_id: app_id.clone(),
                     offset: meta.offset,
@@ -327,7 +366,9 @@ impl LogStore {
             } else {
                 self.read_at(&c.app_id, c.offset, c.payload_len)
             };
-            if let Some(r) = record { records.push(r); }
+            if let Some(r) = record {
+                records.push(r);
+            }
         }
 
         LogQueryResult { total, records }
@@ -337,10 +378,14 @@ impl LogStore {
         if let Some(resolved) = q.resolved {
             // resolved=false → want unresolved → alive must be true
             // resolved=true  → want resolved   → alive must be false
-            if meta.alive == resolved { return false; }
+            if meta.alive == resolved {
+                return false;
+            }
         }
         if let Some(since) = q.since_ms {
-            if meta.timestamp_ms < since { return false; }
+            if meta.timestamp_ms < since {
+                return false;
+            }
         }
         true
     }
@@ -356,7 +401,8 @@ impl LogStore {
 
     /// Number of alive (unresolved) records for an app.
     pub fn count_alive(&self, app_id: &str) -> usize {
-        self.apps.get(app_id)
+        self.apps
+            .get(app_id)
             .map(|al| al.index.iter().filter(|m| m.alive).count())
             .unwrap_or(0)
     }
@@ -393,14 +439,24 @@ impl LogStore {
         let mut pending = Vec::new();
         for (app_id, al) in &self.apps {
             if let Some(filter) = app_id_filter {
-                if app_id != filter { continue; }
+                if app_id != filter {
+                    continue;
+                }
             }
             for meta in &al.index {
-                if !meta.alive { continue; }
-                let already_done = al.review_status.get(&meta.id)
-                    .map(|s| s.status == "done" || s.status == "escalated" || s.status == "processing")
+                if !meta.alive {
+                    continue;
+                }
+                let already_done = al
+                    .review_status
+                    .get(&meta.id)
+                    .map(|s| {
+                        s.status == "done" || s.status == "escalated" || s.status == "processing"
+                    })
                     .unwrap_or(false);
-                if already_done { continue; }
+                if already_done {
+                    continue;
+                }
                 pending.push((app_id.clone(), meta.id));
             }
         }
@@ -434,15 +490,18 @@ impl LogStore {
     }
 
     pub fn stats(&self) -> Vec<serde_json::Value> {
-        self.apps.iter().map(|(app_id, al)| {
-            let total = al.index.len();
-            let alive = al.index.iter().filter(|m| m.alive).count();
-            serde_json::json!({
-                "app_id": app_id,
-                "total": total,
-                "unresolved": alive,
-                "size_bytes": al.size,
+        self.apps
+            .iter()
+            .map(|(app_id, al)| {
+                let total = al.index.len();
+                let alive = al.index.iter().filter(|m| m.alive).count();
+                serde_json::json!({
+                    "app_id": app_id,
+                    "total": total,
+                    "unresolved": alive,
+                    "size_bytes": al.size,
+                })
             })
-        }).collect()
+            .collect()
     }
 }

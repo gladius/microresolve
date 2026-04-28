@@ -7,18 +7,18 @@
 //! All three are gated behind the `X-Api-Key` middleware when the server has
 //! API keys configured. Empty key set = open mode for local dev.
 
+use crate::log_store::LogRecord;
+use crate::state::*;
 use axum::{
-    extract::{State, Query},
+    extract::{Query, State},
     http::{HeaderMap, StatusCode},
     Json,
 };
-use crate::state::*;
-use crate::log_store::LogRecord;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/sync",    axum::routing::get(sync_pull))
-        .route("/api/ingest",  axum::routing::post(ingest_logs))
+        .route("/api/sync", axum::routing::get(sync_pull))
+        .route("/api/ingest", axum::routing::post(ingest_logs))
         .route("/api/correct", axum::routing::post(correct))
 }
 
@@ -31,7 +31,8 @@ fn check_auth(state: &AppState, headers: &HeaderMap) -> Result<Option<String>, S
     if !store.is_enabled() {
         return Ok(None); // open mode
     }
-    let provided = headers.get("X-Api-Key")
+    let provided = headers
+        .get("X-Api-Key")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     match store.validate(provided) {
@@ -127,8 +128,10 @@ pub async fn correct(
     let _key_name = check_auth(&state, &headers).map_err(|c| (c, "auth failed".to_string()))?;
     let app_id = app_id_from_headers(&headers);
 
-    let h = state.engine.try_namespace(&app_id)
-        .ok_or((StatusCode::NOT_FOUND, format!("namespace '{}' not found", app_id)))?;
+    let h = state.engine.try_namespace(&app_id).ok_or((
+        StatusCode::NOT_FOUND,
+        format!("namespace '{}' not found", app_id),
+    ))?;
 
     h.with_resolver_mut(|r| r.correct(&req.query, &req.wrong_intent, &req.right_intent))
         .map_err(|e| (StatusCode::NOT_FOUND, e.to_string()))?;

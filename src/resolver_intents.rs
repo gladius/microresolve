@@ -1,7 +1,7 @@
 //! Resolver: intent management and phrase storage.
 
-use crate::*;
 use crate::types::MAX_PHRASES_PER_LANGUAGE;
+use crate::*;
 use std::collections::HashMap;
 
 impl Resolver {
@@ -25,9 +25,11 @@ impl Resolver {
         };
 
         // Truncate per-language to the configured cap.
-        let truncated: HashMap<String, Vec<String>> = seeds_by_lang.into_iter()
+        let truncated: HashMap<String, Vec<String>> = seeds_by_lang
+            .into_iter()
             .map(|(lang, seeds)| {
-                let limited: Vec<String> = seeds.into_iter().take(MAX_PHRASES_PER_LANGUAGE).collect();
+                let limited: Vec<String> =
+                    seeds.into_iter().take(MAX_PHRASES_PER_LANGUAGE).collect();
                 (lang, limited)
             })
             .collect();
@@ -64,7 +66,9 @@ impl Resolver {
             }
         }
 
-        if !found { return false; }
+        if !found {
+            return false;
+        }
 
         // Remove empty language entries
         training.retain(|_, phrases| !phrases.is_empty());
@@ -98,25 +102,36 @@ impl Resolver {
         if seed.trim().is_empty() {
             return PhraseCheckResult {
                 added: false,
-                        redundant: false,
+                redundant: false,
                 warning: Some("Phrase is empty".to_string()),
             };
         }
 
         // Check for exact duplicate in any language
-        let is_duplicate = self.training.get(intent_id)
+        let is_duplicate = self
+            .training
+            .get(intent_id)
             .map(|m| m.values().any(|phrases| phrases.iter().any(|p| p == seed)))
             .unwrap_or(false);
 
         PhraseCheckResult {
             added: false,
             redundant: is_duplicate,
-            warning: if is_duplicate { Some("Phrase already exists in this intent".to_string()) } else { None },
+            warning: if is_duplicate {
+                Some("Phrase already exists in this intent".to_string())
+            } else {
+                None
+            },
         }
     }
 
     /// Add a phrase with duplicate checking. Blocks redundant/empty phrases.
-    pub fn add_phrase_checked(&mut self, intent_id: &str, seed: &str, lang: &str) -> PhraseCheckResult {
+    pub fn add_phrase_checked(
+        &mut self,
+        intent_id: &str,
+        seed: &str,
+        lang: &str,
+    ) -> PhraseCheckResult {
         let mut result = self.check_phrase(intent_id, seed);
 
         if result.warning.as_deref() == Some("Phrase is empty") {
@@ -130,7 +145,10 @@ impl Resolver {
         if let Some(lang_map) = self.training.get(intent_id) {
             if let Some(seeds) = lang_map.get(lang) {
                 if seeds.len() >= MAX_PHRASES_PER_LANGUAGE {
-                    result.warning = Some(format!("Language '{}' has reached max {} phrases", lang, MAX_PHRASES_PER_LANGUAGE));
+                    result.warning = Some(format!(
+                        "Language '{}' has reached max {} phrases",
+                        lang, MAX_PHRASES_PER_LANGUAGE
+                    ));
                     return result;
                 }
             }
@@ -181,7 +199,9 @@ impl Resolver {
     /// All intent IDs belonging to the given namespace.
     pub fn intents_in_namespace(&self, ns: &str) -> Vec<String> {
         let prefix = format!("{}:", ns);
-        let mut ids: Vec<String> = self.training.keys()
+        let mut ids: Vec<String> = self
+            .training
+            .keys()
             .filter(|id| id.starts_with(&prefix))
             .cloned()
             .collect();

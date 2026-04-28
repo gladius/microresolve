@@ -10,7 +10,7 @@
 //! All types here are `pub(crate)` — library users never see them directly;
 //! they interact only with [`crate::Engine`] / [`crate::NamespaceHandle`].
 
-#![cfg(feature = "connect")]
+#![allow(clippy::duplicated_attributes)]
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
@@ -73,17 +73,26 @@ impl ConnectState {
         if let Some(ref key) = self.server.api_key {
             req = req.header("X-Api-Key", key);
         }
-        let resp = req.send()
+        let resp = req
+            .send()
             .map_err(|e| crate::Error::Connect(format!("pull {}: {}", app_id, e)))?;
         if !resp.status().is_success() {
-            return Err(crate::Error::Connect(format!("pull {}: HTTP {}", app_id, resp.status())));
+            return Err(crate::Error::Connect(format!(
+                "pull {}: HTTP {}",
+                app_id,
+                resp.status()
+            )));
         }
-        let sync: SyncResponse = resp.json()
+        let sync: SyncResponse = resp
+            .json()
             .map_err(|e| crate::Error::Connect(e.to_string()))?;
         match sync.export {
             Some(json) => {
                 let r = Resolver::import_json(&json)?;
-                self.versions.write().unwrap().insert(app_id.to_string(), sync.version);
+                self.versions
+                    .write()
+                    .unwrap()
+                    .insert(app_id.to_string(), sync.version);
                 Ok(Some((r, sync.version)))
             }
             None => {
@@ -107,14 +116,22 @@ impl ConnectState {
             "wrong_intent": wrong_intent,
             "right_intent": right_intent,
         });
-        let mut req = self.http.post(&url).header("X-Namespace-ID", app_id).json(&body);
+        let mut req = self
+            .http
+            .post(&url)
+            .header("X-Namespace-ID", app_id)
+            .json(&body);
         if let Some(ref key) = self.server.api_key {
             req = req.header("X-Api-Key", key);
         }
-        let resp = req.send()
+        let resp = req
+            .send()
             .map_err(|e| crate::Error::Connect(format!("server push: {}", e)))?;
         if !resp.status().is_success() {
-            return Err(crate::Error::Connect(format!("server returned {}", resp.status())));
+            return Err(crate::Error::Connect(format!(
+                "server returned {}",
+                resp.status()
+            )));
         }
         Ok(())
     }
@@ -128,7 +145,12 @@ impl ConnectState {
     }
 
     pub fn version_of(&self, app_id: &str) -> u64 {
-        self.versions.read().unwrap().get(app_id).copied().unwrap_or(0)
+        self.versions
+            .read()
+            .unwrap()
+            .get(app_id)
+            .copied()
+            .unwrap_or(0)
     }
 }
 
@@ -138,10 +160,7 @@ impl ConnectState {
 /// Holds an `Arc<ConnectState>` and a weak handle into the Engine's namespace
 /// map. Runs forever; the only termination signal is the Engine being dropped
 /// (which drops the strong references and the OS reclaims the thread).
-pub(crate) fn run_background<F>(
-    state: Arc<ConnectState>,
-    apply_pull: F,
-)
+pub(crate) fn run_background<F>(state: Arc<ConnectState>, apply_pull: F)
 where
     F: Fn(&str, Resolver, u64) + Send + 'static,
 {
@@ -175,15 +194,20 @@ fn check_and_apply(
     if let Some(ref key) = state.server.api_key {
         req = req.header("X-Api-Key", key);
     }
-    let resp = req.send()
+    let resp = req
+        .send()
         .map_err(|e| crate::Error::Connect(e.to_string()))?;
     if !resp.status().is_success() {
         return Err(crate::Error::Connect(format!("HTTP {}", resp.status())));
     }
-    let sync: SyncResponse = resp.json()
+    let sync: SyncResponse = resp
+        .json()
         .map_err(|e| crate::Error::Connect(e.to_string()))?;
-    if sync.up_to_date { return Ok(None); }
-    let json = sync.export
+    if sync.up_to_date {
+        return Ok(None);
+    }
+    let json = sync
+        .export
         .ok_or_else(|| crate::Error::Connect("no export in response".into()))?;
     let resolver = Resolver::import_json(&json)?;
     Ok(Some((resolver, sync.version)))
@@ -194,16 +218,26 @@ fn flush_logs(state: &ConnectState) {
         let mut buf = state.log_buf.lock().unwrap();
         std::mem::take(&mut *buf)
     };
-    if entries.is_empty() { return; }
+    if entries.is_empty() {
+        return;
+    }
 
     let mut by_app: HashMap<String, Vec<&LogEntry>> = HashMap::new();
-    for e in &entries { by_app.entry(e.app_id.clone()).or_default().push(e); }
+    for e in &entries {
+        by_app.entry(e.app_id.clone()).or_default().push(e);
+    }
 
     let mut failed: Vec<LogEntry> = Vec::new();
     for (app_id, batch) in by_app {
         let url = format!("{}/api/ingest", state.server.url);
-        let mut req = state.http.post(&url).header("X-Namespace-ID", &app_id).json(&batch);
-        if let Some(ref key) = state.server.api_key { req = req.header("X-Api-Key", key); }
+        let mut req = state
+            .http
+            .post(&url)
+            .header("X-Namespace-ID", &app_id)
+            .json(&batch);
+        if let Some(ref key) = state.server.api_key {
+            req = req.header("X-Api-Key", key);
+        }
         if let Err(e) = req.send() {
             eprintln!("[microresolve-connect] log flush {}: {}", app_id, e);
             failed.extend(batch.into_iter().cloned());

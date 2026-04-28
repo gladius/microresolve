@@ -123,7 +123,11 @@ pub fn resolve(cli: &Cli) -> ResolvedConfig {
 
     let port = cli
         .port
-        .or_else(|| std::env::var("MICRORESOLVE_PORT").ok().and_then(|v| v.parse().ok()))
+        .or_else(|| {
+            std::env::var("MICRORESOLVE_PORT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+        })
         .or(file.port)
         .unwrap_or(3001);
 
@@ -137,7 +141,11 @@ pub fn resolve(cli: &Cli) -> ResolvedConfig {
     let data_dir = cli
         .data
         .clone()
-        .or_else(|| std::env::var("MICRORESOLVE_DATA_DIR").ok().map(PathBuf::from))
+        .or_else(|| {
+            std::env::var("MICRORESOLVE_DATA_DIR")
+                .ok()
+                .map(PathBuf::from)
+        })
         .or(file.data_dir)
         .unwrap_or_else(default_data_dir);
 

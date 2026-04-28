@@ -11,9 +11,15 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 // No-op logging macros (replaces tracing dependency)
-macro_rules! info { ($($t:tt)*) => {} }
-macro_rules! debug { ($($t:tt)*) => {} }
-macro_rules! warn { ($($t:tt)*) => {} }
+macro_rules! info {
+    ($($t:tt)*) => {};
+}
+macro_rules! debug {
+    ($($t:tt)*) => {};
+}
+macro_rules! warn {
+    ($($t:tt)*) => {};
+}
 
 use super::types::{
     ParsedOperation, ParsedParameter, ParsedRequestBody, ParsedResponse, ParsedSpec,
@@ -65,10 +71,16 @@ pub fn parse_openapi(input: &str) -> Result<ParsedSpec, ParseError> {
     let swagger_ver = str_field(&root, "swagger").unwrap_or("");
 
     let parsed = if openapi_ver.starts_with("3.") {
-        info!(version = openapi_ver, "📄 OPENAPI_PARSE - Detected OpenAPI 3.x");
+        info!(
+            version = openapi_ver,
+            "📄 OPENAPI_PARSE - Detected OpenAPI 3.x"
+        );
         convert_openapi_v3(&root)?
     } else if swagger_ver.starts_with("2.") {
-        info!(version = swagger_ver, "📄 OPENAPI_PARSE - Detected Swagger 2.0");
+        info!(
+            version = swagger_ver,
+            "📄 OPENAPI_PARSE - Detected Swagger 2.0"
+        );
         convert_swagger_v2(&root)?
     } else {
         return Err(ParseError::InvalidSpec(format!(
@@ -128,7 +140,10 @@ fn convert_openapi_v3(root: &serde_json::Value) -> Result<ParsedSpec, ParseError
 
     // Security schemes
     if let Some(components) = root.get("components") {
-        if let Some(schemes) = components.get("securitySchemes").and_then(|v| v.as_object()) {
+        if let Some(schemes) = components
+            .get("securitySchemes")
+            .and_then(|v| v.as_object())
+        {
             for (name, scheme) in schemes {
                 let scheme = resolve_ref(root, scheme);
                 if let Some(sec) = extract_security_scheme(scheme) {
@@ -201,7 +216,10 @@ fn extract_request_body_v3(
         .or_else(|| content.iter().next().map(|(ct, mt)| (ct.as_str(), mt)))?;
 
     Some(ParsedRequestBody {
-        required: rb.get("required").and_then(|r| r.as_bool()).unwrap_or(false),
+        required: rb
+            .get("required")
+            .and_then(|r| r.as_bool())
+            .unwrap_or(false),
         content_type: Some(content_type.to_string()),
         description: str_field(rb, "description").map(|s| s.to_string()),
         schema: media_type.get("schema").cloned(),
@@ -235,9 +253,10 @@ fn extract_responses_v3(
                         )
                     })
                     .or_else(|| {
-                        content.iter().next().map(|(ct, mt)| {
-                            (Some(ct.clone()), mt.get("schema").cloned())
-                        })
+                        content
+                            .iter()
+                            .next()
+                            .map(|(ct, mt)| (Some(ct.clone()), mt.get("schema").cloned()))
                     })
             })
             .unwrap_or((None, None));
@@ -434,7 +453,10 @@ fn extract_security_scheme_v2(scheme: &serde_json::Value) -> Option<SecuritySche
             bearer_format: None,
         }),
         _ => {
-            warn!(scheme_type = scheme_type, "📄 OPENAPI_PARSE - Unknown Swagger 2.0 security type");
+            warn!(
+                scheme_type = scheme_type,
+                "📄 OPENAPI_PARSE - Unknown Swagger 2.0 security type"
+            );
             None
         }
     }
@@ -514,9 +536,7 @@ fn build_operation(
             .or_else(|| str_field(op, "operationId"))
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("{} {}", method.to_uppercase(), path)),
-        description: str_field(op, "description")
-            .unwrap_or("")
-            .to_string(),
+        description: str_field(op, "description").unwrap_or("").to_string(),
         method: method.to_uppercase(),
         path: path.to_string(),
         category,
@@ -535,10 +555,7 @@ fn build_operation(
 }
 
 /// Extract parameters from an operation (shared between v2 path params and v3)
-fn extract_parameters(
-    root: &serde_json::Value,
-    op: &serde_json::Value,
-) -> Vec<ParsedParameter> {
+fn extract_parameters(root: &serde_json::Value, op: &serde_json::Value) -> Vec<ParsedParameter> {
     op.get("parameters")
         .and_then(|p| p.as_array())
         .map(|params| {
@@ -615,14 +632,20 @@ fn extract_security_scheme(scheme: &serde_json::Value) -> Option<SecurityScheme>
             bearer_format: None,
         }),
         _ => {
-            warn!(scheme_type = scheme_type, "📄 OPENAPI_PARSE - Unknown security scheme type");
+            warn!(
+                scheme_type = scheme_type,
+                "📄 OPENAPI_PARSE - Unknown security scheme type"
+            );
             None
         }
     }
 }
 
 /// Resolve a $ref pointer to the referenced value in the document
-fn resolve_ref<'a>(root: &'a serde_json::Value, value: &'a serde_json::Value) -> &'a serde_json::Value {
+fn resolve_ref<'a>(
+    root: &'a serde_json::Value,
+    value: &'a serde_json::Value,
+) -> &'a serde_json::Value {
     let ref_path = match value.get("$ref").and_then(|r| r.as_str()) {
         Some(r) => r,
         None => return value,
@@ -631,7 +654,10 @@ fn resolve_ref<'a>(root: &'a serde_json::Value, value: &'a serde_json::Value) ->
     // Navigate: "#/components/schemas/Foo" → root["components"]["schemas"]["Foo"]
     let parts: Vec<&str> = ref_path.split('/').collect();
     if parts.first() != Some(&"#") {
-        debug!(ref_path = ref_path, "📄 OPENAPI_PARSE - Non-local $ref, returning as-is");
+        debug!(
+            ref_path = ref_path,
+            "📄 OPENAPI_PARSE - Non-local $ref, returning as-is"
+        );
         return value;
     }
 
@@ -642,7 +668,11 @@ fn resolve_ref<'a>(root: &'a serde_json::Value, value: &'a serde_json::Value) ->
         match current.get(decoded.as_str()) {
             Some(next) => current = next,
             None => {
-                debug!(ref_path = ref_path, part = *part, "📄 OPENAPI_PARSE - $ref target not found");
+                debug!(
+                    ref_path = ref_path,
+                    part = *part,
+                    "📄 OPENAPI_PARSE - $ref target not found"
+                );
                 return value;
             }
         }
@@ -673,10 +703,7 @@ fn infer_security_schemes(
                         {
                             SecurityScheme {
                                 scheme_type: "http".to_string(),
-                                description: Some(format!(
-                                    "Inferred Bearer auth from {}",
-                                    op.path
-                                )),
+                                description: Some(format!("Inferred Bearer auth from {}", op.path)),
                                 name: None,
                                 location: None,
                                 scheme: Some("bearer".to_string()),
@@ -697,10 +724,7 @@ fn infer_security_schemes(
                         } else if lower.contains("basic") {
                             SecurityScheme {
                                 scheme_type: "http".to_string(),
-                                description: Some(format!(
-                                    "Inferred Basic auth from {}",
-                                    op.path
-                                )),
+                                description: Some(format!("Inferred Basic auth from {}", op.path)),
                                 name: None,
                                 location: None,
                                 scheme: Some("basic".to_string()),
@@ -959,7 +983,11 @@ paths:
           description: Success
 "#;
         let result = parse_openapi(spec_with_large_int);
-        assert!(result.is_ok(), "Large integer parse failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Large integer parse failed: {:?}",
+            result.err()
+        );
 
         let spec = result.unwrap();
         assert_eq!(spec.operation_count, 1);

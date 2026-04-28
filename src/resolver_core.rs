@@ -47,9 +47,9 @@ impl Resolver {
 
     /// Get all training phrases for an intent (flat, all languages combined).
     pub fn training(&self, intent_id: &str) -> Option<Vec<String>> {
-        self.training.get(intent_id).map(|lang_map| {
-            lang_map.values().flat_map(|v| v.clone()).collect()
-        })
+        self.training
+            .get(intent_id)
+            .map(|lang_map| lang_map.values().flat_map(|v| v.clone()).collect())
     }
 
     /// Get training phrases grouped by language.
@@ -83,8 +83,8 @@ impl Resolver {
 
     /// Import resolver state from JSON. Companion to `export_json`.
     pub fn import_json(json: &str) -> Result<Self, crate::Error> {
-        let state: ResolverState =
-            serde_json::from_str(json).map_err(|e| crate::Error::Parse(format!("invalid JSON: {}", e)))?;
+        let state: ResolverState = serde_json::from_str(json)
+            .map_err(|e| crate::Error::Parse(format!("invalid JSON: {}", e)))?;
 
         let mut resolver = Self {
             l0: crate::ngram::NgramIndex::default(),
@@ -122,11 +122,21 @@ impl Resolver {
     // Server bin and other internal callers can reach L0/L1/L2 directly for
     // advanced orchestration. Published library users do not see these methods
     // at all (the `internal` feature is not enabled by default).
-    pub fn l0(&self) -> &crate::ngram::NgramIndex { &self.l0 }
-    pub fn l1(&self) -> &crate::scoring::LexicalGraph { &self.l1 }
-    pub fn l1_mut(&mut self) -> &mut crate::scoring::LexicalGraph { &mut self.l1 }
-    pub fn l2(&self) -> &crate::scoring::IntentIndex { &self.l2 }
-    pub fn l2_mut(&mut self) -> &mut crate::scoring::IntentIndex { &mut self.l2 }
+    pub fn l0(&self) -> &crate::ngram::NgramIndex {
+        &self.l0
+    }
+    pub fn l1(&self) -> &crate::scoring::LexicalGraph {
+        &self.l1
+    }
+    pub fn l1_mut(&mut self) -> &mut crate::scoring::LexicalGraph {
+        &mut self.l1
+    }
+    pub fn l2(&self) -> &crate::scoring::IntentIndex {
+        &self.l2
+    }
+    pub fn l2_mut(&mut self) -> &mut crate::scoring::IntentIndex {
+        &mut self.l2
+    }
 
     // ── L2b anti-Hebbian v2: token-level negative training ────────────────────
 
@@ -151,12 +161,15 @@ impl Resolver {
     /// `negative_training_log`); use `rebuild_l2()` to reset both the
     /// weights and the log.
     pub fn train_negative(&mut self, raw_queries: &[String], not_intents: &[String], alpha: f32) {
-        if alpha <= 0.0 || alpha >= 1.0 { return; }
+        if alpha <= 0.0 || alpha >= 1.0 {
+            return;
+        }
         let delta = -alpha;
         for q in raw_queries {
             let processed = self.l1.preprocess(q).expanded;
             let tokens = crate::tokenizer::tokenize(&processed);
-            let words: Vec<&str> = tokens.iter()
+            let words: Vec<&str> = tokens
+                .iter()
                 .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
                 .collect();
             for intent_id in not_intents {
@@ -168,14 +181,14 @@ impl Resolver {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        self.negative_training_log.push(crate::NegativeTrainingEntry {
-            timestamp,
-            corpus_size: raw_queries.len(),
-            intents_affected: not_intents.len(),
-            alpha,
-        });
+        self.negative_training_log
+            .push(crate::NegativeTrainingEntry {
+                timestamp,
+                corpus_size: raw_queries.len(),
+                intents_affected: not_intents.len(),
+                alpha,
+            });
     }
-
 
     /// Rebuild L0 from the combined vocabulary of L1 + L2.
     /// Crate-private — auto-fired by mutating methods; not part of the public API.
@@ -207,9 +220,12 @@ impl Resolver {
     /// are reflected in the rebuilt weights).
     pub fn rebuild_l2(&mut self) {
         self.l2 = crate::scoring::IntentIndex::new();
-        let all: Vec<(String, String)> = self.training.iter()
+        let all: Vec<(String, String)> = self
+            .training
+            .iter()
             .flat_map(|(intent_id, lang_map)| {
-                lang_map.values()
+                lang_map
+                    .values()
                     .flat_map(|phrases| phrases.iter().map(|p| (intent_id.clone(), p.clone())))
             })
             .collect();
@@ -242,7 +258,9 @@ impl Resolver {
         // L1: normalize + expand
         let preprocessed = self.l1.preprocess(&q0);
         // L2: score
-        let (scored, _negation) = self.l2.score_multi_normalized(&preprocessed.expanded, opts.threshold, opts.gap);
+        let (scored, _negation) =
+            self.l2
+                .score_multi_normalized(&preprocessed.expanded, opts.threshold, opts.gap);
         scored
             .into_iter()
             .map(|(id, score)| crate::Match { id, score })
@@ -308,11 +326,7 @@ impl Resolver {
         // 3. Anti-Hebbian shrink for wrong detections on this query.
         if !wrong_detections.is_empty() && negative_alpha > 0.0 {
             let alpha = negative_alpha.min(0.3);
-            self.train_negative(
-                &[original_query.to_string()],
-                wrong_detections,
-                alpha,
-            );
+            self.train_negative(&[original_query.to_string()], wrong_detections, alpha);
         }
 
         // 4. Rebuild L0 if vocabulary actually grew.
@@ -333,14 +347,12 @@ impl Resolver {
     /// one candidate has more query-unique tokens than the others. If no
     /// candidate has any unique tokens, the group is left intact (genuinely
     /// ambiguous → caller decides).
-    pub fn disambiguate_cross_provider(
-        &self,
-        scored: &mut Vec<(String, f32)>,
-        query: &str,
-    ) {
+    pub fn disambiguate_cross_provider(&self, scored: &mut Vec<(String, f32)>, query: &str) {
         use std::collections::{HashMap, HashSet};
 
-        if scored.len() < 2 { return; }
+        if scored.len() < 2 {
+            return;
+        }
 
         // Group candidate intent indices by action name (part after ':').
         let mut action_groups: HashMap<&str, Vec<usize>> = HashMap::new();
@@ -348,11 +360,14 @@ impl Resolver {
             let action = id.split(':').nth(1).unwrap_or(id.as_str());
             action_groups.entry(action).or_default().push(i);
         }
-        let duplicate_groups: Vec<Vec<usize>> = action_groups.values()
+        let duplicate_groups: Vec<Vec<usize>> = action_groups
+            .values()
             .filter(|indices| indices.len() > 1)
             .cloned()
             .collect();
-        if duplicate_groups.is_empty() { return; }
+        if duplicate_groups.is_empty() {
+            return;
+        }
 
         let tokens = crate::tokenizer::tokenize(query);
         let scored_ids: HashSet<&str> = scored.iter().map(|(id, _)| id.as_str()).collect();
@@ -363,7 +378,8 @@ impl Resolver {
         for token in &tokens {
             let base = token.strip_prefix("not_").unwrap_or(token.as_str());
             if let Some(activations) = self.l2.word_intent.get(base) {
-                let matching: Vec<&str> = activations.iter()
+                let matching: Vec<&str> = activations
+                    .iter()
                     .filter(|(id, _)| scored_ids.contains(id.as_str()))
                     .map(|(id, _)| id.as_str())
                     .collect();
@@ -375,13 +391,19 @@ impl Resolver {
 
         let mut to_remove: HashSet<usize> = HashSet::new();
         for group in &duplicate_groups {
-            let best = group.iter()
+            let best = group
+                .iter()
                 .max_by_key(|&&i| unique_count.get(scored[i].0.as_str()).copied().unwrap_or(0));
             if let Some(&best_idx) = best {
-                let best_unique = unique_count.get(scored[best_idx].0.as_str()).copied().unwrap_or(0);
+                let best_unique = unique_count
+                    .get(scored[best_idx].0.as_str())
+                    .copied()
+                    .unwrap_or(0);
                 if best_unique > 0 {
                     for &i in group {
-                        if i != best_idx { to_remove.insert(i); }
+                        if i != best_idx {
+                            to_remove.insert(i);
+                        }
                     }
                 }
             }
@@ -389,7 +411,11 @@ impl Resolver {
 
         if !to_remove.is_empty() {
             let mut i = 0;
-            scored.retain(|_| { let keep = !to_remove.contains(&i); i += 1; keep });
+            scored.retain(|_| {
+                let keep = !to_remove.contains(&i);
+                i += 1;
+                keep
+            });
         }
     }
 }

@@ -1,23 +1,24 @@
 //! API key management endpoints. UI-driven CRUD on
 //! `~/.config/microresolve/keys.json`.
 
+use crate::state::*;
 use axum::{
-    extract::{State, Path},
+    extract::{Path, State},
     http::StatusCode,
     Json,
 };
-use crate::state::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/auth/keys", axum::routing::get(list_keys).post(create_key))
+        .route(
+            "/api/auth/keys",
+            axum::routing::get(list_keys).post(create_key),
+        )
         .route("/api/auth/keys/{name}", axum::routing::delete(revoke_key))
 }
 
 /// List all keys (redacted — never returns full secret).
-pub async fn list_keys(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
+pub async fn list_keys(State(state): State<AppState>) -> Json<serde_json::Value> {
     let store = state.key_store.read().unwrap();
     Json(serde_json::json!({
         "enabled": store.is_enabled(),
@@ -39,7 +40,8 @@ pub async fn create_key(
         return Err((StatusCode::BAD_REQUEST, "name required".to_string()));
     }
     let mut store = state.key_store.write().unwrap();
-    let key = store.create(req.name.trim())
+    let key = store
+        .create(req.name.trim())
         .map_err(|e| (StatusCode::CONFLICT, e))?;
     Ok(Json(serde_json::json!({
         "key": key,
@@ -54,6 +56,8 @@ pub async fn revoke_key(
     Path(name): Path<String>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let mut store = state.key_store.write().unwrap();
-    store.revoke(&name).map_err(|e| (StatusCode::NOT_FOUND, e))?;
+    store
+        .revoke(&name)
+        .map_err(|e| (StatusCode::NOT_FOUND, e))?;
     Ok(StatusCode::NO_CONTENT)
 }

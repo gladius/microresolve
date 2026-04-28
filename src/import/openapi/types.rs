@@ -183,7 +183,8 @@ impl ParsedSpec {
     /// Update counts after adding operations
     pub fn update_counts(&mut self) {
         self.operation_count = self.operations.len();
-        let paths: std::collections::HashSet<_> = self.operations.iter().map(|op| &op.path).collect();
+        let paths: std::collections::HashSet<_> =
+            self.operations.iter().map(|op| &op.path).collect();
         self.path_count = paths.len();
     }
 }
@@ -229,7 +230,10 @@ mod tests {
         assert_eq!(clean_pathway_name("Get Users"), "get-users");
         assert_eq!(clean_pathway_name("users/list"), "users--list");
         // POST /api... -> post -api... -> "post--api--v1--users" (--- replaced with --)
-        assert_eq!(clean_pathway_name("POST /api/v1/users"), "post--api--v1--users");
+        assert_eq!(
+            clean_pathway_name("POST /api/v1/users"),
+            "post--api--v1--users"
+        );
         assert_eq!(clean_pathway_name("  Hello World  "), "hello-world");
     }
 }

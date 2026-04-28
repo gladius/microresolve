@@ -5,10 +5,10 @@
 //! `last_used_at` is in-memory only (resets on restart) to avoid file writes
 //! on every authenticated request.
 
+use rand::RngCore;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::RwLock;
-use rand::RngCore;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ApiKey {
@@ -31,15 +31,22 @@ impl KeyStore {
     /// Load from disk. Falls back to empty store if file missing or unreadable.
     pub fn load() -> Self {
         let path = config_path();
-        let keys = path.as_ref()
+        let keys = path
+            .as_ref()
             .and_then(|p| std::fs::read_to_string(p).ok())
             .and_then(|s| serde_json::from_str::<Vec<ApiKey>>(&s).ok())
             .unwrap_or_default();
-        Self { keys, last_used: RwLock::new(HashMap::new()), path }
+        Self {
+            keys,
+            last_used: RwLock::new(HashMap::new()),
+            path,
+        }
     }
 
     /// True if any keys are configured. Empty = open mode.
-    pub fn is_enabled(&self) -> bool { !self.keys.is_empty() }
+    pub fn is_enabled(&self) -> bool {
+        !self.keys.is_empty()
+    }
 
     /// Validate a key from a request header. Updates last-used on success.
     /// Returns the key's NAME on success (so callers can attribute requests).
@@ -49,7 +56,10 @@ impl KeyStore {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        self.last_used.write().unwrap().insert(provided.to_string(), now);
+        self.last_used
+            .write()
+            .unwrap()
+            .insert(provided.to_string(), now);
         Some(key.name.clone())
     }
 
@@ -57,12 +67,15 @@ impl KeyStore {
     /// Never returns the full key.
     pub fn list_redacted(&self) -> Vec<RedactedKey> {
         let last = self.last_used.read().unwrap();
-        self.keys.iter().map(|k| RedactedKey {
-            name: k.name.clone(),
-            prefix: k.id.chars().take(12).collect::<String>() + "…",
-            created_at: k.created_at,
-            last_used_at: last.get(&k.id).copied(),
-        }).collect()
+        self.keys
+            .iter()
+            .map(|k| RedactedKey {
+                name: k.name.clone(),
+                prefix: k.id.chars().take(12).collect::<String>() + "…",
+                created_at: k.created_at,
+                last_used_at: last.get(&k.id).copied(),
+            })
+            .collect()
     }
 
     /// Generate a new key with the given name. Returns the full key (caller
@@ -100,7 +113,9 @@ impl KeyStore {
     }
 
     fn save(&self) -> Result<(), String> {
-        let Some(ref p) = self.path else { return Ok(()); };
+        let Some(ref p) = self.path else {
+            return Ok(());
+        };
         if let Some(parent) = p.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }

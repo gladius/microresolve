@@ -12,28 +12,28 @@
 //! - `/api/learn/now` — synchronous learn: `full_review` + `apply_review` without queueing
 //! - `/api/report` — add a query to the review queue for LLM-judge review
 
+use crate::log_store::{LogQuery, LogRecord};
+use crate::pipeline::*;
+use crate::state::*;
 use axum::{
-    extract::{State, Query},
-    http::{StatusCode, HeaderMap},
+    extract::{Query, State},
+    http::{HeaderMap, StatusCode},
     routing::{get, post},
     Json,
 };
 use std::collections::HashMap;
-use crate::state::*;
-use crate::log_store::{LogQuery, LogRecord};
-use crate::pipeline::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/review/queue",          get(review_queue))
-        .route("/api/review/reject",         post(review_reject))
-        .route("/api/review/fix",            post(review_fix))
-        .route("/api/review/analyze",        post(review_analyze))
+        .route("/api/review/queue", get(review_queue))
+        .route("/api/review/reject", post(review_reject))
+        .route("/api/review/fix", post(review_fix))
+        .route("/api/review/analyze", post(review_analyze))
         .route("/api/review/intent_phrases", post(review_intent_phrases))
-        .route("/api/review/stats",          get(review_stats))
-        .route("/api/learn/now",             post(learn_now))
-        .route("/api/learn/words",           post(learn_words))
-        .route("/api/report",                post(report_query))
+        .route("/api/review/stats", get(review_stats))
+        .route("/api/learn/now", post(learn_now))
+        .route("/api/learn/words", post(learn_words))
+        .route("/api/report", post(report_query))
 }
 
 // ─── Queue (filtered log view) ───────────────────────────────────────────────
@@ -45,7 +45,9 @@ pub struct ReviewQueueParams {
     #[serde(default)]
     offset: usize,
 }
-fn default_limit() -> usize { 50 }
+fn default_limit() -> usize {
+    50
+}
 
 pub async fn review_queue(
     State(state): State<AppState>,
@@ -64,14 +66,20 @@ pub async fn review_queue(
         offset: params.offset,
     });
 
-    let items: Vec<serde_json::Value> = result.records.iter().map(|r| serde_json::json!({
-        "id": r.id,
-        "query": r.query,
-        "detected": r.detected_intents,
-        "confidence": r.confidence,
-        "timestamp": r.timestamp_ms,
-        "session_id": r.session_id,
-    })).collect();
+    let items: Vec<serde_json::Value> = result
+        .records
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "id": r.id,
+                "query": r.query,
+                "detected": r.detected_intents,
+                "confidence": r.confidence,
+                "timestamp": r.timestamp_ms,
+                "session_id": r.session_id,
+            })
+        })
+        .collect();
 
     Json(serde_json::json!({
         "total": result.total,
@@ -139,7 +147,9 @@ pub async fn review_fix(
             resolved: Some(false),
             ..Default::default()
         });
-        result.records.iter()
+        result
+            .records
+            .iter()
             .find(|r| r.id == req.id)
             .map(|r| (r.query.clone(), r.detected_intents.clone()))
             .ok_or_else(|| (StatusCode::NOT_FOUND, "log entry not found".to_string()))?
@@ -147,13 +157,25 @@ pub async fn review_fix(
 
     // Build FullReviewResult from user's input — apply_review handles all layers
     let det_set: std::collections::HashSet<&str> = detected.iter().map(|s| s.as_str()).collect();
-    let phrases_to_add: HashMap<String, Vec<String>> = req.phrases_by_intent.iter()
-        .map(|(id, phrases)| (id.clone(), phrases.iter().map(|p| p.phrase.clone()).collect()))
+    let phrases_to_add: HashMap<String, Vec<String>> = req
+        .phrases_by_intent
+        .iter()
+        .map(|(id, phrases)| {
+            (
+                id.clone(),
+                phrases.iter().map(|p| p.phrase.clone()).collect(),
+            )
+        })
         .collect();
-    let missed_intents: Vec<String> = req.phrases_by_intent.keys()
+    let missed_intents: Vec<String> = req
+        .phrases_by_intent
+        .keys()
         .filter(|id| !det_set.contains(id.as_str()))
-        .cloned().collect();
-    let lang = req.phrases_by_intent.values()
+        .cloned()
+        .collect();
+    let lang = req
+        .phrases_by_intent
+        .values()
         .flat_map(|ps| ps.iter())
         .map(|p| p.lang.as_str())
         .find(|l| !l.is_empty())
@@ -187,7 +209,9 @@ pub async fn review_fix(
             ..Default::default()
         });
         for record in &unresolved.records {
-            let passes = state.engine.try_namespace(&app_id)
+            let passes = state
+                .engine
+                .try_namespace(&app_id)
                 .map(|h| h.with_resolver(|r| !r.resolve(&record.query).is_empty()))
                 .unwrap_or(false);
             if passes {
@@ -220,13 +244,16 @@ pub async fn review_analyze(
             limit: 5000,
             ..Default::default()
         });
-        let record = all.records.into_iter()
+        let record = all
+            .records
+            .into_iter()
             .find(|r| r.id == req.id)
             .ok_or((StatusCode::NOT_FOUND, "log entry not found".to_string()))?;
         (record.query, record.detected_intents)
     };
 
-    let review = full_review(&state, &app_id, &query, &detected, None).await
+    let review = full_review(&state, &app_id, &query, &detected, None)
+        .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
     Ok(Json(serde_json::to_value(&review).unwrap()))
@@ -248,7 +275,10 @@ pub async fn review_intent_phrases(
     let mut result: HashMap<String, Vec<String>> = HashMap::new();
     if let Some(h) = state.engine.try_namespace(&app_id) {
         for id in &req.intent_ids {
-            result.insert(id.clone(), h.with_resolver(|r| r.training(id).unwrap_or_default()));
+            result.insert(
+                id.clone(),
+                h.with_resolver(|r| r.training(id).unwrap_or_default()),
+            );
         }
     }
     Json(serde_json::json!(result))
@@ -293,11 +323,17 @@ pub async fn learn_now(
     let app_id = app_id_from_headers(&headers);
 
     if !state.engine.has_namespace(&app_id) {
-        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", app_id)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("namespace '{}' not found", app_id),
+        ));
     }
 
-    let version_before = state.engine.try_namespace(&app_id)
-        .map(|h| h.with_resolver(|r| r.version())).unwrap_or(0);
+    let version_before = state
+        .engine
+        .try_namespace(&app_id)
+        .map(|h| h.with_resolver(|r| r.version()))
+        .unwrap_or(0);
 
     // Broadcast that we're starting (id=0 = ad-hoc, not from log store)
     let _ = state.event_tx.send(StudioEvent::LlmStarted {
@@ -306,17 +342,20 @@ pub async fn learn_now(
     });
 
     let gt_ref: Option<&[String]> = req.ground_truth.as_deref();
-    let review = full_review(&state, &app_id, &req.query, &req.detected_intents, gt_ref).await
+    let review = full_review(&state, &app_id, &req.query, &req.detected_intents, gt_ref)
+        .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
-    let phrases_added =
-        apply_review(&state, &app_id, &review, &req.query).await;
+    let phrases_added = apply_review(&state, &app_id, &review, &req.query).await;
 
-    let version_after = state.engine.try_namespace(&app_id)
-        .map(|h| h.with_resolver(|r| r.version())).unwrap_or(0);
+    let version_after = state
+        .engine
+        .try_namespace(&app_id)
+        .map(|h| h.with_resolver(|r| r.version()))
+        .unwrap_or(0);
 
-    let model = std::env::var("LLM_MODEL")
-        .unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
+    let model =
+        std::env::var("LLM_MODEL").unwrap_or_else(|_| "claude-haiku-4-5-20251001".to_string());
 
     let _ = state.event_tx.send(StudioEvent::LlmDone {
         id: 0,
@@ -368,19 +407,29 @@ pub async fn report_query(
     Json(req): Json<ReportRequest>,
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
-    let confidence = if req.detected.is_empty() { "none" } else { "low" };
-    let log_id = log_query(&state, LogRecord {
-        id: 0,
-        query: req.query.clone(),
-        app_id: app_id.clone(),
-        detected_intents: req.detected,
-        confidence: confidence.to_string(),
-        session_id: req.session_id,
-        timestamp_ms: now_ms(),
-        router_version: state.engine.try_namespace(&app_id)
-            .map(|h| h.with_resolver(|r| r.version())).unwrap_or(0),
-        source: "client_report".to_string(),
-    });
+    let confidence = if req.detected.is_empty() {
+        "none"
+    } else {
+        "low"
+    };
+    let log_id = log_query(
+        &state,
+        LogRecord {
+            id: 0,
+            query: req.query.clone(),
+            app_id: app_id.clone(),
+            detected_intents: req.detected,
+            confidence: confidence.to_string(),
+            session_id: req.session_id,
+            timestamp_ms: now_ms(),
+            router_version: state
+                .engine
+                .try_namespace(&app_id)
+                .map(|h| h.with_resolver(|r| r.version()))
+                .unwrap_or(0),
+            source: "client_report".to_string(),
+        },
+    );
     state.worker_notify.notify_one();
     Json(serde_json::json!({ "id": log_id }))
 }
@@ -403,7 +452,10 @@ pub async fn learn_words(
     let app_id = app_id_from_headers(&headers);
 
     if !state.engine.has_namespace(&app_id) {
-        return Err((StatusCode::NOT_FOUND, format!("namespace '{}' not found", app_id)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("namespace '{}' not found", app_id),
+        ));
     }
 
     let word_refs: Vec<&str> = req.words.iter().map(|s| s.as_str()).collect();

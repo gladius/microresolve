@@ -1,27 +1,29 @@
 //! Hebbian graph persistence utilities + L1 CRUD API endpoints.
 
-use microresolve::scoring::EdgeKind;
-use axum::{extract::State, http::HeaderMap, routing::{get, post, delete}, Json};
 use crate::state::*;
+use axum::{
+    extract::State,
+    http::HeaderMap,
+    routing::{delete, get, post},
+    Json,
+};
+use microresolve::scoring::EdgeKind;
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/api/layers/info",       get(layers_info))
-        .route("/api/layers/l1/edges",   get(l1_list_edges))
-        .route("/api/layers/l1/edges",   post(l1_add_edge))
-        .route("/api/layers/l1/edges",   delete(l1_delete_edge))
+        .route("/api/layers/info", get(layers_info))
+        .route("/api/layers/l1/edges", get(l1_list_edges))
+        .route("/api/layers/l1/edges", post(l1_add_edge))
+        .route("/api/layers/l1/edges", delete(l1_delete_edge))
         .route("/api/layers/l1/distill", post(l1_distill))
-        .route("/api/layers/l2/probe",   post(l2_probe))
+        .route("/api/layers/l2/probe", post(l2_probe))
 }
 
 // ── GET /api/layers/info ──────────────────────────────────────────────────────
 
-async fn layers_info(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Json<serde_json::Value> {
+async fn layers_info(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
     let Some(h) = state.engine.try_namespace(&app_id) else {
         return Json(serde_json::json!({ "error": "namespace not found" }));
@@ -35,8 +37,8 @@ async fn layers_info(
             for e in edges {
                 match e.kind {
                     EdgeKind::Morphological => acc.0 += 1,
-                    EdgeKind::Abbreviation  => acc.1 += 1,
-                    EdgeKind::Synonym       => acc.2 += 1,
+                    EdgeKind::Abbreviation => acc.1 += 1,
+                    EdgeKind::Synonym => acc.2 += 1,
                     _ => {}
                 }
             }
@@ -70,9 +72,19 @@ async fn l1_list_edges(
     let Some(h) = state.engine.try_namespace(&app_id) else {
         return Json(serde_json::json!({ "edges": [], "total": 0 }));
     };
-    let filter = params.get("q").map(|s| s.to_lowercase()).unwrap_or_default();
-    let kind_filter = params.get("kind").map(|s| s.as_str()).unwrap_or("all").to_string();
-    let limit: usize = params.get("limit").and_then(|s| s.parse().ok()).unwrap_or(200);
+    let filter = params
+        .get("q")
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+    let kind_filter = params
+        .get("kind")
+        .map(|s| s.as_str())
+        .unwrap_or("all")
+        .to_string();
+    let limit: usize = params
+        .get("limit")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(200);
 
     h.with_resolver(|router| {
         let all_edges: Vec<serde_json::Value> = router.l1().edges.iter()
@@ -114,19 +126,19 @@ async fn l1_add_edge(
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
     let from = req.from.trim().to_lowercase();
-    let to   = req.to.trim().to_lowercase();
+    let to = req.to.trim().to_lowercase();
     if from.is_empty() || to.is_empty() || from == to {
         return Json(serde_json::json!({ "ok": false, "error": "invalid edge" }));
     }
     let kind = match req.kind.as_str() {
         "morphological" => EdgeKind::Morphological,
-        "abbreviation"  => EdgeKind::Abbreviation,
-        _               => EdgeKind::Synonym,
+        "abbreviation" => EdgeKind::Abbreviation,
+        _ => EdgeKind::Synonym,
     };
     let weight = req.weight.unwrap_or(match kind {
         EdgeKind::Morphological => 0.98,
-        EdgeKind::Abbreviation  => 0.99,
-        _                       => 0.88,
+        EdgeKind::Abbreviation => 0.99,
+        _ => 0.88,
     });
 
     let Some(h) = state.engine.try_namespace(&app_id) else {
@@ -140,7 +152,10 @@ async fn l1_add_edge(
 // ── DELETE /api/layers/l1/edges ───────────────────────────────────────────────
 
 #[derive(serde::Deserialize)]
-struct DeleteEdgeRequest { from: String, to: String }
+struct DeleteEdgeRequest {
+    from: String,
+    to: String,
+}
 
 async fn l1_delete_edge(
     State(state): State<AppState>,
@@ -149,7 +164,7 @@ async fn l1_delete_edge(
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
     let from = req.from.trim().to_lowercase();
-    let to   = req.to.trim().to_lowercase();
+    let to = req.to.trim().to_lowercase();
 
     let Some(h) = state.engine.try_namespace(&app_id) else {
         return Json(serde_json::json!({ "ok": false }));
@@ -157,7 +172,9 @@ async fn l1_delete_edge(
     h.with_resolver_mut(|r| {
         if let Some(edges) = r.l1_mut().edges.get_mut(&from) {
             edges.retain(|e| e.target != to);
-            if edges.is_empty() { r.l1_mut().edges.remove(&from); }
+            if edges.is_empty() {
+                r.l1_mut().edges.remove(&from);
+            }
         }
     });
     h.flush().ok();
@@ -166,17 +183,16 @@ async fn l1_delete_edge(
 
 // ── POST /api/layers/l1/distill ───────────────────────────────────────────────
 
-async fn l1_distill(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Json<serde_json::Value> {
+async fn l1_distill(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
     // Collect all accepted phrases from this namespace
     let Some(h) = state.engine.try_namespace(&app_id) else {
         return Json(serde_json::json!({ "ok": false, "error": "namespace not found" }));
     };
     let accepted: Vec<(String, String)> = h.with_resolver(|router| {
-        router.intent_ids().into_iter()
+        router
+            .intent_ids()
+            .into_iter()
             .flat_map(|id| {
                 let phrases = router.training(&id).unwrap_or_default();
                 phrases.into_iter().map(move |p| (id.clone(), p))
@@ -191,7 +207,9 @@ async fn l1_distill(
     // Reuse the same LLM distillation pipeline from import
     crate::routes_import::seed_into_l1_pub(&state, &app_id, &accepted).await;
 
-    let edge_total: usize = state.engine.try_namespace(&app_id)
+    let edge_total: usize = state
+        .engine
+        .try_namespace(&app_id)
         .map(|h| h.with_resolver(|r| r.l1().edges.values().map(|v| v.len()).sum()))
         .unwrap_or(0);
     Json(serde_json::json!({ "ok": true, "edges_total": edge_total }))
@@ -200,7 +218,9 @@ async fn l1_distill(
 // ── POST /api/layers/l2/probe ─────────────────────────────────────────────────
 
 #[derive(serde::Deserialize)]
-struct L2ProbeRequest { query: String }
+struct L2ProbeRequest {
+    query: String,
+}
 
 async fn l2_probe(
     State(state): State<AppState>,

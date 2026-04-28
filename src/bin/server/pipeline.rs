@@ -17,36 +17,51 @@
 //! # LLM utilities
 //! `call_llm`, `call_llm_smart`, `extract_json` at the bottom of this file.
 
+use crate::state::*;
 use axum::http::StatusCode;
 use std::collections::HashMap;
-use crate::state::*;
 
 /// Turn 1 (Judge): id + description only. No phrases — descriptions are the interface contract.
 /// Flat cost regardless of how many phrases have been learned.
 pub fn build_intent_labels(router: &microresolve::Resolver) -> String {
     let mut ids = router.intent_ids();
     ids.sort();
-    ids.iter().map(|id| {
-        let desc = router.intent(id).map(|i| i.description).unwrap_or_default();
-        if desc.is_empty() {
-            format!("- {} [NO DESCRIPTION — cannot classify reliably]", id)
-        } else {
-            format!("- {} ({})", id, desc)
-        }
-    }).collect::<Vec<_>>().join("\n")
+    ids.iter()
+        .map(|id| {
+            let desc = router.intent(id).map(|i| i.description).unwrap_or_default();
+            if desc.is_empty() {
+                format!("- {} [NO DESCRIPTION — cannot classify reliably]", id)
+            } else {
+                format!("- {} ({})", id, desc)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Turn 2 context: phrases for specific intents, capped to avoid token bloat.
 /// Shows most-recently-added phrases first (they reflect what was learned, not just bootstrap seeds).
-fn intent_phrases_context(router: &microresolve::Resolver, intent_ids: &[String], cap: usize) -> String {
-    intent_ids.iter().map(|id| {
-        let info = router.intent(id);
-        let desc = info.as_ref().map(|i| i.description.as_str()).unwrap_or("");
-        let phrases = router.training(id).unwrap_or_default();
-        let shown: Vec<&String> = phrases.iter().rev().take(cap).collect();
-        let desc_str = if desc.is_empty() { String::new() } else { format!(" ({})", desc) };
-        format!("  {}{}: {:?}", id, desc_str, shown)
-    }).collect::<Vec<_>>().join("\n")
+fn intent_phrases_context(
+    router: &microresolve::Resolver,
+    intent_ids: &[String],
+    cap: usize,
+) -> String {
+    intent_ids
+        .iter()
+        .map(|id| {
+            let info = router.intent(id);
+            let desc = info.as_ref().map(|i| i.description.as_str()).unwrap_or("");
+            let phrases = router.training(id).unwrap_or_default();
+            let shown: Vec<&String> = phrases.iter().rev().take(cap).collect();
+            let desc_str = if desc.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", desc)
+            };
+            format!("  {}{}: {:?}", id, desc_str, shown)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Extract JSON from LLM response that may be wrapped in markdown code fences.
@@ -72,8 +87,8 @@ pub fn extract_json(text: &str) -> &str {
         let obj = content.find('{');
         let use_array = match (arr, obj) {
             (Some(a), Some(o)) => a <= o,
-            (Some(_), None)    => true,
-            _                  => false,
+            (Some(_), None) => true,
+            _ => false,
         };
         if use_array {
             if let (Some(s), Some(e)) = (content.find('['), content.rfind(']')) {
@@ -87,7 +102,7 @@ pub fn extract_json(text: &str) -> &str {
 
     // Fallback: scan for the last `[` ... `]` or `{` ... `}` that look like JSON
     // (the last `]` / `}` is more reliable than the first `[` / `{` in preamble text)
-    let last_array_end  = trimmed.rfind(']');
+    let last_array_end = trimmed.rfind(']');
     let last_object_end = trimmed.rfind('}');
     match (last_array_end, last_object_end) {
         (Some(ae), Some(oe)) if ae > oe => {
@@ -139,9 +154,12 @@ async fn call_llm_with_model(
         Err((status, msg)) => {
             // One retry after short wait for rate limits (free tier APIs)
             let is_rate_limit = status == StatusCode::TOO_MANY_REQUESTS
-                || msg.contains("429") || msg.contains("rate") || msg.contains("quota")
+                || msg.contains("429")
+                || msg.contains("rate")
+                || msg.contains("quota")
                 || status == StatusCode::SERVICE_UNAVAILABLE
-                || msg.contains("503") || msg.contains("overloaded");
+                || msg.contains("503")
+                || msg.contains("overloaded");
 
             if is_rate_limit {
                 eprintln!("[llm] rate limited, waiting 3s then retrying once");
@@ -161,14 +179,21 @@ async fn call_llm_once(
     model: &str,
 ) -> Result<String, (StatusCode, String)> {
     let key = state.llm_key.as_ref().ok_or_else(|| {
-        (StatusCode::SERVICE_UNAVAILABLE, "LLM_API_KEY not set. Add it to .env file.".to_string())
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "LLM_API_KEY not set. Add it to .env file.".to_string(),
+        )
     })?;
 
     let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
 
     // Gemini thinking models need higher output budget (thinking tokens count against limit)
     // Gemini models: use reasonable output budget (not too high — causes slow thinking)
-    let effective_max = if provider == "gemini" { max_tokens.max(512) } else { max_tokens };
+    let effective_max = if provider == "gemini" {
+        max_tokens.max(512)
+    } else {
+        max_tokens
+    };
 
     let resp = match provider.as_str() {
         "gemini" => {
@@ -185,7 +210,8 @@ async fn call_llm_once(
                     "thinkingConfig": { "thinkingBudget": 0 }
                 }
             });
-            state.http
+            state
+                .http
                 .post(&url)
                 .header("content-type", "application/json")
                 .json(&body)
@@ -200,7 +226,8 @@ async fn call_llm_once(
                 "max_tokens": max_tokens,
                 "messages": [{"role": "user", "content": prompt}],
             });
-            state.http
+            state
+                .http
                 .post(&url)
                 .header("x-api-key", key)
                 .header("anthropic-version", "2023-06-01")
@@ -218,7 +245,8 @@ async fn call_llm_once(
                 "max_tokens": max_tokens,
                 "messages": [{"role": "user", "content": prompt}],
             });
-            state.http
+            state
+                .http
                 .post(&url)
                 .header("Authorization", format!("Bearer {}", key))
                 .header("content-type", "application/json")
@@ -226,15 +254,26 @@ async fn call_llm_once(
                 .send()
                 .await
         }
-    }.map_err(|e| (StatusCode::BAD_GATEWAY, format!("LLM request failed: {}", e)))?;
+    }
+    .map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            format!("LLM request failed: {}", e),
+        )
+    })?;
 
     if !resp.status().is_success() {
         let status = resp.status().as_u16();
         let text = resp.text().await.unwrap_or_default();
-        return Err((StatusCode::BAD_GATEWAY, format!("LLM API {}: {}", status, text)));
+        return Err((
+            StatusCode::BAD_GATEWAY,
+            format!("LLM API {}: {}", status, text),
+        ));
     }
 
-    let data: serde_json::Value = resp.json().await
+    let data: serde_json::Value = resp
+        .json()
+        .await
         .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Bad response: {}", e)))?;
 
     // Extract text based on provider response format
@@ -246,29 +285,27 @@ async fn call_llm_once(
                 .map(|s| s.trim().to_string())
                 .ok_or_else(|| {
                     let raw = serde_json::to_string(&data).unwrap_or_default();
-                    (StatusCode::BAD_GATEWAY, format!("Invalid JSON from LLM: {}", &raw[..raw.len().min(200)]))
+                    (
+                        StatusCode::BAD_GATEWAY,
+                        format!("Invalid JSON from LLM: {}", &raw[..raw.len().min(200)]),
+                    )
                 })
         }
-        "anthropic" => {
-            data["content"][0]["text"]
-                .as_str()
-                .map(|s| s.trim().to_string())
-                .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
-        }
-        _ => {
-            data["choices"][0]["message"]["content"]
-                .as_str()
-                .map(|s| s.trim().to_string())
-                .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string()))
-        }
+        "anthropic" => data["content"][0]["text"]
+            .as_str()
+            .map(|s| s.trim().to_string())
+            .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string())),
+        _ => data["choices"][0]["message"]["content"]
+            .as_str()
+            .map(|s| s.trim().to_string())
+            .ok_or_else(|| (StatusCode::BAD_GATEWAY, "No text in response".to_string())),
     }
 }
 
 // --- Shared phrase pipeline: guard + one LLM retry ---
 
 /// Result of the phrase pipeline.
-#[derive(Debug, Clone, serde::Serialize)]
-#[derive(serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PhrasePipelineResult {
     /// Phrases that were successfully added: (intent_id, phrase)
     pub added: Vec<(String, String)>,
@@ -298,7 +335,9 @@ pub async fn phrase_pipeline(
         for (intent_id, phrases) in phrases_by_intent {
             for phrase in phrases {
                 let s = phrase.trim().to_string();
-                if s.is_empty() { continue; }
+                if s.is_empty() {
+                    continue;
+                }
                 let result = h.with_resolver_mut(|r| r.add_phrase_checked(intent_id, &s, lang));
                 if result.added {
                     added.push((intent_id.clone(), s));
@@ -354,9 +393,8 @@ pub struct FullReviewResult {
     /// LLM-extracted spans from the query that express each intent.
     /// Used to learn precise n-gram patterns from the customer's own words.
     #[serde(default)]
-    pub spans_to_learn: Vec<(String, String)>,  // (intent_id, span text)
+    pub spans_to_learn: Vec<(String, String)>, // (intent_id, span text)
 }
-
 
 /// Run the full review for a query.
 ///
@@ -370,16 +408,27 @@ pub async fn full_review(
     detected: &[String],
     ground_truth: Option<&[String]>,
 ) -> Result<FullReviewResult, String> {
-
     // ── When ground truth is known: skip Turn 1 LLM entirely ──────────────────
     if let Some(gt) = ground_truth {
         use std::collections::HashSet;
-        let gt_set:  HashSet<&str> = gt.iter().map(|s| s.as_str()).collect();
+        let gt_set: HashSet<&str> = gt.iter().map(|s| s.as_str()).collect();
         let det_set: HashSet<&str> = detected.iter().map(|s| s.as_str()).collect();
 
-        let correct_intents:  Vec<String> = detected.iter().filter(|s| gt_set.contains(s.as_str())).cloned().collect();
-        let wrong_detections: Vec<String> = detected.iter().filter(|s| !gt_set.contains(s.as_str())).cloned().collect();
-        let missed_intents:   Vec<String> = gt.iter().filter(|s| !det_set.contains(s.as_str())).cloned().collect();
+        let correct_intents: Vec<String> = detected
+            .iter()
+            .filter(|s| gt_set.contains(s.as_str()))
+            .cloned()
+            .collect();
+        let wrong_detections: Vec<String> = detected
+            .iter()
+            .filter(|s| !gt_set.contains(s.as_str()))
+            .cloned()
+            .collect();
+        let missed_intents: Vec<String> = gt
+            .iter()
+            .filter(|s| !det_set.contains(s.as_str()))
+            .cloned()
+            .collect();
 
         eprintln!("[full_review] ground_truth provided — skipping Turn 1. correct={:?} wrong={:?} missed={:?}",
             correct_intents, wrong_detections, missed_intents);
@@ -401,24 +450,39 @@ pub async fn full_review(
 
         // Run Turn 2 with the computed sets (reuse shared helper below)
         return full_review_from_sets(
-            state, app_id, query,
-            correct_intents, wrong_detections, missed_intents,
+            state,
+            app_id,
+            query,
+            correct_intents,
+            wrong_detections,
+            missed_intents,
             vec!["en".to_string()],
-        ).await;
+        )
+        .await;
     }
 
     // ── Confidence short-circuit (UI setting: review_skip_threshold) ──────────
     // If top detected intent scores above threshold, trust routing — skip Turn 1 LLM.
     let skip_threshold = state.ui_settings.read().unwrap().review_skip_threshold;
     if skip_threshold > 0.0 && !detected.is_empty() {
-        let top_score = state.engine.try_namespace(app_id)
-            .map(|h| h.with_resolver(|router| {
-                let pre = router.l1().preprocess(query);
-                let (all_scores, _) = router.l2().score_multi_normalized(&pre.expanded, 0.0, 100.0);
-                detected.iter()
-                    .filter_map(|id| all_scores.iter().find(|(s, _)| s == id).map(|(_, sc)| *sc))
-                    .fold(0.0f32, f32::max)
-            }))
+        let top_score = state
+            .engine
+            .try_namespace(app_id)
+            .map(|h| {
+                h.with_resolver(|router| {
+                    let pre = router.l1().preprocess(query);
+                    let (all_scores, _) =
+                        router
+                            .l2()
+                            .score_multi_normalized(&pre.expanded, 0.0, 100.0);
+                    detected
+                        .iter()
+                        .filter_map(|id| {
+                            all_scores.iter().find(|(s, _)| s == id).map(|(_, sc)| *sc)
+                        })
+                        .fold(0.0f32, f32::max)
+                })
+            })
             .unwrap_or(0.0);
         if top_score >= skip_threshold {
             eprintln!("[full_review] confidence short-circuit: top score {:.2} >= threshold {:.2} — skipping Turn 1", top_score, skip_threshold);
@@ -430,35 +494,57 @@ pub async fn full_review(
                 detection_perfect: true,
                 phrases_to_add: HashMap::new(),
                 phrases_blocked: Vec::new(),
-                summary: format!("High confidence ({:.0}%) — routing trusted, Turn 1 skipped.", top_score * 100.0),
+                summary: format!(
+                    "High confidence ({:.0}%) — routing trusted, Turn 1 skipped.",
+                    top_score * 100.0
+                ),
                 spans_to_learn: vec![],
             });
         }
     }
 
     // ── Turn 1 LLM judge (auto worker — ground truth unknown) ─────────────────
-    let intent_labels = state.engine.try_namespace(app_id)
+    let intent_labels = state
+        .engine
+        .try_namespace(app_id)
         .map(|h| h.with_resolver(|r| build_intent_labels(r)))
         .unwrap_or_default();
 
-    let detected_with_scores: String = state.engine.try_namespace(app_id)
-        .map(|h| h.with_resolver(|router| {
-            let pre = router.l1().preprocess(query);
-            let (all_scores, _) = router.l2().score_multi_normalized(&pre.expanded, 0.0, 100.0);
-            let score_map: HashMap<&str, f32> = all_scores.iter().map(|(id, s)| (id.as_str(), *s)).collect();
+    let detected_with_scores: String = state
+        .engine
+        .try_namespace(app_id)
+        .map(|h| {
+            h.with_resolver(|router| {
+                let pre = router.l1().preprocess(query);
+                let (all_scores, _) = router
+                    .l2()
+                    .score_multi_normalized(&pre.expanded, 0.0, 100.0);
+                let score_map: HashMap<&str, f32> =
+                    all_scores.iter().map(|(id, s)| (id.as_str(), *s)).collect();
+                if detected.is_empty() {
+                    "(none detected)".to_string()
+                } else {
+                    detected
+                        .iter()
+                        .map(|id| {
+                            let score = score_map.get(id.as_str()).copied().unwrap_or(0.0);
+                            format!("  {} (L2 score: {:.2})", id, score)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                }
+            })
+        })
+        .unwrap_or_else(|| {
             if detected.is_empty() {
                 "(none detected)".to_string()
             } else {
-                detected.iter().map(|id| {
-                    let score = score_map.get(id.as_str()).copied().unwrap_or(0.0);
-                    format!("  {} (L2 score: {:.2})", id, score)
-                }).collect::<Vec<_>>().join("\n")
+                detected
+                    .iter()
+                    .map(|id| format!("  {}", id))
+                    .collect::<Vec<_>>()
+                    .join("\n")
             }
-        }))
-        .unwrap_or_else(|| if detected.is_empty() {
-            "(none detected)".to_string()
-        } else {
-            detected.iter().map(|id| format!("  {}", id)).collect::<Vec<_>>().join("\n")
         });
 
     let l1_context: String = state.engine.try_namespace(app_id)
@@ -490,27 +576,50 @@ pub async fn full_review(
          {{\"correct_intents\": [\"intent_id\"], \"wrong_detections\": [\"intent_id\"], \"missed_intents\": [\"intent_id\"], \"languages\": [\"en\"], \"out_of_scope\": false}}\n"
     );
 
-    let t1_response = call_llm(state, &turn1_prompt, 256).await
+    let t1_response = call_llm(state, &turn1_prompt, 256)
+        .await
         .map_err(|e| format!("Turn 1 failed: {}", e.1))?;
     let t1_parsed: serde_json::Value = serde_json::from_str(extract_json(&t1_response))
         .map_err(|e| format!("Turn 1 parse failed: {}", e))?;
 
-    let correct_intents: Vec<String> = t1_parsed["correct_intents"].as_array()
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+    let correct_intents: Vec<String> = t1_parsed["correct_intents"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
-    let wrong_detections: Vec<String> = t1_parsed["wrong_detections"].as_array()
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+    let wrong_detections: Vec<String> = t1_parsed["wrong_detections"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
-    let missed_intents: Vec<String> = t1_parsed["missed_intents"].as_array()
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+    let missed_intents: Vec<String> = t1_parsed["missed_intents"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
-    let languages: Vec<String> = t1_parsed["languages"].as_array()
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+    let languages: Vec<String> = t1_parsed["languages"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_else(|| vec!["en".to_string()]);
     let out_of_scope = t1_parsed["out_of_scope"].as_bool().unwrap_or(false);
 
-    eprintln!("[full_review] Turn 1: correct={:?}, wrong={:?}, missed={:?}, langs={:?}, out_of_scope={}",
-        correct_intents, wrong_detections, missed_intents, languages, out_of_scope);
+    eprintln!(
+        "[full_review] Turn 1: correct={:?}, wrong={:?}, missed={:?}, langs={:?}, out_of_scope={}",
+        correct_intents, wrong_detections, missed_intents, languages, out_of_scope
+    );
 
     // === Early exit: out of scope — query irrelevant to this namespace ===
     if out_of_scope {
@@ -545,9 +654,15 @@ pub async fn full_review(
     }
 
     full_review_from_sets(
-        state, app_id, query,
-        correct_intents, wrong_detections, missed_intents, languages,
-    ).await
+        state,
+        app_id,
+        query,
+        correct_intents,
+        wrong_detections,
+        missed_intents,
+        languages,
+    )
+    .await
 }
 
 /// Shared Turn 2 logic — runs after correct/missed/wrong are known (either from Turn 1 LLM or set math).
@@ -567,7 +682,9 @@ async fn full_review_from_sets(
     // CLINC queries). Skip Turn 2 entirely in the (wrong≠∅, missed=∅) case.
     // wrong_detections still reach apply_review's anti-Hebbian branch.
     if missed_intents.is_empty() {
-        eprintln!("[full_review] no missed intents — skipping Turn 2 (no phrase-generation needed)");
+        eprintln!(
+            "[full_review] no missed intents — skipping Turn 2 (no phrase-generation needed)"
+        );
         return Ok(FullReviewResult {
             correct_intents,
             wrong_detections,
@@ -584,7 +701,8 @@ async fn full_review_from_sets(
     // === Turn 2: Fix misses — generate training phrases for missed intents ===
     // Show the MISSED intents' current phrases so LLM avoids duplicating what's already there.
     // Include descriptions so the LLM understands each intent's scope.
-    let all_relevant_intents: Vec<String> = missed_intents.iter()
+    let all_relevant_intents: Vec<String> = missed_intents
+        .iter()
         .chain(correct_intents.iter())
         .cloned()
         .collect::<std::collections::LinkedList<_>>()
@@ -593,7 +711,9 @@ async fn full_review_from_sets(
         .into_iter()
         .collect();
 
-    let existing_phrases: String = state.engine.try_namespace(app_id)
+    let existing_phrases: String = state
+        .engine
+        .try_namespace(app_id)
         .map(|h| h.with_resolver(|r| intent_phrases_context(r, &all_relevant_intents, 15)))
         .unwrap_or_default();
 
@@ -605,23 +725,40 @@ async fn full_review_from_sets(
         format!("\nThe query is in \"{detected_lang}\". Generate phrases in \"{detected_lang}\" for missed intents.\n")
     };
 
-    let missed_labels: String = state.engine.try_namespace(app_id)
-        .map(|h| h.with_resolver(|router| {
-            missed_intents.iter().map(|id| {
-                let desc  = router.intent(id).map(|i| i.description).unwrap_or_default();
-                let count = router.training(id).unwrap_or_default().len();
-                let coverage = if count >= 20 {
-                    format!(" [{} phrases — well covered, be very targeted]", count)
-                } else if count >= 10 {
-                    format!(" [{} phrases — add vocabulary not yet represented]", count)
-                } else {
-                    format!(" [{} phrases — add diverse new vocabulary]", count)
-                };
-                if desc.is_empty() { format!("  - {}{}", id, coverage) }
-                else { format!("  - {} ({}){}", id, desc, coverage) }
-            }).collect::<Vec<_>>().join("\n")
-        }))
-        .unwrap_or_else(|| missed_intents.iter().map(|id| format!("  - {}", id)).collect::<Vec<_>>().join("\n"));
+    let missed_labels: String = state
+        .engine
+        .try_namespace(app_id)
+        .map(|h| {
+            h.with_resolver(|router| {
+                missed_intents
+                    .iter()
+                    .map(|id| {
+                        let desc = router.intent(id).map(|i| i.description).unwrap_or_default();
+                        let count = router.training(id).unwrap_or_default().len();
+                        let coverage = if count >= 20 {
+                            format!(" [{} phrases — well covered, be very targeted]", count)
+                        } else if count >= 10 {
+                            format!(" [{} phrases — add vocabulary not yet represented]", count)
+                        } else {
+                            format!(" [{} phrases — add diverse new vocabulary]", count)
+                        };
+                        if desc.is_empty() {
+                            format!("  - {}{}", id, coverage)
+                        } else {
+                            format!("  - {} ({}){}", id, desc, coverage)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+        })
+        .unwrap_or_else(|| {
+            missed_intents
+                .iter()
+                .map(|id| format!("  - {}", id))
+                .collect::<Vec<_>>()
+                .join("\n")
+        });
 
     let turn2_prompt = format!(
         "{guidelines}\n\n\
@@ -635,11 +772,16 @@ async fn full_review_from_sets(
         query = query,
     );
 
-    let t2_response = call_llm(state, &turn2_prompt, 150).await
+    let t2_response = call_llm(state, &turn2_prompt, 150)
+        .await
         .map_err(|e| format!("Turn 2 failed: {}", e.1))?;
-    let t2_parsed: serde_json::Value = serde_json::from_str(extract_json(&t2_response))
-        .map_err(|e| {
-            eprintln!("[full_review] Turn 2 parse error: {}. Raw: {}", e, &t2_response[..t2_response.len().min(300)]);
+    let t2_parsed: serde_json::Value =
+        serde_json::from_str(extract_json(&t2_response)).map_err(|e| {
+            eprintln!(
+                "[full_review] Turn 2 parse error: {}. Raw: {}",
+                e,
+                &t2_response[..t2_response.len().min(300)]
+            );
             format!("Turn 2 parse failed: {}", e)
         })?;
 
@@ -648,7 +790,10 @@ async fn full_review_from_sets(
     let phrases_blocked = Vec::new();
     let spans_to_learn: Vec<(String, String)> = Vec::new();
 
-    if let Some(sbi) = t2_parsed.get("phrases_by_intent").and_then(|v| v.as_object()) {
+    if let Some(sbi) = t2_parsed
+        .get("phrases_by_intent")
+        .and_then(|v| v.as_object())
+    {
         if let Some(h) = state.engine.try_namespace(app_id) {
             for (intent_id, phrase_val) in sbi {
                 let exists = h.with_resolver(|r| r.training(intent_id).is_some());
@@ -665,7 +810,9 @@ async fn full_review_from_sets(
                 };
                 if let Some(s) = phrase_str {
                     let s = s.trim().to_string();
-                    if s.is_empty() { continue; }
+                    if s.is_empty() {
+                        continue;
+                    }
                     let check = h.with_resolver(|r| r.check_phrase(intent_id, &s));
                     if !check.redundant
                         && check.warning.as_deref() != Some("No content terms after tokenization")
@@ -681,7 +828,11 @@ async fn full_review_from_sets(
     // The LLM extracts the intent-bearing span from the user's query and returns it
     // as the phrase directly, so it is stored in the phrase registry and survives rebuilds.
 
-    eprintln!("[full_review] Turn 2: phrases_to_add={:?}, blocked={}", phrases_to_add, phrases_blocked.len());
+    eprintln!(
+        "[full_review] Turn 2: phrases_to_add={:?}, blocked={}",
+        phrases_to_add,
+        phrases_blocked.len()
+    );
 
     let summary = String::new();
 
@@ -698,7 +849,6 @@ async fn full_review_from_sets(
     })
 }
 
-
 /// Apply a full review result: add phrases, update L2 edges, add L1 synonyms.
 pub async fn apply_review(
     state: &AppState,
@@ -712,7 +862,8 @@ pub async fn apply_review(
     // L2 learning is NOT gated by the Resolver — word_intent learns from ALL phrases.
     if !result.phrases_to_add.is_empty() {
         let lang = result.languages.first().map(|s| s.as_str()).unwrap_or("en");
-        let pipeline_result = phrase_pipeline(state, app_id, &result.phrases_to_add, true, lang).await;
+        let pipeline_result =
+            phrase_pipeline(state, app_id, &result.phrases_to_add, true, lang).await;
         added = pipeline_result.added.len();
     }
 
@@ -725,7 +876,9 @@ pub async fn apply_review(
 
     let mut word_refs_owned: Vec<String> = Vec::new();
     if has_learning {
-        let Some(h) = state.engine.try_namespace(app_id) else { return added; };
+        let Some(h) = state.engine.try_namespace(app_id) else {
+            return added;
+        };
 
         let no_phrases: std::collections::HashMap<String, Vec<String>> =
             std::collections::HashMap::new();
@@ -739,11 +892,16 @@ pub async fn apply_review(
             );
         });
         if !result.wrong_detections.is_empty() {
-            eprintln!("[auto-learn/L2b] shrink weights on query tokens for wrong intents: {:?}",
-                result.wrong_detections);
+            eprintln!(
+                "[auto-learn/L2b] shrink weights on query tokens for wrong intents: {:?}",
+                result.wrong_detections
+            );
         }
         for (span_intent, span_text) in &result.spans_to_learn {
-            eprintln!("[auto-learn/query] span '{}' → '{}'", span_text, span_intent);
+            eprintln!(
+                "[auto-learn/query] span '{}' → '{}'",
+                span_text, span_intent
+            );
         }
 
         let normalized = h.with_resolver(|r| r.l1().preprocess(original_query).expanded);
@@ -757,13 +915,18 @@ pub async fn apply_review(
     }
 
     if has_learning && !result.missed_intents.is_empty() {
-        let new_to_l1: Vec<String> = state.engine.try_namespace(app_id)
-            .map(|h| h.with_resolver(|r|
-                word_refs_owned.iter()
-                    .filter(|w| !r.l1().edges.contains_key(w.as_str()))
-                    .cloned()
-                    .collect()
-            ))
+        let new_to_l1: Vec<String> = state
+            .engine
+            .try_namespace(app_id)
+            .map(|h| {
+                h.with_resolver(|r| {
+                    word_refs_owned
+                        .iter()
+                        .filter(|w| !r.l1().edges.contains_key(w.as_str()))
+                        .cloned()
+                        .collect()
+                })
+            })
             .unwrap_or_else(|| word_refs_owned.clone());
 
         if !new_to_l1.is_empty() {
@@ -785,7 +948,9 @@ async fn learn_l1_morphology(
     new_words: &[String],
     context_query: &str,
 ) {
-    if state.llm_key.is_none() { return; }
+    if state.llm_key.is_none() {
+        return;
+    }
 
     let words_str = new_words.join(", ");
     let prompt = format!(
@@ -815,10 +980,17 @@ async fn learn_l1_morphology(
                                         if let Some(variant) = v.as_str() {
                                             let variant = variant.trim().to_lowercase();
                                             let canonical_s = canonical.clone();
-                                            if !variant.is_empty() && variant != canonical_s.as_str() {
-                                                h.with_resolver_mut(|r| r.l1_mut().add(&variant, &canonical_s, 0.97,
-                                                    microresolve::scoring::EdgeKind::Morphological));
-                                                eprintln!("[auto-learn/L1] {} → {} (morphological)", variant, canonical_s);
+                                            if !variant.is_empty()
+                                                && variant != canonical_s.as_str()
+                                            {
+                                                h.with_resolver_mut(|r| {
+                                                    r.l1_mut().add(&variant, &canonical_s, 0.97,
+                                                    microresolve::scoring::EdgeKind::Morphological)
+                                                });
+                                                eprintln!(
+                                                    "[auto-learn/L1] {} → {} (morphological)",
+                                                    variant, canonical_s
+                                                );
                                                 learned += 1;
                                             }
                                         }
@@ -829,21 +1001,30 @@ async fn learn_l1_morphology(
                                 if let Err(e) = h.flush() {
                                     eprintln!("[auto-learn/L1] flush error: {}", e);
                                 } else {
-                                    eprintln!("[auto-learn/L1] {} edges added, state persisted", learned);
+                                    eprintln!(
+                                        "[auto-learn/L1] {} edges added, state persisted",
+                                        learned
+                                    );
                                 }
                             } else {
-                                eprintln!("[auto-learn/L1] no morphological variants found for {:?}", new_words);
+                                eprintln!(
+                                    "[auto-learn/L1] no morphological variants found for {:?}",
+                                    new_words
+                                );
                             }
                         }
                     }
                 }
-                Err(e) => eprintln!("[auto-learn/L1] parse error: {} — raw: {}", e, &response[..response.len().min(200)]),
+                Err(e) => eprintln!(
+                    "[auto-learn/L1] parse error: {} — raw: {}",
+                    e,
+                    &response[..response.len().min(200)]
+                ),
             }
         }
         Err((_, e)) => eprintln!("[auto-learn/L1] LLM call failed: {}", e),
     }
 }
-
 
 #[cfg(test)]
 mod tests {

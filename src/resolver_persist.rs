@@ -11,8 +11,8 @@
 //!   {ns_dir}/{domain}/_domain.json        — domain description
 //!   {ns_dir}/{domain}/{intent_name}.json  — intent with domain prefix
 
-use crate::*;
 use crate::types::IntentType;
+use crate::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -36,12 +36,18 @@ impl Resolver {
     /// Returns `Result` for symmetry with `update_intent` so future validation
     /// paths can surface errors without breaking callers.
     pub fn update_namespace(&mut self, edit: NamespaceEdit) -> Result<(), Error> {
-        if let Some(n) = edit.name { self.namespace_name = n; }
-        if let Some(d) = edit.description { self.namespace_description = d; }
+        if let Some(n) = edit.name {
+            self.namespace_name = n;
+        }
+        if let Some(d) = edit.description {
+            self.namespace_description = d;
+        }
         if let Some(t) = edit.default_threshold {
             self.namespace_default_threshold = t.map(|t| t.max(0.0));
         }
-        if let Some(dd) = edit.domain_descriptions { self.domain_descriptions = dd; }
+        if let Some(dd) = edit.domain_descriptions {
+            self.domain_descriptions = dd;
+        }
         Ok(())
     }
 
@@ -60,7 +66,8 @@ impl Resolver {
 
     /// Set the description for a domain prefix.
     pub fn set_domain_description(&mut self, domain: &str, desc: &str) {
-        self.domain_descriptions.insert(domain.to_string(), desc.to_string());
+        self.domain_descriptions
+            .insert(domain.to_string(), desc.to_string());
     }
 
     /// Remove a domain description (does not remove intents).
@@ -68,7 +75,7 @@ impl Resolver {
         self.domain_descriptions.remove(domain);
     }
 
-/// Load a router from a namespace directory.
+    /// Load a router from a namespace directory.
     ///
     /// Reads `_ns.json`, `_l1.json`, `_l2.json`, per-domain `_domain.json`, and per-intent `*.json` files.
     /// L0 is rebuilt from L1+L2 vocabulary after load.
@@ -124,11 +131,16 @@ impl Resolver {
             if let Ok(ig) = serde_json::from_str::<crate::scoring::IntentIndex>(&json) {
                 router.l2 = ig;
                 true
-            } else { false }
-        } else { false };
+            } else {
+                false
+            }
+        } else {
+            false
+        };
 
-        let entries = std::fs::read_dir(path)
-            .map_err(|e| crate::Error::Persistence(format!("cannot read {}: {}", path.display(), e)))?;
+        let entries = std::fs::read_dir(path).map_err(|e| {
+            crate::Error::Persistence(format!("cannot read {}: {}", path.display(), e))
+        })?;
 
         let mut domain_dirs: Vec<(String, PathBuf)> = Vec::new();
 
@@ -138,12 +150,18 @@ impl Resolver {
                 Some(n) => n.to_string(),
                 None => continue,
             };
-            if name.starts_with('_') { continue; }
+            if name.starts_with('_') {
+                continue;
+            }
 
             if p.is_dir() {
                 domain_dirs.push((name, p));
             } else if p.extension().map(|e| e == "json").unwrap_or(false) {
-                let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
+                let stem = p
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_string();
                 load_intent_file(&mut router, &p, &stem, l2_preloaded);
             }
         }
@@ -153,7 +171,9 @@ impl Resolver {
             if let Ok(json) = std::fs::read_to_string(domain_dir.join("_domain.json")) {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json) {
                     if let Some(desc) = val.get("description").and_then(|d| d.as_str()) {
-                        router.domain_descriptions.insert(domain.clone(), desc.to_string());
+                        router
+                            .domain_descriptions
+                            .insert(domain.clone(), desc.to_string());
                     }
                 }
             }
@@ -165,9 +185,15 @@ impl Resolver {
                         Some(n) => n.to_string(),
                         None => continue,
                     };
-                    if sub_name.starts_with('_') { continue; }
+                    if sub_name.starts_with('_') {
+                        continue;
+                    }
                     if p.extension().map(|e| e == "json").unwrap_or(false) {
-                        let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
+                        let stem = p
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("")
+                            .to_string();
                         let intent_id = format!("{}:{}", domain, stem);
                         load_intent_file(&mut router, &p, &intent_id, l2_preloaded);
                     }
@@ -188,8 +214,9 @@ impl Resolver {
     /// Writes `_ns.json`, per-domain `_domain.json`, and per-intent `*.json` files.
     /// Stale intent files from deleted intents are removed.
     pub fn save_to_dir(&self, path: &Path) -> Result<(), crate::Error> {
-        std::fs::create_dir_all(path)
-            .map_err(|e| crate::Error::Persistence(format!("cannot create {}: {}", path.display(), e)))?;
+        std::fs::create_dir_all(path).map_err(|e| {
+            crate::Error::Persistence(format!("cannot create {}: {}", path.display(), e))
+        })?;
 
         // Namespace metadata
         let mut ns_meta = serde_json::json!({
@@ -202,7 +229,8 @@ impl Resolver {
         std::fs::write(
             path.join("_ns.json"),
             serde_json::to_string_pretty(&ns_meta).unwrap_or_default(),
-        ).map_err(|e| crate::Error::Persistence(format!("cannot write _ns.json: {}", e)))?;
+        )
+        .map_err(|e| crate::Error::Persistence(format!("cannot write _ns.json: {}", e)))?;
 
         let mut written: HashSet<PathBuf> = HashSet::new();
         written.insert(path.join("_ns.json"));
@@ -210,12 +238,21 @@ impl Resolver {
         // Write domain descriptions (including explicitly-created domains with no intents)
         for (domain, desc) in &self.domain_descriptions {
             let domain_dir = path.join(domain);
-            std::fs::create_dir_all(&domain_dir)
-                .map_err(|e| crate::Error::Persistence(format!("cannot create domain dir {}: {}", domain, e)))?;
+            std::fs::create_dir_all(&domain_dir).map_err(|e| {
+                crate::Error::Persistence(format!("cannot create domain dir {}: {}", domain, e))
+            })?;
             let meta = serde_json::json!({"description": desc});
             let meta_path = domain_dir.join("_domain.json");
-            std::fs::write(&meta_path, serde_json::to_string_pretty(&meta).unwrap_or_default())
-                .map_err(|e| crate::Error::Persistence(format!("cannot write _domain.json for {}: {}", domain, e)))?;
+            std::fs::write(
+                &meta_path,
+                serde_json::to_string_pretty(&meta).unwrap_or_default(),
+            )
+            .map_err(|e| {
+                crate::Error::Persistence(format!(
+                    "cannot write _domain.json for {}: {}",
+                    domain, e
+                ))
+            })?;
             written.insert(meta_path);
         }
 
@@ -225,14 +262,23 @@ impl Resolver {
 
             let file_path = if let Some(domain) = domain_opt {
                 let domain_dir = path.join(domain);
-                std::fs::create_dir_all(&domain_dir)
-                    .map_err(|e| crate::Error::Persistence(format!("cannot create domain dir: {}", e)))?;
+                std::fs::create_dir_all(&domain_dir).map_err(|e| {
+                    crate::Error::Persistence(format!("cannot create domain dir: {}", e))
+                })?;
                 // Ensure _domain.json exists for intent-derived domains
                 let meta_path = domain_dir.join("_domain.json");
                 if !written.contains(&meta_path) {
-                    let desc = self.domain_descriptions.get(domain).cloned().unwrap_or_default();
+                    let desc = self
+                        .domain_descriptions
+                        .get(domain)
+                        .cloned()
+                        .unwrap_or_default();
                     let meta = serde_json::json!({"description": desc});
-                    std::fs::write(&meta_path, serde_json::to_string_pretty(&meta).unwrap_or_default()).ok();
+                    std::fs::write(
+                        &meta_path,
+                        serde_json::to_string_pretty(&meta).unwrap_or_default(),
+                    )
+                    .ok();
                     written.insert(meta_path);
                 }
                 domain_dir.join(format!("{}.json", name))
@@ -253,8 +299,13 @@ impl Resolver {
                 "schema": info.as_ref().and_then(|i| i.schema.clone()),
             });
 
-            std::fs::write(&file_path, serde_json::to_string_pretty(&intent_json).unwrap_or_default())
-                .map_err(|e| crate::Error::Persistence(format!("cannot write {}: {}", file_path.display(), e)))?;
+            std::fs::write(
+                &file_path,
+                serde_json::to_string_pretty(&intent_json).unwrap_or_default(),
+            )
+            .map_err(|e| {
+                crate::Error::Persistence(format!("cannot write {}: {}", file_path.display(), e))
+            })?;
             written.insert(file_path);
         }
 
@@ -297,24 +348,35 @@ fn split_intent_id(id: &str) -> (Option<&str>, &str) {
 fn load_intent_file(router: &mut Resolver, path: &Path, intent_id: &str, skip_indexing: bool) {
     let json = match std::fs::read_to_string(path) {
         Ok(s) => s,
-        Err(e) => { eprintln!("cannot read {}: {}", path.display(), e); return; }
+        Err(e) => {
+            eprintln!("cannot read {}: {}", path.display(), e);
+            return;
+        }
     };
     let val: serde_json::Value = match serde_json::from_str(&json) {
         Ok(v) => v,
-        Err(e) => { eprintln!("invalid JSON in {}: {}", path.display(), e); return; }
+        Err(e) => {
+            eprintln!("invalid JSON in {}: {}", path.display(), e);
+            return;
+        }
     };
 
-    let phrases_by_lang: HashMap<String, Vec<String>> = val.get("phrases")
+    let phrases_by_lang: HashMap<String, Vec<String>> = val
+        .get("phrases")
         .and_then(|p| serde_json::from_value(p.clone()).ok())
         .unwrap_or_default();
 
     if phrases_by_lang.is_empty() {
         // Just register the intent with no phrases — no indexing needed.
-        router.training.insert(intent_id.to_string(), HashMap::new());
+        router
+            .training
+            .insert(intent_id.to_string(), HashMap::new());
         router.version += 1;
     } else if skip_indexing {
         // L2 pre-loaded: store training data only, skip re-indexing.
-        router.training.insert(intent_id.to_string(), phrases_by_lang);
+        router
+            .training
+            .insert(intent_id.to_string(), phrases_by_lang);
         router.version += 1;
     } else {
         // No _l2.json: index all phrases now (migration path for old namespaces).
@@ -326,18 +388,41 @@ fn load_intent_file(router: &mut Resolver, path: &Path, intent_id: &str, skip_in
             "context" => IntentType::Context,
             _ => IntentType::Action,
         }),
-        description: val.get("description").and_then(|d| d.as_str())
-            .filter(|s| !s.is_empty()).map(String::from),
-        instructions: val.get("instructions").and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty()).map(String::from),
-        persona: val.get("persona").and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty()).map(String::from),
-        guardrails: val.get("guardrails").and_then(|v| v.as_array()).and_then(|rules| {
-            let r: Vec<String> = rules.iter().filter_map(|s| s.as_str().map(String::from)).collect();
-            if r.is_empty() { None } else { Some(r) }
-        }),
-        source: val.get("source").and_then(|v| serde_json::from_value::<IntentSource>(v.clone()).ok()),
-        target: val.get("target").and_then(|v| serde_json::from_value::<IntentTarget>(v.clone()).ok()),
+        description: val
+            .get("description")
+            .and_then(|d| d.as_str())
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+        instructions: val
+            .get("instructions")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+        persona: val
+            .get("persona")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+        guardrails: val
+            .get("guardrails")
+            .and_then(|v| v.as_array())
+            .and_then(|rules| {
+                let r: Vec<String> = rules
+                    .iter()
+                    .filter_map(|s| s.as_str().map(String::from))
+                    .collect();
+                if r.is_empty() {
+                    None
+                } else {
+                    Some(r)
+                }
+            }),
+        source: val
+            .get("source")
+            .and_then(|v| serde_json::from_value::<IntentSource>(v.clone()).ok()),
+        target: val
+            .get("target")
+            .and_then(|v| serde_json::from_value::<IntentTarget>(v.clone()).ok()),
         schema: val.get("schema").filter(|s| !s.is_null()).cloned(),
     };
     let _ = router.update_intent(intent_id, edit);
@@ -346,20 +431,28 @@ fn load_intent_file(router: &mut Resolver, path: &Path, intent_id: &str, skip_in
 /// Remove `*.json` files in `ns_dir` (and one level of subdirs) not in `written`.
 /// Skips files/dirs starting with `_`.
 fn cleanup_stale(ns_dir: &Path, written: &HashSet<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(ns_dir) else { return };
+    let Ok(entries) = std::fs::read_dir(ns_dir) else {
+        return;
+    };
     for entry in entries.flatten() {
         let p = entry.path();
         let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if name.starts_with('_') { continue; }
+        if name.starts_with('_') {
+            continue;
+        }
 
         if p.is_file() && name.ends_with(".json") && !written.contains(&p) {
             let _ = std::fs::remove_file(&p);
         } else if p.is_dir() {
-            let Ok(sub_entries) = std::fs::read_dir(&p) else { continue };
+            let Ok(sub_entries) = std::fs::read_dir(&p) else {
+                continue;
+            };
             for sub_entry in sub_entries.flatten() {
                 let sp = sub_entry.path();
                 let sub_name = sp.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if sub_name.starts_with('_') { continue; }
+                if sub_name.starts_with('_') {
+                    continue;
+                }
                 if sp.is_file() && sub_name.ends_with(".json") && !written.contains(&sp) {
                     let _ = std::fs::remove_file(&sp);
                 }
@@ -397,7 +490,8 @@ mod tests {
             name: Some("test".to_string()),
             default_threshold: Some(Some(1.30)),
             ..Default::default()
-        }).unwrap();
+        })
+        .unwrap();
         r.save_to_dir(&dir).unwrap();
 
         let r2 = Resolver::load_from_dir(&dir).unwrap();
@@ -417,15 +511,22 @@ mod tests {
 
         // The field should NOT appear in the JSON when unset.
         let json = std::fs::read_to_string(dir.join("_ns.json")).unwrap();
-        assert!(!json.contains("default_threshold"),
-                "expected _ns.json to omit default_threshold when None, got: {}", json);
+        assert!(
+            !json.contains("default_threshold"),
+            "expected _ns.json to omit default_threshold when None, got: {}",
+            json
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
     fn set_default_threshold_clamps_negative_to_zero() {
         let mut r = Resolver::new();
-        r.update_namespace(crate::NamespaceEdit { default_threshold: Some(Some(-5.0)), ..Default::default() }).unwrap();
+        r.update_namespace(crate::NamespaceEdit {
+            default_threshold: Some(Some(-5.0)),
+            ..Default::default()
+        })
+        .unwrap();
         // Negative input is clamped to 0.0; 0.0 is a valid (degenerate) setting,
         // distinct from None which means "no override."
         assert_eq!(r.namespace_info().default_threshold, Some(0.0));
@@ -434,9 +535,17 @@ mod tests {
     #[test]
     fn clearing_default_threshold_via_none() {
         let mut r = Resolver::new();
-        r.update_namespace(crate::NamespaceEdit { default_threshold: Some(Some(0.7)), ..Default::default() }).unwrap();
+        r.update_namespace(crate::NamespaceEdit {
+            default_threshold: Some(Some(0.7)),
+            ..Default::default()
+        })
+        .unwrap();
         assert_eq!(r.namespace_info().default_threshold, Some(0.7));
-        r.update_namespace(crate::NamespaceEdit { default_threshold: Some(None), ..Default::default() }).unwrap();
+        r.update_namespace(crate::NamespaceEdit {
+            default_threshold: Some(None),
+            ..Default::default()
+        })
+        .unwrap();
         assert_eq!(r.namespace_info().default_threshold, None);
     }
 
@@ -446,7 +555,11 @@ mod tests {
     #[test]
     fn cascade_request_override_wins() {
         let mut r = Resolver::new();
-        r.update_namespace(crate::NamespaceEdit { default_threshold: Some(Some(1.30)), ..Default::default() }).unwrap();
+        r.update_namespace(crate::NamespaceEdit {
+            default_threshold: Some(Some(1.30)),
+            ..Default::default()
+        })
+        .unwrap();
         // Request explicitly asks for 0.5 — should beat the namespace 1.30.
         assert_eq!(r.resolve_threshold(Some(0.5), 0.3), 0.5);
     }
@@ -454,7 +567,11 @@ mod tests {
     #[test]
     fn cascade_namespace_default_used_when_no_request_override() {
         let mut r = Resolver::new();
-        r.update_namespace(crate::NamespaceEdit { default_threshold: Some(Some(1.30)), ..Default::default() }).unwrap();
+        r.update_namespace(crate::NamespaceEdit {
+            default_threshold: Some(Some(1.30)),
+            ..Default::default()
+        })
+        .unwrap();
         // No request threshold — namespace 1.30 should win over fallback 0.3.
         assert_eq!(r.resolve_threshold(None, 0.3), 1.30);
     }
@@ -471,7 +588,11 @@ mod tests {
         // Tricky case: caller deliberately passes Some(0.0) (accept everything).
         // This must NOT silently fall through to the namespace default.
         let mut r = Resolver::new();
-        r.update_namespace(crate::NamespaceEdit { default_threshold: Some(Some(1.30)), ..Default::default() }).unwrap();
+        r.update_namespace(crate::NamespaceEdit {
+            default_threshold: Some(Some(1.30)),
+            ..Default::default()
+        })
+        .unwrap();
         assert_eq!(r.resolve_threshold(Some(0.0), 0.3), 0.0);
     }
 
@@ -479,7 +600,11 @@ mod tests {
     fn cascade_namespace_zero_wins_over_fallback() {
         // Same principle for the namespace level: Some(0.0) is a real choice.
         let mut r = Resolver::new();
-        r.update_namespace(crate::NamespaceEdit { default_threshold: Some(Some(0.0)), ..Default::default() }).unwrap();
+        r.update_namespace(crate::NamespaceEdit {
+            default_threshold: Some(Some(0.0)),
+            ..Default::default()
+        })
+        .unwrap();
         assert_eq!(r.resolve_threshold(None, 0.3), 0.0);
     }
 
@@ -489,7 +614,11 @@ mod tests {
         // serialization; it must NOT collapse to None.
         let dir = tmp_dir("threshold_zero");
         let mut r = Resolver::new();
-        r.update_namespace(crate::NamespaceEdit { default_threshold: Some(Some(0.0)), ..Default::default() }).unwrap();
+        r.update_namespace(crate::NamespaceEdit {
+            default_threshold: Some(Some(0.0)),
+            ..Default::default()
+        })
+        .unwrap();
         r.save_to_dir(&dir).unwrap();
         let r2 = Resolver::load_from_dir(&dir).unwrap();
         assert_eq!(r2.namespace_info().default_threshold, Some(0.0));

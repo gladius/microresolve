@@ -11,12 +11,26 @@ impl Resolver {
     /// Returns `None` if the intent does not exist. The returned `IntentInfo`
     /// is owned and independent of the Resolver's borrow.
     pub fn intent(&self, intent_id: &str) -> Option<IntentInfo> {
-        if !self.training.contains_key(intent_id) { return None; }
+        if !self.training.contains_key(intent_id) {
+            return None;
+        }
         Some(IntentInfo {
             id: intent_id.to_string(),
-            intent_type: self.intent_types.get(intent_id).copied().unwrap_or(IntentType::Action),
-            description: self.descriptions.get(intent_id).cloned().unwrap_or_default(),
-            instructions: self.instructions.get(intent_id).cloned().unwrap_or_default(),
+            intent_type: self
+                .intent_types
+                .get(intent_id)
+                .copied()
+                .unwrap_or(IntentType::Action),
+            description: self
+                .descriptions
+                .get(intent_id)
+                .cloned()
+                .unwrap_or_default(),
+            instructions: self
+                .instructions
+                .get(intent_id)
+                .cloned()
+                .unwrap_or_default(),
             persona: self.persona.get(intent_id).cloned().unwrap_or_default(),
             source: self.sources.get(intent_id).cloned(),
             target: self.targets.get(intent_id).cloned(),
@@ -70,5 +84,4 @@ impl Resolver {
         }
         Ok(())
     }
-
 }

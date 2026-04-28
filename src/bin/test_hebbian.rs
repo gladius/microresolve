@@ -12,33 +12,33 @@ fn main() {
 
     let cases: &[(&str, &str)] = &[
         // Morphological normalization
-        ("canceling my subscription",         "morph"),
-        ("the order was cancelled",           "morph"),
-        ("merged the pr",                     "morph+abbrev"),
-        ("scheduling a msg for the chan",      "morph+abbrev"),
+        ("canceling my subscription", "morph"),
+        ("the order was cancelled", "morph"),
+        ("merged the pr", "morph+abbrev"),
+        ("scheduling a msg for the chan", "morph+abbrev"),
         // Abbreviation normalization
-        ("cancel my sub",                     "abbrev"),
-        ("list all repos",                    "abbrev"),
-        ("close the pr in that repo",         "abbrev"),
+        ("cancel my sub", "abbrev"),
+        ("list all repos", "abbrev"),
+        ("close the pr in that repo", "abbrev"),
         // Synonym expansion
-        ("terminate my plan",                 "synonym"),
-        ("kill the subscription",             "synonym"),
-        ("ping the team",                     "synonym"),
-        ("run their card",                    "synonym"),
-        ("show me all invoices",              "synonym"),
-        ("bill them for the extra usage",     "synonym"),
-        ("reimburse the customer",            "synonym"),
+        ("terminate my plan", "synonym"),
+        ("kill the subscription", "synonym"),
+        ("ping the team", "synonym"),
+        ("run their card", "synonym"),
+        ("show me all invoices", "synonym"),
+        ("bill them for the extra usage", "synonym"),
+        ("reimburse the customer", "synonym"),
         // Combined
-        ("terminate my sub",                  "morph+abbrev+synonym"),
-        ("canceling my sub",                  "morph+abbrev"),
-        ("killing the subs",                  "morph+synonym"),
-        ("merged the pr and closed the issue","morph+abbrev×2"),
+        ("terminate my sub", "morph+abbrev+synonym"),
+        ("canceling my sub", "morph+abbrev"),
+        ("killing the subs", "morph+synonym"),
+        ("merged the pr and closed the issue", "morph+abbrev×2"),
         // Semantic — should NOT expand
-        ("stop sending me emails",            "semantic only"),
-        ("at the end of the month",           "semantic only"),
+        ("stop sending me emails", "semantic only"),
+        ("at the end of the month", "semantic only"),
         // Clean — no change
-        ("cancel my subscription",            "clean"),
-        ("merge the pull request",            "clean"),
+        ("cancel my subscription", "clean"),
+        ("merge the pull request", "clean"),
     ];
 
     for (query, label) in cases {
@@ -52,7 +52,9 @@ fn main() {
             println!("  EXP:  {} [+{}]", r.expanded, r.injected.join(", "));
         }
         if !r.semantic_hits.is_empty() {
-            let hits: Vec<String> = r.semantic_hits.iter()
+            let hits: Vec<String> = r
+                .semantic_hits
+                .iter()
                 .map(|(s, t, w)| format!("{s}→{t}({w:.2})"))
                 .collect();
             println!("  SEM:  {}", hits.join(", "));
@@ -75,9 +77,9 @@ fn main() {
         for e in edges {
             match e.kind {
                 EdgeKind::Morphological => morph += 1,
-                EdgeKind::Abbreviation  => abbrev += 1,
-                EdgeKind::Synonym       => synonym += 1,
-                EdgeKind::Semantic      => semantic += 1,
+                EdgeKind::Abbreviation => abbrev += 1,
+                EdgeKind::Synonym => synonym += 1,
+                EdgeKind::Semantic => semantic += 1,
             }
         }
     }

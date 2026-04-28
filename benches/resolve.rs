@@ -7,17 +7,30 @@
 //! The HTTP-end-to-end equivalent (which adds ~500µs of TCP/JSON overhead
 //! a real Python client sees) is in `benchmarks/latency.py`.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BatchSize};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use microresolve::{Engine, EngineConfig};
 
 const VERBS: &[&str] = &[
-    "cancel", "list", "show", "create", "update", "delete", "fetch", "stop",
-    "start", "renew", "refund", "track", "send", "reset", "approve", "decline",
+    "cancel", "list", "show", "create", "update", "delete", "fetch", "stop", "start", "renew",
+    "refund", "track", "send", "reset", "approve", "decline",
 ];
 const NOUNS: &[&str] = &[
-    "order", "subscription", "invoice", "payment", "account", "shipment",
-    "ticket", "user", "session", "report", "notification", "transaction",
-    "discount", "product", "customer", "review",
+    "order",
+    "subscription",
+    "invoice",
+    "payment",
+    "account",
+    "shipment",
+    "ticket",
+    "user",
+    "session",
+    "report",
+    "notification",
+    "transaction",
+    "discount",
+    "product",
+    "customer",
+    "review",
 ];
 const QUALIFIERS: &[&str] = &[
     "my", "the", "this", "that", "current", "recent", "latest", "pending",

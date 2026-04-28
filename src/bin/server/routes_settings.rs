@@ -1,12 +1,12 @@
 //! Settings: reset, defaults, export/import, languages, analytics data.
 
+use crate::state::*;
 use axum::{
     extract::State,
-    http::{StatusCode, HeaderMap},
-    routing::{get, post, delete},
+    http::{HeaderMap, StatusCode},
+    routing::{delete, get, post},
     Json,
 };
-use crate::state::*;
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
@@ -35,7 +35,9 @@ pub async fn import_state(
     let new_resolver = microresolve::Resolver::import_json(&body)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
     let h = state.engine.namespace(&app_id);
-    h.with_resolver_mut(|r| { *r = new_resolver; });
+    h.with_resolver_mut(|r| {
+        *r = new_resolver;
+    });
     maybe_commit(&state, &app_id);
     Ok(StatusCode::OK)
 }
@@ -57,7 +59,9 @@ pub async fn delete_all_data(State(state): State<AppState>) -> StatusCode {
             for entry in entries.flatten() {
                 let p = entry.path();
                 let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                if name == "_settings.json" || name == "logs" { continue; }
+                if name == "_settings.json" || name == "logs" {
+                    continue;
+                }
                 if p.is_dir() {
                     let _ = std::fs::remove_dir_all(&p);
                 } else if p.extension().map(|e| e == "json").unwrap_or(false) {

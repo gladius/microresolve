@@ -32,20 +32,28 @@ impl TestServer {
         };
 
         let child = Command::new(bin)
-            .args(&[
-                "--port", &port.to_string(),
+            .args([
+                "--port",
+                &port.to_string(),
                 "--no-open",
-                "--data", &data_dir,
+                "--data",
+                &data_dir,
             ])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .expect("failed to spawn server (build with `cargo build --release --features server`)");
+            .expect(
+                "failed to spawn server (build with `cargo build --release --features server`)",
+            );
 
         let url = format!("http://localhost:{}", port);
         wait_for_ready(&url, Duration::from_secs(10));
 
-        Self { url, data_dir, child: Some(child) }
+        Self {
+            url,
+            data_dir,
+            child: Some(child),
+        }
     }
 
     /// Reqwest client for hitting endpoints.
@@ -82,11 +90,16 @@ fn wait_for_ready(url: &str, timeout: Duration) {
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
         if let Ok(resp) = client.get(format!("{}/api/health", url)).send() {
-            if resp.status().is_success() { return; }
+            if resp.status().is_success() {
+                return;
+            }
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    panic!("server at {} did not become ready within {:?}", url, timeout);
+    panic!(
+        "server at {} did not become ready within {:?}",
+        url, timeout
+    );
 }
 
 /// Helper: POST JSON, return status + body text.
@@ -97,7 +110,9 @@ pub fn post_json<T: serde::Serialize>(
     body: &T,
 ) -> (u16, String) {
     let mut req = client.post(url).json(body);
-    for (k, v) in headers { req = req.header(*k, *v); }
+    for (k, v) in headers {
+        req = req.header(*k, *v);
+    }
     let resp = req.send().expect("request failed");
     (resp.status().as_u16(), resp.text().unwrap_or_default())
 }
@@ -109,7 +124,9 @@ pub fn get(
     headers: &[(&str, &str)],
 ) -> (u16, String) {
     let mut req = client.get(url);
-    for (k, v) in headers { req = req.header(*k, *v); }
+    for (k, v) in headers {
+        req = req.header(*k, *v);
+    }
     let resp = req.send().expect("request failed");
     (resp.status().as_u16(), resp.text().unwrap_or_default())
 }
@@ -122,7 +139,9 @@ pub fn delete_json<T: serde::Serialize>(
     body: &T,
 ) -> u16 {
     let mut req = client.delete(url).json(body);
-    for (k, v) in headers { req = req.header(*k, *v); }
+    for (k, v) in headers {
+        req = req.header(*k, *v);
+    }
     let resp = req.send().expect("request failed");
     resp.status().as_u16()
 }
@@ -135,7 +154,9 @@ pub fn patch_json<T: serde::Serialize>(
     body: &T,
 ) -> u16 {
     let mut req = client.patch(url).json(body);
-    for (k, v) in headers { req = req.header(*k, *v); }
+    for (k, v) in headers {
+        req = req.header(*k, *v);
+    }
     let resp = req.send().expect("request failed");
     resp.status().as_u16()
 }

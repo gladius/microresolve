@@ -5,13 +5,17 @@
 use std::collections::HashMap;
 
 // No-op logging macros
-macro_rules! info { ($($t:tt)*) => {} }
-macro_rules! debug { ($($t:tt)*) => {} }
+macro_rules! info {
+    ($($t:tt)*) => {};
+}
+macro_rules! debug {
+    ($($t:tt)*) => {};
+}
 
 use super::types::*;
 use crate::import::openapi::{
-    clean_pathway_name, ParsedOperation, ParsedParameter, ParsedRequestBody,
-    ParsedSpec, SecurityScheme,
+    clean_pathway_name, ParsedOperation, ParsedParameter, ParsedRequestBody, ParsedSpec,
+    SecurityScheme,
 };
 
 /// Convert a Postman collection to our ParsedSpec format
@@ -24,7 +28,11 @@ pub fn convert_postman(collection: &PostmanCollection) -> Result<ParsedSpec, Con
 
     let mut spec = ParsedSpec::new(
         collection.info.name.clone(),
-        collection.info.version.clone().unwrap_or_else(|| "1.0.0".to_string()),
+        collection
+            .info
+            .version
+            .clone()
+            .unwrap_or_else(|| "1.0.0".to_string()),
     );
 
     spec.description = collection.info.description.clone();
@@ -62,7 +70,13 @@ pub fn convert_postman(collection: &PostmanCollection) -> Result<ParsedSpec, Con
 
     // Extract operations from items
     let mut tags = Vec::new();
-    extract_operations(&collection.item, &mut spec.operations, &mut tags, "", &spec.variables);
+    extract_operations(
+        &collection.item,
+        &mut spec.operations,
+        &mut tags,
+        "",
+        &spec.variables,
+    );
 
     spec.tags = tags;
     spec.update_counts();
@@ -80,10 +94,10 @@ pub fn convert_postman(collection: &PostmanCollection) -> Result<ParsedSpec, Con
 fn extract_base_url(collection: &PostmanCollection) -> Option<String> {
     // Try collection variables first
     for var in &collection.variable {
-        if var.key == "baseUrl" || var.key == "base_url" || var.key == "host" {
-            if !var.value.is_empty() {
-                return Some(var.value.clone());
-            }
+        if (var.key == "baseUrl" || var.key == "base_url" || var.key == "host")
+            && !var.value.is_empty()
+        {
+            return Some(var.value.clone());
         }
     }
 
@@ -219,8 +233,7 @@ fn convert_request(
     // Generate operation ID
     let sanitized_path = path
         .trim_start_matches('/')
-        .replace('{', "")
-        .replace('}', "")
+        .replace(['{', '}'], "")
         .replace(|c: char| !c.is_alphanumeric(), "_")
         .to_lowercase();
     let operation_id = if sanitized_path.is_empty() {
@@ -252,7 +265,10 @@ fn convert_request(
     let has_auth = request
         .header
         .as_ref()
-        .map(|h| h.iter().any(|hdr| hdr.key.to_lowercase() == "authorization"))
+        .map(|h| {
+            h.iter()
+                .any(|hdr| hdr.key.to_lowercase() == "authorization")
+        })
         .unwrap_or(false);
 
     Some(ParsedOperation {
@@ -317,16 +333,19 @@ fn extract_path(url: &Option<PostmanUrl>) -> Option<String> {
         }
         PostmanUrl::Object(obj) => {
             if obj.path.is_empty() {
-                return obj.raw.as_ref().and_then(|r| extract_path(&Some(PostmanUrl::String(r.clone()))));
+                return obj
+                    .raw
+                    .as_ref()
+                    .and_then(|r| extract_path(&Some(PostmanUrl::String(r.clone()))));
             }
 
             let path_parts: Vec<String> = obj
                 .path
                 .iter()
                 .map(|p| {
-                    if p.starts_with(':') {
+                    if let Some(stripped) = p.strip_prefix(':') {
                         // Convert :param to {param}
-                        format!("{{{}}}", &p[1..])
+                        format!("{{{}}}", stripped)
                     } else if p.starts_with("{{") && p.ends_with("}}") {
                         // Convert {{param}} to {param}
                         format!("{{{}}}", &p[2..p.len() - 2])
@@ -422,7 +441,8 @@ fn extract_parameters(
                 continue;
             }
             let key_lower = h.key.to_lowercase();
-            if key_lower == "authorization" || key_lower == "content-type" || key_lower == "accept" {
+            if key_lower == "authorization" || key_lower == "content-type" || key_lower == "accept"
+            {
                 continue;
             }
             params.push(ParsedParameter {
