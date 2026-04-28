@@ -3,7 +3,7 @@
 //! Shows the live-learning loop:
 //!   1. Library connects to a running server and pulls a namespace
 //!   2. Routes a query — gets a confident-but-wrong answer
-//!   3. Pushes an explicit correction (local + server) via Engine.correct()
+//!   3. Pushes an explicit correction (local + server) via MicroResolve.correct()
 //!   4. Same query now routes correctly — and any other connected
 //!      library subscribed to this namespace will pick up the change
 //!      on its next sync tick.
@@ -18,7 +18,7 @@
 //! With auth (after generating a key in the UI):
 //!   $ MICRORESOLVE_API_KEY=mr_xxx... cargo run --release --example connected --features connect
 
-use microresolve::{Engine, EngineConfig, ServerConfig};
+use microresolve::{MicroResolve, MicroResolveConfig, ServerConfig};
 use std::time::Duration;
 
 const NS: &str = "demo-connected";
@@ -30,8 +30,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("─── 1. Setup namespace + intents on server ────────────────────");
     setup_namespace(api_key.as_deref())?;
 
-    println!("\n─── 2. Connect Engine to server ───────────────────────────────");
-    let engine = Engine::new(EngineConfig {
+    println!("\n─── 2. Connect MicroResolve to server ─────────────────────────");
+    let engine = MicroResolve::new(MicroResolveConfig {
         server: Some(ServerConfig {
             url: SERVER.to_string(),
             api_key: api_key.clone(),

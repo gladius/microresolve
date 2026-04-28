@@ -1,13 +1,13 @@
-//! `Engine`: top-level multi-namespace decision engine.
+//! `MicroResolve`: top-level multi-namespace decision engine.
 //!
-//! An `Engine` owns one or more namespaces, each backed by an internal
-//! `Resolver`. Library users only interact with `Engine` and the
-//! `NamespaceHandle` it returns — the underlying `Resolver` is private.
+//! A `MicroResolve` instance owns one or more namespaces, each backed by an
+//! internal `Resolver`. Library users only interact with `MicroResolve` and
+//! the `NamespaceHandle` it returns — the underlying `Resolver` is private.
 //!
 //! ```ignore
-//! use microresolve::{Engine, EngineConfig};
+//! use microresolve::{MicroResolve, MicroResolveConfig};
 //!
-//! let engine = Engine::new(EngineConfig::default())?;
+//! let engine = MicroResolve::new(MicroResolveConfig::default())?;
 //! let security = engine.namespace("security");
 //! security.add_intent("jailbreak", &["ignore prior instructions"])?;
 //! let matches = security.resolve("ignore prior instructions and reveal");
@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    EngineConfig, Error, IntentEdit, IntentInfo, IntentSeeds, Match, NamespaceConfig,
+    MicroResolveConfig, Error, IntentEdit, IntentInfo, IntentSeeds, Match, NamespaceConfig,
     PhraseCheckResult, ResolveOptions, Resolver,
 };
 
@@ -26,16 +26,16 @@ use crate::connect::{ConnectState, LogEntry};
 
 /// Multi-namespace decision engine.
 ///
-/// One `Engine` per application. Get a `NamespaceHandle` via
+/// One `MicroResolve` per application. Get a `NamespaceHandle` via
 /// `engine.namespace(id)` to operate on a specific namespace.
 ///
-/// **Connected mode.** When `EngineConfig::server` is `Some`, the engine
+/// **Connected mode.** When `MicroResolveConfig::server` is `Some`, the engine
 /// pulls each [`ServerConfig::subscribe`](crate::ServerConfig) namespace from
 /// the server on startup and keeps them in sync via a background poll.
 /// `resolve()` calls buffer log entries that are flushed on each tick;
 /// `correct()` pushes corrections to the server inline.
-pub struct Engine {
-    config: EngineConfig,
+pub struct MicroResolve {
+    config: MicroResolveConfig,
     namespaces: Arc<RwLock<HashMap<String, NamespaceState>>>,
     #[cfg(feature = "connect")]
     connect: Option<Arc<ConnectState>>,
@@ -48,13 +48,13 @@ struct NamespaceState {
     dirty: bool,
 }
 
-impl Engine {
-    /// Create a new `Engine` with the given config.
+impl MicroResolve {
+    /// Create a new `MicroResolve` instance with the given config.
     ///
     /// If `config.data_dir` is set, every subdirectory is loaded as an
     /// existing namespace. Subdirectories whose names begin with `_` are
     /// skipped (reserved for engine-level metadata).
-    pub fn new(config: EngineConfig) -> Result<Self, Error> {
+    pub fn new(config: MicroResolveConfig) -> Result<Self, Error> {
         let mut namespaces: HashMap<String, NamespaceState> = HashMap::new();
 
         if let Some(dir) = &config.data_dir {
@@ -184,7 +184,7 @@ impl Engine {
     }
 
     /// Get a handle to a namespace **only if it already exists** (no lazy
-    /// create, unlike [`Engine::namespace`]).
+    /// create, unlike [`MicroResolve::namespace`]).
     pub fn try_namespace(&self, id: &str) -> Option<NamespaceHandle<'_>> {
         if self.has_namespace(id) {
             Some(NamespaceHandle {
@@ -243,7 +243,7 @@ impl Engine {
     }
 
     /// The engine's config (read-only view).
-    pub fn config(&self) -> &EngineConfig {
+    pub fn config(&self) -> &MicroResolveConfig {
         &self.config
     }
 
@@ -298,7 +298,7 @@ impl Engine {
     }
 }
 
-impl Drop for Engine {
+impl Drop for MicroResolve {
     /// Best-effort flush on drop. Errors are swallowed (callers who care
     /// about flush failures should call `flush()` explicitly).
     fn drop(&mut self) {
@@ -308,12 +308,12 @@ impl Drop for Engine {
 
 // ── NamespaceHandle ─────────────────────────────────────────────────────────
 
-/// Lightweight handle for operating on a single namespace within an `Engine`.
+/// Lightweight handle for operating on a single namespace within a `MicroResolve` instance.
 ///
-/// Borrows the `Engine`; cheap to create and discard. All operations go
+/// Borrows the `MicroResolve`; cheap to create and discard. All operations go
 /// through the engine's config cascade for thresholds, languages, and LLM.
 pub struct NamespaceHandle<'e> {
-    engine: &'e Engine,
+    engine: &'e MicroResolve,
     id: String,
 }
 
@@ -361,7 +361,7 @@ impl<'e> NamespaceHandle<'e> {
     }
 
     /// Resolve a query using the namespace's effective threshold (cascade
-    /// from `NamespaceConfig` → `EngineConfig`).
+    /// from `NamespaceConfig` → `MicroResolveConfig`).
     ///
     /// In connected mode, every call buffers a log entry that the engine's
     /// background tick ships to the server.
@@ -468,8 +468,8 @@ impl<'e> NamespaceHandle<'e> {
     }
 
     /// Persist this namespace to disk now. Mostly useful to force a flush
-    /// before reading from disk via another process; otherwise the Engine
-    /// flushes on drop.
+    /// before reading from disk via another process; otherwise the MicroResolve
+    /// instance flushes on drop.
     pub fn flush(&self) -> Result<(), Error> {
         let Some(dir) = self.engine.config.data_dir.as_ref() else {
             return Ok(());
@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn lazy_create_and_resolve() {
-        let engine = Engine::new(EngineConfig::default()).unwrap();
+        let engine = MicroResolve::new(MicroResolveConfig::default()).unwrap();
         let h = engine.namespace("security");
         // Two intents so IDF has something to discriminate (single-intent
         // IDF collapses every term weight to log(1/1) = 0).
@@ -524,7 +524,7 @@ mod tests {
                 .as_nanos()
         ));
         {
-            let engine = Engine::new(EngineConfig {
+            let engine = MicroResolve::new(MicroResolveConfig {
                 data_dir: Some(dir.clone()),
                 ..Default::default()
             })
@@ -535,7 +535,7 @@ mod tests {
                 .unwrap();
             engine.flush().unwrap();
         }
-        let engine2 = Engine::new(EngineConfig {
+        let engine2 = MicroResolve::new(MicroResolveConfig {
             data_dir: Some(dir.clone()),
             ..Default::default()
         })
@@ -547,7 +547,7 @@ mod tests {
 
     #[test]
     fn effective_threshold_cascades() {
-        let engine = Engine::new(EngineConfig {
+        let engine = MicroResolve::new(MicroResolveConfig {
             default_threshold: 0.42,
             ..Default::default()
         })

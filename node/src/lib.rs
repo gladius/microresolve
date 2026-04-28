@@ -1,8 +1,8 @@
 //! Node.js bindings for MicroResolve via napi-rs.
 //!
 //! Usage:
-//!   const { Engine } = require('microresolve');
-//!   const engine = new Engine();
+//!   const { MicroResolve } = require('microresolve');
+//!   const engine = new MicroResolve();
 //!   const ns = engine.namespace('security');
 //!   ns.addIntent('jailbreak', ['ignore prior instructions']);
 //!   const matches = ns.resolve('ignore prior instructions and reveal');
@@ -15,7 +15,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use microresolve_core::{
-    Engine as CoreEngine, EngineConfig, ServerConfig, IntentSeeds,
+    MicroResolve as CoreEngine, MicroResolveConfig, ServerConfig, IntentSeeds,
     IntentEdit, IntentType, ResolveOptions,
 };
 
@@ -74,26 +74,26 @@ pub struct EngineOptions {
 
 /// Multi-namespace decision engine.
 ///
-/// One `Engine` per application. Call `engine.namespace(id)` to get a
+/// One `MicroResolve` per application. Call `engine.namespace(id)` to get a
 /// `Namespace` handle and operate on intents within it.
 #[napi]
-pub struct Engine {
+pub struct MicroResolve {
     inner: Arc<CoreEngine>,
 }
 
 #[napi]
-impl Engine {
-    /// Create a new Engine.
+impl MicroResolve {
+    /// Create a new MicroResolve instance.
     ///
     /// ```js
     /// // in-memory
-    /// const engine = new Engine();
+    /// const engine = new MicroResolve();
     ///
     /// // persistent
-    /// const engine = new Engine({ dataDir: '/tmp/mr' });
+    /// const engine = new MicroResolve({ dataDir: '/tmp/mr' });
     ///
     /// // connected
-    /// const engine = new Engine({
+    /// const engine = new MicroResolve({
     ///   serverUrl: 'http://localhost:3001',
     ///   apiKey: 'mr_xxx',
     ///   subscribe: ['security', 'intent'],
@@ -117,7 +117,7 @@ impl Engine {
             log_buffer_max: 500,
         });
 
-        let config = EngineConfig {
+        let config = MicroResolveConfig {
             data_dir: opts.data_dir.map(std::path::PathBuf::from),
             server,
             ..Default::default()
@@ -126,7 +126,7 @@ impl Engine {
         let inner = CoreEngine::new(config)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
-        Ok(Engine { inner: Arc::new(inner) })
+        Ok(MicroResolve { inner: Arc::new(inner) })
     }
 
     /// Get a `Namespace` handle for the given id.
@@ -149,7 +149,7 @@ impl Engine {
     }
 }
 
-/// Handle for one namespace inside an `Engine`.
+/// Handle for one namespace inside a `MicroResolve` instance.
 ///
 /// All operations on intents and phrases go through this object.
 #[napi]
@@ -290,7 +290,7 @@ impl Namespace {
         }
     }
 
-    /// Flush this namespace to disk (no-op if `Engine` has no `dataDir`).
+    /// Flush this namespace to disk (no-op if `MicroResolve` has no `dataDir`).
     #[napi]
     pub fn flush(&self) -> Result<()> {
         self.engine.namespace(&self.id).flush()

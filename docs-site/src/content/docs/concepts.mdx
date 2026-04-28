@@ -5,14 +5,14 @@ description: What is a namespace, an intent, and how MicroResolve classifies que
 
 MicroResolve is a deterministic decision engine. It classifies natural language queries against a set of named intents you define, using a weighted lexical index that improves from corrections. This page explains the core concepts.
 
-## Engine
+## MicroResolve
 
-The `Engine` is the top-level object. One engine instance can hold many namespaces. It manages data persistence: when a `data_dir` is configured, namespaces are stored on disk and auto-loaded on startup.
+The `MicroResolve` struct is the top-level object. One instance can hold many namespaces. It manages data persistence: when a `data_dir` is configured, namespaces are stored on disk and auto-loaded on startup.
 
 ```rust
-use microresolve::{Engine, EngineConfig};
+use microresolve::{MicroResolve, MicroResolveConfig};
 
-let engine = Engine::new(EngineConfig {
+let engine = MicroResolve::new(MicroResolveConfig {
     data_dir: Some("~/.local/share/microresolve".into()),
     default_threshold: 0.3,
     ..Default::default()

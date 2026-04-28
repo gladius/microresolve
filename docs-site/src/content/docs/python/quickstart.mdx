@@ -18,9 +18,9 @@ Requires Python 3.8+. Pre-built wheels for Linux, macOS, and Windows (x86_64 and
 ## Basic usage
 
 ```python
-from microresolve import Engine
+from microresolve import MicroResolve
 
-engine = Engine()
+engine = MicroResolve()
 ns = engine.namespace("support")
 
 ns.add_intent("cancel_order", [
@@ -43,9 +43,9 @@ for m in matches:
 ## Persist to disk
 
 ```python
-from microresolve import Engine
+from microresolve import MicroResolve
 
-engine = Engine(data_dir="~/.local/share/microresolve")
+engine = MicroResolve(data_dir="~/.local/share/microresolve")
 ns = engine.namespace("support")
 # ... add intents and phrases ...
 engine.flush()
@@ -97,9 +97,9 @@ print(ns.intent_count())
 ## LangChain / LLM fallback pattern
 
 ```python
-from microresolve import Engine
+from microresolve import MicroResolve
 
-engine = Engine(data_dir="~/.local/share/microresolve")
+engine = MicroResolve(data_dir="~/.local/share/microresolve")
 ns = engine.namespace("support")
 
 def handle(query: str) -> str:

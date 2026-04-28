@@ -2,7 +2,7 @@
 
 use crate::log_store::{LogRecord, LogStore};
 use axum::http::HeaderMap;
-use microresolve::{Engine, EngineConfig};
+use microresolve::{MicroResolve, MicroResolveConfig};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -88,7 +88,7 @@ pub enum StudioEvent {
 }
 
 pub struct ServerState {
-    pub engine: Engine,
+    pub engine: MicroResolve,
     pub data_dir: Option<String>,
     /// When set, every auto-commit on `data_dir` is followed by a
     /// background `git push origin HEAD` so training data syncs to a
@@ -152,7 +152,7 @@ pub fn save_ui_settings(state: &ServerState) {
     }
 }
 
-/// Flush the namespace via Engine and git-commit. Replaces the old
+/// Flush the namespace via MicroResolve and git-commit. Replaces the old
 /// `maybe_persist(state, app_id, &router)` pattern.
 pub fn maybe_commit(state: &ServerState, app_id: &str) {
     if let Some(h) = state.engine.try_namespace(app_id) {
@@ -213,14 +213,14 @@ pub fn git_commit(data_dir: &str, message: &str, push: bool) {
     });
 }
 
-/// Build an Engine from a data directory path (loads all existing namespaces).
+/// Build a MicroResolve instance from a data directory path (loads all existing namespaces).
 /// Ensures the "default" namespace exists.
-pub fn build_engine(data_dir: Option<&str>) -> Engine {
-    let config = EngineConfig {
+pub fn build_engine(data_dir: Option<&str>) -> MicroResolve {
+    let config = MicroResolveConfig {
         data_dir: data_dir.map(std::path::PathBuf::from),
         ..Default::default()
     };
-    let engine = Engine::new(config).expect("failed to initialise engine");
+    let engine = MicroResolve::new(config).expect("failed to initialise engine");
     // Ensure default namespace exists
     let _ = engine.namespace("default");
     engine

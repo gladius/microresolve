@@ -1,11 +1,11 @@
-//! Basic embedded usage of the MicroResolve Engine.
+//! Basic embedded usage of MicroResolve.
 //!
 //! Run: cargo run --example rust_basic
 
-use microresolve::{Engine, EngineConfig, IntentEdit, IntentType};
+use microresolve::{MicroResolve, MicroResolveConfig, IntentEdit, IntentType};
 
 fn main() {
-    let engine = Engine::new(EngineConfig::default()).expect("engine init");
+    let engine = MicroResolve::new(MicroResolveConfig::default()).expect("engine init");
     let support = engine.namespace("support");
 
     support

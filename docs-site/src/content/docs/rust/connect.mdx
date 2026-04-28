@@ -5,7 +5,7 @@ description: Sync a local Rust engine with the self-hosted MicroResolve server.
 
 import { Aside } from '@astrojs/starlight/components';
 
-The embedded `Engine` runs entirely in-process. For teams that want a shared training pipeline — auto-learn, Studio UI, review queue — you can point the engine at a self-hosted server using connected mode.
+The embedded `MicroResolve` instance runs entirely in-process. For teams that want a shared training pipeline — auto-learn, Studio UI, review queue — you can point the engine at a self-hosted server using connected mode.
 
 ## What connected mode does
 
@@ -21,9 +21,9 @@ Training happens in the server (Studio UI, auto-learn pipeline, review queue). A
 ## Configure
 
 ```rust
-use microresolve::{Engine, EngineConfig, ServerConfig};
+use microresolve::{MicroResolve, MicroResolveConfig, ServerConfig};
 
-let engine = Engine::new(EngineConfig {
+let engine = MicroResolve::new(MicroResolveConfig {
     data_dir: Some("~/.local/share/microresolve".into()),
     default_threshold: 0.3,
     server: Some(ServerConfig {

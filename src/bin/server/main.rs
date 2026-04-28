@@ -145,7 +145,7 @@ async fn main() {
         println!("LLM API key: not set (run `microresolve config` or set LLM_API_KEY to enable training features)");
     }
 
-    // Build Engine — loads all namespace subdirectories from data_dir.
+    // Build MicroResolve — loads all namespace subdirectories from data_dir.
     let engine = build_engine(data_dir.as_deref());
     for id in engine.namespaces() {
         let count = engine

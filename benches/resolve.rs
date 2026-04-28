@@ -1,4 +1,4 @@
-//! In-process latency benchmark for `Engine::namespace().resolve()`.
+//! In-process latency benchmark for `MicroResolve::namespace().resolve()`.
 //!
 //! Measures the engine itself — no HTTP, no JSON, no Python. This is the
 //! number the library claim ("sub-millisecond classification") rests on.
@@ -8,7 +8,7 @@
 //! a real Python client sees) is in `benchmarks/latency.py`.
 
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
-use microresolve::{Engine, EngineConfig};
+use microresolve::{MicroResolve, MicroResolveConfig};
 
 const VERBS: &[&str] = &[
     "cancel", "list", "show", "create", "update", "delete", "fetch", "stop", "start", "renew",
@@ -39,8 +39,8 @@ const QUALIFIERS: &[&str] = &[
 const N_INTENTS: usize = 100;
 
 /// Build a deterministic 100-intent × 5-seeds engine for benchmarking.
-fn build_engine() -> Engine {
-    let engine = Engine::new(EngineConfig::default()).expect("engine init");
+fn build_engine() -> MicroResolve {
+    let engine = MicroResolve::new(MicroResolveConfig::default()).expect("engine init");
     let ns = engine.namespace("bench");
     for i in 0..N_INTENTS {
         let verb = VERBS[i % VERBS.len()];

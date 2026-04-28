@@ -3,12 +3,12 @@
 use std::fmt;
 use std::path::PathBuf;
 
-/// Global configuration for an `Engine` instance.
+/// Global configuration for a `MicroResolve` instance.
 ///
 /// All fields have sensible defaults. Each field is inherited by every
 /// namespace unless overridden in a `NamespaceConfig`.
 #[derive(Debug, Clone)]
-pub struct EngineConfig {
+pub struct MicroResolveConfig {
     /// Where namespace data lives. Each namespace is a subdirectory.
     /// `None` means in-memory only (nothing persisted).
     pub data_dir: Option<PathBuf>,
@@ -23,11 +23,11 @@ pub struct EngineConfig {
     /// `None` disables LLM-backed features.
     pub llm: Option<LlmConfig>,
 
-    /// Optional server for live sync. `None` = local-only Engine.
+    /// Optional server for live sync. `None` = local-only MicroResolve.
     pub server: Option<ServerConfig>,
 }
 
-impl Default for EngineConfig {
+impl Default for MicroResolveConfig {
     fn default() -> Self {
         Self {
             data_dir: None,
@@ -81,7 +81,7 @@ impl Default for ServerConfig {
 }
 
 /// Per-namespace configuration overrides. Each `Option::None` means
-/// "inherit from `EngineConfig`".
+/// "inherit from `MicroResolveConfig`".
 #[derive(Debug, Clone, Default)]
 pub struct NamespaceConfig {
     pub default_threshold: Option<f32>,
@@ -124,7 +124,7 @@ impl Default for ResolveOptions {
     }
 }
 
-/// Errors returned by the public Resolver / Engine / connect API.
+/// Errors returned by the public Resolver / MicroResolve / connect API.
 #[derive(Debug)]
 pub enum Error {
     /// The named intent does not exist in this namespace.

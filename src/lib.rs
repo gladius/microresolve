@@ -20,7 +20,7 @@
 
 // Internal layers — kept `pub` because the server bin (a separate crate
 // target) reaches into them directly, but `#[doc(hidden)]` keeps them out
-// of rustdoc + IDE autocomplete. Library users go through `Engine` +
+// of rustdoc + IDE autocomplete. Library users go through `MicroResolve` +
 // `NamespaceHandle`; these modules are not part of the semver surface.
 #[doc(hidden)]
 pub mod ngram;
@@ -46,7 +46,7 @@ mod resolver_metadata;
 mod resolver_persist;
 
 mod engine;
-pub use engine::{Engine, NamespaceHandle};
+pub use engine::{MicroResolve, NamespaceHandle};
 
 pub(crate) type FxHashMap<K, V> = std::collections::HashMap<K, V, rustc_hash::FxBuildHasher>;
 pub(crate) type FxHashSet<T> = std::collections::HashSet<T, rustc_hash::FxBuildHasher>;

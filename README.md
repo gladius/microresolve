@@ -109,9 +109,9 @@ Haiku 4.5).
 Embedded (Rust):
 
 ```rust
-use microresolve::Engine;
+use microresolve::MicroResolve;
 
-let engine = Engine::open("./data")?;
+let engine = MicroResolve::open("./data")?;
 let ns = engine.namespace("agent")?;
 ns.add_intent("cancel_subscription", &["cancel my plan", "stop the recurring billing"])?;
 let r = ns.resolve("end my subscription right now");

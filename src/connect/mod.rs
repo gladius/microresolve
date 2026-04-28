@@ -1,6 +1,6 @@
-//! Connected-mode internals for [`crate::Engine`].
+//! Connected-mode internals for [`crate::MicroResolve`].
 //!
-//! When `EngineConfig::server` is set, the engine pulls each subscribed
+//! When `MicroResolveConfig::server` is set, the engine pulls each subscribed
 //! namespace from the server on startup, spawns a single background thread
 //! that ticks every `tick_interval_secs`, and on each tick:
 //!   1. Flushes the buffered log entries to `/api/ingest`
@@ -8,7 +8,7 @@
 //!      hot-swaps the local resolver if the server has a newer version.
 //!
 //! All types here are `pub(crate)` — library users never see them directly;
-//! they interact only with [`crate::Engine`] / [`crate::NamespaceHandle`].
+//! they interact only with [`crate::MicroResolve`] / [`crate::NamespaceHandle`].
 
 #![allow(clippy::duplicated_attributes)]
 
@@ -157,8 +157,8 @@ impl ConnectState {
 /// Background tick: flush logs, then check each subscribed namespace for
 /// updates and hot-swap.
 ///
-/// Holds an `Arc<ConnectState>` and a weak handle into the Engine's namespace
-/// map. Runs forever; the only termination signal is the Engine being dropped
+/// Holds an `Arc<ConnectState>` and a weak handle into the MicroResolve's namespace
+/// map. Runs forever; the only termination signal is the MicroResolve instance being dropped
 /// (which drops the strong references and the OS reclaims the thread).
 pub(crate) fn run_background<F>(state: Arc<ConnectState>, apply_pull: F)
 where

@@ -17,10 +17,10 @@ microresolve = "0.1"
 ## Basic usage
 
 ```rust
-use microresolve::{Engine, EngineConfig, IntentSeeds};
+use microresolve::{MicroResolve, MicroResolveConfig, IntentSeeds};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let engine = Engine::new(EngineConfig::default())?;
+    let engine = MicroResolve::new(MicroResolveConfig::default())?;
     let ns = engine.namespace("support");
 
     ns.add_intent("cancel_order", &IntentSeeds::Phrases(vec![
@@ -49,10 +49,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 Set `data_dir` and call `engine.flush()` — namespaces are stored as git-tracked directories and auto-loaded on the next startup.
 
 ```rust
-use microresolve::{Engine, EngineConfig};
+use microresolve::{MicroResolve, MicroResolveConfig};
 use std::path::PathBuf;
 
-let engine = Engine::new(EngineConfig {
+let engine = MicroResolve::new(MicroResolveConfig {
     data_dir: Some(PathBuf::from("~/.local/share/microresolve")),
     ..Default::default()
 })?;

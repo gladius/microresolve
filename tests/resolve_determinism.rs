@@ -10,7 +10,7 @@
 //! word root ("taking" and "paying" are both edit-distance 2 from "having"), then
 //! resolves the same query 50 times and asserts byte-identical results.
 
-use microresolve::{Engine, EngineConfig};
+use microresolve::{MicroResolve, MicroResolveConfig};
 
 #[test]
 fn resolve_is_deterministic_across_invocations() {
@@ -57,11 +57,11 @@ fn top_intent_is_stable() {
     }
 }
 
-fn make_engine() -> Engine {
+fn make_engine() -> MicroResolve {
     // Build a minimal in-memory namespace that reproduces the ambiguous-correction
     // scenario: "thoughts" and "myself" are exact vocabulary words; "taking" and
     // "paying" are both edit-distance 2 from "having" (the ambiguous query word).
-    let engine = Engine::new(EngineConfig::default()).unwrap();
+    let engine = MicroResolve::new(MicroResolveConfig::default()).unwrap();
     {
         let ns = engine.namespace("det-test");
         ns.add_intent(

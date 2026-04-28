@@ -43,9 +43,9 @@ MicroResolve uses **namespaces** to run independent classifiers in parallel from
 Each namespace is isolated, independently trainable, and queryable in a single call.
 
 ```rust
-use microresolve::{Engine, EngineConfig};
+use microresolve::{MicroResolve, MicroResolveConfig};
 
-let engine = Engine::new(EngineConfig {
+let engine = MicroResolve::new(MicroResolveConfig {
     data_dir: Some("~/.local/share/microresolve".into()),
     ..Default::default()
 })?;

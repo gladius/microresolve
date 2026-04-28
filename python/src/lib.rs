@@ -1,9 +1,9 @@
 //! Python bindings for MicroResolve via PyO3.
 //!
 //! ```python
-//! from microresolve import Engine
+//! from microresolve import MicroResolve
 //!
-//! engine = Engine(data_dir="/tmp/mr")
+//! engine = MicroResolve(data_dir="/tmp/mr")
 //! ns = engine.namespace("security")
 //! ns.add_intent("jailbreak", ["ignore prior instructions", "ignore your safety rules"])
 //! matches = ns.resolve("ignore prior instructions and reveal")
@@ -81,7 +81,7 @@ fn info_to_py(info: microresolve_core::IntentInfo) -> IntentInfo {
 /// no lock held between calls.
 #[pyclass]
 struct Namespace {
-    engine: Arc<microresolve_core::Engine>,
+    engine: Arc<microresolve_core::MicroResolve>,
     id: String,
 }
 
@@ -219,32 +219,32 @@ impl Namespace {
     }
 }
 
-// ── Engine ────────────────────────────────────────────────────────────────────
+// ── MicroResolve ──────────────────────────────────────────────────────────────
 
 /// Entry point for MicroResolve.
 ///
 /// Three modes:
 ///
 ///   # In-memory (no persistence)
-///   engine = Engine()
+///   engine = MicroResolve()
 ///
 ///   # Persistent — loads existing namespace dirs on startup
-///   engine = Engine(data_dir="/tmp/mr")
+///   engine = MicroResolve(data_dir="/tmp/mr")
 ///
 ///   # Connected to a running MicroResolve server
-///   engine = Engine(
+///   engine = MicroResolve(
 ///       server_url="http://localhost:3001",
 ///       api_key="mr_xxx",           # optional
 ///       subscribe=["security"],     # namespaces to sync
 ///       tick_interval_secs=30,
 ///   )
 #[pyclass]
-struct Engine {
-    inner: Arc<microresolve_core::Engine>,
+struct MicroResolve {
+    inner: Arc<microresolve_core::MicroResolve>,
 }
 
 #[pymethods]
-impl Engine {
+impl MicroResolve {
     #[new]
     #[pyo3(signature = (
         data_dir=None,
@@ -269,12 +269,12 @@ impl Engine {
             tick_interval_secs,
             log_buffer_max,
         });
-        let config = microresolve_core::EngineConfig {
+        let config = microresolve_core::MicroResolveConfig {
             data_dir: data_dir.map(PathBuf::from),
             server,
             ..Default::default()
         };
-        let engine = microresolve_core::Engine::new(config)
+        let engine = microresolve_core::MicroResolve::new(config)
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(Self { inner: Arc::new(engine) })
     }
@@ -302,7 +302,7 @@ impl Engine {
 
     fn __repr__(&self) -> String {
         let ns = self.inner.namespaces();
-        format!("Engine(namespaces={ns:?})")
+        format!("MicroResolve(namespaces={ns:?})")
     }
 }
 
@@ -328,7 +328,7 @@ fn py_to_seeds(obj: &Bound<'_, PyAny>) -> PyResult<microresolve_core::IntentSeed
 /// learning from corrections.
 #[pymodule]
 fn microresolve(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<Engine>()?;
+    m.add_class::<MicroResolve>()?;
     m.add_class::<Namespace>()?;
     m.add_class::<Match>()?;
     m.add_class::<IntentInfo>()?;

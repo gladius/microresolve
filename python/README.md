@@ -18,16 +18,16 @@ cd python && maturin develop --release
 ## Quick start
 
 ```python
-from microresolve import Engine
+from microresolve import MicroResolve
 
 # In-memory (no persistence)
-engine = Engine()
+engine = MicroResolve()
 
 # Persistent — loads existing namespace dirs on startup
-engine = Engine(data_dir="/tmp/mr")
+engine = MicroResolve(data_dir="/tmp/mr")
 
 # Connected to a running MicroResolve server
-engine = Engine(
+engine = MicroResolve(
     server_url="http://localhost:3001",
     api_key="mr_xxx",       # optional
     subscribe=["security"],  # namespaces to sync
@@ -65,7 +65,7 @@ engine.flush()            # force persist (no-op when data_dir not set)
 
 ## API
 
-### `Engine`
+### `MicroResolve`
 
 | Constructor kwarg | Type | Default | Description |
 |---|---|---|---|

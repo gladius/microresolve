@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.3] — 2026-04-28
+
+### Breaking
+
+- **`Engine` renamed to `MicroResolve`** across all bindings (Rust, Python, Node.js).
+  Update all imports and call sites:
+  - Rust: `Engine` → `MicroResolve`, `EngineConfig` → `MicroResolveConfig`
+  - Python: `from microresolve import Engine` → `from microresolve import MicroResolve`
+  - Node.js: `const { Engine } = require('microresolve')` → `const { MicroResolve } = require('microresolve')`
+
+---
+
 ## [0.1.0] — TBD
 
 Initial public release. **MicroResolve** is a pre-LLM reflex layer for
@@ -15,15 +27,16 @@ CPU-only, with continuous learning from corrections.
 
 ### Library API
 
-- **`Engine` + `NamespaceHandle`** — multi-namespace decision engine. One
-  engine per application can run several classifiers in parallel: security
+- **`MicroResolve` + `NamespaceHandle`** — multi-namespace decision engine. One
+  instance per application can run several classifiers in parallel: security
   / mood / MCP tool selection / intent. The single public entry point.
-- **`EngineConfig`** with cascade: `data_dir`, `default_threshold`,
+  (Previously named `Engine`; renamed in v0.1.3.)
+- **`MicroResolveConfig`** with cascade: `data_dir`, `default_threshold`,
   `languages`, optional LLM config, optional server config for connected
-  mode.
+  mode. (Previously named `EngineConfig`; renamed in v0.1.3.)
 - **`NamespaceConfig`** — per-namespace overrides for threshold,
   languages, LLM model.
-- **Connected mode** — set `EngineConfig.server` to a `ServerConfig` and
+- **Connected mode** — set `MicroResolveConfig.server` to a `ServerConfig` and
   the engine pulls subscribed namespaces from a server on startup,
   spawns a single background sync thread, buffers query logs for
   shipping, and pushes corrections inline. Replaces the legacy
@@ -43,17 +56,17 @@ CPU-only, with continuous learning from corrections.
 - **Rust crate** `microresolve` on crates.io. Default features include
   connected mode (`reqwest`); embedded users can opt out via
   `default-features = false`.
-- **Python** `microresolve` on PyPI — full `Engine` + `Namespace` API
+- **Python** `microresolve` on PyPI — full `MicroResolve` + `Namespace` API
   via PyO3 / maturin. Mono and multilingual `add_intent`, `resolve`,
   `correct`, `intent`, `update_intent`, `add_phrase`, `version`,
   `flush`. Connected mode supported.
-- **Node.js** `microresolve` on npm — `Engine` + `Namespace` API via
+- **Node.js** `microresolve` on npm — `MicroResolve` + `Namespace` API via
   napi-rs. Connected mode supported.
 
 ### Server
 
 - **HTTP API** (`microresolve-server`, `--features server`) wraps the
-  same `Engine` for multi-tenant deployments.
+  same `MicroResolve` instance for multi-tenant deployments.
   - `/api/route_multi` — classify a query.
   - `/api/intents`, `/api/namespaces`, `/api/domains` — CRUD.
   - `/api/import/openapi/*`, `/api/import/mcp/*` — bulk-import tools.
@@ -107,8 +120,8 @@ CPU-only, with continuous learning from corrections.
 
 - `Resolver` and the `scoring` / `ngram` / `phrase` / `tokenizer` /
   `connect` modules are `#[doc(hidden)]`. Library users see only
-  `Engine`, `NamespaceHandle`, and the public types in rustdoc.
-- Server bin migrated off direct `Resolver` use to `Engine` API
+  `MicroResolve`, `NamespaceHandle`, and the public types in rustdoc.
+- Server bin migrated off direct `Resolver` use to `MicroResolve` API
   internally — single source of truth for namespace state.
 - Cargo.toml `exclude` list keeps the published crate at ~174 KB
   (only `src/`, `examples/*.rs`, `tests/*.rs`, `languages/*.json`,

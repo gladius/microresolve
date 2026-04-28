@@ -22,9 +22,9 @@ Pre-built binaries for Linux, macOS, and Windows (x86_64 and arm64).
 ## Basic usage
 
 ```typescript
-import { Engine } from 'microresolve';
+import { MicroResolve } from 'microresolve';
 
-const engine = new Engine();
+const engine = new MicroResolve();
 const ns = engine.namespace('support');
 
 ns.addIntent('cancel_order', [
@@ -48,16 +48,16 @@ for (const { id, score } of matches) {
 ## CommonJS
 
 ```javascript
-const { Engine } = require('microresolve');
-const engine = new Engine();
+const { MicroResolve } = require('microresolve');
+const engine = new MicroResolve();
 ```
 
 ## Persist to disk
 
 ```typescript
-import { Engine } from 'microresolve';
+import { MicroResolve } from 'microresolve';
 
-const engine = new Engine({ dataDir: '~/.local/share/microresolve' });
+const engine = new MicroResolve({ dataDir: '~/.local/share/microresolve' });
 const ns = engine.namespace('support');
 // ... add intents and phrases ...
 await engine.flush();
@@ -114,10 +114,10 @@ const result: PhraseResult = ns.addPhrase('cancel_order', 'abort order');
 ## Vercel AI SDK integration
 
 ```typescript
-import { Engine } from 'microresolve';
+import { MicroResolve } from 'microresolve';
 import { generateText } from 'ai';
 
-const engine = new Engine({ dataDir: '~/.local/share/microresolve' });
+const engine = new MicroResolve({ dataDir: '~/.local/share/microresolve' });
 const ns = engine.namespace('support');
 
 async function handleMessage(message: string) {
