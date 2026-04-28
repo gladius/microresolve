@@ -2,7 +2,7 @@
 //!
 //! Run: cargo run --example rust_basic
 
-use microresolve::{MicroResolve, MicroResolveConfig, IntentEdit, IntentType};
+use microresolve::{IntentEdit, IntentType, MicroResolve, MicroResolveConfig};
 
 fn main() {
     let engine = MicroResolve::new(MicroResolveConfig::default()).expect("engine init");

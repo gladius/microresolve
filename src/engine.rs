@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    MicroResolveConfig, Error, IntentEdit, IntentInfo, IntentSeeds, Match, NamespaceConfig,
+    Error, IntentEdit, IntentInfo, IntentSeeds, Match, MicroResolveConfig, NamespaceConfig,
     PhraseCheckResult, ResolveOptions, Resolver,
 };
 
