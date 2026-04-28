@@ -4,7 +4,7 @@ import Layout from '@/components/Layout';
 import HomePage from '@/pages/HomePage';
 import RouterPage from '@/pages/RouterPage';
 import SimulatePage from '@/pages/SimulatePage';
-import LayersPage from '@/pages/LayersPage';
+import VocabularyPage from '@/pages/VocabularyPage';
 import ReviewPage from '@/pages/ReviewPage';
 import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
@@ -116,7 +116,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/resolve" element={<RouterPage />} />
             <Route path="/simulate" element={<SimulatePage />} />
-            <Route path="/layers" element={<LayersPage />} />
+            <Route path="/vocabulary" element={<VocabularyPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/intents" element={<IntentsPage />} />
             <Route path="/import" element={<ImportLanding />} />

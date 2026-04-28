@@ -76,7 +76,7 @@ export default function Layout() {
       label: 'Build',
       items: [
         { to: '/intents',    label: 'L2 — Intent Index',  icon: '◆', hint: 'Manage intents, training phrases, metadata' },
-        { to: '/layers',     label: 'L1 — Lexical Graph', icon: '⧉', hint: 'Tune morphology, abbreviation, and synonym edges' },
+        { to: '/vocabulary', label: 'L1 — Vocabulary',    icon: '⧉', hint: 'Morphology, synonym, and abbreviation edges' },
       ],
     },
     {
