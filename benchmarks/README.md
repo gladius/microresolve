@@ -15,7 +15,8 @@ Pure `Engine::resolve()` calls. No server, no HTTP, no Python.
 | Varied queries, 429k iterations | **~11.3 µs** |
 
 Linux x86_64, recent Ryzen, criterion default config (warmup + outlier
-detection). One million classifications in ~10 seconds on a single core.
+detection). Synthetic microbench with a single fixed query — for realistic
+latency on a 129-tool catalog see the agent-tools benchmark (~135 µs).
 
 ```bash
 cargo bench --bench resolve

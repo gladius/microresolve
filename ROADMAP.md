@@ -53,7 +53,7 @@ different sharing properties.
 - `NamespaceRouter` — private, namespace-scoped. Not shared.
 
 **Benefit:** community can publish and share lexical learnings (`english-pack-v3`)
-with synonyms and morphology distilled from millions of corrections, without
+with synonyms and morphology distilled from real-world corrections, without
 exposing any user's intent data. Real network effect.
 
 **Status:** architecture sketch, not built.

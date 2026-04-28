@@ -35,9 +35,8 @@ your LLM only thinks about the parts that actually need thinking.
 ```
 
 LLMs do everything: reason, compose, generate, choose tools, handle
-context. MicroResolve only handles the *routing decisions that get
-repeated millions of times* — which tool, which intent, what's PII,
-is this safe. It **learns continuously from your existing LLM calls** —
+context. MicroResolve only handles the *repeated routing decisions* —
+which tool, which intent, what's PII, is this safe. It **learns continuously from your existing LLM calls** —
 every misroute the LLM corrects flows back into the index, so the
 candidate set sharpens from production traffic alone.
 
