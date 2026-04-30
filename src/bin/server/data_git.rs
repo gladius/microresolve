@@ -47,6 +47,13 @@ pub fn ensure_repo(dir: &Path) {
         return;
     }
 
+    // _logs/ holds raw user query records (potentially PII). Never track
+    // them in git — the data dir's history can be pushed to a remote for
+    // backup/rollback, and shipping user queries to a remote violates
+    // most data-handling policies. Intent definitions and namespace
+    // configuration under <ns>/ are configuration data and stay tracked.
+    write_gitignore(dir);
+
     // Set local identity so the very first commit doesn't fail when global
     // user.* is unset. Operators with their own identity remain unaffected.
     let _ = Command::new("git")
@@ -67,6 +74,56 @@ pub fn ensure_repo(dir: &Path) {
         .args(["commit", "--quiet", "--allow-empty", "-m", "init"])
         .current_dir(dir)
         .status();
+}
+
+/// Write the data dir's .gitignore (idempotent). Excludes `_logs/` so raw
+/// user query records never enter git history. Also runs on existing repos
+/// that pre-date this protection — see [`migrate_existing_repo`].
+fn write_gitignore(dir: &Path) {
+    let path = dir.join(".gitignore");
+    let body = "# microresolve: user-data, never tracked.\n\
+                # _logs/ holds raw query records — keeping them out of git\n\
+                # ensures pushes to an `origin` remote do not exfiltrate PII.\n\
+                _logs/\n";
+    let _ = std::fs::write(path, body);
+}
+
+/// Migrate a pre-existing data repo: ensure `.gitignore` is present and
+/// untrack any `_logs/` files that were already committed before this
+/// protection landed. Best-effort and idempotent — failure here never
+/// blocks server startup.
+pub fn migrate_existing_repo(dir: &Path) {
+    if !dir.join(".git").exists() {
+        return;
+    }
+    write_gitignore(dir);
+    // Untrack _logs/* if they're currently tracked. --ignore-unmatch is
+    // critical: cleanly noops on fresh repos that never had _logs/ tracked.
+    let removed = Command::new("git")
+        .args(["rm", "--cached", "-r", "--ignore-unmatch", "--quiet", "_logs/"])
+        .current_dir(dir)
+        .status();
+    if let Ok(s) = removed {
+        if s.success() {
+            // Add the .gitignore + commit the untrack so the migration
+            // is captured in history. If nothing was tracked, this commit
+            // is empty (--allow-empty) and harmless.
+            let _ = Command::new("git")
+                .args(["add", ".gitignore"])
+                .current_dir(dir)
+                .status();
+            let _ = Command::new("git")
+                .args([
+                    "commit",
+                    "--quiet",
+                    "--allow-empty",
+                    "-m",
+                    "data: gitignore _logs/ (untrack any pre-existing user-query files)",
+                ])
+                .current_dir(dir)
+                .status();
+        }
+    }
 }
 
 /// Last `limit` commits (oldest-last), filtered to ones that touched

@@ -118,6 +118,9 @@ async fn main() {
     // /api/settings/git, not at boot time.
     std::fs::create_dir_all(&cfg.data_dir).ok();
     data_git::ensure_repo(&cfg.data_dir);
+    // For data dirs created before the .gitignore protection landed: write
+    // it now and untrack any _logs/* that already entered the index. Idempotent.
+    data_git::migrate_existing_repo(&cfg.data_dir);
     let data_dir: Option<String> = Some(cfg.data_dir.display().to_string());
 
     // Pick up an existing `origin` so the in-memory state matches the repo
