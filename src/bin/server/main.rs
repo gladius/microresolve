@@ -1,6 +1,6 @@
 //! MicroResolve HTTP API server.
 //!
-//! Run with: cargo run --bin server --features server --release
+//! Run with: cargo run --bin microresolve-studio --features server --release
 //!
 //! Default: http://localhost:3001
 
@@ -254,15 +254,21 @@ async fn main() {
         app
     };
 
-    println!("MicroResolve server listening on {}", addr);
+    let listener = match tokio::net::TcpListener::bind(&addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!(
+                "error: cannot bind to {} — is the port already in use?\n  {}",
+                addr, e
+            );
+            std::process::exit(1);
+        }
+    };
+
+    println!("MicroResolve Studio listening on {}", addr);
     if let Some(ref dir) = state.data_dir {
         println!("Data directory: {}", dir);
     }
-
-    let listener = tokio::net::TcpListener::bind(&addr).await.expect(&format!(
-        "Failed to bind to {} — is the port already in use?",
-        addr
-    ));
 
     // Auto-open the browser — only for distributed installs. In dev builds
     // the Vite dev server on :3000 already owns the browser tab.

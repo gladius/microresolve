@@ -32,7 +32,7 @@ skip() {
 
 # ── Rust ──────────────────────────────────────────────────────────────────────
 run "lib unit tests (84 expected)" cargo test --lib --quiet 2>&1
-run "server release build" cargo build --release --features server --quiet
+run "studio release build" cargo build --release --features server --quiet
 run "HTTP integration: smoke" cargo test --release --test http_smoke --quiet
 run "HTTP integration: full E2E (manual + MCP + auto-learn + auth)" cargo test --release --test http_full_e2e --quiet
 
@@ -40,7 +40,7 @@ run "HTTP integration: full E2E (manual + MCP + auto-learn + auth)" cargo test -
 echo ""
 echo "═══ connected example (live-sync loop) ═══"
 rm -rf /tmp/microresolve_runtests
-./target/release/server --port 3099 --no-open --data /tmp/microresolve_runtests > /tmp/runtests-server.log 2>&1 &
+./target/release/microresolve-studio --port 3099 --no-open --data /tmp/microresolve_runtests > /tmp/runtests-server.log 2>&1 &
 SERVER_PID=$!
 trap "kill $SERVER_PID 2>/dev/null" EXIT
 sleep 1.5

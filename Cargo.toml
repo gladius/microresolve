@@ -71,7 +71,7 @@ connect = ["reqwest"]
 server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect", "clap", "toml", "directories", "open", "rand", "hex", "zip"]
 
 [[bin]]
-name = "server"
+name = "microresolve-studio"
 path = "src/bin/server/main.rs"
 required-features = ["server"]
 

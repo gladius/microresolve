@@ -60,7 +60,7 @@ real span extraction (Haiku 4.5 or Llama 3.3 via Groq, ~$3-7 per run).**
 
 ```bash
 cargo build --release --features server
-./target/release/server --port 3001 --no-open --data /tmp/mr_bench &
+./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_bench &
 python3 benchmarks/multi_intent.py
 ```
 
@@ -118,7 +118,7 @@ Then run:
 
 ```bash
 cargo build --release --features server
-./target/release/server --port 3001 --no-open --data /tmp/mr_bench &
+./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_bench &
 
 # Few-shot (default — reads {clinc150,banking77}_seeds.json):
 python3 benchmarks/intent_classification.py
@@ -145,7 +145,7 @@ literature, disclosed honestly here.
 
 ```bash
 cargo build --release --features server
-./target/release/server --port 3001 --no-open --data /tmp/mr_bench &
+./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_bench &
 python3 benchmarks/intent_classification.py
 ```
 
@@ -199,7 +199,7 @@ Useful as a sanity-check baseline; not the headline comparison number.
 
 ```bash
 cargo build --release --features server
-./target/release/server --port 3001 --no-open --data /tmp/mr_bench &
+./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_bench &
 
 # Auto-fetches BFCL v4 from upstream gorilla repo on first run.
 # Caches to benchmarks/datasets/bfcl/.

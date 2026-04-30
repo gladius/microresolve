@@ -12,7 +12,7 @@ each labelled with one ground-truth function name from a candidate set.
 
 Run:
   cargo build --release --features server
-  ./target/release/server --port 3001 --no-open --data /tmp/mr_bench &
+  ./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_bench &
   python3 benchmarks/tool_routing.py
 
 Outputs:

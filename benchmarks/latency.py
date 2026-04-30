@@ -8,7 +8,7 @@ criterion bench at `benches/resolve.rs` (next benchmark).
 Run:
   # 1. Start the server (fresh data dir):
   cargo build --release --features server
-  ./target/release/server --port 3001 --no-open --data /tmp/mr_bench &
+  ./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_bench &
 
   # 2. Run this script:
   python3 benchmarks/latency.py

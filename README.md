@@ -13,6 +13,10 @@ is this safe. MicroResolve handles those repeated decisions in tens of
 microseconds and learns continuously from your existing LLM calls, so
 your LLM only thinks about the parts that actually need thinking.
 
+**Ships as:** a Rust crate with Python and Node bindings (embed in-process,
+no network), **or** an HTTP server with a Studio UI for management,
+import, and live training. Same engine, same data files, your choice.
+
 > **v0.1 — early release.** API may change before 1.0. Pin exact versions
 > in production.
 

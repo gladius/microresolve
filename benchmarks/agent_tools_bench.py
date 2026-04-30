@@ -34,7 +34,7 @@ fully offline.
 
 Run:
   cargo build --release --features server
-  ./target/release/server --port 3001 --no-open --data /tmp/mr_bench &
+  ./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_bench &
   python3 benchmarks/agent_tools_bench.py
 
 Cost: ~$0.55 Haiku 4.5.   Wall-clock: ~10 min.
