@@ -38,10 +38,8 @@ export default function Layout() {
   const [restoreStatus,  setRestoreStatus]  = useState<string | null>(null);
   const [appVersion,     setAppVersion]     = useState<string | null>(null);
   const [connectedClients, setConnectedClients] = useState<ConnectedClient[]>([]);
-  const [showClientsPanel, setShowClientsPanel] = useState(false);
   const nsMenuRef     = useRef<HTMLDivElement>(null);
   const backupMenuRef = useRef<HTMLDivElement>(null);
-  const clientsPanelRef = useRef<HTMLDivElement>(null);
 
   // Poll the connected-clients roster every 5s. Lazy-GC happens server-side
   // on each read, so the count is always fresh — no client-side cleanup.
@@ -158,6 +156,12 @@ export default function Layout() {
 
   type NavGroup = { label: string; items: NavItem[] };
   const NAV_GROUPS: NavGroup[] = [
+    {
+      label: 'Live',
+      items: [
+        { to: '/connected', label: 'Connected', icon: '⚡', hint: 'Library clients currently syncing', badge: connectedClients.length || undefined },
+      ],
+    },
     {
       label: 'Build',
       items: [
@@ -358,54 +362,11 @@ export default function Layout() {
           )}
         </div>
 
-        {/* Footer: connected-clients badge + app version. Badge goes
-            green & live-pulsing when one or more library clients are
-            actively syncing; muted gray otherwise. Click to expand. */}
+        {/* Footer: just the version. Connected clients are now a top-level
+            sidebar item (Manage → Connected) with a live badge count. */}
         {!collapsed && (
-          <div className="px-3 py-2 border-t border-zinc-800/60 flex items-center gap-2 relative" ref={clientsPanelRef}>
-            <button
-              onClick={() => setShowClientsPanel(s => !s)}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors border ${
-                connectedClients.length > 0
-                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25'
-                  : 'bg-zinc-800/40 text-zinc-500 border-zinc-700/60 hover:bg-zinc-800'
-              }`}
-              title={connectedClients.length === 0 ? 'No connected libraries (configure API keys to track)' : `${connectedClients.length} library client(s) connected`}
-            >
-              <span className={`w-2 h-2 rounded-full ${connectedClients.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
-              <span>{connectedClients.length} {connectedClients.length === 1 ? 'connected' : 'connected'}</span>
-            </button>
-            <span className="ml-auto text-[10px] text-zinc-600">{appVersion ? `v${appVersion}` : '…'}</span>
-            {showClientsPanel && (
-              <div className="absolute left-2 right-2 bottom-full mb-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 max-h-64 overflow-auto text-xs">
-                {connectedClients.length === 0 ? (
-                  <div className="px-3 py-3 text-zinc-400">
-                    <div className="font-medium">No library clients connected</div>
-                    <div className="text-zinc-500 mt-1 leading-relaxed">
-                      Configure auth keys (Manage → Auth Keys) for clients
-                      to be tracked. Open mode shows nothing here by design.
-                    </div>
-                  </div>
-                ) : (
-                  <ul>
-                    {connectedClients.map(c => (
-                      <li key={c.name} className="px-3 py-2 border-b border-zinc-800 last:border-b-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-emerald-300 font-medium truncate">{c.name}</span>
-                          <span className="text-zinc-500 shrink-0">{Math.max(0, Math.round(c.expires_in_ms / 1000))}s</span>
-                        </div>
-                        {c.library_version && (
-                          <div className="text-zinc-500 mt-1 font-mono">{c.library_version}</div>
-                        )}
-                        {c.namespaces.length > 0 && (
-                          <div className="text-zinc-500 mt-0.5">subs: <span className="text-zinc-400">{c.namespaces.join(', ')}</span></div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+          <div className="px-3 py-2 border-t border-zinc-800/60 text-[10px] text-zinc-600">
+            {appVersion ? `v${appVersion}` : '…'}
           </div>
         )}
       </aside>
