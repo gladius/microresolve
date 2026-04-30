@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.4] — 2026-04-30
+
+### Added
+
+- **Connect-mode examples** — `examples/connected.rs` (Rust) and
+  `python/examples/connected.py` (Python): minimal end-to-end demo of
+  a library instance subscribing to a running Studio, resolving
+  locally, pushing a correction, and watching the version bump on the
+  next sync tick. This loop — Studio writes, library subscribes, live
+  sync — is the headline feature of this release.
+- **Prebuilt server binaries** via GitHub Releases: linux-gnu x86\_64 +
+  aarch64, linux-musl x86\_64, darwin x86\_64 + aarch64,
+  windows-msvc x86\_64. Install: download the tarball for your platform
+  and put `microresolve-studio` on `$PATH`.
+
+### Changed
+
+- **Binary renamed** — `server` → `microresolve-studio` in Cargo.toml;
+  the old `server` bin name is removed. Update any scripts or service
+  files that reference the old name.
+- **TCP bind failure** — server now exits cleanly with a descriptive
+  error when the port is already in use; previously it panicked.
+- **README** — hero rewritten to "learnable reflex layer for LLM apps";
+  added "In the box" block (Studio / Library / online learning / native
+  imports / multilingual / multi-namespace); Quick Start moved above
+  the comparison table; v0.1 disclaimer condensed to one line; median
+  resolve latency updated to 50µs.
+
+---
+
 ## [0.1.3] — 2026-04-28
 
 ### Breaking

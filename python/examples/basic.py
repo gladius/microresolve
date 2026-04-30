@@ -1,8 +1,8 @@
 """Local-mode demo: two namespaces, multilingual seeding, corrections."""
 
-from microresolve import Engine
+from microresolve import MicroResolve
 
-engine = Engine(data_dir="/tmp/mr_basic_demo")
+engine = MicroResolve(data_dir="/tmp/mr_basic_demo")
 
 # ── Security namespace ────────────────────────────────────────────────────────
 security = engine.namespace("security")

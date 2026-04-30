@@ -17,7 +17,7 @@ import time
 import urllib.request
 import urllib.error
 
-from microresolve import Engine
+from microresolve import MicroResolve
 
 SERVER_URL = os.environ.get("MR_SERVER_URL", "http://localhost:3001")
 API_KEY    = os.environ.get("MR_API_KEY")
@@ -63,8 +63,8 @@ def main() -> int:
         return 1
     print(f"  ✓ namespace '{NS}' seeded with 3 intents")
 
-    print("\n─── 2. Connect Engine to server ──────────────────────────────")
-    engine = Engine(
+    print("\n─── 2. Connect library to server ─────────────────────────────")
+    engine = MicroResolve(
         server_url=SERVER_URL,
         api_key=API_KEY,
         subscribe=[NS],

@@ -61,7 +61,7 @@ export default function HomePage() {
         {/* Hero */}
         <section className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
-            Pre-LLM intent routing in 30µs.
+            Pre-LLM intent routing in 50µs.
           </h1>
           <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl">
             Route natural-language queries to intents at $0 per call.

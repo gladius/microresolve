@@ -7,18 +7,20 @@
 [![CI](https://github.com/gladius/microresolve/actions/workflows/ci.yml/badge.svg)](https://github.com/gladius/microresolve/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-A reflex layer for LLM agents. Your agent makes the same routing
-decisions on every call — which tool, which intent, is this PII,
-is this safe. MicroResolve handles those repeated decisions in tens of
-microseconds and learns continuously from your existing LLM calls, so
-your LLM only thinks about the parts that actually need thinking.
+MicroResolve is a learnable reflex layer for LLM apps. The decisions
+your LLM keeps making — which tool, which model, what guardrail, what
+persona, who to refuse — run in 50µs and improve while your app runs.
 
-**Ships as:** a Rust crate with Python and Node bindings (embed in-process,
-no network), **or** an HTTP server with a Studio UI for management,
-import, and live training. Same engine, same data files, your choice.
+**In the box**
 
-> **v0.1 — early release.** API may change before 1.0. Pin exact versions
-> in production.
+- **Studio** — web UI for namespace management, simulation, review, training. Git-backed history & rollback.
+- **Library** — Python / Node / Rust. Embed in prod, or stay live-connected to a Studio.
+- **Online learning** — Hebbian + LLM-judged corrections. No fine-tuning, no restart.
+- **Native imports** — MCP, OpenAI functions, LangChain tools, OpenAPI specs.
+- **Multilingual** — Latin + CJK tokenization; learns whichever language your traffic is in.
+- **One engine, many namespaces** — tool routing, intent triage, compliance gates, abuse detection — same engine, isolated namespaces.
+
+> v0.1 — early release; pin exact versions in production.
 
 [**Documentation**](https://gladius.github.io/microresolve/) ·
 [**Benchmarks & methodology**](benchmarks/) ·
@@ -62,6 +64,41 @@ candidate set sharpens from production traffic alone.
   for steps that need to fan out or chain.
 - **Permission and risk gating** — classify a request into a risk tier
   before paying for an LLM round-trip.
+
+## Quick start
+
+Embedded (Rust):
+
+```rust
+use microresolve::MicroResolve;
+
+let engine = MicroResolve::open("./data")?;
+let ns = engine.namespace("agent")?;
+ns.add_intent("cancel_subscription", &["cancel my plan", "stop the recurring billing"])?;
+let r = ns.resolve("end my subscription right now");
+// r.ranked[0].id == "cancel_subscription"
+```
+
+HTTP server (with the optional Studio UI):
+
+```bash
+cp .env.example .env                        # set LLM_API_KEY
+cargo run --release --bin microresolve-studio --features server -- --data ./data
+cd ui && npm install && npm run dev         # http://localhost:3000
+```
+
+Bootstrap intents from an existing spec:
+
+```bash
+curl -X POST http://localhost:3001/api/import/mcp/apply \
+  -H "Content-Type: application/json" \
+  -H "X-Namespace-ID: agent" \
+  -d '{"tools_json": "<MCP tools/list response>", "selected": ["..."], "domain": ""}'
+```
+
+Bindings: [`microresolve` on crates.io](https://crates.io/crates/microresolve),
+[`microresolve` on PyPI](https://pypi.org/project/microresolve/),
+[`microresolve` on npm](https://www.npmjs.com/package/microresolve).
 
 |                    | LLM classification | Embedding model | **MicroResolve** |
 |--------------------|--------------------|-----------------|------------------|
@@ -109,41 +146,6 @@ Haiku 4.5).
 | CLINC150   | 150     | 100   | 87.5 %       | 96.4 %             | 95.9 % | 24 µs       |
 | BANKING77  | 77      | 50    | 81.9 %       | 85.0 %             | 94.1 % | 21 µs       |
 | BANKING77  | 77      | 130   | 85.5 %       | 92.8 %             | 96.0 % | 23 µs       |
-
-## Quick start
-
-Embedded (Rust):
-
-```rust
-use microresolve::MicroResolve;
-
-let engine = MicroResolve::open("./data")?;
-let ns = engine.namespace("agent")?;
-ns.add_intent("cancel_subscription", &["cancel my plan", "stop the recurring billing"])?;
-let r = ns.resolve("end my subscription right now");
-// r.ranked[0].id == "cancel_subscription"
-```
-
-HTTP server (with the optional Studio UI):
-
-```bash
-cp .env.example .env                        # set LLM_API_KEY
-cargo run --release --bin microresolve-studio --features server -- --data ./data
-cd ui && npm install && npm run dev         # http://localhost:3000
-```
-
-Bootstrap intents from an existing spec:
-
-```bash
-curl -X POST http://localhost:3001/api/import/mcp/apply \
-  -H "Content-Type: application/json" \
-  -H "X-Namespace-ID: agent" \
-  -d '{"tools_json": "<MCP tools/list response>", "selected": ["..."], "domain": ""}'
-```
-
-Bindings: [`microresolve` on crates.io](https://crates.io/crates/microresolve),
-[`microresolve` on PyPI](https://pypi.org/project/microresolve/),
-[`microresolve` on npm](https://www.npmjs.com/package/microresolve).
 
 ## How it works
 
