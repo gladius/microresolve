@@ -3,7 +3,7 @@ name = "microresolve"
 version = "0.1.4"
 edition = "2021"
 authors = ["Gladius Thayalarajan"]
-description = "Pre-LLM decision engine: intent classification, tool selection, request triage. ~30μs per call, CPU-only, continuous learning."
+description = "Pre-LLM decision engine: intent classification, tool selection, request triage. ~50μs per call, CPU-only, continuous learning."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/gladius/microresolve"
 homepage = "https://github.com/gladius/microresolve"
@@ -57,7 +57,8 @@ open = { version = "5", optional = true }
 rand = { version = "0.9", optional = true }
 hex = { version = "0.4", optional = true }
 zip = { version = "2", optional = true }
-
+rust-embed = { version = "8", features = ["compression"], optional = true }
+mime_guess = { version = "2", optional = true }
 
 [features]
 # Connected mode (live sync against a server) ships in the default build —
@@ -68,7 +69,12 @@ default = ["connect"]
 connect = ["reqwest"]
 # Server binary build — pulls in axum/tokio/tower-http/clap/etc. Kept
 # opt-in so embedded library users do not pay for the HTTP server stack.
-server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect", "clap", "toml", "directories", "open", "rand", "hex", "zip"]
+# `server` implies `bundled-ui` so the studio binary always ships its UI
+# in a single executable; build prerequisite: `cd ui && npm run build`.
+server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect", "clap", "toml", "directories", "open", "rand", "hex", "zip", "bundled-ui"]
+# Embed ui/dist/ into the binary at compile time. Pulled in transitively
+# by `server`; named separately so future opt-outs are mechanical.
+bundled-ui = ["rust-embed", "mime_guess"]
 
 [[bin]]
 name = "microresolve-studio"

@@ -41,7 +41,8 @@ use tower_http::cors::CorsLayer;
 async fn main() {
     // ─── dev-vs-distributed detection ──────────────────────────────────────
     //
-    // Single signal: is `ui/dist/` sitting next to our executable?
+    // bundled-ui: assets are compiled into the binary — always distributed.
+    // Default: single signal — is `ui/dist/` sitting next to our executable?
     //
     //   • Distributed install (tarball / brew / docker / cargo-dist artifact)
     //       → ui/dist IS next to the binary (we packaged it that way)
@@ -54,14 +55,20 @@ async fn main() {
     //
     // This is zero-config, profile-independent, and matches the actual
     // packaging convention in the release pipeline. No flag to remember.
+    #[cfg(not(feature = "bundled-ui"))]
     let ui_dist: Option<std::path::PathBuf> = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|d| d.join("ui/dist")))
         .filter(|p| p.exists());
+    #[cfg(not(feature = "bundled-ui"))]
     let is_distributed = ui_dist.is_some();
+    #[cfg(feature = "bundled-ui")]
+    // Bundled mode: ui/dist is compiled in — this binary is always distributed.
+    let is_distributed = true;
 
     // `.env` is a developer convenience. Skip it on distributed installs so
     // a stray .env in the user's CWD can't silently override their config.
+    #[cfg(not(feature = "bundled-ui"))]
     if !is_distributed {
         if let Ok(env_content) = std::fs::read_to_string(".env") {
             let mut loaded = 0;
@@ -219,10 +226,67 @@ async fn main() {
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
-    // `ui_dist` was resolved at the top of main() via binary adjacency.
-    // `is_distributed` is true iff we found it. That single boolean controls
-    // UI serving AND browser auto-open below — no cfg(debug_assertions), no
-    // CWD fallback. The packaging convention is the signal.
+    // Bundled mode: assets are compiled into the binary via rust-embed.
+    #[cfg(feature = "bundled-ui")]
+    let app = {
+        use axum::{
+            body::Body,
+            http::{header, Response, StatusCode},
+            response::IntoResponse,
+        };
+        use rust_embed::RustEmbed;
+
+        #[derive(RustEmbed)]
+        #[folder = "ui/dist/"]
+        struct UiAssets;
+
+        async fn embedded_ui(uri: axum::http::Uri) -> impl IntoResponse {
+            let path = uri.path().trim_start_matches('/');
+
+            // Serve from embedded assets; SPA fallback to index.html for unknown paths.
+            let (file_path, cache_header) = if path.starts_with("assets/") {
+                // Vite hashes asset filenames — safe to cache immutably.
+                (path.to_string(), "public, max-age=31536000, immutable")
+            } else {
+                ("index.html".to_string(), "no-cache, no-store, must-revalidate")
+            };
+
+            match UiAssets::get(&file_path) {
+                Some(content) => {
+                    let mime = mime_guess::from_path(&file_path)
+                        .first_or_octet_stream()
+                        .to_string();
+                    Response::builder()
+                        .status(StatusCode::OK)
+                        .header(header::CONTENT_TYPE, mime)
+                        .header(header::CACHE_CONTROL, cache_header)
+                        .body(Body::from(content.data.into_owned()))
+                        .unwrap()
+                }
+                None => {
+                    // Unknown path — return index.html for SPA client-side routing.
+                    match UiAssets::get("index.html") {
+                        Some(content) => Response::builder()
+                            .status(StatusCode::OK)
+                            .header(header::CONTENT_TYPE, "text/html")
+                            .header(header::CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                            .body(Body::from(content.data.into_owned()))
+                            .unwrap(),
+                        None => Response::builder()
+                            .status(StatusCode::NOT_FOUND)
+                            .body(Body::from("UI not found"))
+                            .unwrap(),
+                    }
+                }
+            }
+        }
+
+        println!("UI served from: embedded (bundled-ui)");
+        app.fallback(embedded_ui)
+    };
+
+    // Default (disk-based) mode: serve ui/dist/ from next to the binary if present.
+    #[cfg(not(feature = "bundled-ui"))]
     let app = if let Some(dist) = ui_dist.as_ref() {
         use axum::http::header;
         use axum::response::IntoResponse;

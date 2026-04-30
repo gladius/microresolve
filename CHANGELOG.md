@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.4.1] — 2026-04-30
+
+### Changed
+
+- **Studio binary now ships with UI embedded.** The downloaded GitHub
+  Release tarball is a single executable — no sibling `ui/` directory
+  required, no `npm run dev` step. Implementation: `rust-embed` with
+  compression bakes `ui/dist/` into the binary at compile time; the
+  `server` feature now implies the new `bundled-ui` feature so building
+  the studio is `cargo build --release --features server --bin
+  microresolve-studio` (single flag). Build prerequisite from source:
+  `cd ui && npm run build` once before cargo build, so `ui/dist/` exists.
+- Crate description latency claim updated `~30μs` → `~50μs` to match
+  the v0.1.4 README.
+
+### Note
+
+- Library users (PyPI / npm / crates.io) are unaffected — `bundled-ui`
+  only activates when the `server` feature is enabled, which embedded
+  bindings never enable.
+
+---
+
 ## [0.1.4] — 2026-04-30
 
 ### Added
