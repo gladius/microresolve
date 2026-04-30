@@ -87,6 +87,29 @@ pub enum StudioEvent {
     },
 }
 
+/// Per-client tracking: one entry per authenticated API key currently
+/// hitting `/api/sync`. Keyed by the key's `name` (extracted from the
+/// `mr_<name>_<hex>` format). Open-mode (no auth keys) clients are NOT
+/// tracked — by design, "who is connected" only makes sense when each
+/// client is identifiable.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct ConnectedClient {
+    /// API key name — what the operator labelled this client when
+    /// generating the key (e.g. "alex-laptop", "ci-bot", "prod-app-1").
+    pub name: String,
+    /// Namespaces this client is currently subscribed to (last seen in
+    /// the sync request body's `local_versions` map).
+    pub namespaces: Vec<String>,
+    /// The library's tick interval, sent in the sync body. The server uses
+    /// `2 × tick_interval_secs` as the freshness window.
+    pub tick_interval_secs: u32,
+    /// Library version string (e.g. "microresolve-py/0.1.6") if the
+    /// client supplied one. Useful for "who's still on the old client?"
+    pub library_version: Option<String>,
+    /// `now_ms()` at the most recent sync request from this client.
+    pub last_seen_ms: u64,
+}
+
 pub struct ServerState {
     pub engine: MicroResolve,
     pub data_dir: Option<String>,
@@ -108,6 +131,10 @@ pub struct ServerState {
     /// API key store for connected-mode endpoints. Empty = open mode (dev/local).
     /// Persisted to ~/.config/microresolve/keys.json (NOT in data dir, NOT in git).
     pub key_store: std::sync::RwLock<crate::key_store::KeyStore>,
+    /// In-memory roster of connected library clients, keyed by API key name.
+    /// Updated on each `/api/sync` POST; lazy-GC'd on read in
+    /// `/api/connected_clients`. Volatile across server restarts.
+    pub connected_clients: RwLock<HashMap<String, ConnectedClient>>,
 }
 
 pub type AppState = Arc<ServerState>;

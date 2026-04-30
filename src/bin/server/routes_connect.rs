@@ -1,12 +1,16 @@
-//! Connected-mode endpoint: a single unified sync.
+//! Connected-mode endpoint: a single unified sync, plus a read-only
+//! roster endpoint for the Studio UI.
 //!
 //!   POST /api/sync — one round-trip per tick carrying the client's
 //!                    buffered logs + corrections + per-namespace local
 //!                    versions; server applies everything and returns
 //!                    deltas for each namespace.
+//!   GET  /api/connected_clients — list of currently-active library
+//!                    clients (keyed by API key name). Lazy-GC'd on read.
 //!
 //! Gated behind the `X-Api-Key` middleware when the server has API keys
-//! configured. Empty key set = open mode for local dev.
+//! configured. Empty key set = open mode for local dev (no per-client
+//! tracking — you'd have nothing to identify clients by).
 
 use crate::log_store::LogRecord;
 use crate::state::*;
@@ -18,7 +22,12 @@ use axum::{
 use std::collections::HashMap;
 
 pub fn routes() -> axum::Router<AppState> {
-    axum::Router::new().route("/api/sync", axum::routing::post(sync))
+    axum::Router::new()
+        .route("/api/sync", axum::routing::post(sync))
+        .route(
+            "/api/connected_clients",
+            axum::routing::get(connected_clients),
+        )
 }
 
 /// Auth check for connected-mode endpoints.
@@ -85,6 +94,15 @@ pub struct SyncBatchRequest {
     /// Buffered explicit corrections since the last tick.
     #[serde(default)]
     pub corrections: Vec<BatchCorrection>,
+    /// Library's polling interval in seconds. The server uses
+    /// `2 × tick_interval_secs` as the freshness window for connected-
+    /// client tracking. Defaults to 30 if missing.
+    #[serde(default)]
+    pub tick_interval_secs: Option<u32>,
+    /// Library version string for telemetry ("microresolve-py/0.1.6").
+    /// Surfaced in /api/connected_clients for "who's still on the old client?"
+    #[serde(default)]
+    pub library_version: Option<String>,
 }
 
 /// Unified single-round-trip sync.
@@ -99,6 +117,26 @@ pub async fn sync(
     Json(req): Json<SyncBatchRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let key_name = check_auth(&state, &headers)?;
+
+    // Track this client in the connected-clients roster (only when auth is
+    // on — open mode has no identity to attribute against).
+    if let Some(ref name) = key_name {
+        let mut subscribed: Vec<String> = req.local_versions.keys().cloned().collect();
+        subscribed.sort();
+        let entry = ConnectedClient {
+            name: name.clone(),
+            namespaces: subscribed,
+            tick_interval_secs: req.tick_interval_secs.unwrap_or(30),
+            library_version: req.library_version.clone(),
+            last_seen_ms: now_ms(),
+        };
+        state
+            .connected_clients
+            .write()
+            .unwrap()
+            .insert(name.clone(), entry);
+    }
+
     let source = match key_name {
         Some(name) => format!("connected:{}", name),
         None => "connected".to_string(),
@@ -172,4 +210,44 @@ pub async fn sync(
         "logs_accepted": logs_accepted,
         "corrections_applied": corrections_applied,
     })))
+}
+
+// ─── Connected-clients roster (read-only) ────────────────────────────────────
+
+/// `GET /api/connected_clients` — current set of library clients that have
+/// hit `/api/sync` recently. Lazy-GC'd on read: any entry older than
+/// `2 × its tick_interval_secs` is dropped before responding.
+///
+/// Auth-on mode only: open mode (no API keys) returns an empty list because
+/// there's no identity to attribute connections to.
+pub async fn connected_clients(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let now = now_ms();
+    let mut clients = state.connected_clients.write().unwrap();
+    clients.retain(|_, c| {
+        let stale_after_ms = (c.tick_interval_secs as u64) * 2 * 1000;
+        now.saturating_sub(c.last_seen_ms) <= stale_after_ms
+    });
+
+    let items: Vec<serde_json::Value> = clients
+        .values()
+        .map(|c| {
+            let age_ms = now.saturating_sub(c.last_seen_ms);
+            let stale_after_ms = (c.tick_interval_secs as u64) * 2 * 1000;
+            let expires_in_ms = stale_after_ms.saturating_sub(age_ms);
+            serde_json::json!({
+                "name": c.name,
+                "namespaces": c.namespaces,
+                "tick_interval_secs": c.tick_interval_secs,
+                "library_version": c.library_version,
+                "last_seen_ms": c.last_seen_ms,
+                "age_ms": age_ms,
+                "expires_in_ms": expires_in_ms,
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({
+        "count": items.len(),
+        "clients": items,
+    }))
 }

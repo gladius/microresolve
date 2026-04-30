@@ -15,6 +15,16 @@ type NavItem = {
   badge?: number;
 };
 
+type ConnectedClient = {
+  name: string;
+  namespaces: string[];
+  tick_interval_secs: number;
+  library_version: string | null;
+  last_seen_ms: number;
+  age_ms: number;
+  expires_in_ms: number;
+};
+
 export default function Layout() {
   const { settings, setSelectedNamespaceId, setSelectedDomain } = useAppStore();
   const navigate = useNavigate();
@@ -27,8 +37,28 @@ export default function Layout() {
   const [showBackupMenu, setShowBackupMenu] = useState(false);
   const [restoreStatus,  setRestoreStatus]  = useState<string | null>(null);
   const [appVersion,     setAppVersion]     = useState<string | null>(null);
+  const [connectedClients, setConnectedClients] = useState<ConnectedClient[]>([]);
+  const [showClientsPanel, setShowClientsPanel] = useState(false);
   const nsMenuRef     = useRef<HTMLDivElement>(null);
   const backupMenuRef = useRef<HTMLDivElement>(null);
+  const clientsPanelRef = useRef<HTMLDivElement>(null);
+
+  // Poll the connected-clients roster every 5s. Lazy-GC happens server-side
+  // on each read, so the count is always fresh — no client-side cleanup.
+  useEffect(() => {
+    let alive = true;
+    const fetchClients = async () => {
+      try {
+        const r = await fetch('/api/connected_clients');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (alive) setConnectedClients(d.clients ?? []);
+      } catch { /* noop */ }
+    };
+    fetchClients();
+    const t = setInterval(fetchClients, 5000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
 
   useEffect(() => {
     api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
@@ -328,10 +358,48 @@ export default function Layout() {
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer: version + connected-clients pill (auth-on only — count
+            is empty in open mode by design, the pill stays hidden). */}
         {!collapsed && (
-          <div className="px-3 py-2 border-t border-zinc-800/60 text-[10px] text-zinc-600">
-            {appVersion ? `v${appVersion}` : '…'}
+          <div className="px-3 py-2 border-t border-zinc-800/60 text-[10px] text-zinc-600 flex items-center gap-2 relative" ref={clientsPanelRef}>
+            <span>{appVersion ? `v${appVersion}` : '…'}</span>
+            <button
+              onClick={() => setShowClientsPanel(s => !s)}
+              className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-zinc-800 transition-colors"
+              title={connectedClients.length === 0 ? 'No connected libraries (configure API keys to track)' : `${connectedClients.length} library client(s) connected`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${connectedClients.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+              <span className="text-zinc-400">{connectedClients.length} connected</span>
+            </button>
+            {showClientsPanel && (
+              <div className="absolute left-2 right-2 bottom-full mb-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 max-h-64 overflow-auto">
+                {connectedClients.length === 0 ? (
+                  <div className="px-3 py-3 text-zinc-500">
+                    No library clients connected.
+                    <div className="text-zinc-600 mt-1">
+                      Auth keys must be configured for clients to be tracked.
+                    </div>
+                  </div>
+                ) : (
+                  <ul>
+                    {connectedClients.map(c => (
+                      <li key={c.name} className="px-3 py-2 border-b border-zinc-800 last:border-b-0">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-zinc-200">{c.name}</span>
+                          <span className="text-zinc-500">{Math.max(0, Math.round(c.expires_in_ms / 1000))}s</span>
+                        </div>
+                        {c.library_version && (
+                          <div className="text-zinc-500 mt-0.5">{c.library_version}</div>
+                        )}
+                        {c.namespaces.length > 0 && (
+                          <div className="text-zinc-500 mt-0.5">subs: {c.namespaces.join(', ')}</div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         )}
       </aside>

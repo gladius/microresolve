@@ -11,11 +11,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+<<<<<<< HEAD
 - **Empty `subscribe` list now auto-subscribes to all namespaces** the
   server exposes. Pass `subscribe=[]` (Python: omit / `None`; Node:
   omit / `[]`) and the library queries `GET /api/namespaces` at connect
   time, then pulls each one. Explicit lists still work as an allow-list
   for multi-tenant cases. Zero-config for solo / single-team setups.
+=======
+- **Studio shows connected library clients.** A new pill in the sidebar
+  footer ("N connected" with a live-pulse indicator) reports how many
+  library instances have hit `/api/sync` recently. Click the pill to
+  see the per-client list — name, library version, subscribed
+  namespaces, and seconds-until-stale.
+- **`GET /api/connected_clients`** — read-only roster endpoint backing
+  the UI. Lazy GC on read: any entry older than `2 × tick_interval_secs`
+  is dropped before responding.
+- **`POST /api/sync` body fields** (optional, advisory):
+  `tick_interval_secs` lets the server use each client's own freshness
+  window; `library_version` (e.g. `microresolve-py/0.1.6`) surfaces in
+  the connected-clients panel for "who's still on the old client?"
+  triage.
+
+### Changed
+
+- **API key format now embeds the label**: `mr_<name>_<64 hex chars>`.
+  The server extracts the name from the key string itself — no separate
+  index lookup needed for attribution. Old opaque keys (`mr_<hex>`
+  without the embedded name) are no longer accepted; v0.1 is pre-stable
+  and operators must regenerate keys via the Studio UI / `/api/auth/keys`.
+- Auth-key names must be slug-safe: `[a-z0-9][a-z0-9-]{0,30}` (no
+  underscore — that's the field separator).
+
+### Note
+
+- Connected-clients tracking is **only active when API keys are
+  configured**. In open mode (no keys), the panel is empty by design —
+  there's no identity to attribute connections to.
+>>>>>>> 9622fee (feat(connect): show connected library clients in Studio sidebar)
 
 ---
 

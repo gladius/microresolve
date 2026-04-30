@@ -200,6 +200,7 @@ async fn main() {
         event_tx,
         worker_notify: worker_notify.clone(),
         key_store: std::sync::RwLock::new(key_store),
+        connected_clients: RwLock::new(HashMap::new()),
     });
 
     // Spawn the background auto-learn worker
