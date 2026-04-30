@@ -358,41 +358,47 @@ export default function Layout() {
           )}
         </div>
 
-        {/* Footer: version + connected-clients pill (auth-on only — count
-            is empty in open mode by design, the pill stays hidden). */}
+        {/* Footer: connected-clients badge + app version. Badge goes
+            green & live-pulsing when one or more library clients are
+            actively syncing; muted gray otherwise. Click to expand. */}
         {!collapsed && (
-          <div className="px-3 py-2 border-t border-zinc-800/60 text-[10px] text-zinc-600 flex items-center gap-2 relative" ref={clientsPanelRef}>
-            <span>{appVersion ? `v${appVersion}` : '…'}</span>
+          <div className="px-3 py-2 border-t border-zinc-800/60 flex items-center gap-2 relative" ref={clientsPanelRef}>
             <button
               onClick={() => setShowClientsPanel(s => !s)}
-              className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-zinc-800 transition-colors"
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors border ${
+                connectedClients.length > 0
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25'
+                  : 'bg-zinc-800/40 text-zinc-500 border-zinc-700/60 hover:bg-zinc-800'
+              }`}
               title={connectedClients.length === 0 ? 'No connected libraries (configure API keys to track)' : `${connectedClients.length} library client(s) connected`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${connectedClients.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
-              <span className="text-zinc-400">{connectedClients.length} connected</span>
+              <span className={`w-2 h-2 rounded-full ${connectedClients.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+              <span>{connectedClients.length} {connectedClients.length === 1 ? 'connected' : 'connected'}</span>
             </button>
+            <span className="ml-auto text-[10px] text-zinc-600">{appVersion ? `v${appVersion}` : '…'}</span>
             {showClientsPanel && (
-              <div className="absolute left-2 right-2 bottom-full mb-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 max-h-64 overflow-auto">
+              <div className="absolute left-2 right-2 bottom-full mb-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 max-h-64 overflow-auto text-xs">
                 {connectedClients.length === 0 ? (
-                  <div className="px-3 py-3 text-zinc-500">
-                    No library clients connected.
-                    <div className="text-zinc-600 mt-1">
-                      Auth keys must be configured for clients to be tracked.
+                  <div className="px-3 py-3 text-zinc-400">
+                    <div className="font-medium">No library clients connected</div>
+                    <div className="text-zinc-500 mt-1 leading-relaxed">
+                      Configure auth keys (Manage → Auth Keys) for clients
+                      to be tracked. Open mode shows nothing here by design.
                     </div>
                   </div>
                 ) : (
                   <ul>
                     {connectedClients.map(c => (
                       <li key={c.name} className="px-3 py-2 border-b border-zinc-800 last:border-b-0">
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-zinc-200">{c.name}</span>
-                          <span className="text-zinc-500">{Math.max(0, Math.round(c.expires_in_ms / 1000))}s</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-emerald-300 font-medium truncate">{c.name}</span>
+                          <span className="text-zinc-500 shrink-0">{Math.max(0, Math.round(c.expires_in_ms / 1000))}s</span>
                         </div>
                         {c.library_version && (
-                          <div className="text-zinc-500 mt-0.5">{c.library_version}</div>
+                          <div className="text-zinc-500 mt-1 font-mono">{c.library_version}</div>
                         )}
                         {c.namespaces.length > 0 && (
-                          <div className="text-zinc-500 mt-0.5">subs: {c.namespaces.join(', ')}</div>
+                          <div className="text-zinc-500 mt-0.5">subs: <span className="text-zinc-400">{c.namespaces.join(', ')}</span></div>
                         )}
                       </li>
                     ))}
