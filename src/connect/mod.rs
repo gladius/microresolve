@@ -32,12 +32,33 @@ pub(crate) struct LogEntry {
     pub router_version: u64,
 }
 
+/// A correction buffered for the next sync tick.
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct PendingCorrection {
+    pub namespace: String,
+    pub query: String,
+    pub wrong_intent: String,
+    pub right_intent: String,
+}
+
+/// Per-namespace sync result from `POST /api/sync/batch`.
 #[derive(Debug, serde::Deserialize)]
-struct SyncResponse {
+struct BatchNsResult {
     up_to_date: bool,
     version: u64,
     #[serde(default)]
     export: Option<String>,
+}
+
+/// Top-level response from `POST /api/sync`.
+#[derive(Debug, serde::Deserialize)]
+struct BatchSyncResponse {
+    #[serde(default)]
+    namespaces: HashMap<String, BatchNsResult>,
+    #[allow(dead_code)]
+    logs_accepted: Option<usize>,
+    #[allow(dead_code)]
+    corrections_applied: Option<usize>,
 }
 
 /// Shared state between the Engine and its background sync thread.
@@ -47,6 +68,9 @@ struct SyncResponse {
 pub(crate) struct ConnectState {
     pub server: ServerConfig,
     pub log_buf: Arc<Mutex<Vec<LogEntry>>>,
+    /// Corrections buffered for the next batch sync tick. Each correction is
+    /// applied locally immediately; the server learns about them on the next tick.
+    pub correction_buf: Arc<Mutex<Vec<PendingCorrection>>>,
     pub versions: Arc<RwLock<HashMap<String, u64>>>,
     pub http: reqwest::blocking::Client,
 }
@@ -60,16 +84,25 @@ impl ConnectState {
         Ok(Self {
             server,
             log_buf: Arc::new(Mutex::new(Vec::new())),
+            correction_buf: Arc::new(Mutex::new(Vec::new())),
             versions: Arc::new(RwLock::new(HashMap::new())),
             http,
         })
     }
 
-    /// Pull a single namespace from the server. Returns `(resolver, version)`
-    /// on success, or `None` if the server has no data for this namespace yet.
+    /// Pull a single namespace from the server via the unified sync endpoint.
+    /// Returns `(resolver, version)` on success, or `None` if the server has
+    /// no data for this namespace yet.
     pub fn pull(&self, app_id: &str) -> Result<Option<(Resolver, u64)>, crate::Error> {
-        let url = format!("{}/api/sync?version=0", self.server.url);
-        let mut req = self.http.get(&url).header("X-Namespace-ID", app_id);
+        let url = format!("{}/api/sync", self.server.url);
+        let mut versions = HashMap::new();
+        versions.insert(app_id.to_string(), 0u64);
+        let body = serde_json::json!({
+            "local_versions": versions,
+            "logs": Vec::<LogEntry>::new(),
+            "corrections": Vec::<PendingCorrection>::new(),
+        });
+        let mut req = self.http.post(&url).json(&body);
         if let Some(ref key) = self.server.api_key {
             req = req.header("X-Api-Key", key);
         }
@@ -83,26 +116,36 @@ impl ConnectState {
                 resp.status()
             )));
         }
-        let sync: SyncResponse = resp
+        let parsed: BatchSyncResponse = resp
             .json()
             .map_err(|e| crate::Error::Connect(e.to_string()))?;
-        match sync.export {
-            Some(json) => {
-                let r = Resolver::import_json(&json)?;
-                self.versions
-                    .write()
-                    .unwrap()
-                    .insert(app_id.to_string(), sync.version);
-                Ok(Some((r, sync.version)))
+        match parsed.namespaces.get(app_id) {
+            Some(ns) if !ns.up_to_date => {
+                if let Some(json) = ns.export.as_ref() {
+                    let r = Resolver::import_json(json)?;
+                    self.versions
+                        .write()
+                        .unwrap()
+                        .insert(app_id.to_string(), ns.version);
+                    Ok(Some((r, ns.version)))
+                } else {
+                    self.versions.write().unwrap().insert(app_id.to_string(), 0);
+                    Ok(None)
+                }
             }
-            None => {
+            _ => {
                 self.versions.write().unwrap().insert(app_id.to_string(), 0);
                 Ok(None)
             }
         }
     }
 
-    /// Push an explicit correction to the server.
+    /// Buffer a correction for the next batch sync tick.
+    ///
+    /// The correction is applied to the local resolver by the caller before
+    /// this method is invoked. The server will learn about it on the next tick
+    /// via `POST /api/sync/batch`. This avoids the stampede risk of N clients
+    /// all firing synchronous HTTP pushes the moment a user clicks "correct".
     pub fn push_correct(
         &self,
         app_id: &str,
@@ -110,29 +153,13 @@ impl ConnectState {
         wrong_intent: &str,
         right_intent: &str,
     ) -> Result<(), crate::Error> {
-        let url = format!("{}/api/correct", self.server.url);
-        let body = serde_json::json!({
-            "query": query,
-            "wrong_intent": wrong_intent,
-            "right_intent": right_intent,
+        let mut buf = self.correction_buf.lock().unwrap();
+        buf.push(PendingCorrection {
+            namespace: app_id.to_string(),
+            query: query.to_string(),
+            wrong_intent: wrong_intent.to_string(),
+            right_intent: right_intent.to_string(),
         });
-        let mut req = self
-            .http
-            .post(&url)
-            .header("X-Namespace-ID", app_id)
-            .json(&body);
-        if let Some(ref key) = self.server.api_key {
-            req = req.header("X-Api-Key", key);
-        }
-        let resp = req
-            .send()
-            .map_err(|e| crate::Error::Connect(format!("server push: {}", e)))?;
-        if !resp.status().is_success() {
-            return Err(crate::Error::Connect(format!(
-                "server returned {}",
-                resp.status()
-            )));
-        }
         Ok(())
     }
 
@@ -154,8 +181,8 @@ impl ConnectState {
     }
 }
 
-/// Background tick: flush logs, then check each subscribed namespace for
-/// updates and hot-swap.
+/// Background tick: send a single `POST /api/sync` carrying buffered
+/// logs + corrections + local version map, then apply any returned exports.
 ///
 /// Holds an `Arc<ConnectState>` and a weak handle into the MicroResolve's namespace
 /// map. Runs forever; the only termination signal is the MicroResolve instance being dropped
@@ -167,89 +194,94 @@ where
     let tick = Duration::from_secs(state.server.tick_interval_secs.max(1));
     loop {
         std::thread::sleep(tick);
-        flush_logs(&state);
-        // Iterate a snapshot to avoid holding the lock during HTTP calls.
-        let app_ids: Vec<String> = state.versions.read().unwrap().keys().cloned().collect();
-        for app_id in app_ids {
-            let local_v = state.version_of(&app_id);
-            match check_and_apply(&state, &app_id, local_v) {
-                Ok(Some((resolver, version))) => {
-                    apply_pull(&app_id, resolver, version);
-                    eprintln!("[microresolve-connect] reloaded {} → v{}", app_id, version);
+        match batch_sync(&state) {
+            Ok(resp) => {
+                for (app_id, ns_result) in resp.namespaces {
+                    if !ns_result.up_to_date {
+                        if let Some(json) = ns_result.export {
+                            match Resolver::import_json(&json) {
+                                Ok(resolver) => {
+                                    state
+                                        .versions
+                                        .write()
+                                        .unwrap()
+                                        .insert(app_id.clone(), ns_result.version);
+                                    apply_pull(&app_id, resolver, ns_result.version);
+                                    eprintln!(
+                                        "[microresolve-connect] reloaded {} → v{}",
+                                        app_id, ns_result.version
+                                    );
+                                }
+                                Err(e) => eprintln!(
+                                    "[microresolve-connect] import error {}: {}",
+                                    app_id, e
+                                ),
+                            }
+                        }
+                    }
                 }
-                Ok(None) => {}
-                Err(e) => eprintln!("[microresolve-connect] sync error {}: {}", app_id, e),
             }
+            Err(e) => eprintln!("[microresolve-connect] batch sync error: {}", e),
         }
     }
 }
 
-fn check_and_apply(
-    state: &ConnectState,
-    app_id: &str,
-    local_version: u64,
-) -> Result<Option<(Resolver, u64)>, crate::Error> {
-    let url = format!("{}/api/sync?version={}", state.server.url, local_version);
-    let mut req = state.http.get(&url).header("X-Namespace-ID", app_id);
-    if let Some(ref key) = state.server.api_key {
-        req = req.header("X-Api-Key", key);
-    }
-    let resp = req
-        .send()
-        .map_err(|e| crate::Error::Connect(e.to_string()))?;
-    if !resp.status().is_success() {
-        return Err(crate::Error::Connect(format!("HTTP {}", resp.status())));
-    }
-    let sync: SyncResponse = resp
-        .json()
-        .map_err(|e| crate::Error::Connect(e.to_string()))?;
-    if sync.up_to_date {
-        return Ok(None);
-    }
-    let json = sync
-        .export
-        .ok_or_else(|| crate::Error::Connect("no export in response".into()))?;
-    let resolver = Resolver::import_json(&json)?;
-    Ok(Some((resolver, sync.version)))
-}
-
-fn flush_logs(state: &ConnectState) {
-    let entries: Vec<LogEntry> = {
+/// Fire `POST /api/sync/batch`: drain log + correction buffers, ship them
+/// together with local version map, return parsed response.
+/// On failure the buffers are restored (logs re-prepended, corrections re-queued).
+fn batch_sync(state: &ConnectState) -> Result<BatchSyncResponse, crate::Error> {
+    // Drain buffers under lock, then release before the HTTP call.
+    let logs: Vec<LogEntry> = {
         let mut buf = state.log_buf.lock().unwrap();
         std::mem::take(&mut *buf)
     };
-    if entries.is_empty() {
-        return;
+    let corrections: Vec<PendingCorrection> = {
+        let mut buf = state.correction_buf.lock().unwrap();
+        std::mem::take(&mut *buf)
+    };
+    let local_versions: HashMap<String, u64> = state.versions.read().unwrap().clone();
+
+    let url = format!("{}/api/sync", state.server.url);
+    let body = serde_json::json!({
+        "local_versions": local_versions,
+        "logs": logs,
+        "corrections": corrections,
+    });
+    let mut req = state.http.post(&url).json(&body);
+    if let Some(ref key) = state.server.api_key {
+        req = req.header("X-Api-Key", key);
+    }
+    let resp = req.send().map_err(|e| {
+        // Re-queue on send failure.
+        let mut log_buf = state.log_buf.lock().unwrap();
+        let mut c_buf = state.correction_buf.lock().unwrap();
+        let mut restored = logs.clone();
+        restored.extend(log_buf.drain(..));
+        restored.truncate(state.server.log_buffer_max);
+        *log_buf = restored;
+        let mut rc = corrections.clone();
+        rc.extend(c_buf.drain(..));
+        *c_buf = rc;
+        crate::Error::Connect(format!("batch sync send: {}", e))
+    })?;
+
+    if !resp.status().is_success() {
+        // Re-queue on HTTP error too.
+        let status = resp.status();
+        let mut log_buf = state.log_buf.lock().unwrap();
+        let mut c_buf = state.correction_buf.lock().unwrap();
+        let mut restored = logs;
+        restored.extend(log_buf.drain(..));
+        restored.truncate(state.server.log_buffer_max);
+        *log_buf = restored;
+        let mut rc = corrections;
+        rc.extend(c_buf.drain(..));
+        *c_buf = rc;
+        return Err(crate::Error::Connect(format!("batch sync HTTP {}", status)));
     }
 
-    let mut by_app: HashMap<String, Vec<&LogEntry>> = HashMap::new();
-    for e in &entries {
-        by_app.entry(e.app_id.clone()).or_default().push(e);
-    }
-
-    let mut failed: Vec<LogEntry> = Vec::new();
-    for (app_id, batch) in by_app {
-        let url = format!("{}/api/ingest", state.server.url);
-        let mut req = state
-            .http
-            .post(&url)
-            .header("X-Namespace-ID", &app_id)
-            .json(&batch);
-        if let Some(ref key) = state.server.api_key {
-            req = req.header("X-Api-Key", key);
-        }
-        if let Err(e) = req.send() {
-            eprintln!("[microresolve-connect] log flush {}: {}", app_id, e);
-            failed.extend(batch.into_iter().cloned());
-        }
-    }
-
-    if !failed.is_empty() {
-        let mut buf = state.log_buf.lock().unwrap();
-        failed.extend(buf.drain(..));
-        failed.truncate(state.server.log_buffer_max);
-        *buf = failed;
-    }
+    resp.json()
+        .map_err(|e| crate::Error::Connect(format!("batch sync parse: {}", e)))
 }
 
 pub(crate) fn now_ms() -> u64 {

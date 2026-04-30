@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.5] — 2026-04-30
+
+### Breaking
+
+- **Connected-mode protocol unified.** The three v0.1.4 endpoints
+  (`GET /api/sync`, `POST /api/ingest`, `POST /api/correct`) are
+  removed and replaced by a single `POST /api/sync` that carries the
+  library's buffered logs + corrections + per-namespace local versions
+  in one request, and returns deltas in one response. v0.1.4 clients
+  cannot talk to v0.1.5 servers; pin matching versions for now.
+- `MicroResolve.correct(...)` no longer makes an immediate HTTP call.
+  The correction is applied locally on the spot and shipped to the
+  server on the next sync tick. The server reconciles within
+  `tick_interval_secs`. Eliminates the per-correction stampede risk
+  at scale and gives clean eventual-consistency semantics.
+- v0.1 is pre-stable; expect more breaking protocol changes before 1.0.
+
+---
+
 ## [0.1.4.1] — 2026-04-30
 
 ### Changed

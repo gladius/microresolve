@@ -390,22 +390,28 @@ impl<'e> NamespaceHandle<'e> {
         matches
     }
 
-    /// Move a phrase from `wrong_intent` to `right_intent` and reinforce.
-    /// In connected mode, the correction is also pushed to the server so
-    /// other connected libraries pick it up on their next sync poll.
+    /// Move a phrase from `wrong_intent` to `right_intent`.
+    ///
+    /// **Connected mode:** the correction is sent to the server only — the
+    /// library does NOT mutate its local copy. The server is the single
+    /// source of truth; the next sync tick pulls the updated namespace and
+    /// the corrected behaviour appears in `resolve()` then. Until then,
+    /// `resolve()` returns the pre-correction answer.
+    ///
+    /// **Standalone mode** (no `server_url`, in-memory or persistent): the
+    /// library IS the source of truth, so the correction is applied locally.
     pub fn correct(
         &self,
         query: &str,
         wrong_intent: &str,
         right_intent: &str,
     ) -> Result<(), Error> {
-        self.engine
-            .with_resolver_mut(&self.id, |r| r.correct(query, wrong_intent, right_intent))?;
         #[cfg(feature = "connect")]
         if let Some(ref state) = self.engine.connect {
-            state.push_correct(&self.id, query, wrong_intent, right_intent)?;
+            return state.push_correct(&self.id, query, wrong_intent, right_intent);
         }
-        Ok(())
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.correct(query, wrong_intent, right_intent))
     }
 
     #[cfg(feature = "connect")]

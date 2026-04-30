@@ -124,6 +124,8 @@ impl Namespace {
     }
 
     /// Correct a mis-classification: move query from `wrong_intent` to `right_intent`.
+    /// Applied locally immediately; in connected mode, buffered and shipped to
+    /// the server on the next sync tick.
     ///
     /// Raises `ValueError` if `right_intent` does not exist.
     fn correct(&self, query: &str, wrong_intent: &str, right_intent: &str) -> PyResult<()> {

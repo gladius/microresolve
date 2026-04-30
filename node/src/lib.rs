@@ -196,6 +196,7 @@ impl Namespace {
     }
 
     /// Correct a mis-classification: nudge the engine from `wrong` toward `right`.
+    /// Applied locally immediately; in connected mode buffered for the next sync tick.
     #[napi]
     pub fn correct(&self, query: String, wrong: String, right: String) -> Result<()> {
         let ns = self.engine.namespace(&self.id);
