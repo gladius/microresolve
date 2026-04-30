@@ -264,23 +264,39 @@ jobs:
       - name: install deps
         working-directory: node
         run: npm ci || npm install
+      - name: check if already published
+        id: check
+        working-directory: node
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "microresolve@${VERSION}" version 2>/dev/null | grep -q "${VERSION}"; then
+            echo "microresolve ${VERSION} already on npm — skipping publish"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/download-artifact@v4
+        if: steps.check.outputs.skip != 'true'
         with:
           pattern: node-*
           path: node/artifacts
           merge-multiple: true
       - name: create npm platform dirs
+        if: steps.check.outputs.skip != 'true'
         working-directory: node
         run: npx napi create-npm-dirs --npm-dir npm
       - name: distribute artifacts into npm sub-packages
+        if: steps.check.outputs.skip != 'true'
         working-directory: node
         run: npx napi artifacts --output-dir artifacts --npm-dir npm
       - name: prepublish (write optionalDependencies + copy binaries)
+        if: steps.check.outputs.skip != 'true'
         working-directory: node
         run: npx napi prepublish --no-gh-release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: publish main package
+        if: steps.check.outputs.skip != 'true'
         working-directory: node
         run: npm publish --access public
         env:
