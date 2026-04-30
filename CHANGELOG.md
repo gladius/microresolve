@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Empty `subscribe` list now auto-subscribes to all namespaces** the
+  server exposes. Pass `subscribe=[]` (Python: omit / `None`; Node:
+  omit / `[]`) and the library queries `GET /api/namespaces` at connect
+  time, then pulls each one. Explicit lists still work as an allow-list
+  for multi-tenant cases. Zero-config for solo / single-team setups.
+
+---
+
 ## [0.1.5] — 2026-04-30
 
 ### Breaking

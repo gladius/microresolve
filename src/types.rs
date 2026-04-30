@@ -61,6 +61,11 @@ pub struct ServerConfig {
     /// Namespace IDs to pull from the server on engine startup and keep in
     /// sync via the background tick. Each entry maps 1:1 to a namespace on
     /// the server, accessible locally as `engine.namespace(id)`.
+    ///
+    /// **Empty Vec = auto-subscribe to all namespaces visible on the server.**
+    /// Useful for solo-dev / single-team setups; pass an explicit list when
+    /// the server hosts namespaces for multiple tenants and you only want
+    /// a subset.
     pub subscribe: Vec<String>,
     /// Polling interval for the background sync tick. Defaults to 30s.
     pub tick_interval_secs: u64,

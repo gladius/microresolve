@@ -90,6 +90,37 @@ impl ConnectState {
         })
     }
 
+    /// Fetch the full list of namespace IDs visible on the server.
+    /// Used when `ServerConfig::subscribe` is empty: the library auto-pulls
+    /// every namespace the server exposes.
+    pub fn list_remote_namespaces(&self) -> Result<Vec<String>, crate::Error> {
+        let url = format!("{}/api/namespaces", self.server.url);
+        let mut req = self.http.get(&url);
+        if let Some(ref key) = self.server.api_key {
+            req = req.header("X-Api-Key", key);
+        }
+        let resp = req
+            .send()
+            .map_err(|e| crate::Error::Connect(format!("list namespaces: {}", e)))?;
+        if !resp.status().is_success() {
+            return Err(crate::Error::Connect(format!(
+                "list namespaces: HTTP {}",
+                resp.status()
+            )));
+        }
+        let arr: Vec<serde_json::Value> = resp
+            .json()
+            .map_err(|e| crate::Error::Connect(format!("list namespaces parse: {}", e)))?;
+        Ok(arr
+            .iter()
+            .filter_map(|v| {
+                v.get("id")
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string())
+            })
+            .collect())
+    }
+
     /// Pull a single namespace from the server via the unified sync endpoint.
     /// Returns `(resolver, version)` on success, or `None` if the server has
     /// no data for this namespace yet.

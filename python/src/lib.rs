@@ -237,7 +237,7 @@ impl Namespace {
 ///   engine = MicroResolve(
 ///       server_url="http://localhost:3001",
 ///       api_key="mr_xxx",           # optional
-///       subscribe=["security"],     # namespaces to sync
+///       subscribe=["security"],     # namespaces to sync (omit / pass None to auto-subscribe to all)
 ///       tick_interval_secs=30,
 ///   )
 #[pyclass]
