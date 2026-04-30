@@ -15,7 +15,7 @@ pub struct TestServer {
 }
 
 impl TestServer {
-    /// Spawn a fresh `./target/release/server` on a random port with a clean
+    /// Spawn a fresh `./target/release/microresolve-studio` on a random port with a clean
     /// tmp data dir. Blocks until the server is ready (max 10s).
     pub fn spawn() -> Self {
         let port = pick_port();
@@ -25,10 +25,10 @@ impl TestServer {
         let _ = std::fs::remove_dir_all(&data_dir);
 
         // Locate the server binary. Prefer release build (faster startup).
-        let bin = if std::path::Path::new("./target/release/server").exists() {
-            "./target/release/server"
+        let bin = if std::path::Path::new("./target/release/microresolve-studio").exists() {
+            "./target/release/microresolve-studio"
         } else {
-            "./target/debug/server"
+            "./target/debug/microresolve-studio"
         };
 
         let child = Command::new(bin)

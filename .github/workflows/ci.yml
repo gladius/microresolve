@@ -40,14 +40,14 @@ jobs:
         run: cargo test --lib
 
       - name: build server binary
-        run: cargo build --release --bin server --features server
+        run: cargo build --release --bin microresolve-studio --features server
 
       - name: HTTP integration tests (smoke + full E2E + auth)
         run: cargo test --release --test http_smoke --test http_full_e2e
 
       - name: connected example (live-sync loop)
         run: |
-          ./target/release/server --port 3001 --no-open --data /tmp/mr_ci > /tmp/server.log 2>&1 &
+          ./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_ci > /tmp/server.log 2>&1 &
           SERVER_PID=$!
           sleep 2
           cargo run --release --features connect --example connected

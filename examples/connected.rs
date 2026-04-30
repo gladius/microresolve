@@ -10,7 +10,7 @@
 //!
 //! Prerequisites:
 //!   $ cargo build --release --features server
-//!   $ ./target/release/server --port 3001 --no-open &
+//!   $ ./target/release/microresolve-studio --port 3001 --no-open &
 //!
 //! Run:
 //!   $ cargo run --release --example connected --features connect

@@ -2,7 +2,7 @@
 classify locally, push a correction back.
 
 Start the server first:
-  ../target/release/server --port 3001 --no-open --data /tmp/mr_server_data &
+  ../target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_server_data &
 
 Then run:
   python examples/connected.py
@@ -59,7 +59,7 @@ def main() -> int:
         http_setup()
     except Exception as exc:
         print(f"  ✗ server unreachable: {exc}")
-        print(f"  Start the server: ../target/release/server --port {SERVER_URL.rsplit(':', 1)[-1]} --no-open")
+        print(f"  Start the server: ../target/release/microresolve-studio --port {SERVER_URL.rsplit(':', 1)[-1]} --no-open")
         return 1
     print(f"  ✓ namespace '{NS}' seeded with 3 intents")
 

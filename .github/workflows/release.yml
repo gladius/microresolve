@@ -199,38 +199,38 @@ jobs:
           CC_x86_64_unknown_linux_musl: musl-gcc
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-        run: cargo build --release --features server --bin server --target ${{ matrix.target }}
+        run: cargo build --release --features server --bin microresolve-studio --target ${{ matrix.target }}
 
       - name: strip binary
         if: matrix.strip != ''
-        run: ${{ matrix.strip }} target/${{ matrix.target }}/release/server
+        run: ${{ matrix.strip }} target/${{ matrix.target }}/release/microresolve-studio
 
       - name: package (tar.gz)
         if: matrix.archive == 'tar.gz'
         run: |
           mkdir _pkg
-          cp target/${{ matrix.target }}/release/server _pkg/microresolve-server
+          cp target/${{ matrix.target }}/release/microresolve-studio _pkg/microresolve-studio
           cp LICENSE-MIT LICENSE-APACHE README.md _pkg/
-          tar -czf microresolve-server-${{ matrix.target }}.tar.gz -C _pkg .
+          tar -czf microresolve-studio-${{ matrix.target }}.tar.gz -C _pkg .
 
       - name: package (zip)
         if: matrix.archive == 'zip'
         shell: pwsh
         run: |
-          Copy-Item "target\${{ matrix.target }}\release\server.exe" "microresolve-server.exe"
-          $files = @("microresolve-server.exe", "LICENSE-MIT", "LICENSE-APACHE", "README.md")
-          Compress-Archive -Path $files -DestinationPath "microresolve-server-${{ matrix.target }}.zip"
+          Copy-Item "target\${{ matrix.target }}\release\microresolve-studio.exe" "microresolve-studio.exe"
+          $files = @("microresolve-studio.exe", "LICENSE-MIT", "LICENSE-APACHE", "README.md")
+          Compress-Archive -Path $files -DestinationPath "microresolve-studio-${{ matrix.target }}.zip"
 
       - name: attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
-            target/${{ matrix.target }}/release/server${{ matrix.archive == 'zip' && '.exe' || '' }}
+            target/${{ matrix.target }}/release/microresolve-studio${{ matrix.archive == 'zip' && '.exe' || '' }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: server-${{ matrix.target }}
-          path: microresolve-server-${{ matrix.target }}.${{ matrix.archive }}
+          path: microresolve-studio-${{ matrix.target }}.${{ matrix.archive }}
 
   # ── Stage 3: publish (gated on builds) ──────────────────────────────────────
   publish-pypi:
