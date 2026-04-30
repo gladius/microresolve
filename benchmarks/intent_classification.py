@@ -128,7 +128,7 @@ def run_massive():
 
 def main():
     if not check_server():
-        print("Start the MicroResolve server first: cargo run --release --bin server --features server -- --data ./data")
+        print("Start the MicroResolve server first: cargo run --release --bin microresolve-studio --features server -- --data ./data")
         sys.exit(1)
 
     os.makedirs(RESULTS_DIR, exist_ok=True)

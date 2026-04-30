@@ -128,7 +128,7 @@ HTTP server (with the optional Studio UI):
 
 ```bash
 cp .env.example .env                        # set LLM_API_KEY
-cargo run --release --bin server --features server -- --data ./data
+cargo run --release --bin microresolve-studio --features server -- --data ./data
 cd ui && npm install && npm run dev         # http://localhost:3000
 ```
 

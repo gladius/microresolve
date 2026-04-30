@@ -32,7 +32,7 @@ cd microresolve
 cargo test --all-features
 
 # Build the HTTP server
-cargo build --release --bin server --features server
+cargo build --release --bin microresolve-studio --features server
 
 # Build + install the Python bindings locally
 cd python

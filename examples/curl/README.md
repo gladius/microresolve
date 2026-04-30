@@ -4,7 +4,7 @@
 
 ```bash
 # Start the server (from project root)
-cargo run --release --bin server --features server -- --data ./data
+cargo run --release --bin microresolve-studio --features server -- --data ./data
 ```
 
 ## Examples
