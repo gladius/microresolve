@@ -140,6 +140,91 @@ jobs:
           name: node-${{ matrix.target }}
           path: node/*.node
 
+  build-server-binaries:
+    name: Build server binary (${{ matrix.target }})
+    needs: preflight
+    runs-on: ${{ matrix.os }}
+    permissions:
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            archive: tar.gz
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            archive: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar.gz
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: server-${{ matrix.target }}
+
+      - name: install musl toolchain
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update -q && sudo apt-get install -y musl-tools
+
+      - name: install aarch64 cross toolchain
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get update -q && sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: build
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+        run: cargo build --release --features server --bin microresolve-server --target ${{ matrix.target }}
+
+      - name: strip binary (Linux / macOS)
+        if: matrix.os != 'windows-latest'
+        run: strip target/${{ matrix.target }}/release/microresolve-server
+
+      - name: package (tar.gz)
+        if: matrix.archive == 'tar.gz'
+        run: |
+          mkdir _pkg
+          cp target/${{ matrix.target }}/release/microresolve-server _pkg/
+          cp LICENSE-MIT LICENSE-APACHE README.md _pkg/
+          tar -czf microresolve-server-${{ matrix.target }}.tar.gz -C _pkg .
+
+      - name: package (zip)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $files = @("target\${{ matrix.target }}\release\microresolve-server.exe", "LICENSE-MIT", "LICENSE-APACHE", "README.md")
+          Compress-Archive -Path $files -DestinationPath "microresolve-server-${{ matrix.target }}.zip"
+
+      - name: attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            target/${{ matrix.target }}/release/microresolve-server${{ matrix.archive == 'zip' && '.exe' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ matrix.target }}
+          path: microresolve-server-${{ matrix.target }}.${{ matrix.archive }}
+
   # ── Stage 3: publish (gated on builds) ──────────────────────────────────────
   publish-pypi:
     name: Publish wheels to PyPI
@@ -197,14 +282,20 @@ jobs:
   # ── Stage 4: GitHub release (only after all 3 registries succeed) ────────────
   github-release:
     name: Create GitHub release
-    needs: [publish-crate, publish-pypi, publish-npm]
+    needs: [publish-crate, publish-pypi, publish-npm, build-server-binaries]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: server-*
+          path: server-archives
+          merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           body_path: CHANGELOG.md
           fail_on_unmatched_files: false
+          files: server-archives/*
