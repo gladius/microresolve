@@ -140,6 +140,98 @@ jobs:
           name: node-${{ matrix.target }}
           path: node/*.node
 
+  build-server-binaries:
+    name: Build server binary (${{ matrix.target }})
+    needs: preflight
+    runs-on: ${{ matrix.os }}
+    permissions:
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+            strip: strip
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            archive: tar.gz
+            strip: strip
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            archive: tar.gz
+            strip: aarch64-linux-gnu-strip
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar.gz
+            strip: strip
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            archive: tar.gz
+            strip: strip
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+            strip: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: server-${{ matrix.target }}
+
+      - name: install musl toolchain
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update -q && sudo apt-get install -y musl-tools
+
+      - name: install aarch64 cross toolchain
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get update -q && sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: build
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+        run: cargo build --release --features server --bin server --target ${{ matrix.target }}
+
+      - name: strip binary
+        if: matrix.strip != ''
+        run: ${{ matrix.strip }} target/${{ matrix.target }}/release/server
+
+      - name: package (tar.gz)
+        if: matrix.archive == 'tar.gz'
+        run: |
+          mkdir _pkg
+          cp target/${{ matrix.target }}/release/server _pkg/microresolve-server
+          cp LICENSE-MIT LICENSE-APACHE README.md _pkg/
+          tar -czf microresolve-server-${{ matrix.target }}.tar.gz -C _pkg .
+
+      - name: package (zip)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          Copy-Item "target\${{ matrix.target }}\release\server.exe" "microresolve-server.exe"
+          $files = @("microresolve-server.exe", "LICENSE-MIT", "LICENSE-APACHE", "README.md")
+          Compress-Archive -Path $files -DestinationPath "microresolve-server-${{ matrix.target }}.zip"
+
+      - name: attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            target/${{ matrix.target }}/release/server${{ matrix.archive == 'zip' && '.exe' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ matrix.target }}
+          path: microresolve-server-${{ matrix.target }}.${{ matrix.archive }}
+
   # ── Stage 3: publish (gated on builds) ──────────────────────────────────────
   publish-pypi:
     name: Publish wheels to PyPI
@@ -183,28 +275,36 @@ jobs:
       - name: distribute artifacts into npm sub-packages
         working-directory: node
         run: npx napi artifacts --output-dir artifacts --npm-dir npm
-      - name: prepublish (write optionalDependencies + copy binaries)
+      - name: publish (skip if already exists)
         working-directory: node
-        run: npx napi prepublish --no-gh-release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: publish main package
-        working-directory: node
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "microresolve@${VERSION}" version 2>/dev/null; then
+            echo "microresolve ${VERSION} already on npm — skipping"
+          else
+            npx napi prepublish --no-gh-release
+            npm publish --access public
+          fi
 
   # ── Stage 4: GitHub release (only after all 3 registries succeed) ────────────
   github-release:
     name: Create GitHub release
-    needs: [publish-crate, publish-pypi, publish-npm]
+    needs: [publish-crate, publish-pypi, publish-npm, build-server-binaries]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: server-*
+          path: server-archives
+          merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           body_path: CHANGELOG.md
           fail_on_unmatched_files: false
+          files: server-archives/*
