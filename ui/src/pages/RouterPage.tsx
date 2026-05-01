@@ -5,11 +5,11 @@ import LayerCards from '@/components/LayerCards';
 
 const INTENT_COLORS = [
   'text-emerald-400', 'text-blue-400', 'text-amber-400', 'text-pink-400',
-  'text-cyan-400', 'text-violet-400', 'text-orange-400', 'text-lime-400',
+  'text-cyan-400', 'text-emerald-400', 'text-orange-400', 'text-lime-400',
 ];
 const INTENT_BG_COLORS = [
   'bg-emerald-400/20', 'bg-blue-400/20', 'bg-amber-400/20', 'bg-pink-400/20',
-  'bg-cyan-400/20', 'bg-violet-400/20', 'bg-orange-400/20', 'bg-lime-400/20',
+  'bg-cyan-400/20', 'bg-emerald-400/20', 'bg-orange-400/20', 'bg-lime-400/20',
 ];
 
 type Message =
@@ -100,11 +100,11 @@ export default function RouterPage() {
           title={debug ? 'Hide layer trace' : 'Show layer trace (L0/L1/L2/L3)'}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors ${
             debug
-              ? 'bg-violet-500/15 border border-violet-500/40 text-violet-400'
+              ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-400'
               : 'border border-zinc-700 text-zinc-500 hover:text-zinc-300'
           }`}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${debug ? 'bg-violet-400' : 'bg-zinc-600'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${debug ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
           debug
         </button>
       }
@@ -117,7 +117,7 @@ export default function RouterPage() {
               <div className="text-zinc-300 text-sm font-medium">Test your router</div>
               <div className="text-zinc-600 text-xs max-w-sm leading-relaxed">
                 Type any natural language query. The router detects which intents it matches — in under 1ms.
-                Weak or missing results show a <span className="text-violet-400">Train →</span> button to improve instantly.
+                Weak or missing results show a <span className="text-emerald-400">Train →</span> button to improve instantly.
               </div>
             </div>
             <div className="space-y-1.5 text-left">
@@ -128,7 +128,7 @@ export default function RouterPage() {
                 'how do I reset my password',
               ].map(q => (
                 <button key={q} onClick={() => handleInput(q)}
-                  className="block w-full text-left text-xs font-mono text-violet-400 hover:text-violet-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded px-3 py-1.5 transition-colors">
+                  className="block w-full text-left text-xs font-mono text-emerald-400 hover:text-emerald-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded px-3 py-1.5 transition-colors">
                   {q}
                 </button>
               ))}
@@ -154,12 +154,12 @@ export default function RouterPage() {
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Type a natural language query…"
-          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 font-mono text-sm placeholder-zinc-500 focus:outline-none focus:border-violet-500 transition-colors"
+          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 font-mono text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
           autoFocus
         />
         <button
           type="submit"
-          className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-medium transition-colors text-sm"
+          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors text-sm"
         >
           Resolve
         </button>
@@ -179,7 +179,7 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
   if (msg.type === 'query') {
     return (
       <div className="font-mono text-sm text-zinc-100 mb-1">
-        <span className="text-violet-400">{'> '}</span>
+        <span className="text-emerald-400">{'> '}</span>
         {msg.text}
       </div>
     );
@@ -220,14 +220,14 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
           <span className="text-zinc-500 text-sm">No match found.</span>
           {!noIntents && (
             <button onClick={() => onTrain(query, [])}
-              className="text-[10px] px-2 py-0.5 border border-violet-500/40 text-violet-400 rounded hover:bg-violet-500/10 transition-colors">
+              className="text-[10px] px-2 py-0.5 border border-emerald-500/40 text-emerald-400 rounded hover:bg-emerald-500/10 transition-colors">
               Train →
             </button>
           )}
         </div>
         {noIntents && (
           <div className="text-[11px] text-zinc-600">
-            No intents exist yet — <a href="/intents" className="text-violet-400 hover:underline">create some</a> or <a href="/import" className="text-violet-400 hover:underline">import from a spec</a>.
+            No intents exist yet — <a href="/l2" className="text-emerald-400 hover:underline">create some</a> or <a href="/import" className="text-emerald-400 hover:underline">import from a spec</a>.
           </div>
         )}
       </div>
@@ -279,7 +279,7 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
         </div>
         {isWeak && (
           <button onClick={() => onTrain(query, allIntents.map(i => i.id))}
-            className="text-[10px] px-2 py-0.5 border border-violet-500/40 text-violet-400 rounded hover:bg-violet-500/10 transition-colors">
+            className="text-[10px] px-2 py-0.5 border border-emerald-500/40 text-emerald-400 rounded hover:bg-emerald-500/10 transition-colors">
             Train →
           </button>
         )}
@@ -303,7 +303,7 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
             };
             return (
               <span key={i} title={hint[rel.type] || rel.type}
-                className="text-[10px] text-violet-400 bg-violet-400/10 border border-violet-400/20 px-1.5 py-0.5 rounded font-mono cursor-default">
+                className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-1.5 py-0.5 rounded font-mono cursor-default">
                 {labels[rel.type] || rel.type}
               </span>
             );
@@ -429,11 +429,11 @@ function ReviewCard({ review, onApply }: {
       {/* Suggestions with approve buttons */}
       {review.suggestions.length > 0 && (
         <div>
-          <div className="text-[10px] text-violet-400/70 uppercase font-semibold mb-1">Suggestions</div>
+          <div className="text-[10px] text-emerald-400/70 uppercase font-semibold mb-1">Suggestions</div>
           {review.suggestions.map((s, i) => (
             <div key={i} className="flex items-start gap-2 text-xs pl-2 py-1">
               <div className="flex-1">
-                <span className="text-violet-400 font-mono">add_phrase</span>
+                <span className="text-emerald-400 font-mono">add_phrase</span>
                 <span className="text-zinc-400"> "{s.phrase}" → <span className="text-emerald-400">{s.intent_id}</span></span>
                 <div className="text-zinc-600 mt-0.5">{s.reason}</div>
               </div>
@@ -446,7 +446,7 @@ function ReviewCard({ review, onApply }: {
                 className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors flex-shrink-0 ${
                   applied.has(i)
                     ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/30'
-                    : 'bg-violet-600 hover:bg-violet-500 text-white'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                 }`}
               >
                 {applied.has(i) ? 'Applied' : 'Approve'}

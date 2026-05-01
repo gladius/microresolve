@@ -350,6 +350,18 @@ pub struct NamespaceInfo {
     pub description: String,
     pub default_threshold: Option<f32>,
     pub domain_descriptions: std::collections::HashMap<String, String>,
+    /// L0 typo correction. Default `true`. Disable for namespaces where
+    /// auto-correcting tokens is dangerous (e.g., medical / legal terms,
+    /// code identifiers — anything where `cahnge` is more likely a real
+    /// term than a typo of `change`).
+    pub l0_enabled: bool,
+    /// L1 morphological edges (`canceling` → `cancel`). Default `true`.
+    pub l1_morphology: bool,
+    /// L1 synonym edges (user-defined equivalences). Default `true`.
+    pub l1_synonym: bool,
+    /// L1 abbreviation edges (`pr` → `pull request`). Default `true`.
+    /// Disable for code-search namespaces where short tokens carry literal meaning.
+    pub l1_abbreviation: bool,
 }
 
 /// Patch for namespace-level metadata via `Resolver::update_namespace`.
@@ -365,6 +377,10 @@ pub struct NamespaceEdit {
     /// Replaces the entire domain-description map. To delete a single
     /// domain, omit it from the map.
     pub domain_descriptions: Option<std::collections::HashMap<String, String>>,
+    pub l0_enabled: Option<bool>,
+    pub l1_morphology: Option<bool>,
+    pub l1_synonym: Option<bool>,
+    pub l1_abbreviation: Option<bool>,
 }
 
 /// Patch to apply to an intent's metadata via `Resolver::update_intent`.

@@ -124,6 +124,14 @@ pub struct Resolver {
     /// this namespace. Persisted in `_ns.json`. Use `rebuild_l2()` + clear
     /// to undo. Rail 2 of three: visible action, reversible, bounded.
     negative_training_log: Vec<NegativeTrainingEntry>,
+    /// Per-namespace reflex-layer toggles. Default to all-on so existing
+    /// namespaces preserve behavior; operators can disable layers per
+    /// namespace when the default behavior is wrong for their content
+    /// (medical terms, code search, etc.).
+    pub(crate) l0_enabled: bool,
+    pub(crate) l1_morphology: bool,
+    pub(crate) l1_synonym: bool,
+    pub(crate) l1_abbreviation: bool,
 }
 
 impl Default for Resolver {

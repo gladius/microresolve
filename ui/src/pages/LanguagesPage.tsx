@@ -3,7 +3,7 @@ import { useAppStore } from '@/store';
 import { api } from '@/api/client';
 import Page from '@/components/Page';
 
-type StopWordStatus = { count: number; source: 'built-in' | 'generated' };
+type StopWordStatus = { count: number; source: 'built-in' | 'generated' | 'custom' };
 
 export default function LanguagesPage() {
   const { settings, setLanguages } = useAppStore();
@@ -14,6 +14,7 @@ export default function LanguagesPage() {
   const [stopWords,     setStopWords]     = useState<Record<string, StopWordStatus>>({});
   const [promptLang,    setPromptLang]    = useState<string | null>(null);
   const [generating,    setGenerating]    = useState<string | null>(null);
+  const [editLang,      setEditLang]      = useState<string | null>(null);
   const enabledLangs = settings.languages.length > 0 ? settings.languages : ['en'];
 
   useEffect(() => {
@@ -71,7 +72,7 @@ export default function LanguagesPage() {
   return (
     <Page
       title="Languages"
-      subtitle={<>phrase generation languages for <span className="text-violet-400 font-mono">{ns}</span></>}
+      subtitle={<>phrase generation languages for <span className="text-emerald-400 font-mono">{ns}</span></>}
       size="sm"
     >
       <div className="space-y-6">
@@ -96,7 +97,7 @@ export default function LanguagesPage() {
                 key={code}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
                   code === 'en'
-                    ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     : 'bg-zinc-800 text-zinc-200 border border-zinc-700'
                 }`}
               >
@@ -171,7 +172,7 @@ export default function LanguagesPage() {
                   Skip
                 </button>
                 <button onClick={() => generateStopWords(promptLang)}
-                  className="text-[11px] bg-violet-600 hover:bg-violet-500 text-white px-3 py-1 rounded transition-colors">
+                  className="text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded transition-colors">
                   Generate
                 </button>
               </div>
@@ -198,23 +199,27 @@ export default function LanguagesPage() {
                         {sw.source}
                       </span>
                       <span className="text-[10px] text-zinc-600">· {sw.count} words</span>
+                      <button onClick={() => setEditLang(code)}
+                        className="ml-auto text-[10px] text-zinc-500 hover:text-emerald-400 transition-colors">
+                        view / edit
+                      </button>
                       {sw.source !== 'built-in' && (
                         <button onClick={() => generateStopWords(code)} disabled={!!generating}
-                          className="ml-auto text-[10px] text-zinc-600 hover:text-violet-400 disabled:opacity-40 transition-colors">
+                          className="text-[10px] text-zinc-600 hover:text-emerald-400 disabled:opacity-40 transition-colors">
                           regenerate
                         </button>
                       )}
                     </>
                   ) : isGenerating ? (
-                    <div className="flex items-center gap-1.5 text-[10px] text-violet-400">
-                      <div className="w-2.5 h-2.5 border border-violet-400 border-t-transparent rounded-full animate-spin" />
+                    <div className="flex items-center gap-1.5 text-[10px] text-emerald-400">
+                      <div className="w-2.5 h-2.5 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
                       generating…
                     </div>
                   ) : (
                     <>
                       <span className="text-[10px] text-amber-500/70">missing</span>
                       <button onClick={() => generateStopWords(code)} disabled={!!generating}
-                        className="ml-auto text-[10px] text-zinc-500 hover:text-violet-400 disabled:opacity-40 transition-colors">
+                        className="ml-auto text-[10px] text-zinc-500 hover:text-emerald-400 disabled:opacity-40 transition-colors">
                         Generate
                       </button>
                     </>
@@ -226,6 +231,137 @@ export default function LanguagesPage() {
         </div>
 
       </div>
+      {editLang && (
+        <StopWordsModal
+          lang={editLang}
+          langName={allLanguages[editLang] || editLang}
+          onClose={() => { setEditLang(null); refreshStopWords(); }}
+        />
+      )}
     </Page>
+  );
+}
+
+function StopWordsModal({ lang, langName, onClose }: {
+  lang: string;
+  langName: string;
+  onClose: () => void;
+}) {
+  const [words,   setWords]   = useState<string[]>([]);
+  const [source,  setSource]  = useState<string>('');
+  const [filter,  setFilter]  = useState('');
+  const [adding,  setAdding]  = useState('');
+  const [loading, setLoading] = useState(true);
+  const [err,     setErr]     = useState<string | null>(null);
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const d = await api.getStopWordsForLang(lang);
+      setWords(d.words.slice().sort());
+      setSource(d.source);
+      setErr(null);
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { reload(); /* eslint-disable-next-line */ }, [lang]);
+
+  const add = async () => {
+    const w = adding.trim().toLowerCase();
+    if (!w) return;
+    try {
+      await api.addStopWord(lang, w);
+      setAdding('');
+      reload();
+    } catch (e) { setErr(String(e)); }
+  };
+
+  const remove = async (w: string) => {
+    try {
+      await api.removeStopWord(lang, w);
+      reload();
+    } catch (e) { setErr(String(e)); }
+  };
+
+  const visible = filter
+    ? words.filter(w => w.toLowerCase().includes(filter.toLowerCase()))
+    : words;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-zinc-100">Stop words — {langName}</div>
+            <div className="text-[10px] text-zinc-500">
+              <span className="font-mono uppercase">{lang}</span> · {source} · {words.length} words
+            </div>
+          </div>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 text-lg leading-none">×</button>
+        </div>
+
+        <div className="px-5 py-3 border-b border-zinc-800 space-y-2">
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filter…"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
+          />
+          <div className="flex gap-2">
+            <input
+              value={adding}
+              onChange={e => setAdding(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && add()}
+              placeholder="Add a stop word…"
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
+            />
+            <button
+              onClick={add}
+              disabled={!adding.trim()}
+              className="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded transition-colors"
+            >
+              Add
+            </button>
+          </div>
+          {err && <div className="text-[11px] text-red-400">{err}</div>}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-2">
+          {loading ? (
+            <div className="text-xs text-zinc-500 text-center py-6">Loading…</div>
+          ) : visible.length === 0 ? (
+            <div className="text-xs text-zinc-600 text-center py-6">
+              {filter ? 'No matches.' : 'No stop words.'}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {visible.map(w => (
+                <span
+                  key={w}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[11px] text-zinc-200 font-mono group"
+                >
+                  {w}
+                  <button
+                    onClick={() => remove(w)}
+                    className="text-zinc-600 hover:text-red-400 leading-none transition-colors"
+                    title={`Remove "${w}"`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-2 border-t border-zinc-800 text-[10px] text-zinc-600">
+          Edits override the built-in list. Stop words are excluded from L1 phrase matching.
+        </div>
+      </div>
+    </div>
   );
 }

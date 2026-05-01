@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Per-namespace reflex-layer toggles.** Each namespace now carries
+  four boolean fields — `l0_enabled`, `l1_morphology`, `l1_synonym`,
+  `l1_abbreviation` — accepted by `Resolver::update_namespace` and
+  exposed on `NamespaceInfo`. All default to `true`; namespaces saved
+  before this change load with all layers on. Flags are honored at
+  both index time and resolve time so trained vectors and runtime
+  preprocessing stay in sync. Use cases: turn L0 off for medical /
+  legal namespaces (auto-correcting domain terms is dangerous); turn
+  L1 abbreviations off for code search (short tokens carry literal
+  meaning).
+- **`PATCH /api/namespaces` body** accepts the four new fields;
+  `GET /api/namespaces` returns them per namespace.
+- **Studio: layer toggles in three places.** Namespaces edit modal has
+  all four switches (atomic save, setup flow); L0 page has an inline
+  toggle; L1 page has a top-level `on / off / partial` status badge
+  plus a per-column compact toggle for each edge kind. Sidebar L0 / L1
+  nav items show an `off` or `partial` pill when any layer is disabled
+  for the active namespace.
+- **`LayerToggle` shared component** + `AppContext.layerStatus` —
+  single optimistic-update store for the active namespace's toggles,
+  so changing them on any page updates the sidebar instantly without
+  an extra GET. Reverts on PATCH failure.
+- **`LexicalGraph::preprocess_with_kinds` /
+  `preprocess_grounded_with_kinds`** — public variants of the
+  preprocess methods that take three booleans gating Morphological,
+  Abbreviation, and Synonym edge kinds. The original `preprocess` /
+  `preprocess_grounded` are unchanged thin wrappers — no break to the
+  published API.
+
 ## [0.1.6] — 2026-05-01
 
 ### Added

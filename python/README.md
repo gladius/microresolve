@@ -94,6 +94,8 @@ engine.flush()            # force persist (no-op when data_dir not set)
 | `add_phrase(id, phrase, lang?)` | `dict` | Add single phrase; returns `{added, redundant, warning}` |
 | `intent(id)` | `IntentInfo \| None` | Read intent metadata |
 | `update_intent(id, edit_dict)` | `None` | Patch intent metadata |
+| `namespace_info()` | `NamespaceInfo` | Read namespace metadata including reflex-layer toggles |
+| `update_namespace(edit_dict)` | `None` | Patch namespace metadata; keys: `name`, `description`, `default_threshold`, `l0_enabled`, `l1_morphology`, `l1_synonym`, `l1_abbreviation` |
 | `intent_ids()` | `list[str]` | All intent IDs |
 | `intent_count()` | `int` | Number of intents |
 | `version()` | `int` | Monotonic mutation counter |
@@ -103,6 +105,10 @@ engine.flush()            # force persist (no-op when data_dir not set)
 ### `Match`
 
 Fields: `id: str`, `score: float`
+
+### `NamespaceInfo`
+
+Fields: `name: str`, `description: str`, `default_threshold: float | None`, `l0_enabled: bool`, `l1_morphology: bool`, `l1_synonym: bool`, `l1_abbreviation: bool`
 
 ### `IntentInfo`
 

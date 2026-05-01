@@ -81,6 +81,22 @@ impl NgramIndex {
         self.vocab.is_empty()
     }
 
+    /// N (trigram size). Exposed for the Studio L0 inspector.
+    pub fn ngram_size(&self) -> usize {
+        N
+    }
+    /// Minimum vocab term length for indexing. Exposed for Studio inspector.
+    pub fn min_term_len(&self) -> usize {
+        MIN_TERM_LEN
+    }
+    /// Sorted slice of up to `limit` vocab terms (deterministic, for UI display).
+    pub fn vocab_sample(&self, limit: usize) -> Vec<String> {
+        let mut v: Vec<String> = self.vocab.to_vec();
+        v.sort();
+        v.truncate(limit);
+        v
+    }
+
     /// Best-match for an unknown token. Returns None if token is already in
     /// vocabulary, too short, or no match above threshold.
     pub fn best_match(&self, token: &str) -> Option<String> {

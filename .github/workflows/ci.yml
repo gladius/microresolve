@@ -21,6 +21,19 @@ jobs:
         with:
           components: clippy, rustfmt
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Build the Studio UI bundle so `bundled-ui` (rust-embed) finds
+      # `ui/dist/` at compile time. Required by every downstream step
+      # that touches the `server` feature: clippy, build, and HTTP tests.
+      - name: build UI
+        working-directory: ui
+        run: |
+          npm ci || npm install
+          npm run build
+
       - uses: Swatinem/rust-cache@v2
 
       - name: fmt
@@ -50,7 +63,14 @@ jobs:
           ./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_ci > /tmp/server.log 2>&1 &
           SERVER_PID=$!
           sleep 2
-          cargo run --release --features connect --example connected
+          # Strict-auth (default since v0.1.6) — every /api/sync call needs an
+          # X-Api-Key. Mint one via the unauthenticated /api/auth/keys endpoint
+          # (the bootstrap exception that exists precisely to break the
+          # chicken-and-egg). The example reads MICRORESOLVE_API_KEY.
+          KEY=$(curl -fsS -X POST http://localhost:3001/api/auth/keys \
+            -H 'Content-Type: application/json' \
+            -d '{"name":"ci-bot"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["key"])')
+          MICRORESOLVE_API_KEY="$KEY" cargo run --release --features connect --example connected
           kill $SERVER_PID 2>/dev/null || true
 
   python:

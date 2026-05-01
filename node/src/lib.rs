@@ -17,6 +17,7 @@ use napi_derive::napi;
 use microresolve_core::{
     MicroResolve as CoreEngine, MicroResolveConfig, ServerConfig, IntentSeeds,
     IntentEdit, IntentType, ResolveOptions,
+    NamespaceEdit, NamespaceInfo as CoreNamespaceInfo,
 };
 
 /// A classification match: intent id + score.
@@ -43,6 +44,48 @@ pub struct PhraseResult {
     pub added: bool,
     pub redundant: bool,
     pub warning: Option<String>,
+}
+
+/// Read-only view of namespace-level metadata, including reflex-layer toggles.
+///
+/// Returned by `Namespace.namespaceInfo()`.
+#[napi(object)]
+pub struct NamespaceInfo {
+    /// Human-readable display name.
+    pub name: String,
+    /// Human-readable description.
+    pub description: String,
+    /// Per-namespace routing threshold override. `null` → use engine default.
+    pub default_threshold: Option<f64>,
+    /// L0 typo correction layer enabled.
+    pub l0_enabled: bool,
+    /// L1 morphological normalisation enabled (e.g. `canceling` → `cancel`).
+    pub l1_morphology: bool,
+    /// L1 synonym expansion enabled.
+    pub l1_synonym: bool,
+    /// L1 abbreviation expansion enabled (e.g. `pr` → `pull request`).
+    pub l1_abbreviation: bool,
+}
+
+/// Edit options accepted by `updateNamespace`.
+///
+/// All fields are optional; omitted fields leave the existing value unchanged.
+#[napi(object)]
+pub struct NamespaceEditOptions {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    /// Per-namespace threshold override.
+    ///   - omit / `undefined` → leave existing value alone
+    ///   - any non-negative number → set as the new threshold
+    ///   - `-1` (sentinel, matches the server's HTTP API) → clear the override
+    ///
+    /// The sentinel-based convention is the napi-rs friendly equivalent of
+    /// `Option<Option<f32>>`, which napi-rs does not natively support.
+    pub default_threshold: Option<f64>,
+    pub l0_enabled: Option<bool>,
+    pub l1_morphology: Option<bool>,
+    pub l1_synonym: Option<bool>,
+    pub l1_abbreviation: Option<bool>,
 }
 
 /// Edit object accepted by `updateIntent`.
@@ -290,6 +333,50 @@ impl Namespace {
             redundant: result.redundant,
             warning: result.warning,
         }
+    }
+
+    /// Read-only view of namespace-level metadata, including reflex-layer toggles.
+    #[napi]
+    pub fn namespace_info(&self) -> NamespaceInfo {
+        let ns = self.engine.namespace(&self.id);
+        let info: CoreNamespaceInfo = ns.with_resolver(|r| r.namespace_info());
+        NamespaceInfo {
+            name: info.name,
+            description: info.description,
+            default_threshold: info.default_threshold.map(|t| t as f64),
+            l0_enabled: info.l0_enabled,
+            l1_morphology: info.l1_morphology,
+            l1_synonym: info.l1_synonym,
+            l1_abbreviation: info.l1_abbreviation,
+        }
+    }
+
+    /// Patch namespace-level metadata fields.
+    ///
+    /// All fields are optional; omitted (undefined) fields leave existing values unchanged.
+    ///
+    /// ```js
+    /// ns.updateNamespace({ l1Abbreviation: false });
+    /// ns.updateNamespace({ name: 'My NS', l0Enabled: true });
+    /// ```
+    #[napi]
+    pub fn update_namespace(&self, edit: NamespaceEditOptions) -> Result<()> {
+        let e = NamespaceEdit {
+            name: edit.name,
+            description: edit.description,
+            // Sentinel translation: -1 → clear, non-negative → set, omitted → leave alone.
+            default_threshold: edit.default_threshold.map(|t| {
+                if t < 0.0 { None } else { Some(t as f32) }
+            }),
+            domain_descriptions: None,
+            l0_enabled: edit.l0_enabled,
+            l1_morphology: edit.l1_morphology,
+            l1_synonym: edit.l1_synonym,
+            l1_abbreviation: edit.l1_abbreviation,
+        };
+        let ns = self.engine.namespace(&self.id);
+        ns.with_resolver_mut(|r| r.update_namespace(e))
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Flush this namespace to disk (no-op if `MicroResolve` has no `dataDir`).

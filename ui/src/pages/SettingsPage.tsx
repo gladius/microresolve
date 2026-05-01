@@ -59,7 +59,7 @@ function AppearanceSection() {
               onClick={() => setTheme(opt.id)}
               className={`flex-1 flex flex-col items-center gap-2 px-4 py-4 rounded-xl border text-sm transition-colors ${
                 current === opt.id
-                  ? 'border-violet-500 bg-violet-500/10 text-zinc-100'
+                  ? 'border-emerald-500 bg-emerald-500/10 text-zinc-100'
                   : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
               }`}
             >
@@ -110,7 +110,7 @@ function LLMSection() {
       <div className="space-y-3">
         <h3 className="text-xs text-zinc-500 font-semibold uppercase">Configuration</h3>
         <p className="text-xs text-zinc-500">
-          Set these in the server's <code className="text-violet-400">.env</code> file and restart the server to apply.
+          Set these in the server's <code className="text-emerald-400">.env</code> file and restart the server to apply.
           Any OpenAI-compatible provider works — Anthropic, OpenAI, Gemini, Groq, or local Ollama.
         </p>
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 font-mono text-xs space-y-1.5">
@@ -206,12 +206,12 @@ function GitSyncSection() {
                 onKeyDown={e => e.key === 'Enter' && save()}
                 placeholder="git@github.com:acme/microresolve-data.git"
                 disabled={!gitSettings}
-                className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-violet-500 disabled:opacity-40"
+                className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-emerald-500 disabled:opacity-40"
               />
               <button
                 onClick={save}
                 disabled={saving || !gitSettings}
-                className="px-4 py-2 text-sm bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-40 transition-colors"
+                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-40 transition-colors"
               >
                 {saving ? 'Saving…' : 'Save'}
               </button>
@@ -240,7 +240,7 @@ function GitSyncSection() {
               <button
                 onClick={push}
                 disabled={pushing}
-                className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:border-violet-500 hover:text-violet-400 disabled:opacity-40 transition-colors"
+                className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:border-emerald-500 hover:text-emerald-400 disabled:opacity-40 transition-colors"
               >
                 {pushing ? 'Pushing…' : 'Push now'}
               </button>

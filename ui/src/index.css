@@ -41,8 +41,6 @@ html.light {
   /* Chromatic accents: shift -400 weights to -600 equivalents for contrast
      on now-light surfaces. Base -500/-600 backgrounds stay the same — they
      keep `text-white` readable on coloured buttons. */
-  --color-violet-400:  oklch(54.1% .281 293);
-  --color-violet-500:  oklch(49%   .275 293);
   --color-emerald-400: oklch(59.6% .145 163);
   --color-emerald-500: oklch(53%   .135 163);
   --color-red-400:     oklch(57.7% .245 27);

@@ -147,11 +147,11 @@ export default function McpImport() {
 
   const subtitle = (
     <>
-      into <span className="text-violet-400 font-mono">{currentApp}</span>
+      into <span className="text-emerald-400 font-mono">{currentApp}</span>
       {currentDomain && (
         <>
           <span className="text-zinc-600 mx-1">/</span>
-          <span className="text-violet-400 font-mono">{currentDomain}</span>
+          <span className="text-emerald-400 font-mono">{currentDomain}</span>
         </>
       )}
     </>
@@ -179,12 +179,12 @@ export default function McpImport() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search MCP servers... (e.g. stripe, github, slack)"
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:border-violet-500 focus:outline-none"
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:border-emerald-500 focus:outline-none"
               onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
               disabled={searching || loading}
             />
             <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
-              className="px-4 py-2 text-sm bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30">
+              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30">
               {searching ? 'Searching...' : 'Search'}
             </button>
           </div>
@@ -201,7 +201,7 @@ export default function McpImport() {
                       <div className="text-sm text-zinc-100 font-medium">{server.displayName}</div>
                       <div className="text-[10px] text-zinc-600 font-mono">{server.qualifiedName}</div>
                     </div>
-                    <span className="text-xs text-violet-400 shrink-0">Select →</span>
+                    <span className="text-xs text-emerald-400 shrink-0">Select →</span>
                   </div>
                   {server.description && (
                     <div className="text-xs text-zinc-500 mt-1">{server.description.slice(0, 150)}</div>
@@ -212,8 +212,8 @@ export default function McpImport() {
           )}
 
           {loading && (
-            <div className="flex items-center gap-2 text-xs text-violet-400">
-              <div className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+            <div className="flex items-center gap-2 text-xs text-emerald-400">
+              <div className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
               Fetching tools from {selectedServer}...
             </div>
           )}
@@ -234,7 +234,7 @@ export default function McpImport() {
                 onChange={e => setMcpJson(e.target.value)}
                 placeholder='Paste MCP tools/list JSON here...'
                 rows={5}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs text-zinc-300 font-mono focus:border-violet-500 focus:outline-none resize-y"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs text-zinc-300 font-mono focus:border-emerald-500 focus:outline-none resize-y"
               />
               <div className="flex gap-2">
                 <button onClick={() => parseMcp(mcpJson)} disabled={loading || !mcpJson.trim()}
@@ -247,7 +247,7 @@ export default function McpImport() {
                   await parseMcp(await file.text());
                   e.target.value = '';
                 }} className="hidden" />
-                <button onClick={() => fileRef.current?.click()} className="text-xs text-zinc-500 hover:text-violet-400">Upload .json</button>
+                <button onClick={() => fileRef.current?.click()} className="text-xs text-zinc-500 hover:text-emerald-400">Upload .json</button>
               </div>
             </div>
           )}
@@ -263,8 +263,8 @@ export default function McpImport() {
               {selectedServer && <span className="text-xs text-zinc-500 ml-2">from {selectedServer}</span>}
             </div>
             <div className="flex gap-2 text-[10px]">
-              <button onClick={() => setSelected(new Set(tools.map(t => t.name)))} className="text-zinc-500 hover:text-violet-400">All</button>
-              <button onClick={() => setSelected(new Set())} className="text-zinc-500 hover:text-violet-400">None</button>
+              <button onClick={() => setSelected(new Set(tools.map(t => t.name)))} className="text-zinc-500 hover:text-emerald-400">All</button>
+              <button onClick={() => setSelected(new Set())} className="text-zinc-500 hover:text-emerald-400">None</button>
               <button onClick={reset} className="text-zinc-500 hover:text-zinc-100">Change source</button>
               <span className="text-zinc-600 ml-2">{selected.size} selected</span>
             </div>
@@ -273,7 +273,7 @@ export default function McpImport() {
           <div className="border border-zinc-800 rounded-lg divide-y divide-zinc-800/50 max-h-96 overflow-y-auto">
             {tools.map(tool => (
               <label key={tool.name} className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-zinc-800/40 ${selected.has(tool.name) ? '' : 'opacity-40'}`}>
-                <input type="checkbox" checked={selected.has(tool.name)} onChange={() => toggleTool(tool.name)} className="mt-1 accent-violet-500" />
+                <input type="checkbox" checked={selected.has(tool.name)} onChange={() => toggleTool(tool.name)} className="mt-1 accent-emerald-500" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0 ${tool.read_only ? 'bg-emerald-900/30 text-emerald-400' : 'bg-blue-900/30 text-blue-400'}`}>
@@ -301,7 +301,7 @@ export default function McpImport() {
           <div className="flex items-center justify-between pt-2">
             {!importing && <div className="text-xs text-zinc-500">Collision guard active</div>}
             <button onClick={applyImport} disabled={importing || selected.size === 0}
-              className="px-5 py-2 text-sm bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30 shrink-0">
+              className="px-5 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30 shrink-0">
               {importing ? 'Importing...' : `Import ${selected.size} Tools`}
             </button>
           </div>
@@ -309,7 +309,7 @@ export default function McpImport() {
       )}
 
       {/* Step 3: Result */}
-      {result && <ImportReport result={result} onViewIntents={() => navigate('/intents')} onImportMore={reset} />}
+      {result && <ImportReport result={result} onViewIntents={() => navigate('/l2')} onImportMore={reset} />}
       </div>
     </Page>
   );

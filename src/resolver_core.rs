@@ -26,6 +26,10 @@ impl Resolver {
             namespace_default_threshold: None,
             domain_descriptions: HashMap::new(),
             negative_training_log: Vec::new(),
+            l0_enabled: true,
+            l1_morphology: true,
+            l1_synonym: true,
+            l1_abbreviation: true,
         }
     }
 
@@ -106,6 +110,10 @@ impl Resolver {
             namespace_default_threshold: None,
             domain_descriptions: HashMap::new(),
             negative_training_log: Vec::new(),
+            l0_enabled: true,
+            l1_morphology: true,
+            l1_synonym: true,
+            l1_abbreviation: true,
         };
 
         // CRITICAL: rebuild L2 (and transitively L0) from training data so the
@@ -167,7 +175,10 @@ impl Resolver {
         }
         let delta = -alpha;
         for q in raw_queries {
-            let processed = self.l1.preprocess(q).expanded;
+            let processed = self
+                .l1
+                .preprocess_with_kinds(q, self.l1_morphology, self.l1_abbreviation)
+                .expanded;
             let tokens = crate::tokenizer::tokenize(&processed);
             let words: Vec<&str> = tokens
                 .iter()
@@ -206,7 +217,9 @@ impl Resolver {
     /// Index a phrase into L2 without rebuilding L0.
     /// Call `rebuild_l0()` once after bulk indexing.
     pub(crate) fn index_phrase_no_rebuild(&mut self, intent_id: &str, phrase: &str) {
-        let preprocessed = self.l1.preprocess(phrase);
+        let preprocessed =
+            self.l1
+                .preprocess_with_kinds(phrase, self.l1_morphology, self.l1_abbreviation);
         let words = crate::tokenizer::tokenize(&preprocessed.expanded);
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
         if !word_refs.is_empty() {
@@ -254,10 +267,16 @@ impl Resolver {
     /// `opts.gap` — multi-intent cutoff: the top score divided by `gap`
     /// is the floor for secondary matches. Higher = more matches reported.
     pub fn resolve_with(&self, query: &str, opts: &crate::ResolveOptions) -> Vec<crate::Match> {
-        // L0: typo correction
-        let q0 = self.l0.correct_query(query);
-        // L1: normalize + expand
-        let preprocessed = self.l1.preprocess(&q0);
+        // L0: typo correction (gated by per-namespace toggle)
+        let q0 = if self.l0_enabled {
+            self.l0.correct_query(query)
+        } else {
+            query.to_string()
+        };
+        // L1: normalize + expand (gated by per-namespace edge-kind toggles)
+        let preprocessed =
+            self.l1
+                .preprocess_with_kinds(&q0, self.l1_morphology, self.l1_abbreviation);
         // L2: score
         let (scored, _negation) =
             self.l2

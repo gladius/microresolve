@@ -7,7 +7,7 @@ The MicroResolve server exposes a REST API on port 3001. All endpoints accept an
 
 **Namespace selection:** pass the `X-Namespace-ID` header on every request. Omitting it routes to the `default` namespace.
 
-**Auth:** when API key auth is enabled, pass the key in the `X-Api-Key` header. See [Auth](/server/auth/).
+**Auth:** when API key auth is enabled, pass the key in the `X-Api-Key` header. See [Auth](/microresolve/server/auth/).
 
 ## Core
 
@@ -162,7 +162,7 @@ POST /api/namespaces/support/rollback
 | `PUT` | `/api/settings/git` | Set or clear git remote |
 | `POST` | `/api/git/push` | Manual push to remote |
 
-See [Git Data Layer](/server/git-data/) for details.
+See [Git Data Layer](/microresolve/server/git-data/) for details.
 
 ## Auth
 
@@ -172,7 +172,7 @@ See [Git Data Layer](/server/git-data/) for details.
 | `POST` | `/api/auth/keys` | Create API key |
 | `DELETE` | `/api/auth/keys/{name}` | Delete API key |
 
-See [Auth](/server/auth/) for details.
+See [Auth](/microresolve/server/auth/) for details.
 
 ## Events (SSE)
 

@@ -35,6 +35,52 @@ impl Match {
     }
 }
 
+// ── NamespaceInfo ─────────────────────────────────────────────────────────────
+
+/// Read-only view of namespace-level metadata, including reflex-layer toggles.
+///
+/// Returned by `Namespace.namespace_info()`.
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone)]
+struct NamespaceInfo {
+    /// Human-readable display name.
+    name: String,
+    /// Human-readable description.
+    description: String,
+    /// Per-namespace routing threshold override. `None` → use engine default.
+    default_threshold: Option<f32>,
+    /// L0 typo correction layer enabled.
+    l0_enabled: bool,
+    /// L1 morphological normalisation enabled (e.g. `canceling` → `cancel`).
+    l1_morphology: bool,
+    /// L1 synonym expansion enabled.
+    l1_synonym: bool,
+    /// L1 abbreviation expansion enabled (e.g. `pr` → `pull request`).
+    l1_abbreviation: bool,
+}
+
+#[pymethods]
+impl NamespaceInfo {
+    fn __repr__(&self) -> String {
+        format!(
+            "NamespaceInfo(name={:?}, l0={}, l1_morphology={}, l1_synonym={}, l1_abbreviation={})",
+            self.name, self.l0_enabled, self.l1_morphology, self.l1_synonym, self.l1_abbreviation
+        )
+    }
+}
+
+fn ns_info_to_py(info: microresolve_core::NamespaceInfo) -> NamespaceInfo {
+    NamespaceInfo {
+        name: info.name,
+        description: info.description,
+        default_threshold: info.default_threshold,
+        l0_enabled: info.l0_enabled,
+        l1_morphology: info.l1_morphology,
+        l1_synonym: info.l1_synonym,
+        l1_abbreviation: info.l1_abbreviation,
+    }
+}
+
 // ── IntentInfo ────────────────────────────────────────────────────────────────
 
 /// Read-only view of an intent's metadata and training phrases.
@@ -212,6 +258,54 @@ impl Namespace {
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
+    /// Read-only view of namespace-level metadata, including reflex-layer toggles.
+    fn namespace_info(&self) -> NamespaceInfo {
+        let handle = self.engine.namespace(&self.id);
+        handle.with_resolver(|r| ns_info_to_py(r.namespace_info()))
+    }
+
+    /// Patch namespace-level metadata fields.
+    ///
+    /// Accepts kwargs: `name`, `description`, `default_threshold` (float or None
+    /// to clear), `l0_enabled`, `l1_morphology`, `l1_synonym`, `l1_abbreviation`.
+    /// Fields not passed are left unchanged.
+    ///
+    ///   ns.update_namespace(l1_abbreviation=False)
+    ///   ns.update_namespace(name="My NS", l0_enabled=True)
+    ///
+    /// Raises `ValueError` on invalid input.
+    fn update_namespace(&self, edit: &Bound<'_, PyDict>) -> PyResult<()> {
+        let mut e = microresolve_core::NamespaceEdit::default();
+        if let Some(v) = edit.get_item("name")? {
+            e.name = Some(v.extract::<String>()?);
+        }
+        if let Some(v) = edit.get_item("description")? {
+            e.description = Some(v.extract::<String>()?);
+        }
+        if let Some(v) = edit.get_item("default_threshold")? {
+            if v.is_none() {
+                e.default_threshold = Some(None);
+            } else {
+                e.default_threshold = Some(Some(v.extract::<f32>()?));
+            }
+        }
+        if let Some(v) = edit.get_item("l0_enabled")? {
+            e.l0_enabled = Some(v.extract::<bool>()?);
+        }
+        if let Some(v) = edit.get_item("l1_morphology")? {
+            e.l1_morphology = Some(v.extract::<bool>()?);
+        }
+        if let Some(v) = edit.get_item("l1_synonym")? {
+            e.l1_synonym = Some(v.extract::<bool>()?);
+        }
+        if let Some(v) = edit.get_item("l1_abbreviation")? {
+            e.l1_abbreviation = Some(v.extract::<bool>()?);
+        }
+        let handle = self.engine.namespace(&self.id);
+        handle.with_resolver_mut(|r| r.update_namespace(e))
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
     /// Namespace identifier.
     #[getter]
     fn id(&self) -> &str { &self.id }
@@ -333,6 +427,7 @@ fn microresolve(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<MicroResolve>()?;
     m.add_class::<Namespace>()?;
     m.add_class::<Match>()?;
+    m.add_class::<NamespaceInfo>()?;
     m.add_class::<IntentInfo>()?;
     Ok(())
 }

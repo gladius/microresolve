@@ -5,25 +5,25 @@ description: Complete API reference for the MicroResolve Rust crate.
 
 Full rustdoc is published at [docs.rs/microresolve](https://docs.rs/microresolve).
 
-## Engine
+## MicroResolve
 
 The top-level struct. Create one per application; it manages all namespaces.
 
 ```rust
-use microresolve::{Engine, EngineConfig};
+use microresolve::{MicroResolve, MicroResolveConfig};
 
-let engine = Engine::new(EngineConfig {
+let engine = MicroResolve::new(MicroResolveConfig {
     data_dir: Some("~/.local/share/microresolve".into()),
     default_threshold: 0.3,
     ..Default::default()
 })?;
 ```
 
-### Engine methods
+### MicroResolve methods
 
 | Method | Description |
 |--------|-------------|
-| `Engine::new(config)` | Create engine with config |
+| `MicroResolve::new(config)` | Create engine with config |
 | `namespace(id)` | Get or create a namespace handle |
 | `namespace_with(id, config)` | Get or create a namespace handle with custom config |
 | `try_namespace(id)` | Get a handle if the namespace exists, or `None` |
@@ -35,12 +35,12 @@ let engine = Engine::new(EngineConfig {
 | `effective_threshold(ns_id)` | Effective resolve threshold for a namespace (cascade: namespace → engine) |
 | `effective_languages(ns_id)` | Effective language list for a namespace |
 | `effective_llm_model(ns_id)` | Effective LLM model for a namespace, or `None` |
-| `config()` | Return a reference to the `EngineConfig` |
+| `config()` | Return a reference to the `MicroResolveConfig` |
 
-## EngineConfig
+## MicroResolveConfig
 
 ```rust
-pub struct EngineConfig {
+pub struct MicroResolveConfig {
     pub data_dir: Option<PathBuf>,      // auto-load / auto-save location
     pub default_threshold: f32,         // default 0.3
     pub llm: Option<LlmConfig>,

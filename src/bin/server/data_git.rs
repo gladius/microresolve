@@ -100,7 +100,14 @@ pub fn migrate_existing_repo(dir: &Path) {
     // Untrack _logs/* if they're currently tracked. --ignore-unmatch is
     // critical: cleanly noops on fresh repos that never had _logs/ tracked.
     let removed = Command::new("git")
-        .args(["rm", "--cached", "-r", "--ignore-unmatch", "--quiet", "_logs/"])
+        .args([
+            "rm",
+            "--cached",
+            "-r",
+            "--ignore-unmatch",
+            "--quiet",
+            "_logs/",
+        ])
         .current_dir(dir)
         .status();
     if let Ok(s) = removed {

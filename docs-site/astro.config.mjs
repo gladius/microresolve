@@ -7,7 +7,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'MicroResolve',
-      description: 'Pre-LLM decision layer: intent routing, PII detection, safety filtering, tool prefiltering. ~30μs per call, CPU-only, continuous learning.',
+      description: 'Pre-LLM decision layer: intent routing, PII detection, safety filtering, tool prefiltering. ~50μs per call, CPU-only, continuous learning.',
       logo: {
         light: './src/assets/logo-light.svg',
         dark: './src/assets/logo-dark.svg',

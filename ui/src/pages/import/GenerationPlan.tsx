@@ -49,8 +49,8 @@ export default function GenerationPlan({ numTools, languages, importing }: Props
         {numTools} intent{numTools !== 1 ? 's' : ''} × {plan.phrases_per_tool} phrases
         <span className="text-zinc-600"> ({languages.length} lang{languages.length !== 1 ? 's' : ''} × 10)</span>
         {' '}= <span className="text-zinc-100 font-medium">{numTools * plan.phrases_per_tool} total phrases</span>,
-        sent in <span className="text-violet-400">{plan.total_batches} LLM call{plan.total_batches !== 1 ? 's' : ''}</span>
-        {' '}of <span className="text-violet-400">{plan.batch_size} intent{plan.batch_size !== 1 ? 's' : ''} each</span>.
+        sent in <span className="text-emerald-400">{plan.total_batches} LLM call{plan.total_batches !== 1 ? 's' : ''}</span>
+        {' '}of <span className="text-emerald-400">{plan.batch_size} intent{plan.batch_size !== 1 ? 's' : ''} each</span>.
       </p>
 
       {/* Stats */}
@@ -96,8 +96,8 @@ export default function GenerationPlan({ numTools, languages, importing }: Props
       )}
 
       {importing && (
-        <div className="flex items-center gap-2 text-xs text-violet-400 pt-1 border-t border-zinc-800/60">
-          <div className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin shrink-0" />
+        <div className="flex items-center gap-2 text-xs text-emerald-400 pt-1 border-t border-zinc-800/60">
+          <div className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin shrink-0" />
           Generating — {plan.total_batches} call{plan.total_batches !== 1 ? 's' : ''} running sequentially...
         </div>
       )}

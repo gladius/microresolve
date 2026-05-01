@@ -82,9 +82,9 @@ export default function NamespacePage() {
     if (!isActive) {
       setSelectedNamespaceId(namespaceId);
       setApiNamespaceId(namespaceId);
-      window.location.href = '/intents';
+      window.location.href = '/l2';
     } else {
-      navigate('/intents');
+      navigate('/l2');
     }
   };
 
@@ -101,7 +101,7 @@ export default function NamespacePage() {
           </button>
           <button
             onClick={openModal}
-            className="flex items-center gap-1.5 px-3 py-1 bg-violet-600 text-white text-xs rounded hover:bg-violet-500 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 text-white text-xs rounded hover:bg-emerald-500 transition-colors"
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -135,7 +135,7 @@ export default function NamespacePage() {
                   <div className="flex items-center gap-2 mb-0.5">
                     <button
                       onClick={() => viewIntents(domain.name)}
-                      className="text-sm font-mono text-violet-400 hover:text-violet-300 hover:underline transition-colors"
+                      className="text-sm font-mono text-emerald-400 hover:text-emerald-300 hover:underline transition-colors"
                     >
                       {domain.name}
                     </button>
@@ -155,9 +155,9 @@ export default function NamespacePage() {
                           if (e.key === 'Escape') setEditingDomain(null);
                         }}
                         placeholder="What does this domain handle?"
-                        className="flex-1 bg-zinc-900 border border-violet-500/50 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none"
+                        className="flex-1 bg-zinc-900 border border-emerald-500/50 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none"
                       />
-                      <button onClick={() => saveDesc(domain.name)} className="text-xs text-violet-400 hover:text-violet-300">Save</button>
+                      <button onClick={() => saveDesc(domain.name)} className="text-xs text-emerald-400 hover:text-emerald-300">Save</button>
                       <button onClick={() => setEditingDomain(null)} className="text-xs text-zinc-500 hover:text-zinc-300">Cancel</button>
                     </div>
                   ) : (
@@ -212,7 +212,7 @@ export default function NamespacePage() {
                   onChange={e => { setModalName(e.target.value); setModalError(''); }}
                   onKeyDown={e => e.key === 'Enter' && submitModal()}
                   placeholder="billing"
-                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
@@ -222,7 +222,7 @@ export default function NamespacePage() {
                   onChange={e => setModalDesc(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && submitModal()}
                   placeholder="What does this domain cover?"
-                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
@@ -235,7 +235,7 @@ export default function NamespacePage() {
               <button
                 onClick={submitModal}
                 disabled={modalBusy || !modalName.trim()}
-                className="px-5 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-40"
+                className="px-5 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-40"
               >
                 {modalBusy ? 'Creating…' : 'Create'}
               </button>

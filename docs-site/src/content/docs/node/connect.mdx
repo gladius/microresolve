@@ -62,7 +62,7 @@ async function correct(query: string, wrong: string | null, correct: string) {
 
 ## Hybrid: local engine + server sync
 
-For the lowest possible latency, run a local engine in-process and use the server as the training hub. Built-in connected mode is available in the Rust library — see [Rust — Connect to Server](/rust/connect/).
+For the lowest possible latency, run a local engine in-process and use the server as the training hub. Built-in connected mode is available in the Rust library — see [Rust — Connect to Server](/microresolve/rust/connect/).
 
 From Node.js the recommended pattern is to route all calls through the server's HTTP API. The server classifies in-process; HTTP latency on localhost is typically 2–3ms.
 
@@ -95,6 +95,6 @@ async function reportCorrection(
 
 ## Next
 
-- [Server Install](/server/install/) — set up the self-hosted server
-- [Server API Reference](/server/api/) — full HTTP API
-- [Git Data Layer](/server/git-data/) — how training data is stored and versioned
+- [Server Install](/microresolve/server/install/) — set up the self-hosted server
+- [Server API Reference](/microresolve/server/api/) — full HTTP API
+- [Git Data Layer](/microresolve/server/git-data/) — how training data is stored and versioned

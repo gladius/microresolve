@@ -70,9 +70,11 @@ export default function ConnectedClientsPage() {
             </div>
           </div>
           <p className="text-sm text-zinc-500 leading-relaxed mb-6">
-            Library clients (Python / Node / Rust) currently syncing with this Studio via <code className="text-zinc-400">POST /api/sync</code>.
-            An entry is considered active until <code className="text-zinc-400">2 × tick_interval_secs</code> have elapsed
-            since its last sync. Entries are tracked only for authenticated requests — open mode (no API keys) shows nothing here.
+            Library clients (Python / Node / Rust) currently syncing with this Studio
+            via <code className="text-zinc-400">POST /api/sync</code>. Each row is keyed
+            by the API key's name — that's the library's identity in this Studio.
+            A client stays "active" until <code className="text-zinc-400">2 × tick_interval_secs</code>
+            elapse without a sync, then it drops off automatically.
           </p>
 
           {error && (
@@ -81,18 +83,53 @@ export default function ConnectedClientsPage() {
             </div>
           )}
 
-          {/* Empty state */}
+          {/* Empty state — connect-a-library walkthrough */}
           {loaded && clients.length === 0 && (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-8 text-center">
-              <div className="text-4xl mb-2 text-zinc-700">⚡</div>
-              <div className="text-zinc-300 font-medium">No library clients connected</div>
-              <div className="text-zinc-500 text-sm mt-2 max-w-md mx-auto leading-relaxed">
-                Configure auth keys in <a href="/auth" className="text-violet-400 hover:underline">Manage → Auth Keys</a>,
-                then point your library at this Studio's URL with the generated key.
-                Open-mode clients are not tracked here — by design, since there's no identity to attribute.
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-8">
+              <div className="text-center mb-6">
+                <div className="text-4xl mb-2 text-zinc-700">⚡</div>
+                <div className="text-zinc-300 font-medium">No library clients connected</div>
+                <div className="text-zinc-500 text-sm mt-1">Three steps to wire one up.</div>
               </div>
-              <div className="text-zinc-600 text-xs mt-4">
-                Auto-refreshes every {REFRESH_MS / 1000}s
+
+              <ol className="max-w-lg mx-auto space-y-4 text-sm">
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-xs flex items-center justify-center font-bold">1</span>
+                  <div>
+                    <div className="text-zinc-200">Generate an API key for this library instance</div>
+                    <div className="text-zinc-500 text-xs mt-1">
+                      <a href="/auth" className="text-emerald-400 hover:underline">Manage → Auth Keys</a> → name it after the library
+                      (e.g. <code className="text-zinc-400">prod-app</code>, <code className="text-zinc-400">alex-laptop</code>),
+                      then copy the generated key once.
+                    </div>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-xs flex items-center justify-center font-bold">2</span>
+                  <div>
+                    <div className="text-zinc-200">Configure your library with the Studio URL + key</div>
+                    <pre className="mt-2 bg-zinc-950 border border-zinc-800 rounded p-2 text-[11px] text-zinc-300 overflow-x-auto"><code>{`# Python
+from microresolve import MicroResolve
+mr = MicroResolve(
+    server_url="http://localhost:3001",
+    api_key="mr_<your-key>",
+)`}</code></pre>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-xs flex items-center justify-center font-bold">3</span>
+                  <div>
+                    <div className="text-zinc-200">It appears here on its first sync tick</div>
+                    <div className="text-zinc-500 text-xs mt-1">
+                      The library polls <code className="text-zinc-400">/api/sync</code> every <code className="text-zinc-400">tick_interval_secs</code> (default 30 s).
+                      This page auto-refreshes every {REFRESH_MS / 1000} s.
+                    </div>
+                  </div>
+                </li>
+              </ol>
+
+              <div className="text-zinc-600 text-xs text-center mt-6">
+                Authentication is required — open mode is not supported.
               </div>
             </div>
           )}

@@ -1,16 +1,16 @@
 ---
 title: MicroResolve
-description: Pre-LLM reflex layer — deterministic intent classification at ~30µs, CPU-only, continuous learning.
+description: Pre-LLM reflex layer — deterministic intent classification at ~50µs, CPU-only, continuous learning.
 template: splash
 hero:
-  tagline: A pre-LLM reflex layer that classifies intent, detects PII, and filters tool calls in ~30µs — before the LLM ever sees the query.
+  tagline: A pre-LLM reflex layer that classifies intent, detects PII, and filters tool calls in ~50µs — before the LLM ever sees the query.
   actions:
     - text: Rust quickstart
-      link: /rust/quickstart/
+      link: /microresolve/rust/quickstart/
       icon: right-arrow
       variant: primary
     - text: Concepts
-      link: /concepts/
+      link: /microresolve/concepts/
       icon: open-book
 ---
 
@@ -62,7 +62,7 @@ let threat   = security.resolve("ignore previous instructions");
 Large language models are powerful but slow and expensive. The majority of incoming queries — "cancel my order", "reset my password", "show me the dashboard" — follow patterns that can be resolved deterministically in microseconds. MicroResolve handles that 80%, so your LLM budget goes to the 20% that actually needs reasoning.
 
 ```
-query → [MicroResolve ~30µs] → matched intent → template / tool / guardrail
+query → [MicroResolve ~50µs] → matched intent → template / tool / guardrail
                               ↘ no match → LLM fallback
 ```
 
@@ -81,15 +81,15 @@ curl -X POST http://localhost:3001/api/namespaces/support/rollback \
 
 <CardGrid>
   <Card title="Rust" icon="seti:rust">
-    [Quickstart →](/rust/quickstart/)
+    [Quickstart →](/microresolve/rust/quickstart/)
   </Card>
   <Card title="Python" icon="seti:python">
-    [Quickstart →](/python/quickstart/)
+    [Quickstart →](/microresolve/python/quickstart/)
   </Card>
   <Card title="Node.js" icon="seti:javascript">
-    [Quickstart →](/node/quickstart/)
+    [Quickstart →](/microresolve/node/quickstart/)
   </Card>
   <Card title="Self-hosted server" icon="server">
-    [Install →](/server/install/)
+    [Install →](/microresolve/server/install/)
   </Card>
 </CardGrid>

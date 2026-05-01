@@ -92,12 +92,12 @@ export default function AuthKeysPage() {
                 onChange={e => setNewName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleCreate()}
                 placeholder="library instance name"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-violet-500" />
+                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500" />
             </div>
             <button
               onClick={handleCreate}
               disabled={!newName.trim() || generating}
-              className="px-4 py-2 text-sm bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white rounded">
+              className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded">
               {generating ? 'Generating…' : 'Generate'}
             </button>
           </div>
@@ -110,7 +110,7 @@ export default function AuthKeysPage() {
             <div className="max-w-2xl w-full bg-zinc-900 border border-amber-500/40 rounded-lg p-6 space-y-4">
               <div className="text-lg font-semibold text-amber-400">Save this key now</div>
               <div className="text-sm text-zinc-300">
-                Key for <span className="font-mono text-violet-400">{showKey.name}</span>:
+                Key for <span className="font-mono text-emerald-400">{showKey.name}</span>:
               </div>
               <div className="bg-zinc-950 border border-zinc-800 rounded p-3 font-mono text-xs break-all text-emerald-400 select-all">
                 {showKey.key}
@@ -126,7 +126,7 @@ export default function AuthKeysPage() {
                 </button>
                 <button
                   onClick={() => setShowKey(null)}
-                  className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded">
+                  className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded">
                   I've saved it
                 </button>
               </div>

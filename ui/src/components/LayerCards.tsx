@@ -31,8 +31,8 @@ function LayerCard({ tag, name, subtitle, active, children }: {
   active: boolean;
   children: React.ReactNode;
 }) {
-  const accent = active ? 'border-violet-500/40' : 'border-zinc-800';
-  const dot    = active ? 'bg-violet-400' : 'bg-zinc-700';
+  const accent = active ? 'border-emerald-500/40' : 'border-zinc-800';
+  const dot    = active ? 'bg-emerald-400' : 'bg-zinc-700';
   return (
     <div className={`bg-zinc-950 border ${accent} rounded-lg p-3`}>
       <div className="flex items-baseline gap-2 mb-1">
@@ -98,7 +98,7 @@ function L1Card({ trace }: { trace: RouteTrace }) {
             <span className="text-zinc-600 w-24 text-[10px] uppercase tracking-wide shrink-0 mt-0.5">injected</span>
             <div className="flex flex-wrap gap-1">
               {injected.map(w => (
-                <span key={w} className="px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/30 text-violet-400 text-[10px]">{w}</span>
+                <span key={w} className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px]">{w}</span>
               ))}
             </div>
           </div>
@@ -249,7 +249,7 @@ export function LayerSummaryStrip({
 
 function Pill({ label, value, on }: { label: string; value: string; on: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 ${on ? 'text-violet-400' : 'text-zinc-600'}`}>
+    <span className={`inline-flex items-center gap-1 ${on ? 'text-emerald-400' : 'text-zinc-600'}`}>
       <span className="font-bold">{label}</span>
       <span>{value}</span>
     </span>

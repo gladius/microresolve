@@ -320,27 +320,39 @@ fn auth_keys_endpoint() {
     let key: serde_json::Value = serde_json::from_str(&body).unwrap();
     let full_key = key["key"].as_str().unwrap();
 
+    // Sync is now a single batched POST (the v0.1.5 unified-sync refactor
+    // removed the old GET /sync?version=N endpoint). Body shape mirrors
+    // what the library client sends — local_versions + empty buffers.
+    let sync_body = json!({
+        "local_versions": { "default": 0 },
+        "logs": [],
+        "corrections": [],
+    });
+
     // Now sync requires auth
-    let (s, _) = get(
+    let (s, _) = post_json(
         &c,
-        &format!("{}/sync?version=0", b),
+        &format!("{}/sync", b),
         &[("X-Namespace-ID", "default")],
+        &sync_body,
     );
     assert_eq!(s, 401, "without key returns 401");
 
     // With wrong key
-    let (s, _) = get(
+    let (s, _) = post_json(
         &c,
-        &format!("{}/sync?version=0", b),
+        &format!("{}/sync", b),
         &[("X-Namespace-ID", "default"), ("X-Api-Key", "wrong")],
+        &sync_body,
     );
     assert_eq!(s, 401, "wrong key returns 401");
 
     // With right key
-    let (s, _) = get(
+    let (s, _) = post_json(
         &c,
-        &format!("{}/sync?version=0", b),
+        &format!("{}/sync", b),
         &[("X-Namespace-ID", "default"), ("X-Api-Key", full_key)],
+        &sync_body,
     );
     assert_eq!(s, 200, "right key returns 200");
 

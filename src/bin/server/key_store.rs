@@ -70,13 +70,6 @@ impl KeyStore {
         Some(key.name.clone())
     }
 
-    /// Extract the name from a self-describing key without authenticating
-    /// (does NOT verify the key is in the store). Used by middleware that
-    /// needs to attribute a request before an auth lookup.
-    pub fn name_from_key(provided: &str) -> Option<String> {
-        parse_name(provided)
-    }
-
     /// Listing for UI: returns name, prefix (first 12 chars), created, last_used.
     /// Never returns the full key.
     pub fn list_redacted(&self) -> Vec<RedactedKey> {

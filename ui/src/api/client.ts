@@ -245,8 +245,18 @@ export const api = {
 
   // Languages
   getLanguages: () => get<Record<string, string>>('/languages'),
-  getStopWords: () => get<Record<string, { count: number; source: 'built-in' | 'generated' }>>('/stopwords'),
+  getStopWords: () => get<Record<string, { count: number; source: 'built-in' | 'generated' | 'custom' }>>('/stopwords'),
   generateStopWords: (lang: string) => post<{ lang: string; count: number; source: string }>('/stopwords/generate', { lang }),
+  getStopWordsForLang: (lang: string) =>
+    get<{ lang: string; words: string[]; count: number; source: 'built-in' | 'generated' | 'custom' }>(`/stopwords/${lang}`),
+  addStopWord: (lang: string, word: string) =>
+    post<{ lang: string; count: number; source: string }>(`/stopwords/${lang}/add`, { word }),
+  removeStopWord: (lang: string, word: string) =>
+    del<{ lang: string; count: number; source: string }>(`/stopwords/${lang}/${encodeURIComponent(word)}`),
+  getL0Info: () =>
+    get<{ namespace: string; vocab_size: number; ngram_size: number; min_term_len: number; vocab_sample: string[] }>('/layers/l0'),
+  l0Correct: (query: string) =>
+    post<{ query: string; corrected: string; changed: boolean }>('/layers/l0/correct', { query }),
 
   // Logs
   getLogs: (limit = 100, offset = 0) =>
@@ -303,7 +313,7 @@ export const api = {
   }) => post<{ message: string }>('/simulate/respond', config),
 
   // Namespaces (isolated routing instances)
-  listNamespaces: () => get<{ id: string; name: string; description: string; auto_learn: boolean; default_threshold: number | null }[]>('/namespaces'),
+  listNamespaces: () => get<{ id: string; name: string; description: string; auto_learn: boolean; default_threshold: number | null; version?: number; intent_count?: number; l0_enabled?: boolean; l1_morphology?: boolean; l1_synonym?: boolean; l1_abbreviation?: boolean }[]>('/namespaces'),
   createNamespace: (namespace_id: string, name = '', description = '') =>
     post<{ created: string }>('/namespaces', { namespace_id, name, description }),
   deleteNamespace: (namespace_id: string) =>
@@ -312,7 +322,7 @@ export const api = {
       headers: appHeaders(),
       body: JSON.stringify({ namespace_id }),
     }).then(r => { if (!r.ok) throw new Error('Delete failed'); }),
-  updateNamespace: (namespace_id: string, patch: { name?: string; description?: string; auto_learn?: boolean; default_threshold?: number | null }) => {
+  updateNamespace: (namespace_id: string, patch: { name?: string; description?: string; auto_learn?: boolean; default_threshold?: number | null; l0_enabled?: boolean; l1_morphology?: boolean; l1_synonym?: boolean; l1_abbreviation?: boolean }) => {
     // Translate `default_threshold: null` (clear) into the -1.0 sentinel the server expects.
     const body: Record<string, unknown> = { namespace_id };
     for (const [k, v] of Object.entries(patch)) {

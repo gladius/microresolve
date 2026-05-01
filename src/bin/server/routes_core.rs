@@ -68,7 +68,12 @@ pub async fn route_multi(
     let pipeline: PipelineOut = match state.engine.try_namespace(&app_id) {
         Some(h) => h.with_resolver(|router| {
             let effective_threshold = router.resolve_threshold(req.threshold, default_threshold());
-            let q0 = router.l0().correct_query(&req.query);
+            let info = router.namespace_info();
+            let q0 = if info.l0_enabled {
+                router.l0().correct_query(&req.query)
+            } else {
+                req.query.clone()
+            };
             let preprocessed = if req.disable_l1 {
                 microresolve::scoring::PreprocessResult {
                     original: q0.clone(),
@@ -81,9 +86,17 @@ pub async fn route_multi(
             } else if req.grounded_l1 {
                 let known: std::collections::HashSet<&str> =
                     router.l2().word_intent.keys().map(|s| s.as_str()).collect();
-                router.l1().preprocess_grounded(&q0, &known)
+                router.l1().preprocess_grounded_with_kinds(
+                    &q0,
+                    &known,
+                    info.l1_morphology,
+                    info.l1_abbreviation,
+                    info.l1_synonym,
+                )
             } else {
-                router.l1().preprocess(&q0)
+                router
+                    .l1()
+                    .preprocess_with_kinds(&q0, info.l1_morphology, info.l1_abbreviation)
             };
             if preprocessed.was_modified {
                 eprintln!(

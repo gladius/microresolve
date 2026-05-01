@@ -16,7 +16,7 @@ The Manual tab is where you define and edit intents.
 - **Edit metadata** — set the description, instructions, and persona that downstream LLM calls can use.
 - **Delete intent** — removes the intent and all its phrases.
 
-Every change auto-commits to the git data layer. Use [History](/server/git-data/) to see or roll back changes.
+Every change auto-commits to the git data layer. Use [History](/microresolve/server/git-data/) to see or roll back changes.
 
 ### Simulate
 
@@ -56,10 +56,10 @@ The namespace selector (top of every tab) determines which namespace you are edi
 
 The History page (top navigation) shows the git commit log for the current namespace. Each row is a commit with a timestamp and a description of the change. Click a commit to see the semantic diff, or click **Roll back** to restore the namespace to that state.
 
-See [Git Data Layer](/server/git-data/) for the underlying mechanics and the corresponding HTTP API.
+See [Git Data Layer](/microresolve/server/git-data/) for the underlying mechanics and the corresponding HTTP API.
 
 ## Next
 
-- [Git Data Layer](/server/git-data/) — audit trail, rollback, remote sync
-- [Server API Reference](/server/api/) — call the same operations programmatically
-- [Auth](/server/auth/) — restrict access to the Studio and API
+- [Git Data Layer](/microresolve/server/git-data/) — audit trail, rollback, remote sync
+- [Server API Reference](/microresolve/server/api/) — call the same operations programmatically
+- [Auth](/microresolve/server/auth/) — restrict access to the Studio and API

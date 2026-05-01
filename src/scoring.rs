@@ -175,14 +175,31 @@ impl LexicalGraph {
     /// Multi-word abbreviation targets are also handled ("pr" → "pull request").
     /// CJK: operates on bigrams from the tokenizer.
     pub fn normalize_query(&self, query: &str) -> String {
+        self.normalize_query_with_kinds(query, true, true)
+    }
+
+    /// Variant of [`Self::normalize_query`] that lets the caller suppress
+    /// morphological or abbreviation substitutions. Used by [`Resolver`]
+    /// to honor per-namespace L1 toggles. When both flags are `false`
+    /// this is a tokenize-only pass with no substitution.
+    pub fn normalize_query_with_kinds(
+        &self,
+        query: &str,
+        allow_morphology: bool,
+        allow_abbreviation: bool,
+    ) -> String {
         let words = Self::l1_tokens(query);
         let mut out: Vec<String> = Vec::with_capacity(words.len());
 
         for word in &words {
             let replacement = self.edges.get(word.as_str()).and_then(|edges| {
                 edges.iter().find(|e| {
-                    matches!(e.kind, EdgeKind::Morphological | EdgeKind::Abbreviation)
-                        && e.weight >= 0.97
+                    let kind_ok = match e.kind {
+                        EdgeKind::Morphological => allow_morphology,
+                        EdgeKind::Abbreviation => allow_abbreviation,
+                        _ => false,
+                    };
+                    kind_ok && e.weight >= 0.97
                 })
             });
             match replacement {
@@ -228,7 +245,21 @@ impl LexicalGraph {
     /// For semantic coverage, add training phrases (e.g. via "Generate phrases")
     /// instead of relying on synonym edges.
     pub fn preprocess(&self, query: &str) -> PreprocessResult {
-        let normalized = self.normalize_query(query);
+        self.preprocess_with_kinds(query, true, true)
+    }
+
+    /// L1 preprocessing with per-edge-kind toggles. Synonym substitution
+    /// lives in [`Self::preprocess_grounded`] (the OOV-only path) — this
+    /// method only normalizes via Morphological / Abbreviation edges, so
+    /// it has no synonym knob.
+    pub fn preprocess_with_kinds(
+        &self,
+        query: &str,
+        allow_morphology: bool,
+        allow_abbreviation: bool,
+    ) -> PreprocessResult {
+        let normalized =
+            self.normalize_query_with_kinds(query, allow_morphology, allow_abbreviation);
         let semantic_hits = self.semantic_hits(&normalized);
         let was_modified = normalized != query.to_lowercase();
 
@@ -261,6 +292,19 @@ impl LexicalGraph {
         query: &str,
         known_words: &std::collections::HashSet<&str>,
     ) -> PreprocessResult {
+        self.preprocess_grounded_with_kinds(query, known_words, true, true, true)
+    }
+
+    /// `preprocess_grounded` with per-edge-kind toggles. Used by
+    /// [`Resolver`] to honor per-namespace L1 toggles.
+    pub fn preprocess_grounded_with_kinds(
+        &self,
+        query: &str,
+        known_words: &std::collections::HashSet<&str>,
+        allow_morphology: bool,
+        allow_abbreviation: bool,
+        allow_synonym: bool,
+    ) -> PreprocessResult {
         let words = Self::l1_tokens(query);
         let mut out: Vec<String> = Vec::with_capacity(words.len());
         let mut injected: Vec<String> = Vec::new();
@@ -270,16 +314,15 @@ impl LexicalGraph {
             let is_oov = !known_words.contains(word.as_str());
 
             // Phase 1: morphological / abbreviation substitution — OOV-gated.
-            // If the user's word is already in L2 vocab (e.g. "recommend" when
-            // some intent's seed contains "recommend"), do NOT substitute it
-            // to a different morphological form ("recommender") — that would
-            // destroy the user's distinctive signal. Only rescue OOV tokens.
             if is_oov {
                 let canon = edges.and_then(|es| {
                     es.iter().find(|e| {
-                        matches!(e.kind, EdgeKind::Morphological | EdgeKind::Abbreviation)
-                            && e.weight >= 0.97
-                            && known_words.contains(e.target.as_str())
+                        let kind_ok = match e.kind {
+                            EdgeKind::Morphological => allow_morphology,
+                            EdgeKind::Abbreviation => allow_abbreviation,
+                            _ => false,
+                        };
+                        kind_ok && e.weight >= 0.97 && known_words.contains(e.target.as_str())
                     })
                 });
                 if let Some(e) = canon {
@@ -289,7 +332,7 @@ impl LexicalGraph {
             }
 
             // Phase 2: OOV synonym substitution (Option E) — same gate.
-            if is_oov {
+            if is_oov && allow_synonym {
                 if let Some(syn) = edges.and_then(|es| {
                     es.iter().find(|e| {
                         matches!(e.kind, EdgeKind::Synonym)

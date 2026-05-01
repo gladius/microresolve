@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <!-- Dark background -->
   <rect width="32" height="32" rx="6" fill="#09090b"/>
-  <!-- μ glyph, violet, centered -->
+  <!-- μ glyph, emerald, centered -->
   <text
     x="16"
     y="23"
     font-family="Georgia, 'Times New Roman', serif"
     font-size="22"
     font-weight="700"
-    fill="#a78bfa"
+    fill="#34d399"
     text-anchor="middle"
   >μ</text>
 </svg>

@@ -4,6 +4,7 @@ import Layout from '@/components/Layout';
 import HomePage from '@/pages/HomePage';
 import RouterPage from '@/pages/RouterPage';
 import SimulatePage from '@/pages/SimulatePage';
+import L0Page from '@/pages/L0Page';
 import LexicalPage from '@/pages/LexicalPage';
 import ReviewPage from '@/pages/ReviewPage';
 import IntentsPage from '@/pages/IntentsPage';
@@ -20,7 +21,7 @@ import OpenAIFunctionsImport from '@/pages/import/OpenAIFunctionsImport';
 import LangChainImport from '@/pages/import/LangChainImport';
 import AuthKeysPage from '@/pages/AuthKeysPage';
 import ConnectedClientsPage from '@/pages/ConnectedClientsPage';
-import { AppContext, defaults, type AppSettings, type ThemeMode } from '@/store';
+import { AppContext, defaults, defaultLayerStatus, type AppSettings, type LayerStatus, type ThemeMode } from '@/store';
 import { setApiNamespaceId } from '@/api/client';
 
 const BASE = '/api';
@@ -71,6 +72,7 @@ async function patchSettings(patch: Partial<{
 
 export default function App() {
   const [settings, setSettings] = useState<AppSettings>(defaults);
+  const [layerStatus, setLayerStatus] = useState<LayerStatus>(defaultLayerStatus);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -104,6 +106,8 @@ export default function App() {
     setLanguages: (languages: string[]) => update({ languages }),
     setReviewSkipThreshold: (reviewSkipThreshold: number) => update({ reviewSkipThreshold }),
     setTheme: (theme: ThemeMode) => { update({ theme }); applyTheme(theme); },
+    layerStatus,
+    setLayerStatus,
   };
 
   if (!loaded) return null;
@@ -117,9 +121,10 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/resolve" element={<RouterPage />} />
             <Route path="/simulate" element={<SimulatePage />} />
-            <Route path="/lexical" element={<LexicalPage />} />
+            <Route path="/l0" element={<L0Page />} />
+            <Route path="/l1" element={<LexicalPage />} />
             <Route path="/review" element={<ReviewPage />} />
-            <Route path="/intents" element={<IntentsPage />} />
+            <Route path="/l2" element={<IntentsPage />} />
             <Route path="/import" element={<ImportLanding />} />
             <Route path="/import/openapi" element={<OpenApiImport />} />
             <Route path="/import/mcp" element={<McpImport />} />

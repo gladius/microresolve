@@ -113,11 +113,7 @@ impl ConnectState {
             .map_err(|e| crate::Error::Connect(format!("list namespaces parse: {}", e)))?;
         Ok(arr
             .iter()
-            .filter_map(|v| {
-                v.get("id")
-                    .and_then(|x| x.as_str())
-                    .map(|s| s.to_string())
-            })
+            .filter_map(|v| v.get("id").and_then(|x| x.as_str()).map(|s| s.to_string()))
             .collect())
     }
 
@@ -202,15 +198,6 @@ impl ConnectState {
             buf.remove(0); // drop-oldest
         }
         buf.push(entry);
-    }
-
-    pub fn version_of(&self, app_id: &str) -> u64 {
-        self.versions
-            .read()
-            .unwrap()
-            .get(app_id)
-            .copied()
-            .unwrap_or(0)
     }
 }
 
