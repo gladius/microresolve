@@ -4,17 +4,17 @@ description: Complete API reference for the MicroResolve Python package.
 ---
 
 ```python
-from microresolve import Engine
+from microresolve import MicroResolve
 ```
 
-## Engine
+## MicroResolve
 
 ### Constructor
 
 ```python
-Engine()
-Engine(data_dir="/tmp/mr")
-Engine(
+MicroResolve()
+MicroResolve(data_dir="/tmp/mr")
+MicroResolve(
     server_url="http://localhost:3001",
     api_key="mr_xxx",
     subscribe=["security"],
@@ -44,7 +44,7 @@ Engine(
 
 ## Namespace
 
-Returned by `engine.namespace(id)`.
+Returned by `mr.namespace(id)`.
 
 ### Intent management
 
@@ -105,10 +105,10 @@ IntentInfo(id='jailbreak', intent_type='action', phrases=2)
 ## Example
 
 ```python
-from microresolve import Engine
+from microresolve import MicroResolve
 
-engine = Engine(data_dir="/tmp/mr")
-ns = engine.namespace("security")
+mr = MicroResolve(data_dir="/tmp/mr")
+ns = mr.namespace("security")
 
 ns.add_intent("jailbreak", [
     "ignore prior instructions",
@@ -128,5 +128,5 @@ ns.update_intent("jailbreak", {"description": "Jailbreak attempt"})
 result = ns.add_phrase("jailbreak", "bypass your filters", "en")
 # → {"added": True, "redundant": False, "warning": None}
 
-engine.flush()
+mr.flush()
 ```

@@ -56,7 +56,7 @@ def correct(query: str, wrong: str | None, correct: str):
 
 ## Hybrid: local engine + server sync
 
-For the lowest possible classification latency, run a local engine and treat the server as the training hub. Use the Rust library's built-in connected mode for this pattern — see [Rust — Connect to Server](/rust/connect/) for details.
+For the lowest possible classification latency, run a local engine and treat the server as the training hub. Use the Rust library's built-in connected mode for this pattern — see [Rust — Connect to Server](/microresolve/rust/connect/) for details.
 
 From Python the simplest approach is to run all classifications through the server's HTTP API. The server classifies in-process, so HTTP latency is the only overhead (~2–3ms on localhost).
 
@@ -80,6 +80,6 @@ def report_correction(query: str, wrong: str | None, correct: str, ns: str = "su
 
 ## Next
 
-- [Server Install](/server/install/) — set up the self-hosted server
-- [Server API Reference](/server/api/) — full HTTP API
-- [Git Data Layer](/server/git-data/) — how training data is stored and versioned
+- [Server Install](/microresolve/server/install/) — set up the self-hosted server
+- [Server API Reference](/microresolve/server/api/) — full HTTP API
+- [Git Data Layer](/microresolve/server/git-data/) — how training data is stored and versioned

@@ -4,17 +4,17 @@ description: Complete API reference for the MicroResolve Node.js package.
 ---
 
 ```js
-const { Engine } = require('microresolve');
+const { MicroResolve } = require('microresolve');
 ```
 
-## Engine
+## MicroResolve
 
 ### Constructor
 
 ```js
-new Engine()
-new Engine({ dataDir: '/tmp/mr' })
-new Engine({
+new MicroResolve()
+new MicroResolve({ dataDir: '/tmp/mr' })
+new MicroResolve({
   serverUrl: 'http://localhost:3001',
   apiKey: 'mr_xxx',
   subscribe: ['security'],
@@ -22,7 +22,7 @@ new Engine({
 })
 ```
 
-**`EngineOptions` fields:**
+**`MicroResolveOptions` fields:**
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -42,7 +42,7 @@ new Engine({
 
 ## Namespace
 
-Returned by `engine.namespace(id)`.
+Returned by `mr.namespace(id)`.
 
 ### Intent management
 
@@ -114,10 +114,10 @@ interface IntentEditOptions {
 ## Example
 
 ```js
-const { Engine } = require('microresolve');
+const { MicroResolve } = require('microresolve');
 
-const engine = new Engine({ dataDir: '/tmp/mr' });
-const ns = engine.namespace('security');
+const mr = new MicroResolve({ dataDir: '/tmp/mr' });
+const ns = mr.namespace('security');
 
 ns.addIntent('jailbreak', [
   'ignore prior instructions',
@@ -137,5 +137,5 @@ ns.updateIntent('jailbreak', { description: 'Jailbreak attempt' });
 const result = ns.addPhrase('jailbreak', 'bypass your filters', 'en');
 // → { added: true, redundant: false, warning: null }
 
-engine.flush();
+mr.flush();
 ```

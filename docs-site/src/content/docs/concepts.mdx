@@ -79,7 +79,7 @@ Two parameters control what gets returned:
 - **Threshold** — minimum score to include an intent. Default: `0.3`. Raise it for noisy domains (safety filters) where shared vocabulary causes false positives.
 - **Gap** — score ratio between the top match and the runner-up before the top is accepted alone. Default: `1.5`. Lower it to surface multi-intent queries.
 
-See [Threshold Tuning](/threshold-tuning/) for detailed guidance.
+See [Threshold Tuning](/microresolve/threshold-tuning/) for detailed guidance.
 
 ```rust
 use microresolve::ResolveOptions;
@@ -102,7 +102,7 @@ Pass `None` as the wrong intent if the engine returned no matches (you are teach
 
 ## Continuous learning
 
-MicroResolve is designed to improve from live traffic, not just bootstrap data. Every correction, every added phrase, every auto-learn pass makes future classifications more accurate. See [Threshold Tuning](/threshold-tuning/) and the [Server Studio](/server/studio/) for the full auto-learn pipeline.
+MicroResolve is designed to improve from live traffic, not just bootstrap data. Every correction, every added phrase, every auto-learn pass makes future classifications more accurate. See [Threshold Tuning](/microresolve/threshold-tuning/) and the [Server Studio](/microresolve/server/studio/) for the full auto-learn pipeline.
 
 ## Git data layer
 
@@ -112,10 +112,10 @@ When a `data_dir` is configured, every mutation (intent added, phrase added, cor
 - Rollback to any historical state per namespace
 - Optional remote sync via `git remote`
 
-See [Git Data Layer](/server/git-data/) for details.
+See [Git Data Layer](/microresolve/server/git-data/) for details.
 
 ## Next
 
-- [Rust Quickstart](/rust/quickstart/) — embed the engine in a Rust app
-- [Threshold Tuning](/threshold-tuning/) — choose the right threshold for your namespace
-- [Server Studio](/server/studio/) — manage intents and review misclassifications via UI
+- [Rust Quickstart](/microresolve/rust/quickstart/) — embed the engine in a Rust app
+- [Threshold Tuning](/microresolve/threshold-tuning/) — choose the right threshold for your namespace
+- [Server Studio](/microresolve/server/studio/) — manage intents and review misclassifications via UI

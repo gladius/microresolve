@@ -5,35 +5,35 @@ description: Install and run the self-hosted MicroResolve server.
 
 import { Aside } from '@astrojs/starlight/components';
 
-The MicroResolve server is a single Rust binary. It exposes a REST API on port 3001 and serves the Studio UI. Data is stored in a git-tracked directory on disk.
+The MicroResolve server is a single Rust binary (`microresolve-studio`) with the Studio UI embedded. It exposes a REST API on port 3001 and serves the Studio UI at the same address. Data is stored in a git-tracked directory on disk.
+
+## Recommended: download the release tarball
+
+The fastest way to get started is to download the pre-built binary from the GitHub release:
+
+```bash
+curl -L -o studio.tar.gz https://github.com/gladius/microresolve/releases/download/v0.1.4.1/microresolve-studio-x86_64-unknown-linux-gnu.tar.gz
+tar -xzf studio.tar.gz
+./microresolve-studio --port 3001 --no-open --data ./data
+```
+
+Open `http://localhost:3001` in your browser — the Studio UI is embedded in the binary, no separate frontend step required.
 
 ## Prerequisites
 
-- Rust 1.75+ (for building from source)
 - `git` on the `PATH` (used by the data layer for auto-commits and rollback)
-
-## Build from source
-
-```bash
-git clone https://github.com/gladius/microresolve
-cd microresolve
-
-cargo build --release --bin server --features server
-```
-
-The binary lands at `./target/release/server`.
 
 ## Run
 
 ```bash
 # Defaults: port 3001, data at ~/.local/share/microresolve
-./target/release/server
+./microresolve-studio
 
 # Custom data directory
-./target/release/server --data /var/lib/microresolve
+./microresolve-studio --data /var/lib/microresolve
 
 # Custom port
-./target/release/server --port 8080
+./microresolve-studio --port 8080
 ```
 
 ## Environment variables
@@ -56,14 +56,14 @@ curl http://localhost:3001/api/health
 # {"status":"ok"}
 
 curl http://localhost:3001/api/version
-# {"version":"0.1.0"}
+# {"version":"0.1.4.1"}
 ```
 
 ## Studio UI
 
 The Studio UI is served at `http://localhost:3001` (the root, not a subpath). Open it in your browser to manage intents, run simulations, and review the auto-learn queue.
 
-See [Studio](/server/studio/) for a full walkthrough.
+See [Studio](/microresolve/server/studio/) for a full walkthrough.
 
 ## Data directory layout
 
@@ -92,9 +92,26 @@ curl -X POST http://localhost:3001/api/git/push
 The server sets `user.name = microresolve` and `user.email = microresolve@local` locally if no global git identity is configured.
 </Aside>
 
+## For contributors: build from source
+
+Building from source requires Rust 1.75+. The Studio UI must be compiled once before the Rust build:
+
+```bash
+git clone https://github.com/gladius/microresolve
+cd microresolve
+
+# Build the embedded UI (one-time)
+cd ui && npm run build && cd ..
+
+# Build the server binary
+cargo build --release --bin microresolve-studio --features server
+```
+
+The binary lands at `./target/release/microresolve-studio`.
+
 ## Next
 
-- [Server Studio](/server/studio/) — manage intents and review misclassifications via UI
-- [Server API Reference](/server/api/) — full HTTP API
-- [Git Data Layer](/server/git-data/) — audit trail, rollback, remote sync
-- [Auth](/server/auth/) — API key authentication
+- [Server Studio](/microresolve/server/studio/) — manage intents and review misclassifications via UI
+- [Server API Reference](/microresolve/server/api/) — full HTTP API
+- [Git Data Layer](/microresolve/server/git-data/) — audit trail, rollback, remote sync
+- [Auth](/microresolve/server/auth/) — API key authentication
