@@ -34,11 +34,16 @@ export default function LayerToggle({ field, label, hint, compact }: {
     const next = !on;
     setBusy(true);
     setErr(null);
-    setLayerStatus({ ...layerStatus, [key]: next });
+    // Functional updates: rapid toggles on different fields would otherwise
+    // race — each closure captures its own `layerStatus` snapshot, and the
+    // last-to-resolve would clobber the others. `prev =>` always sees the
+    // freshest store state, so an in-flight failure on field A only reverts
+    // field A, leaving a concurrent field B toggle untouched.
+    setLayerStatus(prev => ({ ...prev, [key]: next }));
     try {
       await api.updateNamespace(settings.selectedNamespaceId, { [field]: next });
     } catch (e) {
-      setLayerStatus({ ...layerStatus, [key]: on }); // revert
+      setLayerStatus(prev => ({ ...prev, [key]: !next }));
       setErr(e instanceof Error ? e.message : 'failed');
     } finally {
       setBusy(false);
@@ -46,21 +51,29 @@ export default function LayerToggle({ field, label, hint, compact }: {
   };
 
   if (compact) {
+    // Compact mode is used inline in dense headers (e.g. L1 page column
+    // headers) where there's no room for an inline error <div>. Surface
+    // failures through the title + a red border instead of swallowing them.
+    const titleText = err
+      ? `${label} — failed: ${err}`
+      : `${label}${hint ? ' — ' + hint : ''}`;
     return (
       <button
         type="button"
         onClick={toggle}
         disabled={busy}
-        title={`${label}${hint ? ' — ' + hint : ''}`}
+        title={titleText}
         className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-          on
+          err
+            ? 'bg-red-500/15 border-red-500/40 text-red-300'
+            : on
             ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
             : 'bg-zinc-800 border-zinc-700 text-zinc-500'
         } ${busy ? 'opacity-50' : 'hover:border-emerald-500/50 cursor-pointer'}`}
       >
-        <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+        <span className={`w-1.5 h-1.5 rounded-full ${err ? 'bg-red-400' : on ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
         {label}
-        <span className="font-mono uppercase tracking-wider opacity-60">{on ? 'on' : 'off'}</span>
+        <span className="font-mono uppercase tracking-wider opacity-60">{err ? 'err' : on ? 'on' : 'off'}</span>
       </button>
     );
   }

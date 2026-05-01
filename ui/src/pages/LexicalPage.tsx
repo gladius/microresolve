@@ -188,7 +188,11 @@ export default function LexicalPage() {
   const { layerStatus } = useAppStore();
   const allOn  = layerStatus.l1m && layerStatus.l1s && layerStatus.l1a;
   const allOff = !layerStatus.l1m && !layerStatus.l1s && !layerStatus.l1a;
-  const status: 'on' | 'off' | 'partial' = allOff ? 'off' : allOn ? 'on' : 'partial';
+  // Only render a badge when something's actionable. The all-on state is
+  // the unremarkable normal case — showing a green `on` pill there is just
+  // chrome noise. Matches the sidebar convention (no pill when fully on).
+  const status: 'off' | 'partial' | null =
+    allOff ? 'off' : allOn ? null : 'partial';
 
   return (
     <Page
@@ -196,11 +200,11 @@ export default function LexicalPage() {
       subtitle={
         <span className="inline-flex items-center gap-2">
           <span>Morphology · Synonyms · Abbreviations</span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-            status === 'on'      ? 'bg-emerald-500/15 text-emerald-300'
-            : status === 'off'   ? 'bg-zinc-800 text-zinc-500'
-            : /* partial */         'bg-amber-500/15 text-amber-400'
-          }`}>{status}</span>
+          {status && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+              status === 'off' ? 'bg-zinc-800 text-zinc-500' : 'bg-amber-500/15 text-amber-400'
+            }`}>{status}</span>
+          )}
         </span>
       }
       fullscreen

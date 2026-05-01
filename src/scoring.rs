@@ -245,20 +245,18 @@ impl LexicalGraph {
     /// For semantic coverage, add training phrases (e.g. via "Generate phrases")
     /// instead of relying on synonym edges.
     pub fn preprocess(&self, query: &str) -> PreprocessResult {
-        self.preprocess_with_kinds(query, true, true, true)
+        self.preprocess_with_kinds(query, true, true)
     }
 
-    /// L1 preprocessing with per-edge-kind toggles. `allow_synonym` is
-    /// accepted for API symmetry — `preprocess` itself doesn't apply
-    /// synonym substitution (that lives in `preprocess_grounded`), so
-    /// the flag is currently a no-op here. Kept so callers don't need
-    /// two different signatures.
+    /// L1 preprocessing with per-edge-kind toggles. Synonym substitution
+    /// lives in [`Self::preprocess_grounded`] (the OOV-only path) — this
+    /// method only normalizes via Morphological / Abbreviation edges, so
+    /// it has no synonym knob.
     pub fn preprocess_with_kinds(
         &self,
         query: &str,
         allow_morphology: bool,
         allow_abbreviation: bool,
-        _allow_synonym: bool,
     ) -> PreprocessResult {
         let normalized = self.normalize_query_with_kinds(query, allow_morphology, allow_abbreviation);
         let semantic_hits = self.semantic_hits(&normalized);

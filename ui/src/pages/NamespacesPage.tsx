@@ -379,10 +379,10 @@ function EditNamespaceModal({
               className="text-zinc-600 cursor-help text-[10px] border border-zinc-700 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center"
             >?</span>
           </div>
-          <LayerToggle label="L0 — Spelling"           hint="Char n-gram typo correction" on={l0}  set={setL0}  />
-          <LayerToggle label="L1 — Morphology"         hint="canceling → cancel"          on={l1m} set={setL1m} />
-          <LayerToggle label="L1 — Synonyms"           hint="OOV-only synonym substitution" on={l1s} set={setL1s} />
-          <LayerToggle label="L1 — Abbreviations"      hint="pr → pull request"           on={l1a} set={setL1a} />
+          <ModalLayerSwitch label="L0 — Spelling"           hint="Char n-gram typo correction" on={l0}  set={setL0}  />
+          <ModalLayerSwitch label="L1 — Morphology"         hint="canceling → cancel"          on={l1m} set={setL1m} />
+          <ModalLayerSwitch label="L1 — Synonyms"           hint="OOV-only synonym substitution" on={l1s} set={setL1s} />
+          <ModalLayerSwitch label="L1 — Abbreviations"      hint="pr → pull request"           on={l1a} set={setL1a} />
         </div>
 
         {err && <p className="text-xs text-red-400">{err}</p>}
@@ -408,7 +408,12 @@ function EditNamespaceModal({
   );
 }
 
-function LayerToggle({ label, hint, on, set }: {
+/// Local-state switch row for the namespace edit modal. Distinct from the
+/// shared `LayerToggle` in `@/components/LayerToggle`: this one holds value
+/// in caller-managed state and saves on modal submit (atomic), the shared
+/// component PATCHes immediately on click. Different semantics — hence
+/// different name to keep grep results unambiguous.
+function ModalLayerSwitch({ label, hint, on, set }: {
   label: string; hint: string; on: boolean; set: (v: boolean) => void;
 }) {
   return (

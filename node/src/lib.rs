@@ -74,7 +74,13 @@ pub struct NamespaceInfo {
 pub struct NamespaceEditOptions {
     pub name: Option<String>,
     pub description: Option<String>,
-    /// Pass `null` explicitly to clear the per-namespace threshold override.
+    /// Per-namespace threshold override.
+    ///   - omit / `undefined` → leave existing value alone
+    ///   - any non-negative number → set as the new threshold
+    ///   - `-1` (sentinel, matches the server's HTTP API) → clear the override
+    ///
+    /// The sentinel-based convention is the napi-rs friendly equivalent of
+    /// `Option<Option<f32>>`, which napi-rs does not natively support.
     pub default_threshold: Option<f64>,
     pub l0_enabled: Option<bool>,
     pub l1_morphology: Option<bool>,
@@ -358,7 +364,10 @@ impl Namespace {
         let e = NamespaceEdit {
             name: edit.name,
             description: edit.description,
-            default_threshold: edit.default_threshold.map(|t| Some(t as f32)),
+            // Sentinel translation: -1 → clear, non-negative → set, omitted → leave alone.
+            default_threshold: edit.default_threshold.map(|t| {
+                if t < 0.0 { None } else { Some(t as f32) }
+            }),
             domain_descriptions: None,
             l0_enabled: edit.l0_enabled,
             l1_morphology: edit.l1_morphology,

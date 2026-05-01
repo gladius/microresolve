@@ -37,7 +37,9 @@ export interface AppStore {
   setReviewSkipThreshold: (t: number) => void;
   setTheme: (theme: ThemeMode) => void;
   layerStatus: LayerStatus;
-  setLayerStatus: (s: LayerStatus) => void;
+  /// Accepts either a value or a function form (`prev => next`) to avoid
+  /// stale-closure races when multiple toggles fire in quick succession.
+  setLayerStatus: (s: LayerStatus | ((prev: LayerStatus) => LayerStatus)) => void;
 }
 
 export const defaults: AppSettings = {

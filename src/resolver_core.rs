@@ -177,12 +177,7 @@ impl Resolver {
         for q in raw_queries {
             let processed = self
                 .l1
-                .preprocess_with_kinds(
-                    q,
-                    self.l1_morphology,
-                    self.l1_abbreviation,
-                    self.l1_synonym,
-                )
+                .preprocess_with_kinds(q, self.l1_morphology, self.l1_abbreviation)
                 .expanded;
             let tokens = crate::tokenizer::tokenize(&processed);
             let words: Vec<&str> = tokens
@@ -226,7 +221,6 @@ impl Resolver {
             phrase,
             self.l1_morphology,
             self.l1_abbreviation,
-            self.l1_synonym,
         );
         let words = crate::tokenizer::tokenize(&preprocessed.expanded);
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
@@ -286,7 +280,6 @@ impl Resolver {
             &q0,
             self.l1_morphology,
             self.l1_abbreviation,
-            self.l1_synonym,
         );
         // L2: score
         let (scored, _negation) =

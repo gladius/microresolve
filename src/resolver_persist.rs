@@ -682,21 +682,90 @@ mod tests {
     }
 
     #[test]
-    fn l0_disabled_skips_typo_correction() {
-        // Build a namespace with vocabulary so L0 has something to correct against.
+    fn l0_disabled_changes_resolve_behavior() {
+        // Behavioral test: toggle MUST cause resolve_with to produce
+        // different output. A regression that removed the gate would
+        // silently degrade routing — this test catches that.
+        // IDF needs at least two intents to produce non-zero term weights —
+        // log(N/df) with N=1 collapses to zero.
         let mut r = Resolver::new();
-        // The toggle short-circuits L0 inside resolve_with — verify the flag
-        // round-trips through update_namespace + namespace_info.
+        r.add_intent(
+            "billing:cancel_subscription",
+            vec![
+                "cancel my subscription".to_string(),
+                "cancel subscription".to_string(),
+                "stop subscription".to_string(),
+            ],
+        ).unwrap();
+        r.add_intent(
+            "billing:create_account",
+            vec![
+                "open account".to_string(),
+                "sign up".to_string(),
+                "register account".to_string(),
+            ],
+        ).unwrap();
+
+        // Sanity floor: the exact phrase must score > 0; otherwise the test
+        // setup is broken (not the toggle).
+        let baseline = r.resolve_with("cancel subscription", &crate::ResolveOptions {
+            threshold: 0.0, gap: 1.5,
+        });
+        assert!(
+            baseline.first().map(|m| m.score).unwrap_or(0.0) > 0.0,
+            "baseline exact-match query returned zero matches — setup broken, not toggle",
+        );
+
+        // Misspell "subscription" with a single-transposition typo. L0 should
+        // correct "subscritpion" → "subscription"; L2 then matches.
+        let typo = "cancel subscritpion";
+
+        let with_l0 = r.resolve_with(typo, &crate::ResolveOptions { threshold: 0.0, gap: 1.5 });
+        let with_l0_top = with_l0.first().map(|m| m.score).unwrap_or(0.0);
+
         r.update_namespace(crate::NamespaceEdit {
             l0_enabled: Some(false),
             ..Default::default()
         }).unwrap();
-        assert!(!r.namespace_info().l0_enabled);
+        let without_l0 = r.resolve_with(typo, &crate::ResolveOptions { threshold: 0.0, gap: 1.5 });
+        let without_l0_top = without_l0.first().map(|m| m.score).unwrap_or(0.0);
+
+        assert!(
+            with_l0_top > without_l0_top,
+            "L0 toggle had no observable effect: with={} without={}",
+            with_l0_top, without_l0_top,
+        );
+    }
+
+    #[test]
+    fn l1_morphology_off_changes_resolve_behavior() {
+        // End-to-end: toggle morphology off and verify resolve_with's
+        // morphological match drops out.
+        use crate::scoring::EdgeKind;
+        let mut r = Resolver::new();
+        r.add_intent("billing:cancel", vec!["cancel order".to_string()]).unwrap();
+        r.add_intent("orders:create", vec!["new order".to_string(), "place order".to_string()]).unwrap();
+        r.l1_mut().add("canceling", "cancel", 0.99, EdgeKind::Morphological);
+
+        let with_morph = r.resolve_with("canceling order", &crate::ResolveOptions {
+            threshold: 0.0, gap: 1.5,
+        });
+        let with_morph_top = with_morph.first().map(|m| m.score).unwrap_or(0.0);
+
         r.update_namespace(crate::NamespaceEdit {
-            l0_enabled: Some(true),
+            l1_morphology: Some(false),
             ..Default::default()
         }).unwrap();
-        assert!(r.namespace_info().l0_enabled);
+        let without_morph = r.resolve_with("canceling order", &crate::ResolveOptions {
+            threshold: 0.0, gap: 1.5,
+        });
+        let without_morph_top = without_morph.first().map(|m| m.score).unwrap_or(0.0);
+
+        assert!(
+            with_morph_top > without_morph_top,
+            "L1 morphology toggle had no observable effect: with={} without={}",
+            with_morph_top, without_morph_top,
+        );
     }
 
     #[test]
@@ -706,11 +775,11 @@ mod tests {
         r.l1_mut().add("canceling", "cancel", 0.99, EdgeKind::Morphological);
 
         // With morphology on, canceling normalizes to cancel.
-        let on = r.l1().preprocess_with_kinds("canceling", true, true, true);
+        let on = r.l1().preprocess_with_kinds("canceling", true, true);
         assert_eq!(on.expanded.trim(), "cancel");
 
         // With morphology off, canceling stays canceling.
-        let off = r.l1().preprocess_with_kinds("canceling", false, true, true);
+        let off = r.l1().preprocess_with_kinds("canceling", false, true);
         assert_eq!(off.expanded.trim(), "canceling");
     }
 
@@ -720,12 +789,35 @@ mod tests {
         let mut r = Resolver::new();
         r.l1_mut().add("pr", "pull request", 0.99, EdgeKind::Abbreviation);
 
-        let on = r.l1().preprocess_with_kinds("merge pr now", true, true, true);
+        let on = r.l1().preprocess_with_kinds("merge pr now", true, true);
         assert!(on.expanded.contains("pull request"), "got: {:?}", on.expanded);
 
-        let off = r.l1().preprocess_with_kinds("merge pr now", true, false, true);
+        let off = r.l1().preprocess_with_kinds("merge pr now", true, false);
         assert!(!off.expanded.contains("pull request"), "got: {:?}", off.expanded);
         assert!(off.expanded.contains("pr"), "got: {:?}", off.expanded);
+    }
+
+    #[test]
+    fn l1_synonym_off_blocks_grounded_substitution() {
+        // Synonym substitution only fires in `preprocess_grounded` (the
+        // OOV-gated path). Verify the gate works there.
+        use crate::scoring::EdgeKind;
+        let mut r = Resolver::new();
+        // Build a known-words set that contains "cancel" but not "abort".
+        let known: std::collections::HashSet<&str> =
+            ["cancel", "order"].iter().copied().collect();
+        r.l1_mut().add("abort", "cancel", 0.95, EdgeKind::Synonym);
+
+        let on = r.l1().preprocess_grounded_with_kinds(
+            "abort order", &known, true, true, true,
+        );
+        assert!(on.expanded.contains("cancel"), "synonym ON: got {:?}", on.expanded);
+
+        let off = r.l1().preprocess_grounded_with_kinds(
+            "abort order", &known, true, true, false,
+        );
+        assert!(!off.expanded.contains("cancel"), "synonym OFF: got {:?}", off.expanded);
+        assert!(off.expanded.contains("abort"), "synonym OFF: got {:?}", off.expanded);
     }
 
     #[test]

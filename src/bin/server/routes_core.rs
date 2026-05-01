@@ -98,7 +98,6 @@ pub async fn route_multi(
                     &q0,
                     info.l1_morphology,
                     info.l1_abbreviation,
-                    info.l1_synonym,
                 )
             };
             if preprocessed.was_modified {
