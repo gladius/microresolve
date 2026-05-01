@@ -183,11 +183,16 @@ async fn main() {
     // library at it. No auto-bootstrap, no open mode.
     let key_store = key_store::KeyStore::load();
     if key_store.is_enabled() {
-        println!("Connected-mode endpoints require X-Api-Key ({} key(s) configured)",
-            key_store.list_redacted().len());
+        println!(
+            "Connected-mode endpoints require X-Api-Key ({} key(s) configured)",
+            key_store.list_redacted().len()
+        );
     } else {
         println!("Connected-mode endpoints will return 401 until a key is created");
-        println!("  → open Studio at http://{}:{} → Manage → Auth Keys", cfg.host, cfg.port);
+        println!(
+            "  → open Studio at http://{}:{} → Manage → Auth Keys",
+            cfg.host, cfg.port
+        );
     }
 
     let (event_tx, _) = broadcast::channel::<state::StudioEvent>(256);

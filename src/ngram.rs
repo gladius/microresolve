@@ -91,7 +91,7 @@ impl NgramIndex {
     }
     /// Sorted slice of up to `limit` vocab terms (deterministic, for UI display).
     pub fn vocab_sample(&self, limit: usize) -> Vec<String> {
-        let mut v: Vec<String> = self.vocab.iter().cloned().collect();
+        let mut v: Vec<String> = self.vocab.to_vec();
         v.sort();
         v.truncate(limit);
         v

@@ -94,11 +94,9 @@ pub async fn route_multi(
                     info.l1_synonym,
                 )
             } else {
-                router.l1().preprocess_with_kinds(
-                    &q0,
-                    info.l1_morphology,
-                    info.l1_abbreviation,
-                )
+                router
+                    .l1()
+                    .preprocess_with_kinds(&q0, info.l1_morphology, info.l1_abbreviation)
             };
             if preprocessed.was_modified {
                 eprintln!(

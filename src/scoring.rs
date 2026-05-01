@@ -258,7 +258,8 @@ impl LexicalGraph {
         allow_morphology: bool,
         allow_abbreviation: bool,
     ) -> PreprocessResult {
-        let normalized = self.normalize_query_with_kinds(query, allow_morphology, allow_abbreviation);
+        let normalized =
+            self.normalize_query_with_kinds(query, allow_morphology, allow_abbreviation);
         let semantic_hits = self.semantic_hits(&normalized);
         let was_modified = normalized != query.to_lowercase();
 
@@ -321,9 +322,7 @@ impl LexicalGraph {
                             EdgeKind::Abbreviation => allow_abbreviation,
                             _ => false,
                         };
-                        kind_ok
-                            && e.weight >= 0.97
-                            && known_words.contains(e.target.as_str())
+                        kind_ok && e.weight >= 0.97 && known_words.contains(e.target.as_str())
                     })
                 });
                 if let Some(e) = canon {

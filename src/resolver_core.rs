@@ -217,11 +217,9 @@ impl Resolver {
     /// Index a phrase into L2 without rebuilding L0.
     /// Call `rebuild_l0()` once after bulk indexing.
     pub(crate) fn index_phrase_no_rebuild(&mut self, intent_id: &str, phrase: &str) {
-        let preprocessed = self.l1.preprocess_with_kinds(
-            phrase,
-            self.l1_morphology,
-            self.l1_abbreviation,
-        );
+        let preprocessed =
+            self.l1
+                .preprocess_with_kinds(phrase, self.l1_morphology, self.l1_abbreviation);
         let words = crate::tokenizer::tokenize(&preprocessed.expanded);
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
         if !word_refs.is_empty() {
@@ -276,11 +274,9 @@ impl Resolver {
             query.to_string()
         };
         // L1: normalize + expand (gated by per-namespace edge-kind toggles)
-        let preprocessed = self.l1.preprocess_with_kinds(
-            &q0,
-            self.l1_morphology,
-            self.l1_abbreviation,
-        );
+        let preprocessed =
+            self.l1
+                .preprocess_with_kinds(&q0, self.l1_morphology, self.l1_abbreviation);
         // L2: score
         let (scored, _negation) =
             self.l2
