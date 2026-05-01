@@ -299,15 +299,18 @@ fn auth_keys_endpoint() {
     let c = server.client();
     let b = format!("{}/api", server.url);
 
-    // Initially open mode
-    let (_, body) = get(&c, &format!("{}/auth/keys", b), &[]);
-    assert!(
-        body.contains("\"enabled\":false"),
-        "initially open: {}",
-        body
-    );
+    // Server bootstrapped a `studio-admin` key on first boot. Tests
+    // pick up `server.api_key` automatically via the thread-local in
+    // helpers; verify it's there.
+    assert!(server.api_key.starts_with("mr_studio-admin_"));
 
-    // Create a key
+    // GET /auth/keys (auto-authed by the helper) — should list at least
+    // the bootstrap key and report enabled=true.
+    let (_, body) = get(&c, &format!("{}/auth/keys", b), &[]);
+    assert!(body.contains("\"enabled\":true"));
+    assert!(body.contains("studio-admin"));
+
+    // Create a Library-scoped key for a hypothetical client.
     let (s, body) = post_json(
         &c,
         &format!("{}/auth/keys", b),
@@ -315,53 +318,96 @@ fn auth_keys_endpoint() {
         &json!({"name": "test-key"}),
     );
     assert_eq!(s, 200);
-    assert!(body.contains("mr_"), "key has mr_ prefix");
-    assert!(body.contains("This key is shown once"), "warning included");
+    assert!(body.contains("mr_test-key_"), "key has expected prefix");
+    assert!(body.contains("This key is shown once"));
+    assert!(body.contains("\"scope\":\"library\""));
     let key: serde_json::Value = serde_json::from_str(&body).unwrap();
     let full_key = key["key"].as_str().unwrap();
 
-    // Sync is now a single batched POST (the v0.1.5 unified-sync refactor
-    // removed the old GET /sync?version=N endpoint). Body shape mirrors
-    // what the library client sends — local_versions + empty buffers.
+    // Sync body (unified POST since v0.1.5).
     let sync_body = json!({
         "local_versions": { "default": 0 },
         "logs": [],
         "corrections": [],
     });
 
-    // Now sync requires auth
+    // ── Negative case: no key at all → 401 ────────────────────────────────
+    // Bypass the helper's auto-inject by crafting the request directly.
+    let raw_resp = c
+        .post(format!("{}/sync", b))
+        .header("X-Namespace-ID", "default")
+        .json(&sync_body)
+        .send()
+        .expect("request");
+    assert_eq!(
+        raw_resp.status().as_u16(),
+        401,
+        "request without X-Api-Key returns 401"
+    );
+
+    // ── Wrong key → 401 ──────────────────────────────────────────────────
     let (s, _) = post_json(
         &c,
         &format!("{}/sync", b),
-        &[("X-Namespace-ID", "default")],
+        &[
+            ("X-Namespace-ID", "default"),
+            (
+                "X-Api-Key",
+                "mr_wrong_0000000000000000000000000000000000000000000000000000000000000000",
+            ),
+        ],
         &sync_body,
     );
-    assert_eq!(s, 401, "without key returns 401");
+    assert_eq!(s, 401);
 
-    // With wrong key
-    let (s, _) = post_json(
-        &c,
-        &format!("{}/sync", b),
-        &[("X-Namespace-ID", "default"), ("X-Api-Key", "wrong")],
-        &sync_body,
-    );
-    assert_eq!(s, 401, "wrong key returns 401");
-
-    // With right key
+    // ── New library key works on /sync ───────────────────────────────────
     let (s, _) = post_json(
         &c,
         &format!("{}/sync", b),
         &[("X-Namespace-ID", "default"), ("X-Api-Key", full_key)],
         &sync_body,
     );
-    assert_eq!(s, 200, "right key returns 200");
+    assert_eq!(s, 200, "library key works on /sync");
 
-    // List keys (redacted)
+    // List + redaction.
     let (_, body) = get(&c, &format!("{}/auth/keys", b), &[]);
-    assert!(body.contains("test-key"), "key listed");
-    assert!(!body.contains(full_key), "full key NOT in list (redacted)");
+    assert!(body.contains("test-key"));
+    assert!(!body.contains(full_key), "full key not in list");
 
-    // Revoke
+    // Revoke.
     let s = delete_json(&c, &format!("{}/auth/keys/test-key", b), &[], &json!({}));
-    assert_eq!(s, 204, "revoke");
+    assert_eq!(s, 204);
+}
+
+#[test]
+fn unauthorized_endpoints_return_401_without_key() {
+    // Smoke that EVERY protected endpoint enforces the gate, not just
+    // /sync. Picks one read (list namespaces) and one write (create
+    // namespace) — middleware applies uniformly so this is a chokepoint
+    // test, not an endpoint enumeration.
+    let server = TestServer::spawn();
+    let c = server.client();
+    let b = format!("{}/api", server.url);
+
+    let r = c.get(format!("{}/namespaces", b)).send().expect("req");
+    assert_eq!(
+        r.status().as_u16(),
+        401,
+        "GET /namespaces without auth → 401"
+    );
+
+    let r = c
+        .post(format!("{}/namespaces", b))
+        .json(&json!({"namespace_id":"x"}))
+        .send()
+        .expect("req");
+    assert_eq!(
+        r.status().as_u16(),
+        401,
+        "POST /namespaces without auth → 401"
+    );
+
+    // /version is public — used by health checks.
+    let r = c.get(format!("{}/version", b)).send().expect("req");
+    assert_eq!(r.status().as_u16(), 200, "GET /version is public");
 }

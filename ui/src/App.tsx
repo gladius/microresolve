@@ -22,7 +22,8 @@ import LangChainImport from '@/pages/import/LangChainImport';
 import AuthKeysPage from '@/pages/AuthKeysPage';
 import ConnectedClientsPage from '@/pages/ConnectedClientsPage';
 import { AppContext, defaults, defaultLayerStatus, type AppSettings, type LayerStatus, type ThemeMode } from '@/store';
-import { setApiNamespaceId } from '@/api/client';
+import { setApiNamespaceId, getApiKey } from '@/api/client';
+import AuthGate from '@/components/AuthGate';
 
 const BASE = '/api';
 
@@ -74,15 +75,18 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(defaults);
   const [layerStatus, setLayerStatus] = useState<LayerStatus>(defaultLayerStatus);
   const [loaded, setLoaded] = useState(false);
+  // Auth state: undefined = checking, false = needs paste, true = good.
+  const [hasKey, setHasKey] = useState<boolean>(() => !!getApiKey());
 
   useEffect(() => {
+    if (!hasKey) return;                 // Don't probe protected endpoints without a key.
     fetchSettings().then(s => {
       setSettings(s);
       setApiNamespaceId(s.selectedNamespaceId);
       applyTheme(s.theme);
       setLoaded(true);
     });
-  }, []);
+  }, [hasKey]);
 
   const update = (patch: Partial<AppSettings>) => {
     setSettings(prev => ({ ...prev, ...patch }));
@@ -110,6 +114,7 @@ export default function App() {
     setLayerStatus,
   };
 
+  if (!hasKey) return <AuthGate onAuthorized={() => setHasKey(true)} />;
   if (!loaded) return null;
 
   return (

@@ -6,13 +6,89 @@ export function setApiNamespaceId(namespaceId: string) {
   currentNamespaceId = namespaceId;
 }
 
+const API_KEY_STORAGE = 'microresolve.api_key';
+
+/// Persisted API key — `null` until the user pastes one on the bootstrap
+/// screen. Read on every fetch so a key minted in another tab is picked
+/// up without a reload.
+export function getApiKey(): string | null {
+  try {
+    return localStorage.getItem(API_KEY_STORAGE);
+  } catch {
+    return null;
+  }
+}
+
+export function setApiKey(key: string) {
+  try {
+    localStorage.setItem(API_KEY_STORAGE, key);
+  } catch { /* localStorage disabled — key won't persist across reloads */ }
+}
+
+export function clearApiKey() {
+  try {
+    localStorage.removeItem(API_KEY_STORAGE);
+  } catch { /* */ }
+}
 
 export function appHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   if (currentNamespaceId && currentNamespaceId !== 'default') {
     h['X-Namespace-ID'] = currentNamespaceId;
   }
+  const key = getApiKey();
+  if (key) h['X-Api-Key'] = key;
   return h;
+}
+
+/// 401 from the server means the key in localStorage is rejected (revoked,
+/// rotated, server reset). Drop it and reload — the App-mount paste-screen
+/// will catch the user.
+function handleUnauthorized() {
+  clearApiKey();
+  if (typeof window !== 'undefined') {
+    window.location.reload();
+  }
+}
+
+/// Global `fetch` wrapper installed at module load.
+///
+/// Every call site that hits `/api/*` — the `get`/`post`/`patch`/`del`
+/// helpers below, AND the dozen-or-so direct `fetch('/api/...')` calls
+/// scattered across the UI (import wizards, Layout poll loops, AuthGate
+/// itself) — picks up `X-Api-Key` from localStorage without each call
+/// site needing to know about auth. On 401 we clear the key and reload
+/// so the user lands back on the paste-screen.
+///
+/// The key on the AuthGate's *probe* fetch is sent explicitly via the
+/// header, so this wrapper preserves any X-Api-Key the caller already
+/// set (the override path).
+if (typeof window !== 'undefined' && !(window as { __mrFetchPatched?: true }).__mrFetchPatched) {
+  const original = window.fetch.bind(window);
+  (window as { __mrFetchPatched?: true }).__mrFetchPatched = true;
+  window.fetch = async (input, init) => {
+    // Only attach auth to relative /api/* URLs. Absolute URLs to other
+    // hosts (e.g. an OpenAPI spec download) MUST NOT receive our key.
+    const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const isApi = urlStr.startsWith('/api/') || urlStr.includes('://') === false && urlStr.startsWith('/api/');
+    if (isApi) {
+      const key = getApiKey();
+      if (key) {
+        const headers = new Headers(init?.headers);
+        // Don't override an explicit X-Api-Key the caller already set
+        // (lets AuthGate probe with a candidate key before we persist it).
+        if (!headers.has('X-Api-Key')) {
+          headers.set('X-Api-Key', key);
+        }
+        init = { ...(init ?? {}), headers };
+      }
+    }
+    const res = await original(input, init);
+    if (isApi && res.status === 401) {
+      handleUnauthorized();
+    }
+    return res;
+  };
 }
 
 function friendlyError(status: number, body: string): string {
@@ -33,6 +109,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     headers: appHeaders(),
     body: JSON.stringify(body),
   });
+  if (res.status === 401) { handleUnauthorized(); throw new Error('Unauthorized — paste a valid Studio key.'); }
   if (!res.ok) throw new Error(friendlyError(res.status, await res.text()));
   const text = await res.text();
   if (!text) return undefined as T;
@@ -41,6 +118,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: appHeaders() });
+  if (res.status === 401) { handleUnauthorized(); throw new Error('Unauthorized — paste a valid Studio key.'); }
   if (!res.ok) throw new Error(friendlyError(res.status, await res.text()));
   const data = await res.json();
   // Server returns {"error": "..."} for missing apps — treat as empty
@@ -56,6 +134,7 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
     headers: appHeaders(),
     body: JSON.stringify(body),
   });
+  if (res.status === 401) { handleUnauthorized(); throw new Error('Unauthorized — paste a valid Studio key.'); }
   if (!res.ok) throw new Error(friendlyError(res.status, await res.text()));
   const text = await res.text();
   if (!text) return undefined as T;
@@ -66,6 +145,7 @@ async function del<T>(path: string, body?: unknown): Promise<T> {
   const opts: RequestInit = { method: 'DELETE', headers: appHeaders() };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const res = await fetch(`${BASE}${path}`, opts);
+  if (res.status === 401) { handleUnauthorized(); throw new Error('Unauthorized — paste a valid Studio key.'); }
   if (!res.ok) throw new Error(friendlyError(res.status, await res.text()));
   const text = await res.text();
   if (!text) return undefined as T;
@@ -226,8 +306,14 @@ export const api = {
   }) => patch<void>(`/intents/${encodeURIComponent(id)}`, fields),
 
   // Auth keys
-  listAuthKeys: () => get<{ enabled: boolean; keys: { name: string; prefix: string; created_at: number; last_used_at: number | null }[] }>('/auth/keys'),
-  createAuthKey: (name: string) => post<{ key: string; name: string; warning: string }>('/auth/keys', { name }),
+  listAuthKeys: () => get<{
+    enabled: boolean;
+    keys: { name: string; prefix: string; scope: 'admin' | 'library'; created_at: number; last_used_at: number | null }[];
+  }>('/auth/keys'),
+  createAuthKey: (name: string, scope: 'admin' | 'library' = 'library') =>
+    post<{ key: string; name: string; scope: 'admin' | 'library'; warning: string }>(
+      '/auth/keys', { name, scope }
+    ),
   revokeAuthKey: (name: string) => del<void>(`/auth/keys/${encodeURIComponent(name)}`),
 
   // Instance-wide model registry (was per-namespace; now global since v0.1)

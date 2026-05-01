@@ -80,7 +80,7 @@ jobs:
 
       - name: connected example (live-sync loop)
         run: |
-          ./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_ci > /tmp/server.log 2>&1 &
+          ./target/release/microresolve-studio --port 3001 --no-browser --data /tmp/mr_ci > /tmp/server.log 2>&1 &
           SERVER_PID=$!
           sleep 2
           # Strict-auth (default since v0.1.6) — every /api/sync call needs an

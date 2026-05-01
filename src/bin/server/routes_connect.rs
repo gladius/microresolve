@@ -50,6 +50,7 @@ fn check_auth(state: &AppState, headers: &HeaderMap) -> Result<String, StatusCod
         .read()
         .unwrap()
         .validate(provided)
+        .map(|(name, _scope)| name)
         .ok_or(StatusCode::UNAUTHORIZED)
 }
 

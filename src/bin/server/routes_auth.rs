@@ -1,6 +1,7 @@
 //! API key management endpoints. UI-driven CRUD on
 //! `~/.config/microresolve/keys.json`.
 
+use crate::key_store::KeyScope;
 use crate::state::*;
 use axum::{
     extract::{Path, State},
@@ -29,6 +30,11 @@ pub async fn list_keys(State(state): State<AppState>) -> Json<serde_json::Value>
 #[derive(serde::Deserialize)]
 pub struct CreateKeyRequest {
     pub name: String,
+    /// Optional scope — defaults to `library` if omitted. UI passes this
+    /// explicitly when minting `admin` keys (e.g. for a teammate who
+    /// needs full Studio access).
+    #[serde(default)]
+    pub scope: Option<KeyScope>,
 }
 
 /// Generate a new key. Returns the full key ONCE — caller must save it.
@@ -39,13 +45,15 @@ pub async fn create_key(
     if req.name.trim().is_empty() {
         return Err((StatusCode::BAD_REQUEST, "name required".to_string()));
     }
+    let scope = req.scope.unwrap_or(KeyScope::Library);
     let mut store = state.key_store.write().unwrap();
     let key = store
-        .create(req.name.trim())
+        .create(req.name.trim(), scope)
         .map_err(|e| (StatusCode::CONFLICT, e))?;
     Ok(Json(serde_json::json!({
         "key": key,
         "name": req.name.trim(),
+        "scope": scope,
         "warning": "This key is shown once. Save it now — it cannot be retrieved later.",
     })))
 }
