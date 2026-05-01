@@ -2,9 +2,12 @@ import { useState, useCallback, useEffect } from 'react';
 import Page from '@/components/Page';
 import { api } from '@/api/client';
 
+type KeyScope = 'admin' | 'library';
+
 interface KeyRow {
   name: string;
   prefix: string;
+  scope: KeyScope;
   created_at: number;
   last_used_at: number | null;
 }
@@ -13,8 +16,12 @@ export default function AuthKeysPage() {
   const [keys, setKeys] = useState<KeyRow[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [newName, setNewName] = useState('');
+  // Library is the right default for Auth Keys minted via the UI:
+  // operators add keys for connected-mode libraries far more often than
+  // for fellow admins. Admin remains a one-click upgrade for teammate keys.
+  const [newScope, setNewScope] = useState<KeyScope>('library');
   const [generating, setGenerating] = useState(false);
-  const [showKey, setShowKey] = useState<{ key: string; name: string } | null>(null);
+  const [showKey, setShowKey] = useState<{ key: string; name: string; scope: KeyScope } | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -34,9 +41,10 @@ export default function AuthKeysPage() {
     if (!name) return;
     setGenerating(true); setErr(null);
     try {
-      const r = await api.createAuthKey(name);
-      setShowKey({ key: r.key, name: r.name });
+      const r = await api.createAuthKey(name, newScope);
+      setShowKey({ key: r.key, name: r.name, scope: r.scope });
       setNewName('');
+      setNewScope('library');
       refresh();
     } catch (e) {
       setErr((e as Error).message);
@@ -94,12 +102,28 @@ export default function AuthKeysPage() {
                 placeholder="library instance name"
                 className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500" />
             </div>
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase block mb-1">Scope</label>
+              <select
+                value={newScope}
+                onChange={e => setNewScope(e.target.value as KeyScope)}
+                className="bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="library">library</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
             <button
               onClick={handleCreate}
               disabled={!newName.trim() || generating}
               className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded">
               {generating ? 'Generating…' : 'Generate'}
             </button>
+          </div>
+          <div className="text-[11px] text-zinc-500 mt-2">
+            <span className="text-zinc-400 font-medium">Library</span> — for connected-mode clients (Python / Node / etc).{' '}
+            <span className="text-zinc-400 font-medium">Admin</span> — for teammates who need full Studio access.{' '}
+            <span className="text-zinc-600">Today both have the same access; v0.2 will enforce scope differences.</span>
           </div>
           {err && <div className="text-xs text-red-400 mt-2">{err}</div>}
         </div>
@@ -110,7 +134,8 @@ export default function AuthKeysPage() {
             <div className="max-w-2xl w-full bg-zinc-900 border border-amber-500/40 rounded-lg p-6 space-y-4">
               <div className="text-lg font-semibold text-amber-400">Save this key now</div>
               <div className="text-sm text-zinc-300">
-                Key for <span className="font-mono text-emerald-400">{showKey.name}</span>:
+                Key for <span className="font-mono text-emerald-400">{showKey.name}</span>{' '}
+                <ScopeBadge scope={showKey.scope} />:
               </div>
               <div className="bg-zinc-950 border border-zinc-800 rounded p-3 font-mono text-xs break-all text-emerald-400 select-all">
                 {showKey.key}
@@ -148,6 +173,7 @@ export default function AuthKeysPage() {
               <thead className="text-xs text-zinc-500 uppercase">
                 <tr className="border-b border-zinc-800">
                   <th className="text-left px-4 py-2 font-normal">Name</th>
+                  <th className="text-left px-4 py-2 font-normal">Scope</th>
                   <th className="text-left px-4 py-2 font-normal">Prefix</th>
                   <th className="text-left px-4 py-2 font-normal">Created</th>
                   <th className="text-left px-4 py-2 font-normal">Last used</th>
@@ -158,6 +184,7 @@ export default function AuthKeysPage() {
                 {keys.map(k => (
                   <tr key={k.name} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
                     <td className="px-4 py-2 text-zinc-100 font-medium">{k.name}</td>
+                    <td className="px-4 py-2"><ScopeBadge scope={k.scope} /></td>
                     <td className="px-4 py-2 font-mono text-xs text-zinc-400">{k.prefix}</td>
                     <td className="px-4 py-2 text-xs text-zinc-500">{formatTime(k.created_at)}</td>
                     <td className="px-4 py-2 text-xs text-zinc-500">{formatTime(k.last_used_at)}</td>
@@ -182,5 +209,16 @@ export default function AuthKeysPage() {
 
       </div>
     </Page>
+  );
+}
+
+function ScopeBadge({ scope }: { scope: KeyScope }) {
+  const cls = scope === 'admin'
+    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+    : 'bg-zinc-800 text-zinc-300 border-zinc-700';
+  return (
+    <span className={`inline-block text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${cls}`}>
+      {scope}
+    </span>
   );
 }

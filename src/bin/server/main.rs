@@ -175,24 +175,51 @@ async fn main() {
         .map(load_ui_settings)
         .unwrap_or_default();
 
-    // API keys for connected-mode endpoints. Strict-auth: every /api/sync
-    // request must present a valid X-Api-Key. The Studio UI's
-    // /api/auth/keys POST is unauthenticated (it's the bootstrap path), so
-    // a fresh server starts with an empty keys.json and the operator
-    // generates the first key via Manage → Auth Keys before pointing a
-    // library at it. No auto-bootstrap, no open mode.
-    let key_store = key_store::KeyStore::load();
-    if key_store.is_enabled() {
-        println!(
-            "Connected-mode endpoints require X-Api-Key ({} key(s) configured)",
-            key_store.list_redacted().len()
-        );
-    } else {
-        println!("Connected-mode endpoints will return 401 until a key is created");
-        println!(
-            "  → open Studio at http://{}:{} → Manage → Auth Keys",
-            cfg.host, cfg.port
-        );
+    // API keys cover EVERY /api/* call (UI fetches included). On a fresh
+    // install with an empty keystore the server auto-mints
+    // `studio-admin` (Admin scope) and prints it once — operator pastes
+    // it into the Studio paste-screen, browser stores it in localStorage,
+    // every subsequent fetch carries `X-Api-Key`. The /api/auth/keys POST
+    // requires the same auth like everything else; there is no
+    // unauthenticated bootstrap route.
+    //
+    // If the operator loses stdout (Docker -d, redirected logs, etc.) the
+    // key is also persisted to `<config>/admin-key.txt` mode 0600 — they
+    // can `cat` it any time.
+    let mut key_store = match cfg.keys_file.clone() {
+        Some(p) => key_store::KeyStore::load_from(Some(p)),
+        None => key_store::KeyStore::load(),
+    };
+    let admin_key_path = key_store.admin_key_path();
+    match key_store.bootstrap_if_empty() {
+        Ok(Some(key)) => {
+            println!();
+            println!("──────────────────────────────────────────────────────────────");
+            println!(" Studio admin key (paste this into the browser on first visit):");
+            println!();
+            println!("   {}", key);
+            println!();
+            if let Some(p) = admin_key_path.as_ref() {
+                println!(" Also saved to: {}", p.display());
+            }
+            println!("──────────────────────────────────────────────────────────────");
+            println!();
+        }
+        Ok(None) => {
+            println!(
+                "Loaded {} API key(s) from keys.json — Studio expects X-Api-Key",
+                key_store.list_redacted().len()
+            );
+            if let Some(p) = admin_key_path.as_ref() {
+                if std::path::Path::new(p).exists() {
+                    println!("  admin-key.txt: {}", p.display());
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("[key_store] bootstrap failed: {}", e);
+            eprintln!("  Studio will reject all /api/* requests until a key exists.");
+        }
     }
 
     let (event_tx, _) = broadcast::channel::<state::StudioEvent>(256);
@@ -216,10 +243,21 @@ async fn main() {
     // Spawn the background auto-learn worker
     tokio::spawn(worker::run_worker(state.clone(), worker_notify));
 
-    let app = axum::Router::new()
+    // Public probes — no auth, by design. Bound on /api/health, /api/version,
+    // /api/llm/status. Operators / orchestrators (k8s, healthcheck.io, etc.)
+    // hit these without credentials.
+    let public_api = axum::Router::new()
         .route("/api/health", get(health))
         .route("/api/llm/status", get(llm_status))
-        .route("/api/version", get(get_version))
+        .route("/api/version", get(get_version));
+
+    // Every other /api/* route — UI fetches included — requires X-Api-Key.
+    // The middleware below is a single chokepoint; individual route files no
+    // longer need their own auth logic. Keep route_connect's check_auth for
+    // attribution (it returns the key NAME so connected-clients tracking can
+    // associate the sync with the right library), but the gate itself runs
+    // here.
+    let protected_api = axum::Router::new()
         .merge(routes_core::routes())
         .merge(routes_intents::routes())
         .merge(routes_logs::routes())
@@ -237,6 +275,13 @@ async fn main() {
         .merge(routes_stopwords::routes())
         .merge(routes_git::routes())
         .merge(routes_state::routes())
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            require_api_key,
+        ));
+
+    let app = public_api
+        .merge(protected_api)
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
@@ -351,7 +396,7 @@ async fn main() {
     // Auto-open the browser — only for distributed installs. In dev builds
     // the Vite dev server on :3000 already owns the browser tab.
     if is_distributed {
-        if !cfg.no_open && !cli::looks_headless() {
+        if !cfg.no_browser && !cli::looks_headless() {
             let url = format!("http://localhost:{}/", cfg.port);
             if let Err(e) = open::that_detached(&url) {
                 eprintln!(
@@ -361,8 +406,8 @@ async fn main() {
             } else {
                 println!("Opening browser at {}", url);
             }
-        } else if cfg.no_open {
-            println!("Browser auto-open disabled (--no-open).");
+        } else if cfg.no_browser {
+            println!("Browser auto-open disabled (--no-browser).");
         } else {
             println!("Headless environment detected — not opening browser.");
         }
@@ -373,6 +418,34 @@ async fn main() {
 
 async fn health() -> &'static str {
     "ok"
+}
+
+/// Universal API key middleware. Runs in front of every protected route
+/// (everything under `/api/*` except `/api/health`, `/api/version`,
+/// `/api/llm/status`). Reads `X-Api-Key`, validates against the keystore,
+/// rejects with 401 when missing or invalid.
+///
+/// Per-scope enforcement is intentionally **permissive in v0.1.9** — every
+/// scope grants every route. The schema exists so v0.2 can land
+/// route-level scope checks without breaking persisted keys.
+async fn require_api_key(
+    State(state): State<AppState>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Result<axum::response::Response, axum::http::StatusCode> {
+    let provided = req
+        .headers()
+        .get("X-Api-Key")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if provided.is_empty() {
+        return Err(axum::http::StatusCode::UNAUTHORIZED);
+    }
+    let validated = state.key_store.read().unwrap().validate(provided);
+    if validated.is_none() {
+        return Err(axum::http::StatusCode::UNAUTHORIZED);
+    }
+    Ok(next.run(req).await)
 }
 
 async fn llm_status(State(state): State<AppState>) -> Json<serde_json::Value> {

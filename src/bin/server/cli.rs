@@ -50,9 +50,15 @@ pub struct Cli {
     #[arg(long, value_name = "MODEL")]
     pub llm_model: Option<String>,
 
-    /// Don't auto-open the browser on startup.
+    /// Don't auto-launch a browser at the Studio URL on startup.
+    /// Useful on headless servers, in CI, or when you already have a tab open.
     #[arg(long)]
-    pub no_open: bool,
+    pub no_browser: bool,
+
+    /// API keys file (default: ~/.config/microresolve/keys.json). Override
+    /// for tests or for running multiple Studios with isolated keystores.
+    #[arg(long, value_name = "FILE")]
+    pub keys_file: Option<PathBuf>,
 
     /// Print the resolved configuration (after merging CLI/env/file) and exit.
     #[arg(long)]
@@ -90,7 +96,10 @@ pub struct ResolvedConfig {
     pub llm_provider: String,
     pub llm_model: String,
     pub llm_api_key: Option<String>,
-    pub no_open: bool,
+    pub no_browser: bool,
+    /// `Some` only when `--keys-file` was passed explicitly. `None` means
+    /// "use the platform default" (`~/.config/microresolve/keys.json`).
+    pub keys_file: Option<PathBuf>,
 }
 
 /// Path to the user's config file (created on first `microresolve config` run).
@@ -181,7 +190,8 @@ pub fn resolve(cli: &Cli) -> ResolvedConfig {
         llm_provider,
         llm_model,
         llm_api_key,
-        no_open: cli.no_open,
+        no_browser: cli.no_browser,
+        keys_file: cli.keys_file.clone(),
     }
 }
 

@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.9] — 2026-05-01
+
+### Breaking
+
+- **Studio auth model: every `/api/*` route now requires `X-Api-Key`** —
+  including the UI's own fetches. The previous setup left UI fetches
+  unauthenticated and only `/api/sync` enforced auth. Combined with a
+  default bind to `0.0.0.0`, that meant any LAN host could mint keys
+  via the unauthenticated `/api/auth/keys` POST. Closed.
+- **`POST /api/auth/keys` now requires auth** like everything else.
+  No more bootstrap exception.
+- **Renamed CLI flag `--no-open` → `--no-browser`**. More
+  self-documenting; matches Jupyter's convention.
+
+### Added
+
+- **Auto-bootstrap admin key on first boot.** When `keys.json` is empty,
+  the server mints `mr_studio-admin_<hex>` (Admin scope), prints it to
+  stdout in a visible banner, and persists it to
+  `~/.config/microresolve/admin-key.txt` (mode 0600) so operators who
+  redirect stdout (Docker, systemd) can `cat` it later.
+- **Studio paste-screen** — first browser visit renders a key entry
+  form. Pasted key lives in `localStorage`; every subsequent fetch
+  carries `X-Api-Key`. Single global `window.fetch` wrapper (in
+  `ui/src/api/client.ts`) attaches it to every relative `/api/*`
+  request, including the dozen-plus raw `fetch()` call sites scattered
+  across the import wizards and Layout polls.
+- **`KeyScope` schema on every API key** — `admin` or `library`.
+  Persisted in `keys.json`, returned by `GET /api/auth/keys`, accepted
+  by `POST /api/auth/keys`, surfaced in the Auth Keys page (column
+  badge + scope dropdown on Generate). **Enforcement is permissive in
+  v0.1.9** (every scope grants every route); v0.2 will land
+  route-level scope checks. Existing keys without a scope field load
+  as `Admin` (backwards-compat default).
+- **`--keys-file <path>` CLI flag** for keystore isolation. Used by
+  the integration test harness to give every spawned server its own
+  `keys.json`, so parallel test binaries don't race on the global
+  `~/.config/microresolve/keys.json`.
+
+### Removed
+
+- **Home page "Common shapes" use-case tile section.** Replaced with a
+  one-line stats strip (namespaces · intents · connected clients ·
+  pending review) and a single "see use cases" link in the empty
+  state — exactly where new operators look for examples, with no
+  clutter on the persistent home view for repeat visitors.
+- **Home page "Try It" widget** (already removed in earlier branch
+  work, formalized in v0.1.9). The dedicated `/resolve` page provides
+  the same with full L0/L1/L2 trace.
+- **"Start with" dropdown in the New Namespace modal.** Three options
+  that just navigated to different pages — friction at the moment of
+  creation. Now: create + close, namespace appears in the list, user
+  picks where to go from there.
+
+### Changed
+
+- **Hero on Studio Home** rewritten from "Pre-LLM intent routing" →
+  "The pre-LLM reflex layer" to match the README. Intent routing is
+  one use case; reflex layer covers the broader pitch (tool selection,
+  guardrail dispatch, refusal classification).
+- **Test harness (`tests/common/mod.rs`)** captures the bootstrap
+  admin key from each spawned server's `admin-key.txt` and auto-injects
+  it via a thread-local on every helper call. Tests stay terse;
+  unauthorized-path tests bypass the auto-inject by setting
+  `X-Api-Key` explicitly.
+
 ## [0.1.8] — 2026-05-01
 
 ### Fixed

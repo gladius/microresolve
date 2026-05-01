@@ -5,7 +5,7 @@
  * push a correction back.
  *
  * Start the server first:
- *   ../target/release/server --port 3001 --no-open --data /tmp/mr_server_data &
+ *   ../target/release/server --port 3001 --no-browser --data /tmp/mr_server_data &
  *
  * Run:
  *   node examples/connected.js
@@ -51,7 +51,7 @@ async function main() {
     await setup();
   } catch (err) {
     console.error(`  ✗ server unreachable: ${err.message}`);
-    console.error(`  Start: ../target/release/server --port ${SERVER_URL.split(':').pop()} --no-open`);
+    console.error(`  Start: ../target/release/server --port ${SERVER_URL.split(':').pop()} --no-browser`);
     process.exit(1);
   }
   console.log(`  ✓ namespace '${NS}' seeded with 3 intents`);

@@ -80,16 +80,21 @@ jobs:
 
       - name: connected example (live-sync loop)
         run: |
-          ./target/release/microresolve-studio --port 3001 --no-open --data /tmp/mr_ci > /tmp/server.log 2>&1 &
+          # v0.1.9 requires X-Api-Key on every /api/* call (no more open
+          # /api/auth/keys POST). On first boot the server auto-mints
+          # mr_studio-admin_<hex> and writes it to <keys-dir>/admin-key.txt.
+          # Use --keys-file to put admin-key.txt in a known location, then
+          # cat it before running the example.
+          mkdir -p /tmp/mr_ci_keys
+          ./target/release/microresolve-studio \
+            --port 3001 --no-browser \
+            --data /tmp/mr_ci \
+            --keys-file /tmp/mr_ci_keys/keys.json \
+            > /tmp/server.log 2>&1 &
           SERVER_PID=$!
-          sleep 2
-          # Strict-auth (default since v0.1.6) — every /api/sync call needs an
-          # X-Api-Key. Mint one via the unauthenticated /api/auth/keys endpoint
-          # (the bootstrap exception that exists precisely to break the
-          # chicken-and-egg). The example reads MICRORESOLVE_API_KEY.
-          KEY=$(curl -fsS -X POST http://localhost:3001/api/auth/keys \
-            -H 'Content-Type: application/json' \
-            -d '{"name":"ci-bot"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["key"])')
+          sleep 3
+          test -f /tmp/mr_ci_keys/admin-key.txt || { echo "::error::bootstrap admin-key.txt not created"; cat /tmp/server.log; exit 1; }
+          KEY=$(cat /tmp/mr_ci_keys/admin-key.txt)
           MICRORESOLVE_API_KEY="$KEY" cargo run --release --features connect --example connected
           kill $SERVER_PID 2>/dev/null || true
 

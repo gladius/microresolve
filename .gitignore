@@ -45,3 +45,4 @@ data/*.json
 
 # Internal launch / planning notes (private to the maintainer's working copy)
 _internal/
+mr-data/

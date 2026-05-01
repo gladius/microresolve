@@ -10,19 +10,10 @@ interface NamespaceInfo {
   description: string;
   auto_learn: boolean;
   default_threshold: number | null;
+  intent_count?: number;
 }
 
-// Six representative shapes that link to docs/use-case walkthroughs.
-// These are NOT "templates" in a setup sense — they're examples of what
-// the engine handles, each linking to a docs page with a setup recipe.
-const COMMON_SHAPES: { title: string; desc: string; href: string }[] = [
-  { title: 'MCP tool routing',          desc: 'Pre-select tools for an LLM agent before calling',    href: 'https://github.com/gladius/microresolve#use-cases' },
-  { title: 'Customer support triage',   desc: 'Route incoming tickets to the right team',            href: 'https://github.com/gladius/microresolve#use-cases' },
-  { title: 'Multilingual classification', desc: 'Same intent across English, Spanish, Mandarin, …', href: 'https://github.com/gladius/microresolve#use-cases' },
-  { title: 'Voice assistant intent',    desc: 'Transcribed audio → structured command',              href: 'https://github.com/gladius/microresolve#use-cases' },
-  { title: 'API request triage',        desc: 'Free-text "what they want" → endpoint',               href: 'https://github.com/gladius/microresolve#use-cases' },
-  { title: 'Slash-command dispatch',    desc: 'Slack/CLI natural-language → DSL command',            href: 'https://github.com/gladius/microresolve#use-cases' },
-];
+const USE_CASES_URL = 'https://github.com/gladius/microresolve#use-cases';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -31,6 +22,10 @@ export default function HomePage() {
   const [namespaces, setNamespaces] = useState<NamespaceInfo[]>([]);
   const [loading, setLoading]       = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [stats, setStats] = useState<{ clients: number; reviewPending: number }>({
+    clients: 0,
+    reviewPending: 0,
+  });
 
   const refresh = useCallback(async () => {
     try { setNamespaces(await api.listNamespaces()); } catch { /* */ }
@@ -38,6 +33,22 @@ export default function HomePage() {
   }, []);
 
   useFetch(refresh, [refresh]);
+
+  // Stats strip — single fetch, no polling. The home page is short-lived;
+  // accuracy on visit is what matters, not real-time updates.
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/connected_clients').then(r => r.ok ? r.json() : { clients: [] }).catch(() => ({ clients: [] })),
+      api.getReviewStats().catch(() => ({ pending: 0 })),
+    ]).then(([conn, review]) => {
+      setStats({
+        clients: (conn.clients ?? []).length,
+        reviewPending: review.pending ?? 0,
+      });
+    });
+  }, []);
+
+  const totalIntents = namespaces.reduce((sum, ns) => sum + (ns.intent_count ?? 0), 0);
 
   const openNamespace = (id: string) => {
     setSelectedNamespaceId(id);
@@ -60,16 +71,33 @@ export default function HomePage() {
         {/* Hero */}
         <section className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
-            Pre-LLM intent routing in 50µs.
+            The pre-LLM reflex layer.
           </h1>
           <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl">
-            Route natural-language queries to intents at $0 per call.
-            Self-improving from production traffic. One library — Rust · Python · Node · HTTP.
+            The decisions your LLM keeps making — which tool, what guardrail, who to refuse — in 50µs at $0 per call.
+            Learns from production traffic. One library — Rust · Python · Node · HTTP.
           </p>
+          {/* Stats strip — at-a-glance state for repeat visitors. */}
+          {!loading && namespaces.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500 pt-2">
+              <Stat n={namespaces.length} label="namespace" plural="namespaces" />
+              <span className="text-zinc-700">·</span>
+              <Stat n={totalIntents} label="intent" plural="intents" />
+              <span className="text-zinc-700">·</span>
+              <Link to="/connected" className="hover:text-emerald-300">
+                <Stat n={stats.clients} label="connected client" plural="connected clients" />
+              </Link>
+              {stats.reviewPending > 0 && (
+                <>
+                  <span className="text-zinc-700">·</span>
+                  <Link to="/review" className="text-amber-400 hover:text-amber-300">
+                    <Stat n={stats.reviewPending} label="review item" plural="review items" />
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </section>
-
-        {/* Live demo */}
-        <TryItWidget namespaces={namespaces} loading={loading} />
 
         {/* Existing namespaces */}
         <section className="space-y-3">
@@ -88,8 +116,21 @@ export default function HomePage() {
           {loading ? (
             <div className="text-xs text-zinc-500 py-6">Loading…</div>
           ) : namespaces.length === 0 ? (
-            <div className="text-xs text-zinc-600 py-6 border border-dashed border-zinc-800 rounded-lg text-center">
-              No namespaces yet. Click <span className="text-zinc-300">+ New namespace</span> to create your first.
+            <div className="border border-dashed border-zinc-800 rounded-lg p-6 space-y-3 text-center">
+              <div className="text-sm text-zinc-300">
+                No namespaces yet — click <span className="text-emerald-400">+ New namespace</span> to create your first.
+              </div>
+              <div className="text-xs text-zinc-500">
+                Quickest path: paste an OpenAPI / MCP spec on the{' '}
+                <button onClick={() => navigate('/import')} className="text-emerald-400 hover:underline">Import</button>{' '}
+                page to get a populated namespace in 30 seconds.
+              </div>
+              <div className="text-[11px] text-zinc-600 pt-1">
+                Not sure what to use this for?{' '}
+                <a href={USE_CASES_URL} target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-emerald-300 underline">
+                  See use cases →
+                </a>
+              </div>
             </div>
           ) : (
             <>
@@ -116,29 +157,6 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* Common shapes — examples linking to docs */}
-        <section className="space-y-3">
-          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.15em]">
-            Common shapes
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {COMMON_SHAPES.map(s => (
-              <a
-                key={s.title}
-                href={s.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block p-3 rounded-lg border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition-colors"
-              >
-                <div className="text-sm text-zinc-200 mb-0.5">{s.title}</div>
-                <div className="text-xs text-zinc-500">{s.desc}</div>
-              </a>
-            ))}
-          </div>
-          <p className="text-[11px] text-zinc-600 italic">
-            One engine handles all of these — different setup paths, same Resolver underneath.
-          </p>
-        </section>
       </main>
 
       {showCreate && (
@@ -151,139 +169,6 @@ export default function HomePage() {
   );
 }
 
-// ─── Try-it live demo widget ─────────────────────────────────────────────────
-
-function TryItWidget({ namespaces, loading }: { namespaces: NamespaceInfo[]; loading: boolean }) {
-  const [nsId, setNsId]       = useState<string>('');
-  const [query, setQuery]     = useState<string>('I want to cancel my order');
-  const [running, setRunning] = useState(false);
-  const [result, setResult]   = useState<{
-    confirmed: { id: string; score: number; confidence: string }[];
-    disposition: string;
-    routing_us: number;
-  } | null>(null);
-  const [err, setErr]         = useState<string | null>(null);
-
-  // Auto-pick first non-default namespace once they load
-  useEffect(() => {
-    if (!nsId && namespaces.length > 0) {
-      const useful = namespaces.find(n => n.id !== 'default') ?? namespaces[0];
-      setNsId(useful.id);
-    }
-  }, [namespaces, nsId]);
-
-  const run = async () => {
-    if (!query.trim() || !nsId) return;
-    setRunning(true);
-    setErr(null);
-    try {
-      // Direct fetch with explicit ns header — don't mutate the global ns state.
-      const res = await fetch('/api/route_multi', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Namespace-ID': nsId,
-        },
-        body: JSON.stringify({ query, log: false }),
-      });
-      if (!res.ok) throw new Error(`${res.status}`);
-      const data = await res.json();
-      setResult({
-        confirmed: data.confirmed ?? [],
-        disposition: data.disposition ?? 'unknown',
-        routing_us: data.routing_us ?? 0,
-      });
-    } catch (e) {
-      setErr('Request failed: ' + (e instanceof Error ? e.message : 'unknown'));
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  if (loading) return null;
-
-  if (namespaces.length === 0) {
-    return (
-      <section className="rounded-lg border border-zinc-800 p-5 bg-zinc-900/30">
-        <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.15em] mb-2">
-          Try it
-        </div>
-        <p className="text-xs text-zinc-500">
-          Create a namespace below to try a routing call live.
-        </p>
-      </section>
-    );
-  }
-
-  const dispoColor = result?.disposition === 'confident'
-    ? 'text-emerald-400'
-    : result?.disposition === 'low_confidence'
-      ? 'text-amber-400'
-      : 'text-zinc-500';
-
-  return (
-    <section className="rounded-lg border border-zinc-800 p-5 bg-zinc-900/30 space-y-3">
-      <div className="flex items-baseline justify-between">
-        <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.15em]">
-          Try it
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-[10px] text-zinc-600 uppercase tracking-wide">Namespace</label>
-          <select
-            value={nsId}
-            onChange={e => { setNsId(e.target.value); setResult(null); }}
-            className="bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs rounded px-2 py-1 font-mono focus:outline-none focus:border-emerald-500"
-          >
-            {namespaces.map(n => <option key={n.id} value={n.id}>{n.id}</option>)}
-          </select>
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && run()}
-          placeholder="type a query — e.g. cancel my subscription"
-          className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500"
-        />
-        <button
-          onClick={run}
-          disabled={running || !query.trim() || !nsId}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm rounded disabled:opacity-40 transition-colors"
-        >
-          {running ? 'Routing…' : 'Route'}
-        </button>
-      </div>
-
-      {err && <div className="text-xs text-red-400">{err}</div>}
-
-      {result && !err && (
-        <div className="bg-zinc-950 border border-zinc-800 rounded p-3 font-mono text-xs space-y-1.5">
-          {result.confirmed.length === 0 ? (
-            <div className="text-zinc-500">no match · {result.routing_us}µs</div>
-          ) : (
-            result.confirmed.slice(0, 3).map((c, i) => (
-              <div key={i} className="flex items-baseline gap-3">
-                <span className="text-zinc-300">→</span>
-                <span className="text-zinc-100 min-w-[12rem]">{c.id}</span>
-                <span className="text-zinc-500">score {c.score.toFixed(2)}</span>
-                <span className="text-zinc-600">·</span>
-                <span className="text-zinc-500">{c.confidence}</span>
-              </div>
-            ))
-          )}
-          <div className="pt-1 mt-1 border-t border-zinc-800/50 flex gap-3 text-[10px]">
-            <span className={`${dispoColor} uppercase`}>{result.disposition}</span>
-            <span className="text-zinc-600">·</span>
-            <span className="text-zinc-500">{result.routing_us}µs</span>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 // ─── Create namespace modal ──────────────────────────────────────────────────
 
 function CreateNamespaceModal({
@@ -292,14 +177,12 @@ function CreateNamespaceModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const navigate = useNavigate();
   const { setSelectedNamespaceId } = useAppStore();
 
-  const [id, setId]         = useState('');
-  const [desc, setDesc]     = useState('');
-  const [start, setStart]   = useState<'blank' | 'import' | 'intents'>('blank');
-  const [busy, setBusy]     = useState(false);
-  const [err, setErr]       = useState('');
+  const [id, setId]     = useState('');
+  const [desc, setDesc] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr]   = useState('');
 
   const create = async () => {
     const trimmed = id.trim();
@@ -313,10 +196,12 @@ function CreateNamespaceModal({
     setErr('');
     try {
       await api.createNamespace(trimmed, '', desc.trim());
+      // Select it but stay on Home — the new namespace shows up in the list
+      // and the user picks Import / Intents / Resolve from the sidebar at
+      // their own pace. No forced redirect.
       setSelectedNamespaceId(trimmed);
       onCreated();
-      const dest = start === 'import' ? '/import' : start === 'intents' ? '/l2' : '/resolve';
-      navigate(dest);
+      onClose();
     } catch (e) {
       setErr('Failed: ' + (e instanceof Error ? e.message : 'unknown'));
       setBusy(false);
@@ -356,18 +241,6 @@ function CreateNamespaceModal({
               className="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
             />
           </div>
-          <div>
-            <label className="text-[10px] text-zinc-500 uppercase tracking-wide block mb-1">Start with</label>
-            <select
-              value={start}
-              onChange={e => setStart(e.target.value as typeof start)}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
-            >
-              <option value="blank">Blank — go to Resolve</option>
-              <option value="intents">Hand-craft intents — go to Intents</option>
-              <option value="import">Import from spec — go to Import (OpenAPI / MCP / Postman)</option>
-            </select>
-          </div>
         </div>
 
         {err && <div className="text-xs text-red-400">{err}</div>}
@@ -384,6 +257,12 @@ function CreateNamespaceModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function Stat({ n, label, plural }: { n: number; label: string; plural: string }) {
+  return (
+    <span><span className="text-zinc-300 font-medium tabular-nums">{n}</span> {n === 1 ? label : plural}</span>
   );
 }
 
