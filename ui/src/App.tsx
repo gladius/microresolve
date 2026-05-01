@@ -19,6 +19,7 @@ import McpImport from '@/pages/import/McpImport';
 import OpenAIFunctionsImport from '@/pages/import/OpenAIFunctionsImport';
 import LangChainImport from '@/pages/import/LangChainImport';
 import AuthKeysPage from '@/pages/AuthKeysPage';
+import ConnectedClientsPage from '@/pages/ConnectedClientsPage';
 import { AppContext, defaults, type AppSettings, type ThemeMode } from '@/store';
 import { setApiNamespaceId } from '@/api/client';
 
@@ -129,6 +130,7 @@ export default function App() {
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/models" element={<ModelsPage />} />
             <Route path="/auth" element={<AuthKeysPage />} />
+            <Route path="/connected" element={<ConnectedClientsPage />} />
             <Route path="/languages" element={<LanguagesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

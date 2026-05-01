@@ -132,6 +132,8 @@ impl ConnectState {
             "local_versions": versions,
             "logs": Vec::<LogEntry>::new(),
             "corrections": Vec::<PendingCorrection>::new(),
+            "tick_interval_secs": self.server.tick_interval_secs,
+            "library_version": format!("microresolve-rust/{}", env!("CARGO_PKG_VERSION")),
         });
         let mut req = self.http.post(&url).json(&body);
         if let Some(ref key) = self.server.api_key {
@@ -273,10 +275,16 @@ fn batch_sync(state: &ConnectState) -> Result<BatchSyncResponse, crate::Error> {
     let local_versions: HashMap<String, u64> = state.versions.read().unwrap().clone();
 
     let url = format!("{}/api/sync", state.server.url);
+    // Self-describing: include tick interval (so server knows the client's
+    // expected freshness window) and library version (so the Studio's
+    // connected-clients panel can flag stale clients). Both are advisory —
+    // server treats them as optional metadata.
     let body = serde_json::json!({
         "local_versions": local_versions,
         "logs": logs,
         "corrections": corrections,
+        "tick_interval_secs": state.server.tick_interval_secs,
+        "library_version": format!("microresolve-rust/{}", env!("CARGO_PKG_VERSION")),
     });
     let mut req = state.http.post(&url).json(&body);
     if let Some(ref key) = state.server.api_key {

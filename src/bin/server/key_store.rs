@@ -50,7 +50,14 @@ impl KeyStore {
 
     /// Validate a key from a request header. Updates last-used on success.
     /// Returns the key's NAME on success (so callers can attribute requests).
+    ///
+    /// Keys are formatted `mr_<name>_<hex>` — `validate` requires this shape
+    /// (no v0.1.4-and-earlier opaque-key fallback) so the name is recoverable
+    /// from the wire without a hash-table lookup. The exact id is still
+    /// matched against the persisted store so a leaked key prefix alone
+    /// won't authenticate.
     pub fn validate(&self, provided: &str) -> Option<String> {
+        let _ = parse_name(provided)?;
         let key = self.keys.iter().find(|k| k.id == provided)?;
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -61,6 +68,13 @@ impl KeyStore {
             .unwrap()
             .insert(provided.to_string(), now);
         Some(key.name.clone())
+    }
+
+    /// Extract the name from a self-describing key without authenticating
+    /// (does NOT verify the key is in the store). Used by middleware that
+    /// needs to attribute a request before an auth lookup.
+    pub fn name_from_key(provided: &str) -> Option<String> {
+        parse_name(provided)
     }
 
     /// Listing for UI: returns name, prefix (first 12 chars), created, last_used.
@@ -80,14 +94,22 @@ impl KeyStore {
 
     /// Generate a new key with the given name. Returns the full key (caller
     /// must show it to the user once — never retrievable again).
-    /// Errors if a key with that name already exists.
+    ///
+    /// Format: `mr_<name>_<64 hex chars>`. The name is embedded so the
+    /// server can attribute requests to a specific library/client without
+    /// hitting the keys.json index — the random hex still provides full
+    /// entropy for the secret.
+    ///
+    /// Name must match `[a-z0-9][a-z0-9-]{0,30}` (slug-safe, no underscore
+    /// because that's the field separator in the key string).
     pub fn create(&mut self, name: &str) -> Result<String, String> {
+        validate_name(name)?;
         if self.keys.iter().any(|k| k.name == name) {
             return Err(format!("key with name '{}' already exists", name));
         }
         let mut bytes = [0u8; 32];
         rand::rng().fill_bytes(&mut bytes);
-        let id = format!("mr_{}", hex::encode(bytes));
+        let id = format!("mr_{}_{}", name, hex::encode(bytes));
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
@@ -141,4 +163,84 @@ pub struct RedactedKey {
 fn config_path() -> Option<PathBuf> {
     directories::ProjectDirs::from("sh", "gladius", "microresolve")
         .map(|pd| pd.config_dir().join("keys.json"))
+}
+
+/// Names embedded in keys must be slug-safe and underscore-free (since `_`
+/// is the field separator). Length capped at 31 to keep the key compact.
+fn validate_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("name must not be empty".into());
+    }
+    if name.len() > 31 {
+        return Err(format!("name '{}' exceeds 31 chars", name));
+    }
+    if !name.chars().next().unwrap().is_ascii_alphanumeric() {
+        return Err(format!("name '{}' must start with a letter or digit", name));
+    }
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
+        return Err(format!(
+            "name '{}' may only contain lowercase letters, digits, and '-'",
+            name
+        ));
+    }
+    Ok(())
+}
+
+/// Parse `mr_<name>_<hex>` and return the name slice. Returns None if the
+/// key doesn't match the expected shape (wrong prefix, no second `_`,
+/// missing hex tail, name fails validation).
+fn parse_name(provided: &str) -> Option<String> {
+    let rest = provided.strip_prefix("mr_")?;
+    let underscore = rest.find('_')?;
+    let (name, tail) = rest.split_at(underscore);
+    let hex = tail.strip_prefix('_')?;
+    // Hex tail should be 64 chars of [0-9a-f] for the random portion.
+    if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    if validate_name(name).is_err() {
+        return None;
+    }
+    Some(name.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn key_round_trip() {
+        let mut s = KeyStore {
+            keys: Vec::new(),
+            last_used: RwLock::new(HashMap::new()),
+            path: None,
+        };
+        let id = s.create("alex-laptop").unwrap();
+        assert!(id.starts_with("mr_alex-laptop_"));
+        assert_eq!(parse_name(&id).as_deref(), Some("alex-laptop"));
+        assert_eq!(s.validate(&id).as_deref(), Some("alex-laptop"));
+    }
+
+    #[test]
+    fn rejects_bad_names() {
+        let mut s = KeyStore {
+            keys: Vec::new(),
+            last_used: RwLock::new(HashMap::new()),
+            path: None,
+        };
+        assert!(s.create("HasUpper").is_err());
+        assert!(s.create("under_score").is_err());
+        assert!(s.create("").is_err());
+        assert!(s.create("-leading-dash").is_err());
+    }
+
+    #[test]
+    fn rejects_malformed_keys() {
+        assert!(parse_name("mr_alex_short").is_none());
+        assert!(parse_name("not_a_key_at_all").is_none());
+        assert!(parse_name("").is_none());
+    }
 }

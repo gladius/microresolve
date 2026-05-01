@@ -15,6 +15,16 @@ type NavItem = {
   badge?: number;
 };
 
+type ConnectedClient = {
+  name: string;
+  namespaces: string[];
+  tick_interval_secs: number;
+  library_version: string | null;
+  last_seen_ms: number;
+  age_ms: number;
+  expires_in_ms: number;
+};
+
 export default function Layout() {
   const { settings, setSelectedNamespaceId, setSelectedDomain } = useAppStore();
   const navigate = useNavigate();
@@ -27,8 +37,26 @@ export default function Layout() {
   const [showBackupMenu, setShowBackupMenu] = useState(false);
   const [restoreStatus,  setRestoreStatus]  = useState<string | null>(null);
   const [appVersion,     setAppVersion]     = useState<string | null>(null);
+  const [connectedClients, setConnectedClients] = useState<ConnectedClient[]>([]);
   const nsMenuRef     = useRef<HTMLDivElement>(null);
   const backupMenuRef = useRef<HTMLDivElement>(null);
+
+  // Poll the connected-clients roster every 5s. Lazy-GC happens server-side
+  // on each read, so the count is always fresh — no client-side cleanup.
+  useEffect(() => {
+    let alive = true;
+    const fetchClients = async () => {
+      try {
+        const r = await fetch('/api/connected_clients');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (alive) setConnectedClients(d.clients ?? []);
+      } catch { /* noop */ }
+    };
+    fetchClients();
+    const t = setInterval(fetchClients, 5000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
 
   useEffect(() => {
     api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
@@ -128,6 +156,12 @@ export default function Layout() {
 
   type NavGroup = { label: string; items: NavItem[] };
   const NAV_GROUPS: NavGroup[] = [
+    {
+      label: 'Live',
+      items: [
+        { to: '/connected', label: 'Connected', icon: '⚡', hint: 'Library clients currently syncing', badge: connectedClients.length || undefined },
+      ],
+    },
     {
       label: 'Build',
       items: [
@@ -328,7 +362,8 @@ export default function Layout() {
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer: just the version. Connected clients are now a top-level
+            sidebar item (Manage → Connected) with a live badge count. */}
         {!collapsed && (
           <div className="px-3 py-2 border-t border-zinc-800/60 text-[10px] text-zinc-600">
             {appVersion ? `v${appVersion}` : '…'}
