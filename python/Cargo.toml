@@ -1,6 +1,6 @@
 [package]
 name = "microresolve-python"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 authors = ["Gladius Thayalarajan"]
 description = "Pre-LLM reflex layer — embedded decision engine for intent, safety, tool selection. Sub-millisecond classification with continuous learning."

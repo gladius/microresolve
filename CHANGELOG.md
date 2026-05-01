@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.8] — 2026-05-01
+
+### Fixed
+
+- **Python wheels**: `python/pyproject.toml` was out of sync with
+  `python/Cargo.toml` and `Cargo.toml`, causing maturin to build
+  v0.1.7 release artifacts as `microresolve-0.1.6-*.whl`. PyPI's
+  `--skip-existing` silently skipped them. v0.1.8 syncs the
+  pyproject version and re-publishes the Python wheel. Crates.io
+  and npm v0.1.7 are unaffected; tarball release for v0.1.7 is also
+  intact, but skipped in favor of v0.1.8 for cross-registry parity.
+
 ## [0.1.7] — 2026-05-01
 
 ### Added
