@@ -30,23 +30,27 @@ pub fn routes() -> axum::Router<AppState> {
         )
 }
 
-/// Auth check for connected-mode endpoints.
-/// Returns `Err(401)` if a key is required but missing/invalid.
-/// Returns `Ok(Some(key_name))` on valid key, `Ok(None)` in open mode.
-/// Callers use the key name to attribute requests in audit logs.
-fn check_auth(state: &AppState, headers: &HeaderMap) -> Result<Option<String>, StatusCode> {
-    let store = state.key_store.read().unwrap();
-    if !store.is_enabled() {
-        return Ok(None); // open mode
-    }
+/// Auth check for connected-mode endpoints — strict.
+/// Returns `Err(401)` if the `X-Api-Key` header is missing or invalid.
+/// Returns `Ok(name)` on success — the key's embedded label, used for
+/// audit attribution and the connected-clients roster.
+///
+/// There is no open-mode bypass. The server bootstraps a `default` key on
+/// first start (see main.rs), so a fresh install can still talk to itself
+/// — the operator just has to copy the generated key into the library
+/// config. Strict-by-default closes the "operator forgot to set up auth
+/// and shipped logs to a public remote" failure class.
+fn check_auth(state: &AppState, headers: &HeaderMap) -> Result<String, StatusCode> {
     let provided = headers
         .get("X-Api-Key")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    match store.validate(provided) {
-        Some(name) => Ok(Some(name)),
-        None => Err(StatusCode::UNAUTHORIZED),
-    }
+    state
+        .key_store
+        .read()
+        .unwrap()
+        .validate(provided)
+        .ok_or(StatusCode::UNAUTHORIZED)
 }
 
 // ─── Unified sync ────────────────────────────────────────────────────────────
@@ -118,13 +122,13 @@ pub async fn sync(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let key_name = check_auth(&state, &headers)?;
 
-    // Track this client in the connected-clients roster (only when auth is
-    // on — open mode has no identity to attribute against).
-    if let Some(ref name) = key_name {
+    // Track this client in the connected-clients roster. Strict-auth means
+    // every successful sync has an identity, so this branch is unconditional.
+    {
         let mut subscribed: Vec<String> = req.local_versions.keys().cloned().collect();
         subscribed.sort();
         let entry = ConnectedClient {
-            name: name.clone(),
+            name: key_name.clone(),
             namespaces: subscribed,
             tick_interval_secs: req.tick_interval_secs.unwrap_or(30),
             library_version: req.library_version.clone(),
@@ -134,13 +138,10 @@ pub async fn sync(
             .connected_clients
             .write()
             .unwrap()
-            .insert(name.clone(), entry);
+            .insert(key_name.clone(), entry);
     }
 
-    let source = match key_name {
-        Some(name) => format!("connected:{}", name),
-        None => "connected".to_string(),
-    };
+    let source = format!("connected:{}", key_name);
 
     // 1. Apply corrections first so the version bump is reflected in the export.
     let mut corrections_applied: usize = 0;

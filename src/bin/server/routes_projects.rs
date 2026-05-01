@@ -255,13 +255,21 @@ pub async fn list_namespaces(State(state): State<AppState>) -> Json<serde_json::
         .into_iter()
         .map(|id| {
             let h = state.engine.namespace(&id);
-            let info = h.with_resolver(|r| r.namespace_info());
+            let (info, version, intent_count) = h.with_resolver(|r| {
+                (r.namespace_info(), r.version(), r.intent_count())
+            });
             serde_json::json!({
                 "id": id,
                 "name": info.name,
                 "description": info.description,
                 "auto_learn": modes.get(&id).map(|m| m == "auto").unwrap_or(false),
                 "default_threshold": info.default_threshold,
+                "version": version,
+                "intent_count": intent_count,
+                "l0_enabled": info.l0_enabled,
+                "l1_morphology": info.l1_morphology,
+                "l1_synonym": info.l1_synonym,
+                "l1_abbreviation": info.l1_abbreviation,
             })
         })
         .collect();
@@ -360,6 +368,14 @@ pub struct UpdateNamespaceRequest {
     auto_learn: Option<bool>,
     #[serde(default)]
     default_threshold: Option<f32>,
+    #[serde(default)]
+    l0_enabled: Option<bool>,
+    #[serde(default)]
+    l1_morphology: Option<bool>,
+    #[serde(default)]
+    l1_synonym: Option<bool>,
+    #[serde(default)]
+    l1_abbreviation: Option<bool>,
 }
 
 pub async fn update_namespace(
@@ -382,6 +398,10 @@ pub async fn update_namespace(
             default_threshold: req
                 .default_threshold
                 .map(|t| if t < 0.0 { None } else { Some(t) }),
+            l0_enabled: req.l0_enabled,
+            l1_morphology: req.l1_morphology,
+            l1_synonym: req.l1_synonym,
+            l1_abbreviation: req.l1_abbreviation,
             ..Default::default()
         };
         let _ = h.with_resolver_mut(|r| r.update_namespace(edit));

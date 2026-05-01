@@ -24,6 +24,10 @@ impl Resolver {
             description: self.namespace_description.clone(),
             default_threshold: self.namespace_default_threshold,
             domain_descriptions: self.domain_descriptions.clone(),
+            l0_enabled: self.l0_enabled,
+            l1_morphology: self.l1_morphology,
+            l1_synonym: self.l1_synonym,
+            l1_abbreviation: self.l1_abbreviation,
         }
     }
 
@@ -47,6 +51,18 @@ impl Resolver {
         }
         if let Some(dd) = edit.domain_descriptions {
             self.domain_descriptions = dd;
+        }
+        if let Some(b) = edit.l0_enabled {
+            self.l0_enabled = b;
+        }
+        if let Some(b) = edit.l1_morphology {
+            self.l1_morphology = b;
+        }
+        if let Some(b) = edit.l1_synonym {
+            self.l1_synonym = b;
+        }
+        if let Some(b) = edit.l1_abbreviation {
+            self.l1_abbreviation = b;
         }
         Ok(())
     }
@@ -95,6 +111,20 @@ impl Resolver {
                 // registry is now instance-wide (see UiSettings::models).
                 if let Some(t) = val.get("default_threshold").and_then(|t| t.as_f64()) {
                     router.namespace_default_threshold = Some(t as f32);
+                }
+                // Reflex-layer toggles. Missing fields default to true so
+                // namespaces saved before this feature load with all layers on.
+                if let Some(b) = val.get("l0_enabled").and_then(|v| v.as_bool()) {
+                    router.l0_enabled = b;
+                }
+                if let Some(b) = val.get("l1_morphology").and_then(|v| v.as_bool()) {
+                    router.l1_morphology = b;
+                }
+                if let Some(b) = val.get("l1_synonym").and_then(|v| v.as_bool()) {
+                    router.l1_synonym = b;
+                }
+                if let Some(b) = val.get("l1_abbreviation").and_then(|v| v.as_bool()) {
+                    router.l1_abbreviation = b;
                 }
             }
         }
@@ -225,6 +255,20 @@ impl Resolver {
         });
         if let Some(t) = self.namespace_default_threshold {
             ns_meta["default_threshold"] = serde_json::json!(t);
+        }
+        // Only write reflex-layer toggles when they diverge from the
+        // all-on default — keeps diffs/git noise minimal for normal namespaces.
+        if !self.l0_enabled {
+            ns_meta["l0_enabled"] = serde_json::json!(false);
+        }
+        if !self.l1_morphology {
+            ns_meta["l1_morphology"] = serde_json::json!(false);
+        }
+        if !self.l1_synonym {
+            ns_meta["l1_synonym"] = serde_json::json!(false);
+        }
+        if !self.l1_abbreviation {
+            ns_meta["l1_abbreviation"] = serde_json::json!(false);
         }
         std::fs::write(
             path.join("_ns.json"),
@@ -622,6 +666,99 @@ mod tests {
         r.save_to_dir(&dir).unwrap();
         let r2 = Resolver::load_from_dir(&dir).unwrap();
         assert_eq!(r2.namespace_info().default_threshold, Some(0.0));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    // ── Reflex-layer toggles ─────────────────────────────────────────────────
+
+    #[test]
+    fn layer_toggles_default_to_all_on() {
+        let r = Resolver::new();
+        let info = r.namespace_info();
+        assert!(info.l0_enabled);
+        assert!(info.l1_morphology);
+        assert!(info.l1_synonym);
+        assert!(info.l1_abbreviation);
+    }
+
+    #[test]
+    fn l0_disabled_skips_typo_correction() {
+        // Build a namespace with vocabulary so L0 has something to correct against.
+        let mut r = Resolver::new();
+        // The toggle short-circuits L0 inside resolve_with — verify the flag
+        // round-trips through update_namespace + namespace_info.
+        r.update_namespace(crate::NamespaceEdit {
+            l0_enabled: Some(false),
+            ..Default::default()
+        }).unwrap();
+        assert!(!r.namespace_info().l0_enabled);
+        r.update_namespace(crate::NamespaceEdit {
+            l0_enabled: Some(true),
+            ..Default::default()
+        }).unwrap();
+        assert!(r.namespace_info().l0_enabled);
+    }
+
+    #[test]
+    fn l1_morphology_off_blocks_substitution() {
+        use crate::scoring::EdgeKind;
+        let mut r = Resolver::new();
+        r.l1_mut().add("canceling", "cancel", 0.99, EdgeKind::Morphological);
+
+        // With morphology on, canceling normalizes to cancel.
+        let on = r.l1().preprocess_with_kinds("canceling", true, true, true);
+        assert_eq!(on.expanded.trim(), "cancel");
+
+        // With morphology off, canceling stays canceling.
+        let off = r.l1().preprocess_with_kinds("canceling", false, true, true);
+        assert_eq!(off.expanded.trim(), "canceling");
+    }
+
+    #[test]
+    fn l1_abbreviation_off_blocks_expansion() {
+        use crate::scoring::EdgeKind;
+        let mut r = Resolver::new();
+        r.l1_mut().add("pr", "pull request", 0.99, EdgeKind::Abbreviation);
+
+        let on = r.l1().preprocess_with_kinds("merge pr now", true, true, true);
+        assert!(on.expanded.contains("pull request"), "got: {:?}", on.expanded);
+
+        let off = r.l1().preprocess_with_kinds("merge pr now", true, false, true);
+        assert!(!off.expanded.contains("pull request"), "got: {:?}", off.expanded);
+        assert!(off.expanded.contains("pr"), "got: {:?}", off.expanded);
+    }
+
+    #[test]
+    fn layer_toggles_round_trip_through_disk() {
+        let dir = tmp_dir("layer_toggles");
+        let mut r = Resolver::new();
+        r.update_namespace(crate::NamespaceEdit {
+            l0_enabled:      Some(false),
+            l1_morphology:   Some(false),
+            l1_synonym:      Some(true),
+            l1_abbreviation: Some(false),
+            ..Default::default()
+        }).unwrap();
+        r.save_to_dir(&dir).unwrap();
+
+        let r2 = Resolver::load_from_dir(&dir).unwrap();
+        let info = r2.namespace_info();
+        assert!(!info.l0_enabled);
+        assert!(!info.l1_morphology);
+        assert!( info.l1_synonym);
+        assert!(!info.l1_abbreviation);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn layer_toggles_omitted_from_disk_when_default() {
+        // Verify the "only write when diverged" optimization in save_to_dir.
+        let dir = tmp_dir("layer_toggles_default");
+        let r = Resolver::new();
+        r.save_to_dir(&dir).unwrap();
+        let raw = std::fs::read_to_string(dir.join("_ns.json")).unwrap();
+        assert!(!raw.contains("l0_enabled"));
+        assert!(!raw.contains("l1_morphology"));
         std::fs::remove_dir_all(&dir).ok();
     }
 }

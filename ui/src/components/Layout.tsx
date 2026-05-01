@@ -13,6 +13,15 @@ type NavItem = {
   icon: string;
   hint?: string;
   badge?: number;
+  /// When true, badge is rendered even at 0 (muted styling). Use for
+  /// "live status" indicators where 0 is informative ("yes the panel
+  /// works, nothing's connected"). Default: hide-when-0 (review-style
+  /// unread count where 0 means clear).
+  showZero?: boolean;
+  /// When set, the row renders a muted "off" or "partial" pill. Used to
+  /// flag layers disabled per-namespace so it's visible from anywhere in
+  /// the app, not just the namespace settings page.
+  layerStatus?: 'off' | 'partial';
 };
 
 type ConnectedClient = {
@@ -26,7 +35,7 @@ type ConnectedClient = {
 };
 
 export default function Layout() {
-  const { settings, setSelectedNamespaceId, setSelectedDomain } = useAppStore();
+  const { settings, setSelectedNamespaceId, setSelectedDomain, layerStatus, setLayerStatus } = useAppStore();
   const navigate = useNavigate();
 
   const [namespaces,    setNamespaces]    = useState<string[]>(['default']);
@@ -59,9 +68,21 @@ export default function Layout() {
   }, []);
 
   useEffect(() => {
-    api.listNamespaces().then(ns => setNamespaces(ns.map(n => n.id))).catch(() => {});
+    api.listNamespaces().then(ns => {
+      setNamespaces(ns.map(n => n.id));
+      const active = ns.find(n => n.id === settings.selectedNamespaceId);
+      if (active) {
+        setLayerStatus({
+          l0:  active.l0_enabled       ?? true,
+          l1m: active.l1_morphology    ?? true,
+          l1s: active.l1_synonym       ?? true,
+          l1a: active.l1_abbreviation  ?? true,
+        });
+      }
+    }).catch(() => {});
     fetch('/api/version').then(r => r.json()).then(d => setAppVersion(d.app_version)).catch(() => {});
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.selectedNamespaceId]);
 
   // Poll review queue count + refresh on SSE events
   const refreshReviewCount = useCallback(() => {
@@ -159,14 +180,22 @@ export default function Layout() {
     {
       label: 'Live',
       items: [
-        { to: '/connected', label: 'Connected', icon: '⚡', hint: 'Library clients currently syncing', badge: connectedClients.length || undefined },
+        { to: '/connected', label: 'Connected', icon: '⚡', hint: 'Library clients currently syncing', badge: connectedClients.length, showZero: true },
       ],
     },
     {
       label: 'Build',
       items: [
-        { to: '/intents',    label: 'L2 — Intent Index',  icon: '◆', hint: 'Manage intents, training phrases, metadata' },
-        { to: '/lexical',    label: 'L1 — Lexical',       icon: '⧉', hint: 'Morphology, synonym, and abbreviation edges' },
+        { to: '/l2', label: 'L2 — Intents', icon: '◆',
+          hint: 'Manage intents, training phrases, metadata' },
+        { to: '/l1', label: 'L1 — Lexical', icon: '⧉',
+          hint: 'Morphology, synonym, and abbreviation edges',
+          layerStatus: (!layerStatus.l1m && !layerStatus.l1s && !layerStatus.l1a)
+            ? 'off'
+            : (layerStatus.l1m && layerStatus.l1s && layerStatus.l1a) ? undefined : 'partial' },
+        { to: '/l0', label: 'L0 — Spelling', icon: '∼',
+          hint: 'Typo correction — vocabulary inspector + live tester',
+          layerStatus: layerStatus.l0 ? undefined : 'off' },
       ],
     },
     {
@@ -187,7 +216,7 @@ export default function Layout() {
       label: 'Manage',
       items: [
         { to: '/namespaces', label: 'Namespaces', icon: '▦', hint: 'Create, switch, and delete namespaces' },
-        { to: '/history',    label: 'History',    icon: '⏱', hint: 'Browse git history and roll back to any state' },
+        { to: '/history',    label: 'Git History', icon: '⏱', hint: 'Browse commits, diff between revisions, roll back the namespace to any prior state' },
         { to: '/models',     label: 'Models',     icon: '⬡', hint: 'Application-wide routing model registry' },
         { to: '/languages',  label: 'Languages',  icon: '◌', hint: 'Application-wide phrase-generation languages' },
         { to: '/auth',       label: 'Auth Keys',  icon: '⚿', hint: 'API keys for connected libraries' },
@@ -206,11 +235,11 @@ export default function Layout() {
         <div className="h-12 flex items-center px-3 border-b border-zinc-800">
           <Link to="/" className="hover:opacity-80 transition-opacity" aria-label="Home" title="Home">
             {collapsed ? (
-              <span className="text-violet-400 font-bold text-xl leading-none">μ</span>
+              <span className="text-emerald-400 font-bold text-xl leading-none">μ</span>
             ) : (
               <span className="flex items-baseline gap-1.5">
                 <span className="flex items-baseline gap-1">
-                  <span className="text-violet-400 font-bold text-lg leading-none">μ</span>
+                  <span className="text-emerald-400 font-bold text-lg leading-none">μ</span>
                   <span className="text-zinc-100 font-bold text-base tracking-tight">Resolve</span>
                 </span>
                 <span className="text-[9px] font-semibold text-zinc-500 uppercase tracking-[0.15em] leading-none pb-px">Studio</span>
@@ -253,7 +282,7 @@ export default function Layout() {
                   value={nsFilter}
                   onChange={e => setNsFilter(e.target.value)}
                   placeholder="Filter namespaces..."
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div className="overflow-y-auto flex-1 py-1">
@@ -275,7 +304,7 @@ export default function Layout() {
               <div className="border-t border-zinc-700 shrink-0 pt-1 px-2 pb-1">
                 <button
                   onClick={() => { setShowNsMenu(false); navigate('/namespaces'); }}
-                  className="w-full text-left text-xs text-zinc-400 hover:text-violet-400 px-1 py-1"
+                  className="w-full text-left text-xs text-zinc-400 hover:text-emerald-400 px-1 py-1"
                 >
                   + Manage namespaces
                 </button>
@@ -310,15 +339,39 @@ export default function Layout() {
                   }
                   title={collapsed ? item.label : item.hint}
                 >
-                  <span className="w-4 text-center text-zinc-500 shrink-0">{item.icon}</span>
+                  <span className={`w-4 text-center shrink-0 ${
+                    item.showZero && item.badge && item.badge > 0
+                      ? 'text-amber-400'
+                      : 'text-zinc-500'
+                  }`}>{item.icon}</span>
                   {!collapsed && <span className="truncate flex-1">{item.label}</span>}
-                  {!collapsed && item.badge && item.badge > 0 && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold flex-shrink-0">
+                  {!collapsed && item.layerStatus && (
+                    <span
+                      className={`text-[8px] px-1 py-px rounded font-bold uppercase tracking-wider flex-shrink-0 ${
+                        item.layerStatus === 'off'
+                          ? 'bg-zinc-800 text-zinc-500'
+                          : 'bg-amber-500/15 text-amber-400/90'
+                      }`}
+                      title={item.layerStatus === 'off' ? 'Disabled for this namespace' : 'Partially disabled for this namespace'}
+                    >
+                      {item.layerStatus === 'off' ? 'off' : 'partial'}
+                    </span>
+                  )}
+                  {!collapsed && (item.badge !== undefined && (item.badge > 0 || item.showZero)) && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${
+                      item.badge && item.badge > 0
+                        ? (item.showZero
+                            ? 'bg-emerald-500/20 text-emerald-300'   // live indicator, active
+                            : 'bg-amber-500/20 text-amber-400')      // unread/pending count
+                        : 'bg-zinc-800 text-zinc-500'                // showZero=true, count is 0 → muted
+                    }`}>
                       {item.badge}
                     </span>
                   )}
-                  {collapsed && item.badge && item.badge > 0 && (
-                    <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400" />
+                  {collapsed && (item.badge !== undefined && item.badge > 0) && (
+                    <span className={`absolute top-0.5 right-0.5 w-2 h-2 rounded-full ${
+                      item.showZero ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                    }`} />
                   )}
                 </NavLink>
               ))}
@@ -329,7 +382,7 @@ export default function Layout() {
         {/* Export / Import dropdown */}
         <div ref={backupMenuRef} className="relative px-2 py-2 border-t border-zinc-800/60">
           {restoreStatus && (
-            <div className="mb-1 text-[10px] text-violet-400 px-1">{restoreStatus}</div>
+            <div className="mb-1 text-[10px] text-emerald-400 px-1">{restoreStatus}</div>
           )}
           <button
             onClick={() => setShowBackupMenu(!showBackupMenu)}

@@ -72,6 +72,34 @@ let matches = ns.resolve("I need to cancel this");
 
 The engine uses a weighted lexical index: tokens in the query are looked up in a word→intent weight table. Each token's weight is multiplied by its IDF (inverse document frequency) — common words like "the" contribute little; distinctive words like "jailbreak" contribute a lot. Scores are summed across tokens.
 
+## Reflex layers
+
+A query passes through three reflex layers before scoring. Each layer is per-namespace toggleable — defaults are `on` and work for the typical case; turn one off when its behavior is wrong for your content.
+
+| Layer | Purpose                                | Toggle field        | Disable when                                                   |
+|-------|----------------------------------------|---------------------|----------------------------------------------------------------|
+| **L0** | Typo correction (char n-gram Jaccard) | `l0_enabled`        | Medical / legal / code namespaces — auto-correcting domain terms is dangerous (`cahnge` may be a real identifier, not a typo of `change`) |
+| **L1** | Vocabulary bridging — three edge kinds | three flags below   | per kind, see below                                            |
+| **L2** | Intent scoring (IDF-weighted)         | (always on)         | core scorer; not toggleable                                     |
+
+L1 has three independently toggleable edge kinds:
+
+- `l1_morphology` — `canceling` → `cancel` (inflectional variants).
+- `l1_synonym` — user-defined equivalences, OOV-gated (only fires for tokens not already in the namespace's vocabulary).
+- `l1_abbreviation` — `pr` → `pull request`. **Disable for code search** where short tokens carry literal meaning.
+
+Toggles apply at both index time and resolve time, so trained vectors and runtime preprocessing stay in sync. Save with `Resolver::update_namespace` or via `PATCH /api/namespaces`. Studio surfaces the toggles on the Namespaces edit modal, the L0 page, and the L1 page; the sidebar shows an `off` or `partial` pill on the layer's nav item when something is disabled for the active namespace.
+
+```rust
+use microresolve::NamespaceEdit;
+
+ns.with_resolver_mut(|r| r.update_namespace(NamespaceEdit {
+    l0_enabled:      Some(false),     // medical namespace: don't auto-correct drug names
+    l1_abbreviation: Some(false),     // code search: don't expand `pr`
+    ..Default::default()
+})).unwrap();
+```
+
 ## Threshold and gap
 
 Two parameters control what gets returned:

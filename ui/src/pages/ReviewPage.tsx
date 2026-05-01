@@ -182,7 +182,7 @@ function CopyAnalysisButton({ item, analysis }: { item: ReviewItem; analysis: Fu
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button onClick={copy} className="text-[10px] text-zinc-500 hover:text-violet-400 transition-colors px-2 py-0.5 border border-zinc-800 rounded hover:border-violet-500/40">
+    <button onClick={copy} className="text-[10px] text-zinc-500 hover:text-emerald-400 transition-colors px-2 py-0.5 border border-zinc-800 rounded hover:border-emerald-500/40">
       {copied ? '✓ copied' : 'copy report'}
     </button>
   );
@@ -303,8 +303,8 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
       )}
 
       {analyzing && (
-        <div className="flex items-center gap-2 text-xs text-violet-400">
-          <div className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-2 text-xs text-emerald-400">
+          <div className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
           Analyzing...
         </div>
       )}
@@ -315,7 +315,7 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
           <div key={bi} className="bg-zinc-800 border border-zinc-700 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
               <select value={block.intentId} onChange={e => setBlockIntent(bi, e.target.value)}
-                className="flex-1 bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1 font-mono focus:border-violet-500 focus:outline-none">
+                className="flex-1 bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1 font-mono focus:border-emerald-500 focus:outline-none">
                 <option value="">Select intent...</option>
                 {intents.filter(id => !usedIntents.has(id) || id === block.intentId).map(id => (
                   <option key={id} value={id}>{id}</option>
@@ -330,30 +330,30 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
                     if (i !== bi) return b;
                     const p = [...b.phrases]; p[si] = { ...p[si], lang: e.target.value }; return { ...b, phrases: p };
                   }))}
-                  className="bg-zinc-900 border border-zinc-700 text-violet-400 text-[10px] rounded px-1 py-1 w-12 focus:outline-none">
+                  className="bg-zinc-900 border border-zinc-700 text-emerald-400 text-[10px] rounded px-1 py-1 w-12 focus:outline-none">
                   {enabledLangs.map(lang => <option key={lang} value={lang}>{lang.toUpperCase()}</option>)}
                 </select>
                 <input value={entry.phrase} onChange={e => setBlockPhrase(bi, si, e.target.value)}
                   placeholder="example phrase"
-                  className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-mono focus:border-violet-500 focus:outline-none" />
+                  className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-mono focus:border-emerald-500 focus:outline-none" />
                 {block.phrases.length > 1 && (
                   <button onClick={() => removePhraseFromBlock(bi, si)} className="text-zinc-600 hover:text-red-400 text-xs">×</button>
                 )}
               </div>
             ))}
-            <button onClick={() => addPhraseToBlock(bi)} className="text-[9px] text-zinc-500 hover:text-violet-400 mt-1">+ phrase</button>
+            <button onClick={() => addPhraseToBlock(bi)} className="text-[9px] text-zinc-500 hover:text-emerald-400 mt-1">+ phrase</button>
           </div>
         ))}
         <button
           onClick={() => setBlocks(prev => [...prev, { intentId: '', phrases: [{ phrase: '', lang: 'en' }] }])}
-          className="w-full py-2 text-xs text-zinc-600 hover:text-violet-400 border border-dashed border-zinc-800 hover:border-violet-500/40 rounded-lg transition-colors">
+          className="w-full py-2 text-xs text-zinc-600 hover:text-emerald-400 border border-dashed border-zinc-800 hover:border-emerald-500/40 rounded-lg transition-colors">
           + Add intent block
         </button>
       </div>
 
       <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
         <button onClick={runAnalysis} disabled={analyzing}
-          className="text-xs px-3 py-1.5 border border-violet-500/50 text-violet-400 rounded hover:bg-violet-500/10 disabled:opacity-40 transition-colors">
+          className="text-xs px-3 py-1.5 border border-emerald-500/50 text-emerald-400 rounded hover:bg-emerald-500/10 disabled:opacity-40 transition-colors">
           {analyzing ? 'Analyzing...' : analysis ? 'Re-analyze' : 'Analyze with AI'}
         </button>
         <div className="flex-1">
@@ -372,7 +372,7 @@ function ReviewDetail({ item, intents, onFixed, onDismiss }: {
           Dismiss
         </button>
         <button onClick={handleApply} disabled={totalPhrases === 0 || !!applyResult}
-          className="text-xs px-4 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded disabled:opacity-30 transition-colors">
+          className="text-xs px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded disabled:opacity-30 transition-colors">
           Apply ({totalPhrases})
         </button>
       </div>

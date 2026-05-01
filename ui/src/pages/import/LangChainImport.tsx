@@ -107,14 +107,14 @@ export default function LangChainImport() {
 
   const subtitle = (
     <>
-      into <span className="text-violet-400 font-mono">{ns}</span>
-      {domain && <><span className="text-zinc-600 mx-1">/</span><span className="text-violet-400 font-mono">{domain}</span></>}
+      into <span className="text-emerald-400 font-mono">{ns}</span>
+      {domain && <><span className="text-zinc-600 mx-1">/</span><span className="text-emerald-400 font-mono">{domain}</span></>}
     </>
   );
 
   if (result) return (
     <Page title="LangChain Tools — Import Complete" subtitle={subtitle} actions={backAction} size="lg">
-      <ImportReport result={result} onViewIntents={() => navigate('/intents')} onImportMore={() => setResult(null)} />
+      <ImportReport result={result} onViewIntents={() => navigate('/l2')} onImportMore={() => setResult(null)} />
     </Page>
   );
 
@@ -135,11 +135,11 @@ export default function LangChainImport() {
             onChange={e => setJson(e.target.value)}
             placeholder={EXAMPLE}
             rows={8}
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-xs text-zinc-300 font-mono focus:border-violet-500 focus:outline-none resize-y"
+            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-xs text-zinc-300 font-mono focus:border-emerald-500 focus:outline-none resize-y"
           />
           <div className="flex gap-2">
             <button onClick={() => parse(json)} disabled={loading || !json.trim()}
-              className="px-3 py-1.5 text-xs bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30 transition-colors">
+              className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30 transition-colors">
               {loading ? 'Parsing...' : 'Parse'}
             </button>
             <button onClick={() => { setJson(EXAMPLE); }}
@@ -155,7 +155,7 @@ export default function LangChainImport() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs text-zinc-400">{tools.length} tools found</span>
-              <button onClick={toggleAll} className="text-xs text-violet-400 hover:text-violet-300">
+              <button onClick={toggleAll} className="text-xs text-emerald-400 hover:text-emerald-300">
                 {selected.size === tools.length ? 'Deselect all' : 'Select all'}
               </button>
             </div>
@@ -169,7 +169,7 @@ export default function LangChainImport() {
                       e.target.checked ? next.add(tool.name) : next.delete(tool.name);
                       setSelected(next);
                     }}
-                    className="mt-0.5 accent-violet-500 shrink-0" />
+                    className="mt-0.5 accent-emerald-500 shrink-0" />
                   <div className="min-w-0">
                     <div className="text-xs font-mono text-zinc-100">{tool.name}</div>
                     {tool.description && <div className="text-xs text-zinc-500 mt-0.5 line-clamp-2">{tool.description}</div>}
@@ -178,7 +178,7 @@ export default function LangChainImport() {
                         {tool.params.map(p => (
                           <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                             tool.required_params.includes(p)
-                              ? 'bg-violet-500/15 text-violet-300'
+                              ? 'bg-emerald-500/15 text-emerald-300'
                               : 'bg-zinc-800 text-zinc-500'
                           }`}>{p}</span>
                         ))}
@@ -192,7 +192,7 @@ export default function LangChainImport() {
             <GenerationPlan numTools={selected.size} languages={languages} importing={importing} />
 
             <button onClick={apply} disabled={importing || selected.size === 0}
-              className="w-full py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-30 transition-colors">
+              className="w-full py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-30 transition-colors">
               {importing ? 'Importing...' : `Import ${selected.size} Tools`}
             </button>
           </div>

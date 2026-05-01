@@ -246,11 +246,10 @@ function DiffPanel({ namespaceId, from, to }: { namespaceId: string; from: strin
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
-  const { settings, setSelectedNamespaceId } = useAppStore();
+  const { settings } = useAppStore();
   const namespaceId = settings.selectedNamespaceId || 'default';
 
   const [commits, setCommits] = useState<CommitInfo[]>([]);
-  const [namespaces, setNamespaces] = useState<string[]>(['default']);
   const [loading, setLoading] = useState(true);
   const [selectedSha, setSelectedSha] = useState<string | null>(null);
   const [confirmSha, setConfirmSha] = useState<string | null>(null);
@@ -271,10 +270,6 @@ export default function HistoryPage() {
       })
       .catch(() => setLoading(false));
   };
-
-  useEffect(() => {
-    api.listNamespaces().then(ns => setNamespaces(ns.map((n: { id: string }) => n.id))).catch(() => {});
-  }, []);
 
   useEffect(() => {
     loadHistory(namespaceId);
@@ -315,21 +310,16 @@ export default function HistoryPage() {
       <div className="flex gap-0 h-full">
         {/* LEFT: commit list */}
         <div className="w-[300px] min-w-[300px] border-r border-zinc-800 flex flex-col">
-          {/* Sidebar header */}
+          {/* Sidebar header — namespace switcher lives in the global sidebar,
+              this page reads settings.selectedNamespaceId. */}
           <div className="h-12 px-4 border-b border-zinc-800 flex items-center justify-between flex-shrink-0 gap-2">
             <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wide whitespace-nowrap">
               Commits ({commits.length})
             </span>
             <div className="flex items-center gap-2 min-w-0">
-              <select
-                value={namespaceId}
-                onChange={e => setSelectedNamespaceId(e.target.value)}
-                className="text-xs bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-zinc-300 min-w-0 max-w-[120px] truncate"
-              >
-                {namespaces.map(ns => (
-                  <option key={ns} value={ns}>{ns}</option>
-                ))}
-              </select>
+              <span className="text-[11px] text-zinc-500 font-mono truncate max-w-[140px]" title={namespaceId}>
+                {namespaceId}
+              </span>
               <button
                 onClick={() => loadHistory(namespaceId)}
                 className="text-zinc-500 hover:text-zinc-200 text-xs px-1"

@@ -68,11 +68,11 @@ export default function OpenApiImport() {
 
   const subtitle = (
     <>
-      into <span className="text-violet-400 font-mono">{currentApp}</span>
+      into <span className="text-emerald-400 font-mono">{currentApp}</span>
       {currentDomain && (
         <>
           <span className="text-zinc-600 mx-1">/</span>
-          <span className="text-violet-400 font-mono">{currentDomain}</span>
+          <span className="text-emerald-400 font-mono">{currentDomain}</span>
         </>
       )}
     </>
@@ -95,17 +95,17 @@ export default function OpenApiImport() {
         <>
           <div className="flex gap-2">
             <input value={specUrl} onChange={e => setSpecUrl(e.target.value)} placeholder="https://api.example.com/openapi.json"
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:border-violet-500 focus:outline-none"
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:border-emerald-500 focus:outline-none"
               onKeyDown={e => { if (e.key === 'Enter') { fetch(specUrl.trim()).then(r => r.text()).then(handleParse).catch(e => setError(String(e))); }}}
               disabled={loading} />
             <button onClick={() => { fetch(specUrl.trim()).then(r => r.text()).then(handleParse).catch(e => setError(String(e))); }}
-              disabled={loading || !specUrl.trim()} className="px-4 py-2 text-sm bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30">
+              disabled={loading || !specUrl.trim()} className="px-4 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30">
               {loading ? 'Parsing...' : 'Fetch'}
             </button>
           </div>
           <div className="text-center">
             <input ref={fileRef} type="file" accept=".json,.yaml,.yml" onChange={async e => { const f = e.target.files?.[0]; if (f) await handleParse(await f.text()); e.target.value = ''; }} disabled={loading} className="hidden" />
-            <button onClick={() => fileRef.current?.click()} disabled={loading} className="text-sm text-zinc-500 hover:text-violet-400">or upload a file</button>
+            <button onClick={() => fileRef.current?.click()} disabled={loading} className="text-sm text-zinc-500 hover:text-emerald-400">or upload a file</button>
           </div>
         </>
       )}
@@ -126,14 +126,14 @@ export default function OpenApiImport() {
                 {parsed.tags.map(tag => <option key={tag} value={tag}>{tag} ({parsed.operations.filter(op => op.tags.includes(tag)).length})</option>)}
               </select>
             )}
-            <button onClick={() => setSelected(new Set(filteredOps().map(op => op.id)))} className="text-[10px] text-zinc-500 hover:text-violet-400">All</button>
-            <button onClick={() => setSelected(new Set())} className="text-[10px] text-zinc-500 hover:text-violet-400">None</button>
+            <button onClick={() => setSelected(new Set(filteredOps().map(op => op.id)))} className="text-[10px] text-zinc-500 hover:text-emerald-400">All</button>
+            <button onClick={() => setSelected(new Set())} className="text-[10px] text-zinc-500 hover:text-emerald-400">None</button>
             <span className="text-[10px] text-zinc-600 ml-auto">{selected.size} of {parsed.total_operations} selected</span>
           </div>
           <div className="border border-zinc-800 rounded-lg divide-y divide-zinc-800/50 max-h-96 overflow-y-auto">
             {filteredOps().map(op => (
               <label key={op.id} className={`flex items-start gap-3 px-3 py-2 cursor-pointer hover:bg-zinc-800/40 ${selected.has(op.id) ? '' : 'opacity-40'}`}>
-                <input type="checkbox" checked={selected.has(op.id)} onChange={() => setSelected(prev => { const n = new Set(prev); n.has(op.id) ? n.delete(op.id) : n.add(op.id); return n; })} className="mt-1 accent-violet-500" />
+                <input type="checkbox" checked={selected.has(op.id)} onChange={() => setSelected(prev => { const n = new Set(prev); n.has(op.id) ? n.delete(op.id) : n.add(op.id); return n; })} className="mt-1 accent-emerald-500" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0 ${methodColor(op.method)}`}>{op.method}</span>
@@ -151,7 +151,7 @@ export default function OpenApiImport() {
           <div className="flex items-center justify-between pt-2">
             {!importing && <div className="text-xs text-zinc-500">Collision guard active</div>}
             <button onClick={handleImport} disabled={importing || selected.size === 0}
-              className="px-5 py-2 text-sm bg-violet-600 text-white rounded hover:bg-violet-500 disabled:opacity-30 shrink-0">
+              className="px-5 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30 shrink-0">
               {importing ? 'Importing...' : `Import ${selected.size} Operations`}
             </button>
           </div>
@@ -161,7 +161,7 @@ export default function OpenApiImport() {
       {result && (
         <ImportReport
           result={result}
-          onViewIntents={() => navigate('/intents')}
+          onViewIntents={() => navigate('/l2')}
           onImportMore={() => { setParsed(null); setResult(null); setRawSpec(''); setSpecUrl(''); }}
         />
       )}

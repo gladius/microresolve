@@ -36,7 +36,7 @@ export default function ModelsPage() {
   return (
     <Page
       title="Models"
-      subtitle={<>routing targets for <span className="text-violet-400 font-mono">{ns}</span></>}
+      subtitle={<>routing targets for <span className="text-emerald-400 font-mono">{ns}</span></>}
       size="sm"
     >
       <div className="space-y-6">
@@ -46,7 +46,7 @@ export default function ModelsPage() {
           <div className="text-zinc-300 font-medium text-sm">Per-namespace model registry</div>
           <p>
             Define named models for this namespace. Each intent can then specify which model to route to
-            via the <span className="text-violet-400 font-mono">target</span> field in its Details tab.
+            via the <span className="text-emerald-400 font-mono">target</span> field in its Details tab.
             Useful when different intents need different speed/quality tradeoffs — e.g. fast model for
             simple queries, a smarter model for complex ones.
           </p>
@@ -92,19 +92,19 @@ export default function ModelsPage() {
               value={newLabel}
               onChange={e => setNewLabel(e.target.value)}
               placeholder="Label — e.g. Fast"
-              className="w-32 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+              className="w-32 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
             />
             <input
               value={newModelId}
               onChange={e => setNewModelId(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && add()}
               placeholder="Model ID — e.g. claude-haiku-4-5-20251001"
-              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:border-violet-500 focus:outline-none"
+              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
             />
             <button
               onClick={add}
               disabled={!newLabel.trim() || !newModelId.trim() || saving}
-              className="px-4 py-2 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded-lg disabled:opacity-40 transition-colors"
+              className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg disabled:opacity-40 transition-colors"
             >
               {saving ? '…' : 'Add'}
             </button>

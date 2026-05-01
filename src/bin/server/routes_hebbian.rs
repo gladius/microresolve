@@ -14,11 +14,58 @@ use microresolve::scoring::EdgeKind;
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/layers/info", get(layers_info))
+        .route("/api/layers/l0", get(l0_info))
+        .route("/api/layers/l0/correct", post(l0_correct))
         .route("/api/layers/l1/edges", get(l1_list_edges))
         .route("/api/layers/l1/edges", post(l1_add_edge))
         .route("/api/layers/l1/edges", delete(l1_delete_edge))
         .route("/api/layers/l1/distill", post(l1_distill))
         .route("/api/layers/l2/probe", post(l2_probe))
+}
+
+// ── GET /api/layers/l0 ────────────────────────────────────────────────────────
+
+async fn l0_info(State(state): State<AppState>, headers: HeaderMap) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let Some(h) = state.engine.try_namespace(&app_id) else {
+        return Json(serde_json::json!({ "error": "namespace not found" }));
+    };
+    h.with_resolver(|router| {
+        let l0 = router.l0();
+        Json(serde_json::json!({
+            "namespace": app_id,
+            "vocab_size": l0.len(),
+            "ngram_size": l0.ngram_size(),
+            "min_term_len": l0.min_term_len(),
+            "vocab_sample": l0.vocab_sample(200),
+        }))
+    })
+}
+
+// ── POST /api/layers/l0/correct ───────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct L0CorrectRequest {
+    query: String,
+}
+
+async fn l0_correct(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<L0CorrectRequest>,
+) -> Json<serde_json::Value> {
+    let app_id = app_id_from_headers(&headers);
+    let Some(h) = state.engine.try_namespace(&app_id) else {
+        return Json(serde_json::json!({ "error": "namespace not found" }));
+    };
+    h.with_resolver(|router| {
+        let corrected = router.l0().correct_query(&req.query);
+        Json(serde_json::json!({
+            "query": req.query,
+            "corrected": corrected,
+            "changed": corrected != req.query,
+        }))
+    })
 }
 
 // ── GET /api/layers/info ──────────────────────────────────────────────────────

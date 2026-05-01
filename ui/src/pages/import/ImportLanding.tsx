@@ -51,11 +51,11 @@ export default function ImportLanding() {
 
   const subtitle = (
     <>
-      into <span className="text-violet-400 font-mono">{ns}</span>
+      into <span className="text-emerald-400 font-mono">{ns}</span>
       {domain && (
         <>
           <span className="text-zinc-600 mx-1">/</span>
-          <span className="text-violet-400 font-mono">{domain}</span>
+          <span className="text-emerald-400 font-mono">{domain}</span>
         </>
       )}
       {!domain && <span className="text-zinc-600 ml-1">(no domain prefix)</span>}
@@ -70,7 +70,7 @@ export default function ImportLanding() {
           value={filter}
           onChange={e => setFilter(e.target.value)}
           placeholder="Filter import sources..."
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors"
+          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 transition-colors"
         />
 
         <div className="grid grid-cols-2 gap-4">
@@ -80,7 +80,7 @@ export default function ImportLanding() {
               onClick={() => card.to && navigate(card.to)}
               className={`bg-zinc-800/60 border rounded-lg p-5 transition-colors ${
                 card.to
-                  ? 'border-zinc-700 cursor-pointer hover:border-violet-500/60 hover:bg-zinc-800'
+                  ? 'border-zinc-700 cursor-pointer hover:border-emerald-500/60 hover:bg-zinc-800'
                   : 'border-zinc-800 cursor-default opacity-50'
               }`}
             >
@@ -93,7 +93,7 @@ export default function ImportLanding() {
                 )}
               </div>
               <p className="text-xs text-zinc-500 leading-relaxed">{card.description}</p>
-              <div className={`mt-3 text-xs ${card.to ? 'text-violet-400' : 'text-zinc-600'}`}>
+              <div className={`mt-3 text-xs ${card.to ? 'text-emerald-400' : 'text-zinc-600'}`}>
                 {card.cta}
               </div>
             </div>

@@ -139,35 +139,35 @@ export default function SimulatePage() {
             <div className="flex items-center gap-2">
               <label className="text-xs text-zinc-500">Queries</label>
               <select value={turns} onChange={e => setTurns(Number(e.target.value))} disabled={running}
-                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-violet-500">
+                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500">
                 {[5, 10, 15, 20, 30].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-zinc-500">Personality</label>
               <select value={personality} onChange={e => setPersonality(e.target.value)} disabled={running}
-                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-violet-500">
+                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500">
                 {PERSONALITIES.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-zinc-500">Language</label>
               <select value={language} onChange={e => setLanguage(e.target.value)} disabled={running}
-                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-violet-500">
+                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500">
                 {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-zinc-500">Sophistication</label>
               <select value={sophistication} onChange={e => setSophistication(e.target.value)} disabled={running}
-                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-violet-500">
+                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500">
                 {['low', 'medium', 'high'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-zinc-500">Verbosity</label>
               <select value={verbosity} onChange={e => setVerbosity(e.target.value)} disabled={running}
-                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-violet-500">
+                className="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500">
                 {['short', 'medium', 'long'].map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
@@ -175,11 +175,11 @@ export default function SimulatePage() {
 
           <input value={scenario} onChange={e => setScenario(e.target.value)} disabled={running}
             placeholder="Scenario (optional): e.g. angry customer trying to return a broken laptop"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none" />
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none" />
 
           <div className="flex items-center gap-3">
             <button onClick={run} disabled={running}
-              className="px-5 py-2 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded-lg disabled:opacity-30 transition-colors font-medium">
+              className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg disabled:opacity-30 transition-colors font-medium">
               {running ? 'Running...' : 'Run Simulation'}
             </button>
             {running && (
@@ -189,7 +189,7 @@ export default function SimulatePage() {
             )}
             {phase === 'done' && (
               <button onClick={run} disabled={running}
-                className="text-xs px-3 py-1.5 border border-violet-500/50 text-violet-400 rounded hover:bg-violet-500/10 transition-colors">
+                className="text-xs px-3 py-1.5 border border-emerald-500/50 text-emerald-400 rounded hover:bg-emerald-500/10 transition-colors">
                 Run again (keep improving)
               </button>
             )}
@@ -199,8 +199,8 @@ export default function SimulatePage() {
         {/* Phase indicator */}
         {phase !== 'idle' && (
           <div className="flex items-center gap-2">
-            {running && <div className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />}
-            <span className={`text-sm ${phase === 'error' ? 'text-red-400' : phase === 'done' ? 'text-emerald-400' : 'text-violet-400'}`}>
+            {running && <div className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />}
+            <span className={`text-sm ${phase === 'error' ? 'text-red-400' : phase === 'done' ? 'text-emerald-400' : 'text-emerald-400'}`}>
               {phase === 'done' ? 'Complete' : phase === 'error' ? `Error: ${phaseLabel}` : phaseLabel || phase}
             </span>
           </div>

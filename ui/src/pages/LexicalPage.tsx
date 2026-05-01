@@ -1,12 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import Page from '@/components/Page';
 import { appHeaders } from '@/api/client';
+import LayerToggle, { type LayerField } from '@/components/LayerToggle';
+import { useAppStore } from '@/store';
 
 const BASE = '/api';
 
 interface Edge { from: string; to: string; kind: 'morphological' | 'abbreviation' | 'synonym'; weight: number }
 
 type EdgeKind = 'morphological' | 'synonym' | 'abbreviation';
+
+const KIND_TO_FIELD: Record<EdgeKind, LayerField> = {
+  morphological: 'l1_morphology',
+  synonym:       'l1_synonym',
+  abbreviation:  'l1_abbreviation',
+};
 
 const COLUMNS: { kind: EdgeKind; label: string; color: string; defaultWeight: number; emptyHint: string }[] = [
   {
@@ -19,7 +27,7 @@ const COLUMNS: { kind: EdgeKind; label: string; color: string; defaultWeight: nu
   {
     kind: 'synonym',
     label: 'Synonyms',
-    color: 'text-violet-400 bg-violet-400/10 border-violet-400/30',
+    color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
     defaultWeight: 0.88,
     emptyHint: 'No synonym edges yet. Add them manually or via import.',
   },
@@ -109,6 +117,7 @@ function EdgeColumn({ kind, label, color, defaultWeight, emptyHint }: (typeof CO
           <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${color}`}>{label}</span>
           <span className="text-[10px] text-zinc-600 tabular-nums">{edges.length} edges</span>
         </div>
+        <LayerToggle field={KIND_TO_FIELD[kind]} label={label} compact />
         <input
           value={filter}
           onChange={e => onFilterChange(e.target.value)}
@@ -176,8 +185,26 @@ function EdgeColumn({ kind, label, color, defaultWeight, emptyHint }: (typeof CO
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LexicalPage() {
+  const { layerStatus } = useAppStore();
+  const allOn  = layerStatus.l1m && layerStatus.l1s && layerStatus.l1a;
+  const allOff = !layerStatus.l1m && !layerStatus.l1s && !layerStatus.l1a;
+  const status: 'on' | 'off' | 'partial' = allOff ? 'off' : allOn ? 'on' : 'partial';
+
   return (
-    <Page title="Lexical Graph" subtitle="Morphology · Synonyms · Abbreviations" fullscreen>
+    <Page
+      title="L1 — Lexical"
+      subtitle={
+        <span className="inline-flex items-center gap-2">
+          <span>Morphology · Synonyms · Abbreviations</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+            status === 'on'      ? 'bg-emerald-500/15 text-emerald-300'
+            : status === 'off'   ? 'bg-zinc-800 text-zinc-500'
+            : /* partial */         'bg-amber-500/15 text-amber-400'
+          }`}>{status}</span>
+        </span>
+      }
+      fullscreen
+    >
       <div className="h-full flex gap-4 p-4 min-h-0">
         {COLUMNS.map(col => (
           <EdgeColumn key={col.kind} {...col} />

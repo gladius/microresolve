@@ -175,14 +175,19 @@ async fn main() {
         .map(load_ui_settings)
         .unwrap_or_default();
 
-    // API keys for connected-mode endpoints. Empty = open mode.
-    // Managed via UI (Manage → Auth Keys) and stored at
-    // ~/.config/microresolve/keys.json (separate from data dir; never git-tracked).
+    // API keys for connected-mode endpoints. Strict-auth: every /api/sync
+    // request must present a valid X-Api-Key. The Studio UI's
+    // /api/auth/keys POST is unauthenticated (it's the bootstrap path), so
+    // a fresh server starts with an empty keys.json and the operator
+    // generates the first key via Manage → Auth Keys before pointing a
+    // library at it. No auto-bootstrap, no open mode.
     let key_store = key_store::KeyStore::load();
     if key_store.is_enabled() {
-        println!("Connected-mode endpoints require X-Api-Key");
+        println!("Connected-mode endpoints require X-Api-Key ({} key(s) configured)",
+            key_store.list_redacted().len());
     } else {
-        println!("Connected-mode endpoints are OPEN (no keys configured)");
+        println!("Connected-mode endpoints will return 401 until a key is created");
+        println!("  → open Studio at http://{}:{} → Manage → Auth Keys", cfg.host, cfg.port);
     }
 
     let (event_tx, _) = broadcast::channel::<state::StudioEvent>(256);
@@ -247,41 +252,41 @@ async fn main() {
         async fn embedded_ui(uri: axum::http::Uri) -> impl IntoResponse {
             let path = uri.path().trim_start_matches('/');
 
-            // Serve from embedded assets; SPA fallback to index.html for unknown paths.
-            let (file_path, cache_header) = if path.starts_with("assets/") {
-                // Vite hashes asset filenames — safe to cache immutably.
-                (path.to_string(), "public, max-age=31536000, immutable")
-            } else {
-                ("index.html".to_string(), "no-cache, no-store, must-revalidate")
-            };
-
-            match UiAssets::get(&file_path) {
-                Some(content) => {
-                    let mime = mime_guess::from_path(&file_path)
+            // 1. Try to serve the file at the requested path directly. Covers
+            //    /assets/* (hashed JS/CSS — immutable cache) and root-level
+            //    static files (favicon.svg, robots.txt, manifest.json, …).
+            if !path.is_empty() {
+                if let Some(content) = UiAssets::get(path) {
+                    let mime = mime_guess::from_path(path)
                         .first_or_octet_stream()
                         .to_string();
-                    Response::builder()
+                    let cache_header = if path.starts_with("assets/") {
+                        "public, max-age=31536000, immutable"
+                    } else {
+                        "no-cache, no-store, must-revalidate"
+                    };
+                    return Response::builder()
                         .status(StatusCode::OK)
                         .header(header::CONTENT_TYPE, mime)
                         .header(header::CACHE_CONTROL, cache_header)
                         .body(Body::from(content.data.into_owned()))
-                        .unwrap()
+                        .unwrap();
                 }
-                None => {
-                    // Unknown path — return index.html for SPA client-side routing.
-                    match UiAssets::get("index.html") {
-                        Some(content) => Response::builder()
-                            .status(StatusCode::OK)
-                            .header(header::CONTENT_TYPE, "text/html")
-                            .header(header::CACHE_CONTROL, "no-cache, no-store, must-revalidate")
-                            .body(Body::from(content.data.into_owned()))
-                            .unwrap(),
-                        None => Response::builder()
-                            .status(StatusCode::NOT_FOUND)
-                            .body(Body::from("UI not found"))
-                            .unwrap(),
-                    }
-                }
+            }
+
+            // 2. SPA fallback — serve index.html for client-side routes
+            //    (/connected, /history, /resolve, …) and the root path.
+            match UiAssets::get("index.html") {
+                Some(content) => Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "text/html")
+                    .header(header::CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .body(Body::from(content.data.into_owned()))
+                    .unwrap(),
+                None => Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(Body::from("UI not found"))
+                    .unwrap(),
             }
         }
 
