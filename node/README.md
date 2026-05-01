@@ -93,6 +93,8 @@ const engine = new MicroResolve({
 | `removeIntent(id)` | — | Delete intent |
 | `intent(id)` | `IntentInfo \| null` | Read intent metadata |
 | `updateIntent(id, edit)` | — | Patch intent metadata |
+| `namespaceInfo()` | `NamespaceInfo` | Read namespace metadata including reflex-layer toggles |
+| `updateNamespace(edit)` | — | Patch namespace metadata; fields: `name`, `description`, `defaultThreshold`, `l0Enabled`, `l1Morphology`, `l1Synonym`, `l1Abbreviation` |
 | `addPhrase(id, phrase, lang?)` | `PhraseResult` | Add single phrase; returns `{added, redundant, warning}` |
 | `intentIds()` | `string[]` | All intent IDs |
 | `intentCount()` | `number` | Number of intents |
@@ -103,6 +105,20 @@ const engine = new MicroResolve({
 
 ```ts
 { id: string, score: number }
+```
+
+### `NamespaceInfo`
+
+```ts
+{
+  name: string,
+  description: string,
+  defaultThreshold: number | null,
+  l0Enabled: boolean,
+  l1Morphology: boolean,
+  l1Synonym: boolean,
+  l1Abbreviation: boolean,
+}
 ```
 
 ### `IntentInfo`
