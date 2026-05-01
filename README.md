@@ -65,40 +65,58 @@ candidate set sharpens from production traffic alone.
 - **Permission and risk gating** — classify a request into a risk tier
   before paying for an LLM round-trip.
 
-## Quick start
+## Install
 
-Embedded (Rust):
-
-```rust
-use microresolve::MicroResolve;
-
-let engine = MicroResolve::open("./data")?;
-let ns = engine.namespace("agent")?;
-ns.add_intent("cancel_subscription", &["cancel my plan", "stop the recurring billing"])?;
-let r = ns.resolve("end my subscription right now");
-// r.ranked[0].id == "cancel_subscription"
-```
-
-HTTP server (with the optional Studio UI):
+### Python
 
 ```bash
-cp .env.example .env                        # set LLM_API_KEY
-cargo run --release --bin microresolve-studio --features server -- --data ./data
-cd ui && npm install && npm run dev         # http://localhost:3000
+pip install microresolve
 ```
 
-Bootstrap intents from an existing spec:
+### Node.js
 
 ```bash
-curl -X POST http://localhost:3001/api/import/mcp/apply \
-  -H "Content-Type: application/json" \
-  -H "X-Namespace-ID: agent" \
-  -d '{"tools_json": "<MCP tools/list response>", "selected": ["..."], "domain": ""}'
+npm install microresolve
 ```
 
-Bindings: [`microresolve` on crates.io](https://crates.io/crates/microresolve),
-[`microresolve` on PyPI](https://pypi.org/project/microresolve/),
-[`microresolve` on npm](https://www.npmjs.com/package/microresolve).
+### Rust
+
+```bash
+cargo add microresolve
+```
+
+### Studio (single-binary UI + HTTP server)
+
+Pre-built tarballs for Linux (x86_64 / aarch64, glibc + musl), macOS (x86_64 / aarch64), and Windows ship on every release.
+
+```bash
+# Linux x86_64 — adjust for your platform from the releases page
+curl -L https://github.com/gladius/microresolve/releases/latest/download/microresolve-studio-x86_64-unknown-linux-gnu.tar.gz \
+  | tar xz
+./microresolve-studio --data ./data
+# Studio at http://localhost:3001
+```
+
+All artifacts come from the same source-of-truth Rust core — same algorithm, same data files, fully interchangeable.
+
+## 30-second demo
+
+```python
+from microresolve import MicroResolve
+
+engine = MicroResolve()
+ns = engine.namespace("agent")
+ns.add_intent("billing:cancel_subscription", ["cancel my subscription", "stop my plan"])
+ns.add_intent("billing:request_refund",      ["refund my order", "i want my money back"])
+
+matches = ns.resolve("end my subscription right now")
+print(matches[0].id, matches[0].score)
+# billing:cancel_subscription 0.96
+```
+
+Same shape in [Node](https://www.npmjs.com/package/microresolve) (`engine.namespace(...).resolve(...)`) and [Rust](https://docs.rs/microresolve) (`ns.resolve(...)`). For the full pipeline including LLM-judged auto-learn, multi-intent decomposition, and Studio inspection, run the [Studio binary](#studio-single-binary-ui--http-server) and open `http://localhost:3001`.
+
+## Why MicroResolve
 
 |                    | LLM classification | Embedding model | **MicroResolve** |
 |--------------------|--------------------|-----------------|------------------|
