@@ -44,9 +44,26 @@ pub struct ReviewQueueParams {
     limit: usize,
     #[serde(default)]
     offset: usize,
+    /// Filter by derived status: "pending" | "processing" | "applied"
+    /// | "escalated" | "rejected" | "all" (default).
+    #[serde(default)]
+    status: Option<String>,
 }
 fn default_limit() -> usize {
     50
+}
+
+/// Two-state model: a record is either "pending" (still in queue waiting
+/// for the LLM judge to weigh in, or it's been processed but no fix was
+/// applied) or "applied" (the LLM judge ran AND applied a fix). Edge cases
+/// like manually-dismissed entries get bucketed back into "pending" so
+/// operators only see two states and the active count is honest.
+fn derive_status(alive: bool, rev: Option<&crate::log_store::ReviewStatus>) -> &'static str {
+    if !alive && rev.map(|s| s.applied).unwrap_or(false) {
+        "applied"
+    } else {
+        "pending"
+    }
 }
 
 pub async fn review_queue(
@@ -55,35 +72,57 @@ pub async fn review_queue(
     Query(params): Query<ReviewQueueParams>,
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
-    // Review-everything model: queue shows ALL unresolved entries. When auto-learn is
-    // on, the worker resolves them automatically; when off, they stay here for manual
-    // triage. No flag filter — the sidebar badge must match what the user sees.
-    let result = state.log_store.lock().unwrap().query(&LogQuery {
-        app_id: Some(app_id),
-        resolved: Some(false),
+
+    // Default = ALL records (was: only unresolved). The two-state model
+    // (pending / applied) is exposed via ?status=; the UI tabs flip between
+    // them. Sidebar badge still uses /api/review/stats's pending count.
+    let want = params.status.as_deref().unwrap_or("all");
+    let resolved_filter = match want {
+        "pending" => Some(false),
+        "applied" => Some(true),
+        _ => None, // "all" or unrecognised → no filter
+    };
+
+    let mut store = state.log_store.lock().unwrap();
+    let result = store.query(&LogQuery {
+        app_id: Some(app_id.clone()),
+        resolved: resolved_filter,
         since_ms: None,
-        limit: params.limit,
-        offset: params.offset,
+        limit: params.limit.saturating_mul(4).max(200),
+        offset: 0,
     });
 
-    let items: Vec<serde_json::Value> = result
-        .records
-        .iter()
-        .map(|r| {
-            serde_json::json!({
-                "id": r.id,
-                "query": r.query,
-                "detected": r.detected_intents,
-                "confidence": r.confidence,
-                "timestamp": r.timestamp_ms,
-                "session_id": r.session_id,
-            })
-        })
+    let mut items: Vec<serde_json::Value> = Vec::new();
+    for r in &result.records {
+        let alive = store.is_alive(&app_id, r.id).unwrap_or(true);
+        let rev = store.get_review_status(&app_id, r.id);
+        let status = derive_status(alive, rev.as_ref());
+        if want != "all" && status != want {
+            continue;
+        }
+        items.push(serde_json::json!({
+            "id": r.id,
+            "query": r.query,
+            "detected": r.detected_intents,
+            "confidence": r.confidence,
+            "timestamp": r.timestamp_ms,
+            "session_id": r.session_id,
+            "status": status,
+            "summary": rev.as_ref().and_then(|s| s.summary.clone()),
+            "applied": rev.as_ref().map(|s| s.applied).unwrap_or(false),
+        }));
+    }
+
+    let total = items.len();
+    let paged: Vec<serde_json::Value> = items
+        .into_iter()
+        .skip(params.offset)
+        .take(params.limit)
         .collect();
 
     Json(serde_json::json!({
-        "total": result.total,
-        "items": items,
+        "total": total,
+        "items": paged,
     }))
 }
 
@@ -290,11 +329,12 @@ pub async fn review_stats(
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
     let store = state.log_store.lock().unwrap();
-    let unresolved = store.count_alive(&app_id);
     let total = store.count_total(&app_id);
+    let (pending, applied) = store.status_counts(&app_id);
     Json(serde_json::json!({
         "total": total,
-        "pending": unresolved,
+        "pending": pending,    // unread sidebar badge uses this
+        "applied": applied,
     }))
 }
 

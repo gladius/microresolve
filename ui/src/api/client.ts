@@ -469,14 +469,19 @@ export interface ReviewItem {
   detected: string[];
   suggested_intent: string | null;
   suggested_seed: string | null;
+  /// "pending" | "processing" | "applied" | "escalated" | "rejected"
   status: string;
   timestamp: number;
   session_id: string | null;
+  applied?: boolean;
+  summary?: string | null;
+  confidence?: string;
 }
 
 export interface ReviewStats {
   total: number;
   pending: number;
+  applied: number;
 }
 
 
