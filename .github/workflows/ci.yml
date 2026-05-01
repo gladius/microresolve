@@ -36,6 +36,26 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # Version-sync guard. Catches the failure mode that produced the v0.1.7
+      # PyPI miss: pyproject.toml lagging Cargo.toml caused maturin to build
+      # wheels with the wrong filename. Maturin now reads version dynamically
+      # from Cargo.toml (so pyproject.toml has no `version` line to drift),
+      # but Cargo.toml + the two binding Cargo.toml + node/package.json must
+      # still stay in lockstep. Fail fast on drift.
+      - name: version sync check
+        run: |
+          V=$(grep '^version = "' Cargo.toml | head -1 | cut -d'"' -f2)
+          echo "root version: $V"
+          for f in python/Cargo.toml node/Cargo.toml; do
+            grep -q "^version = \"$V\"" "$f" || { echo "::error::version drift in $f (expected $V)"; exit 1; }
+          done
+          grep -q "\"version\": \"$V\"" node/package.json || { echo "::error::version drift in node/package.json (expected $V)"; exit 1; }
+          if grep -q '^version = ' python/pyproject.toml; then
+            echo "::error::python/pyproject.toml has a static version line — should use dynamic = [\"version\"]"
+            exit 1
+          fi
+          echo "all version sources agree on $V"
+
       - name: fmt
         run: cargo fmt --all -- --check
 

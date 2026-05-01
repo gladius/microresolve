@@ -4,7 +4,11 @@ build-backend = "maturin"
 
 [project]
 name = "microresolve"
-version = "0.1.8"
+# Version is read from python/Cargo.toml at build time via maturin's
+# dynamic-version support — single source of truth for Python packaging.
+# Drift between pyproject.toml and Cargo.toml caused the v0.1.7 PyPI miss
+# (wheels built as 0.1.6 because pyproject hadn't been bumped).
+dynamic = ["version"]
 description = "Pre-LLM reflex layer — embedded decision engine for intent classification, safety filtering, tool selection. Sub-millisecond, CPU-only, continuous learning."
 requires-python = ">=3.8"
 license = "MIT OR Apache-2.0"
