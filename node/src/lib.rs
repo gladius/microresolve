@@ -66,7 +66,8 @@ pub struct EngineOptions {
     pub server_url: Option<String>,
     /// API key for the server (required when auth is enabled).
     pub api_key: Option<String>,
-    /// Namespace IDs to subscribe to from the server.
+    /// Namespace IDs to subscribe to from the server. Omit (or pass an
+    /// empty array) to auto-subscribe to every namespace the server exposes.
     pub subscribe: Option<Vec<String>>,
     /// Background sync interval in seconds. Default: 30.
     pub tick_interval_secs: Option<u32>,

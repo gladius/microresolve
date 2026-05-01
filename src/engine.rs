@@ -96,8 +96,15 @@ impl MicroResolve {
         #[cfg(feature = "connect")]
         let connect = if let Some(ref server) = config.server {
             let state = Arc::new(ConnectState::new(server.clone())?);
+            // Empty subscribe list means "auto-subscribe to every namespace
+            // the server exposes." Otherwise honour the explicit allow-list.
+            let app_ids: Vec<String> = if server.subscribe.is_empty() {
+                state.list_remote_namespaces().unwrap_or_default()
+            } else {
+                server.subscribe.clone()
+            };
             // Initial pull for each subscribed namespace.
-            for app_id in &server.subscribe {
+            for app_id in &app_ids {
                 let pulled = state.pull(app_id)?;
                 let resolver = pulled.map(|(r, _v)| r).unwrap_or_else(Resolver::new);
                 namespaces.write().unwrap().insert(
