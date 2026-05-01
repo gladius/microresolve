@@ -3,22 +3,22 @@
 /**
  * Multi-namespace decision engine.
  *
- * One `Engine` per application. Call `engine.namespace(id)` to get a
+ * One `MicroResolve` per application. Call `engine.namespace(id)` to get a
  * `Namespace` handle and operate on intents within it.
  */
-export declare class Engine {
+export declare class MicroResolve {
   /**
-   * Create a new Engine.
+   * Create a new MicroResolve instance.
    *
    * ```js
    * // in-memory
-   * const engine = new Engine();
+   * const engine = new MicroResolve();
    *
    * // persistent
-   * const engine = new Engine({ dataDir: '/tmp/mr' });
+   * const engine = new MicroResolve({ dataDir: '/tmp/mr' });
    *
    * // connected
-   * const engine = new Engine({
+   * const engine = new MicroResolve({
    *   serverUrl: 'http://localhost:3001',
    *   apiKey: 'mr_xxx',
    *   subscribe: ['security', 'intent'],
@@ -38,7 +38,7 @@ export declare class Engine {
 }
 
 /**
- * Handle for one namespace inside an `Engine`.
+ * Handle for one namespace inside a `MicroResolve` instance.
  *
  * All operations on intents and phrases go through this object.
  */
@@ -57,7 +57,10 @@ export declare class Namespace {
   addIntent(id: string, seeds: Array<string> | Record<string, Array<string>>): number
   /** Resolve a query. Returns matches sorted by score descending. */
   resolve(query: string): Array<Match>
-  /** Correct a mis-classification: nudge the engine from `wrong` toward `right`. */
+  /**
+   * Correct a mis-classification: nudge the engine from `wrong` toward `right`.
+   * Applied locally immediately; in connected mode buffered for the next sync tick.
+   */
   correct(query: string, wrong: string, right: string): void
   /** Remove an intent and all its phrases. */
   removeIntent(id: string): void
@@ -79,7 +82,7 @@ export declare class Namespace {
   updateIntent(intentId: string, edit: IntentEditOptions): void
   /** Add a single phrase to an existing intent. */
   addPhrase(intentId: string, phrase: string, lang?: string | undefined | null): PhraseResult
-  /** Flush this namespace to disk (no-op if `Engine` has no `dataDir`). */
+  /** Flush this namespace to disk (no-op if `MicroResolve` has no `dataDir`). */
   flush(): void
 }
 
@@ -94,7 +97,10 @@ export interface EngineOptions {
   serverUrl?: string
   /** API key for the server (required when auth is enabled). */
   apiKey?: string
-  /** Namespace IDs to subscribe to from the server. */
+  /**
+   * Namespace IDs to subscribe to from the server. Omit (or pass an
+   * empty array) to auto-subscribe to every namespace the server exposes.
+   */
   subscribe?: Array<string>
   /** Background sync interval in seconds. Default: 30. */
   tickIntervalSecs?: number

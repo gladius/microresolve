@@ -1,6 +1,6 @@
 {
   "name": "microresolve",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "description": "Pre-LLM reflex layer — embedded decision engine for intent, safety, tool selection. Sub-millisecond classification with continuous learning.",
   "author": "Gladius Thayalarajan",
   "license": "MIT OR Apache-2.0",
