@@ -11,18 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-<<<<<<< HEAD
 - **Empty `subscribe` list now auto-subscribes to all namespaces** the
   server exposes. Pass `subscribe=[]` (Python: omit / `None`; Node:
   omit / `[]`) and the library queries `GET /api/namespaces` at connect
   time, then pulls each one. Explicit lists still work as an allow-list
   for multi-tenant cases. Zero-config for solo / single-team setups.
-=======
-- **Studio shows connected library clients.** A new pill in the sidebar
-  footer ("N connected" with a live-pulse indicator) reports how many
-  library instances have hit `/api/sync` recently. Click the pill to
-  see the per-client list — name, library version, subscribed
-  namespaces, and seconds-until-stale.
+- **Studio shows connected library clients.** A new top-level "LIVE →
+  Connected" sidebar item with a live count badge, plus a dedicated
+  `/connected` page listing every authenticated client currently
+  syncing (name, library version, subscribed namespaces, tick interval,
+  last sync, expires-in countdown). Auto-refreshes every 3s.
 - **`GET /api/connected_clients`** — read-only roster endpoint backing
   the UI. Lazy GC on read: any entry older than `2 × tick_interval_secs`
   is dropped before responding.
@@ -47,7 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connected-clients tracking is **only active when API keys are
   configured**. In open mode (no keys), the panel is empty by design —
   there's no identity to attribute connections to.
->>>>>>> 9622fee (feat(connect): show connected library clients in Studio sidebar)
 
 ---
 
