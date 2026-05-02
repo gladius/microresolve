@@ -24,6 +24,7 @@ impl Resolver {
             namespace_default_threshold: None,
             domain_descriptions: HashMap::new(),
             negative_training_log: Vec::new(),
+            oplog: std::collections::VecDeque::new(),
         }
     }
 
@@ -102,6 +103,7 @@ impl Resolver {
             namespace_default_threshold: None,
             domain_descriptions: HashMap::new(),
             negative_training_log: Vec::new(),
+            oplog: std::collections::VecDeque::new(),
         };
 
         // CRITICAL: rebuild L2 from training data so the imported state is
@@ -153,16 +155,46 @@ impl Resolver {
             return;
         }
         let delta = -alpha;
-        for q in raw_queries {
-            let tokens = crate::tokenizer::tokenize(q);
-            let words: Vec<&str> = tokens
-                .iter()
-                .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
-                .collect();
-            for intent_id in not_intents {
-                self.index.reinforce(&words, intent_id, delta);
+
+        // Collect token lists first (no borrow of self.index yet).
+        let token_lists: Vec<Vec<String>> = raw_queries
+            .iter()
+            .map(|q| {
+                crate::tokenizer::tokenize(q)
+                    .into_iter()
+                    .map(|t| {
+                        if let Some(stripped) = t.strip_prefix("not_") {
+                            stripped.to_string()
+                        } else {
+                            t
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+
+        // Snapshot weights for all (token, intent) pairs we are about to touch.
+        let mut snap: std::collections::HashMap<(String, String), f32> =
+            std::collections::HashMap::new();
+        for words in &token_lists {
+            for word in words {
+                for intent_id in not_intents {
+                    if let Some(w) = self.index.get_weight(word, intent_id) {
+                        snap.entry((word.clone(), intent_id.clone())).or_insert(w);
+                    }
+                }
             }
         }
+
+        for token_list in &token_lists {
+            let word_refs: Vec<&str> = token_list.iter().map(|s| s.as_str()).collect();
+            for intent_id in not_intents {
+                self.index.reinforce(&word_refs, intent_id, delta);
+            }
+        }
+
+        let changes = self.diff_weights(&snap);
+
         // Audit trail — appended automatically.
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -175,6 +207,10 @@ impl Resolver {
                 intents_affected: not_intents.len(),
                 alpha,
             });
+
+        if !changes.is_empty() {
+            self.bump_with_ops(vec![crate::oplog::Op::WeightUpdates { changes }]);
+        }
     }
 
     /// Lower-level phrase ingestion: tokenizes + indexes the phrase into the scoring index without
@@ -214,6 +250,53 @@ impl Resolver {
         self.index.rebuild_caches();
         // Audit log is now stale — every prior decay_for_intents call has been wiped.
         self.negative_training_log.clear();
+    }
+
+    /// Bump version and record one or more ops atomically.
+    ///
+    /// Every public mutation method that changes state MUST call this instead
+    /// of `self.version += 1` directly, so the oplog stays in sync.
+    pub(crate) fn bump_with_ops(&mut self, ops: Vec<crate::oplog::Op>) {
+        self.version += 1;
+        for op in ops {
+            self.oplog.push_back((self.version, op));
+        }
+        while self.oplog.len() > crate::oplog::OPLOG_MAX {
+            self.oplog.pop_front();
+        }
+    }
+
+    /// Diff weights against a snapshot; return non-trivial changes as WeightUpdates triples.
+    pub(crate) fn diff_weights(
+        &self,
+        snapshot: &std::collections::HashMap<(String, String), f32>,
+    ) -> Vec<(String, String, f32)> {
+        snapshot
+            .iter()
+            .filter_map(|((t, i), before)| {
+                let after = self.index.get_weight(t, i).unwrap_or(0.0);
+                if (after - before).abs() > 1e-6 {
+                    Some((t.clone(), i.clone(), after))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Collect all (token, intent) pairs currently indexed for a given intent.
+    pub(crate) fn intent_weight_pairs(&self, intent_id: &str) -> Vec<(String, String)> {
+        self.index
+            .word_intent
+            .iter()
+            .filter_map(|(token, entries)| {
+                if entries.iter().any(|(id, _)| id == intent_id) {
+                    Some((token.clone(), intent_id.to_string()))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     /// Resolve a natural-language query to matching intents using default
@@ -276,6 +359,22 @@ impl Resolver {
         // 1. Index missed phrases.
         for (intent_id, phrases) in missed_phrases {
             for phrase in phrases {
+                // Snapshot before indexing.
+                let words_pre = crate::tokenizer::tokenize(phrase);
+                let snap_pairs: Vec<(String, String)> = words_pre
+                    .iter()
+                    .map(|w| (w.clone(), intent_id.clone()))
+                    .collect();
+                let snap: std::collections::HashMap<(String, String), f32> = snap_pairs
+                    .iter()
+                    .map(|(t, i)| {
+                        (
+                            (t.clone(), i.clone()),
+                            self.index.get_weight(t, i).unwrap_or(0.0),
+                        )
+                    })
+                    .collect();
+
                 self.index_phrase_no_rebuild(intent_id, phrase);
                 self.training
                     .entry(intent_id.clone())
@@ -284,23 +383,52 @@ impl Resolver {
                     .or_default()
                     .push(phrase.clone());
                 added += 1;
+
+                let changes = self.diff_weights(&snap);
+                let mut ops: Vec<crate::oplog::Op> = vec![crate::oplog::Op::PhraseAdded {
+                    intent_id: intent_id.clone(),
+                    phrase: phrase.clone(),
+                    lang: "en".to_string(),
+                }];
+                if !changes.is_empty() {
+                    ops.push(crate::oplog::Op::WeightUpdates { changes });
+                }
+                self.bump_with_ops(ops);
             }
         }
 
         // 2. Learn LLM-extracted query spans as intent-bearing words.
         for (intent_id, span_text) in spans_to_learn {
             let span_words: Vec<String> = crate::tokenizer::tokenize(span_text);
+            let snap_pairs: Vec<(String, String)> = span_words
+                .iter()
+                .map(|w| (w.as_str(), intent_id.as_str()))
+                .map(|(t, i)| (t.to_string(), i.to_string()))
+                .collect();
+            let snap: std::collections::HashMap<(String, String), f32> = snap_pairs
+                .iter()
+                .map(|(t, i)| {
+                    (
+                        (t.clone(), i.clone()),
+                        self.index.get_weight(t, i).unwrap_or(0.0),
+                    )
+                })
+                .collect();
             let span_refs: Vec<&str> = span_words.iter().map(|s| s.as_str()).collect();
             self.index.reinforce_tokens(&span_refs, intent_id);
+            let changes = self.diff_weights(&snap);
+            if !changes.is_empty() {
+                self.bump_with_ops(vec![crate::oplog::Op::WeightUpdates { changes }]);
+            }
         }
 
         // 3. Anti-Hebbian shrink for wrong detections on this query.
+        // decay_for_intents now emits its own WeightUpdates op.
         if !wrong_detections.is_empty() && negative_alpha > 0.0 {
             let alpha = negative_alpha.min(0.3);
             self.decay_for_intents(&[original_query.to_string()], wrong_detections, alpha);
         }
 
-        self.version += 1;
         added
     }
 

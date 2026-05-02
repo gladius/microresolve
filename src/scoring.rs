@@ -278,6 +278,41 @@ impl IntentIndex {
         }
     }
 
+    /// Get the current weight for a (token, intent_id) pair. O(posting_len).
+    pub fn get_weight(&self, token: &str, intent_id: &str) -> Option<f32> {
+        self.word_intent.get(token).and_then(|entries| {
+            entries
+                .iter()
+                .find(|(id, _)| id == intent_id)
+                .map(|(_, w)| *w)
+        })
+    }
+
+    /// Overwrite (or insert) the weight for a (token, intent_id) pair.
+    /// Refreshes the IDF cache for the token after the change.
+    pub fn set_weight(&mut self, token: &str, intent_id: &str, post_weight: f32) {
+        let entries = self.word_intent.entry(token.to_string()).or_default();
+        if let Some(e) = entries.iter_mut().find(|(id, _)| id == intent_id) {
+            e.1 = post_weight;
+        } else {
+            let new_intent = self.known_intents.insert(intent_id.to_string());
+            if new_intent {
+                self.intent_count += 1;
+            }
+            entries.push((intent_id.to_string(), post_weight));
+            self.known_words.insert(token.to_string());
+            self.intent_to_tokens
+                .entry(intent_id.to_string())
+                .or_default()
+                .insert(token.to_string());
+            if new_intent {
+                self.rebuild_caches();
+                return;
+            }
+        }
+        self.refresh_idf_for(token);
+    }
+
     pub fn default_threshold(&self) -> f32 {
         0.3
     }

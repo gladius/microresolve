@@ -108,6 +108,13 @@ pub struct SyncBatchRequest {
     /// Surfaced in /api/connected_clients for "who's still on the old client?"
     #[serde(default)]
     pub library_version: Option<String>,
+    /// v0.2.0 delta-sync: client opts in to receiving ops instead of full export.
+    #[serde(default)]
+    pub supports_delta: Option<bool>,
+    /// v0.2.0 delta-sync: oldest op version the client can still apply.
+    /// Server falls back to full export if its oplog doesn't reach this far back.
+    #[serde(default)]
+    pub oplog_min_version: Option<u64>,
 }
 
 /// Unified single-round-trip sync.
@@ -184,6 +191,8 @@ pub async fn sync(
     }
 
     // 3. Compute per-namespace deltas.
+    let supports_delta = req.supports_delta.unwrap_or(false);
+    let oplog_min_version = req.oplog_min_version.unwrap_or(0);
     let mut namespaces = serde_json::Map::new();
     for (ns_id, local_version) in &req.local_versions {
         let entry = match state.engine.try_namespace(ns_id) {
@@ -192,10 +201,38 @@ pub async fn sync(
                 let server_version = h.version();
                 if server_version == *local_version {
                     serde_json::json!({"up_to_date": true, "version": server_version})
+                } else if supports_delta {
+                    // Try to serve delta ops.
+                    let oldest = h.with_resolver(|r| r.oplog.front().map(|(v, _)| *v));
+                    let client_version = *local_version;
+                    let client_too_far_behind = oldest.map_or(true, |o| client_version < o);
+                    if client_too_far_behind
+                        || (oplog_min_version > 0 && client_version < oplog_min_version)
+                    {
+                        // Fall back to full export.
+                        let export = h.export_json();
+                        serde_json::json!({
+                            "version": server_version,
+                            "export": export,
+                        })
+                    } else {
+                        let ops: Vec<serde_json::Value> = h.with_resolver(|r| {
+                            r.oplog
+                                .iter()
+                                .filter(|(v, _)| *v > client_version && *v <= server_version)
+                                .map(|(v, op)| {
+                                    let mut entry = serde_json::to_value(op).unwrap_or_default();
+                                    entry["version"] = serde_json::json!(*v);
+                                    entry
+                                })
+                                .collect()
+                        });
+                        serde_json::json!({ "version": server_version, "ops": ops })
+                    }
                 } else {
+                    // v0.2.0 baseline client — full export.
                     let export = h.export_json();
                     serde_json::json!({
-                        "up_to_date": false,
                         "version": server_version,
                         "export": export,
                     })

@@ -34,6 +34,13 @@ impl Resolver {
             })
             .collect();
 
+        // Snapshot all existing (token, id) pairs before indexing so we can diff.
+        let pre_pairs: Vec<(&str, &str)> = {
+            // We'll snapshot empty — new intent has no prior weights.
+            vec![]
+        };
+        let _ = pre_pairs; // intentionally unused; we collect post-weights differently
+
         let mut total_phrases = 0usize;
         for phrases in truncated.values() {
             for phrase in phrases {
@@ -41,9 +48,33 @@ impl Resolver {
                 total_phrases += 1;
             }
         }
-        self.training
-            .insert(id.to_string(), truncated.into_iter().collect());
-        self.version += 1;
+        let training_std: std::collections::HashMap<String, Vec<String>> =
+            truncated.into_iter().collect();
+        self.training.insert(id.to_string(), training_std.clone());
+
+        // Collect post-weights for this intent.
+        let weight_changes = self.intent_weight_pairs(id);
+        let weight_snap: std::collections::HashMap<(String, String), f32> = weight_changes
+            .iter()
+            .map(|(t, i)| ((t.clone(), i.clone()), 0.0_f32))
+            .collect();
+        let changes = self.diff_weights(&weight_snap);
+
+        let phrases_by_lang: std::collections::HashMap<String, Vec<String>> =
+            self.training.get(id).cloned().unwrap_or_default();
+
+        let mut ops: Vec<crate::oplog::Op> = vec![crate::oplog::Op::IntentAdded {
+            id: id.to_string(),
+            phrases_by_lang,
+            intent_type: None,
+            description: None,
+            instructions: None,
+            persona: None,
+        }];
+        if !changes.is_empty() {
+            ops.push(crate::oplog::Op::WeightUpdates { changes });
+        }
+        self.bump_with_ops(ops);
 
         Ok(total_phrases)
     }
@@ -72,10 +103,30 @@ impl Resolver {
         // Remove empty language entries
         training.retain(|_, phrases| !phrases.is_empty());
 
+        // Snapshot all tokens before rebuild so we can compute post-values.
+        let pairs_before: Vec<(String, String)> = self.intent_weight_pairs(intent_id);
+        let snap: std::collections::HashMap<(String, String), f32> = pairs_before
+            .iter()
+            .map(|(t, i)| {
+                (
+                    (t.clone(), i.clone()),
+                    self.index.get_weight(t, i).unwrap_or(0.0),
+                )
+            })
+            .collect();
+
         // Rebuild the index from remaining phrases so stale word→intent edges are cleared.
         self.rebuild_index();
 
-        self.version += 1;
+        let changes = self.diff_weights(&snap);
+        let mut ops: Vec<crate::oplog::Op> = vec![crate::oplog::Op::PhraseRemoved {
+            intent_id: intent_id.to_string(),
+            phrase: seed.to_string(),
+        }];
+        if !changes.is_empty() {
+            ops.push(crate::oplog::Op::WeightUpdates { changes });
+        }
+        self.bump_with_ops(ops);
         true
     }
 
@@ -92,7 +143,7 @@ impl Resolver {
         self.guardrails.remove(id);
         // Rebuild the index from remaining phrases so stale word→intent edges are cleared.
         self.rebuild_index();
-        self.version += 1;
+        self.bump_with_ops(vec![crate::oplog::Op::IntentRemoved { id: id.to_string() }]);
     }
 
     /// Check a phrase before adding it. Returns duplicate/empty info.
@@ -170,9 +221,39 @@ impl Resolver {
             return true;
         }
         seeds.push(seed.to_string());
+
+        // Snapshot before indexing.
+        let snap: std::collections::HashMap<(String, String), f32> =
+            std::collections::HashMap::new();
+
         // Index phrase into L2 atomically.
         self.index_phrase(intent_id, seed);
-        self.version += 1;
+
+        // Collect weight changes for all tokens in this phrase.
+        let words = crate::tokenizer::tokenize(seed);
+        let mut changes: Vec<(String, String, f32)> = Vec::new();
+        for word in &words {
+            if let Some(w) = self.index.get_weight(word, intent_id) {
+                // compare against zero — this phrase's tokens didn't exist before (or changed)
+                let before = snap
+                    .get(&(word.clone(), intent_id.to_string()))
+                    .copied()
+                    .unwrap_or(0.0);
+                if (w - before).abs() > 1e-6 {
+                    changes.push((word.clone(), intent_id.to_string(), w));
+                }
+            }
+        }
+
+        let mut ops: Vec<crate::oplog::Op> = vec![crate::oplog::Op::PhraseAdded {
+            intent_id: intent_id.to_string(),
+            phrase: seed.to_string(),
+            lang: lang.to_string(),
+        }];
+        if !changes.is_empty() {
+            ops.push(crate::oplog::Op::WeightUpdates { changes });
+        }
+        self.bump_with_ops(ops);
         true
     }
 

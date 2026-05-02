@@ -36,6 +36,7 @@ impl Resolver {
     /// Returns `Result` for symmetry with `update_intent` so future validation
     /// paths can surface errors without breaking callers.
     pub fn update_namespace(&mut self, edit: NamespaceEdit) -> Result<(), Error> {
+        let edit_json = serde_json::to_string(&edit).unwrap_or_default();
         if let Some(n) = edit.name {
             self.namespace_name = n;
         }
@@ -48,6 +49,9 @@ impl Resolver {
         if let Some(dd) = edit.domain_descriptions {
             self.domain_descriptions = dd;
         }
+        self.bump_with_ops(vec![crate::oplog::Op::NamespaceMetadataUpdated {
+            edit_json,
+        }]);
         Ok(())
     }
 
@@ -68,11 +72,19 @@ impl Resolver {
     pub fn set_domain_description(&mut self, domain: &str, desc: &str) {
         self.domain_descriptions
             .insert(domain.to_string(), desc.to_string());
+        self.bump_with_ops(vec![crate::oplog::Op::DomainDescription {
+            domain: domain.to_string(),
+            description: Some(desc.to_string()),
+        }]);
     }
 
     /// Remove a domain description (does not remove intents).
     pub fn remove_domain_description(&mut self, domain: &str) {
         self.domain_descriptions.remove(domain);
+        self.bump_with_ops(vec![crate::oplog::Op::DomainDescription {
+            domain: domain.to_string(),
+            description: None,
+        }]);
     }
 
     /// Load a router from a namespace directory.
@@ -175,6 +187,17 @@ impl Resolver {
 
         // Rebuild IDF cache from the loaded posting lists — O(words) once on load.
         router.index.rebuild_caches();
+
+        // Clear any ops emitted during load (those are reconstruction artifacts,
+        // not real mutations). Then restore the persisted oplog.
+        router.oplog.clear();
+        if let Ok(json) = std::fs::read_to_string(path.join("_oplog.json")) {
+            if let Ok(log) =
+                serde_json::from_str::<std::collections::VecDeque<(u64, crate::oplog::Op)>>(&json)
+            {
+                router.oplog = log;
+            }
+        }
 
         Ok(router)
     }
@@ -286,6 +309,15 @@ impl Resolver {
                 crate::Error::Persistence(format!("cannot write _index.json: {}", e))
             })?;
             written.insert(index_path);
+        }
+
+        // Save oplog
+        if let Ok(json) = serde_json::to_string(&self.oplog) {
+            let oplog_path = path.join("_oplog.json");
+            std::fs::write(&oplog_path, json).map_err(|e| {
+                crate::Error::Persistence(format!("cannot write _oplog.json: {}", e))
+            })?;
+            written.insert(oplog_path);
         }
 
         // Remove stale intent files

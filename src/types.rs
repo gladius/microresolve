@@ -356,7 +356,7 @@ pub struct NamespaceInfo {
 ///
 /// Each field is `Option<T>`: `None` leaves the existing value alone,
 /// `Some(_)` overwrites it. Empty string clears name/description.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct NamespaceEdit {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -372,7 +372,7 @@ pub struct NamespaceEdit {
 /// Each field is `Option<T>`: `None` leaves the existing value alone, `Some(_)`
 /// overwrites it. To clear a field, pass an empty value (`Some(String::new())`,
 /// `Some(vec![])`, etc.).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct IntentEdit {
     pub intent_type: Option<IntentType>,
     pub description: Option<String>,

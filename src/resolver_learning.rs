@@ -50,11 +50,41 @@ impl Resolver {
             .get_mut(correct_intent)
             .expect("checked above");
         let phrases = lang_map.entry(lang.to_string()).or_default();
-        if !phrases.contains(&query.to_string()) {
+        let was_new = if !phrases.contains(&query.to_string()) {
             phrases.push(query.to_string());
             self.index_phrase(correct_intent, query);
+            true
+        } else {
+            false
+        };
+
+        // Collect weight changes for newly indexed tokens.
+        let mut ops: Vec<crate::oplog::Op> = Vec::new();
+        if was_new {
+            ops.push(crate::oplog::Op::PhraseAdded {
+                intent_id: correct_intent.to_string(),
+                phrase: query.to_string(),
+                lang: lang.to_string(),
+            });
+            let words = crate::tokenizer::tokenize(query);
+            let mut changes: Vec<(String, String, f32)> = Vec::new();
+            for word in &words {
+                if let Some(w) = self.index.get_weight(word, correct_intent) {
+                    changes.push((word.clone(), correct_intent.to_string(), w));
+                }
+            }
+            if !changes.is_empty() {
+                ops.push(crate::oplog::Op::WeightUpdates { changes });
+            }
+        } else {
+            // No new phrase — emit a bare PhraseAdded that's a no-op on replay.
+            ops.push(crate::oplog::Op::PhraseAdded {
+                intent_id: correct_intent.to_string(),
+                phrase: query.to_string(),
+                lang: lang.to_string(),
+            });
         }
-        self.version += 1;
+        self.bump_with_ops(ops);
         Ok(())
     }
 }
