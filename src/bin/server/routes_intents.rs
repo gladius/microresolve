@@ -78,7 +78,8 @@ pub async fn delete_intent_by_id(
     let Some(h) = state.engine.try_namespace(&app_id) else {
         return StatusCode::NOT_FOUND;
     };
-    h.remove_intent(&id);
+    h.remove_intent(&id)
+        .expect("server is standalone; ConnectMode unreachable");
     maybe_commit(&state, &app_id);
     StatusCode::NO_CONTENT
 }
@@ -111,7 +112,9 @@ pub async fn add_phrase_to_intent(
         return Err((StatusCode::NOT_FOUND, format!("intent '{}' not found", id)));
     }
 
-    let result = h.add_phrase(&id, &req.phrase, &req.lang);
+    let result = h
+        .add_phrase(&id, &req.phrase, &req.lang)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     if result.added {
         maybe_commit(&state, &app_id);
@@ -145,7 +148,9 @@ pub async fn remove_phrase_from_intent(
         .engine
         .try_namespace(&app_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-    let removed = h.remove_phrase(&id, &req.phrase);
+    let removed = h
+        .remove_phrase(&id, &req.phrase)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     if removed {
         maybe_commit(&state, &app_id);
         Ok(StatusCode::NO_CONTENT)

@@ -143,6 +143,10 @@ pub enum Error {
     /// Connected-mode transport / sync error (HTTP failure, server-side
     /// rejection, malformed sync response, etc.).
     Connect(String),
+    /// Mutation rejected: engine is in connected mode and the server is the
+    /// sole writer. Use the server's HTTP API directly (e.g. POST /api/intents)
+    /// or call `correct()` on v0.2.1+ when proxy support lands.
+    ConnectMode,
 }
 
 impl fmt::Display for Error {
@@ -153,6 +157,10 @@ impl fmt::Display for Error {
             Error::Parse(s) => write!(f, "parse error: {}", s),
             Error::Persistence(s) => write!(f, "persistence error: {}", s),
             Error::Connect(s) => write!(f, "connect error: {}", s),
+            Error::ConnectMode => write!(
+                f,
+                "mutation not allowed in connected mode; use the server's HTTP API directly"
+            ),
         }
     }
 }

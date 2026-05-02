@@ -10,7 +10,7 @@ fn engine() -> MicroResolve {
 
 /// Apply a WeightUpdates op via apply_weight_updates (the typed method).
 fn apply_weight_updates(e: &MicroResolve, ns: &str, changes: &[(String, String, f32)]) {
-    e.namespace(ns).apply_weight_updates(changes);
+    e.namespace(ns).apply_weight_updates(changes).unwrap();
 }
 
 #[test]
@@ -48,11 +48,11 @@ fn idempotent_intent_removed() {
     h.add_intent("bye", vec!["goodbye".to_string()]).unwrap();
     assert_eq!(h.intent_count(), 1);
 
-    h.remove_intent("bye");
+    h.remove_intent("bye").unwrap();
     assert_eq!(h.intent_count(), 0);
 
     // Second remove — no panic, still 0.
-    h.remove_intent("bye");
+    h.remove_intent("bye").unwrap();
     assert_eq!(h.intent_count(), 0);
 }
 
@@ -62,10 +62,10 @@ fn idempotent_phrase_added() {
     let h = e.namespace("ns");
     h.add_intent("greet", vec!["hi".to_string()]).unwrap();
 
-    h.add_phrase("greet", "hello there", "en");
+    h.add_phrase("greet", "hello there", "en").unwrap();
     let phrases_1 = h.training("greet").unwrap();
 
-    h.add_phrase("greet", "hello there", "en");
+    h.add_phrase("greet", "hello there", "en").unwrap();
     let phrases_2 = h.training("greet").unwrap();
 
     assert_eq!(
@@ -82,10 +82,10 @@ fn idempotent_phrase_removed() {
     h.add_intent("greet", vec!["hi".to_string(), "hello".to_string()])
         .unwrap();
 
-    let removed_1 = h.remove_phrase("greet", "hi");
+    let removed_1 = h.remove_phrase("greet", "hi").unwrap();
     assert!(removed_1);
 
-    let removed_2 = h.remove_phrase("greet", "hi");
+    let removed_2 = h.remove_phrase("greet", "hi").unwrap();
     assert!(
         !removed_2,
         "second remove should return false (already gone)"
@@ -162,10 +162,12 @@ fn idempotent_domain_description_set() {
     let e = engine();
     let h = e.namespace("ns");
 
-    h.set_domain_description("billing", "Billing domain");
+    h.set_domain_description("billing", "Billing domain")
+        .unwrap();
     let d1 = h.domain_description("billing");
 
-    h.set_domain_description("billing", "Billing domain");
+    h.set_domain_description("billing", "Billing domain")
+        .unwrap();
     let d2 = h.domain_description("billing");
 
     assert_eq!(d1, d2);
@@ -177,12 +179,13 @@ fn idempotent_domain_description_removed() {
     let e = engine();
     let h = e.namespace("ns");
 
-    h.set_domain_description("billing", "Billing domain");
-    h.remove_domain_description("billing");
+    h.set_domain_description("billing", "Billing domain")
+        .unwrap();
+    h.remove_domain_description("billing").unwrap();
     let d1 = h.domain_description("billing");
 
     // Remove again — should be no-op.
-    h.remove_domain_description("billing");
+    h.remove_domain_description("billing").unwrap();
     let d2 = h.domain_description("billing");
 
     assert_eq!(d1, None);

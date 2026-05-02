@@ -172,29 +172,6 @@ impl ConnectState {
         Ok(result)
     }
 
-    /// Buffer a correction for the next batch sync tick.
-    ///
-    /// The correction is applied to the local resolver by the caller before
-    /// this method is invoked. The server will learn about it on the next tick
-    /// via `POST /api/sync/batch`. This avoids the stampede risk of N clients
-    /// all firing synchronous HTTP pushes the moment a user clicks "correct".
-    pub fn push_correct(
-        &self,
-        app_id: &str,
-        query: &str,
-        wrong_intent: &str,
-        right_intent: &str,
-    ) -> Result<(), crate::Error> {
-        let mut buf = self.correction_buf.lock().unwrap();
-        buf.push(PendingCorrection {
-            namespace: app_id.to_string(),
-            query: query.to_string(),
-            wrong_intent: wrong_intent.to_string(),
-            right_intent: right_intent.to_string(),
-        });
-        Ok(())
-    }
-
     pub fn buffer_log(&self, entry: LogEntry) {
         let mut buf = self.log_buf.lock().unwrap();
         if buf.len() >= self.server.log_buffer_max && !buf.is_empty() {

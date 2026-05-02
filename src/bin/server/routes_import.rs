@@ -23,9 +23,11 @@ pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)
     };
 
     for (intent_id, phrase) in accepted {
-        h.index_phrase(intent_id, phrase);
+        h.index_phrase(intent_id, phrase)
+            .expect("server is standalone; ConnectMode unreachable");
     }
-    h.rebuild_caches();
+    h.rebuild_caches()
+        .expect("server is standalone; ConnectMode unreachable");
     eprintln!(
         "[import/L2] seeded {} phrases into count model for '{}'",
         accepted.len(),
