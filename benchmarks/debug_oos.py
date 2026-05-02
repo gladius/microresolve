@@ -8,7 +8,7 @@ in-scope precision.
 """
 import json, urllib.request
 
-BASE = "http://localhost:3001"
+BASE = "http://localhost:8181"
 NS = "debug-oos"
 
 TOOLS = [

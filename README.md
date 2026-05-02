@@ -7,7 +7,7 @@
 [![CI](https://github.com/gladius/microresolve/actions/workflows/ci.yml/badge.svg)](https://github.com/gladius/microresolve/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-MicroResolve is a learnable reflex layer for LLM apps. The decisions
+MicroResolve is a deterministic intent router for LLM apps. The decisions
 your LLM keeps making — which tool, which model, what guardrail, what
 persona, who to refuse — run in 50µs and improve while your app runs.
 
@@ -94,7 +94,7 @@ Pre-built tarballs for Linux (x86_64 / aarch64, glibc + musl), macOS (x86_64 / a
 curl -L https://github.com/gladius/microresolve/releases/latest/download/microresolve-studio-x86_64-unknown-linux-gnu.tar.gz \
   | tar xz
 ./microresolve-studio --data ./data
-# Studio at http://localhost:3001
+# Studio at http://localhost:4000
 ```
 
 All artifacts come from the same source-of-truth Rust core — same algorithm, same data files, fully interchangeable.
@@ -114,7 +114,7 @@ print(matches[0].id, matches[0].score)
 # billing:cancel_subscription 0.96
 ```
 
-Same shape in [Node](https://www.npmjs.com/package/microresolve) (`engine.namespace(...).resolve(...)`) and [Rust](https://docs.rs/microresolve) (`ns.resolve(...)`). For the full pipeline including LLM-judged auto-learn, multi-intent decomposition, and Studio inspection, run the [Studio binary](#studio-single-binary-ui--http-server) and open `http://localhost:3001`.
+Same shape in [Node](https://www.npmjs.com/package/microresolve) (`engine.namespace(...).resolve(...)`) and [Rust](https://docs.rs/microresolve) (`ns.resolve(...)`). For the full pipeline including LLM-judged auto-learn, multi-intent decomposition, and Studio inspection, run the [Studio binary](#studio-single-binary-ui--http-server) and open `http://localhost:4000`.
 
 ## Why MicroResolve
 
@@ -167,28 +167,23 @@ Haiku 4.5).
 
 ## How it works
 
-A query passes through five layers, all in-process, all in-memory:
+Queries go directly to the **L2 intent scorer** — a deterministic IDF-weighted inverted index with online Hebbian learning:
 
 ```text
 raw query
-  → L0  typo correction        (character n-gram Jaccard)
-  → L1  vocabulary bridging    (morphology / abbreviation, OOV-gated)
-  → L2  intent scoring         (IDF-weighted sparse term graph)
-  → L3  confidence + disposition
-  → L4  cross-provider tiebreak
+  → L2  intent scoring  (IDF-weighted sparse term graph + Hebbian learning)
+  → L4  cross-provider tiebreak  (when equal-score providers compete)
   → result
 
-failures → review queue → auto-learn worker → L1 + L2 updated
+failures → review queue → auto-learn worker → L2 updated
 ```
 
-L0 fixes typos against the known vocabulary. L1 substitutes morphological
-variants (`canceling → cancel`) and abbreviations (`pr → pull request`)
-**only when the source word is out-of-vocabulary**, so distinctive user
-input is never rewritten. L2 is the core scorer: each intent has a learned
-sparse vector of IDF-weighted terms; multi-intent uses a token-consumption
-pass to confirm one intent then re-score the rest. L3 classifies the score
-distribution as `confident` / `low_confidence` / `escalate`. L4 breaks ties
-when the same action exists across multiple providers.
+L2 is the core scorer: each intent has a learned sparse vector of IDF-weighted terms.
+Multi-intent decomposition uses a token-consumption pass — once the top intent is
+confirmed, its tokens are consumed and the remaining tokens are re-scored to detect
+additional intents in the same query. L4 breaks ties when the same action exists
+across multiple providers. There are no preprocessing layers; raw tokens are looked
+up directly, making the engine safe for medical, legal, and code namespaces.
 
 Every confirmed routing reinforces term weights. Every correction
 shifts weights away from the wrong intent. No retraining; the data

@@ -5,7 +5,7 @@ description: Install and run the self-hosted MicroResolve server.
 
 import { Aside } from '@astrojs/starlight/components';
 
-The MicroResolve server is a single Rust binary (`microresolve-studio`) with the Studio UI embedded. It exposes a REST API on port 3001 and serves the Studio UI at the same address. Data is stored in a git-tracked directory on disk.
+The MicroResolve server is a single Rust binary (`microresolve-studio`) with the Studio UI embedded. It exposes a REST API on port 4000 and serves the Studio UI at the same address. Data is stored in a git-tracked directory on disk.
 
 ## Recommended: download the release tarball
 
@@ -14,10 +14,10 @@ The fastest way to get started is to download the pre-built binary from the GitH
 ```bash
 curl -L -o studio.tar.gz https://github.com/gladius/microresolve/releases/download/v0.1.4.1/microresolve-studio-x86_64-unknown-linux-gnu.tar.gz
 tar -xzf studio.tar.gz
-./microresolve-studio --port 3001 --no-browser --data ./data
+./microresolve-studio --port 4000 --no-browser --data ./data
 ```
 
-Open `http://localhost:3001` in your browser — the Studio UI is embedded in the binary, no separate frontend step required.
+Open `http://localhost:4000` in your browser — the Studio UI is embedded in the binary, no separate frontend step required.
 
 ## Prerequisites
 
@@ -26,7 +26,7 @@ Open `http://localhost:3001` in your browser — the Studio UI is embedded in th
 ## Run
 
 ```bash
-# Defaults: port 3001, data at ~/.local/share/microresolve
+# Defaults: port 4000, data at ~/.local/share/microresolve
 ./microresolve-studio
 
 # Custom data directory
@@ -52,16 +52,16 @@ ANTHROPIC_API_KEY=sk-ant-...
 ## Verify
 
 ```bash
-curl http://localhost:3001/api/health
+curl http://localhost:4000/api/health
 # {"status":"ok"}
 
-curl http://localhost:3001/api/version
+curl http://localhost:4000/api/version
 # {"version":"0.1.4.1"}
 ```
 
 ## Studio UI
 
-The Studio UI is served at `http://localhost:3001` (the root, not a subpath). Open it in your browser to manage intents, run simulations, and review the auto-learn queue.
+The Studio UI is served at `http://localhost:4000` (the root, not a subpath). Open it in your browser to manage intents, run simulations, and review the auto-learn queue.
 
 See [Studio](/microresolve/server/studio/) for a full walkthrough.
 
@@ -81,11 +81,11 @@ See [Studio](/microresolve/server/studio/) for a full walkthrough.
 Every namespace mutation triggers a `git commit` inside this directory. You can push to a remote with:
 
 ```bash
-curl -X PUT http://localhost:3001/api/settings/git \
+curl -X PUT http://localhost:4000/api/settings/git \
   -H "Content-Type: application/json" \
   -d '{"remote_url": "git@github.com:your-org/microresolve-data.git"}'
 
-curl -X POST http://localhost:3001/api/git/push
+curl -X POST http://localhost:4000/api/git/push
 ```
 
 <Aside type="note">

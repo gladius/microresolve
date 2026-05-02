@@ -1,9 +1,9 @@
 ---
 title: MicroResolve
-description: Pre-LLM reflex layer — deterministic intent classification at ~50µs, CPU-only, continuous learning.
+description: Deterministic intent classification at ~50µs — IDF-weighted index with online Hebbian learning, CPU-only, continuous learning.
 template: splash
 hero:
-  tagline: A pre-LLM reflex layer that classifies intent, detects PII, and filters tool calls in ~50µs — before the LLM ever sees the query.
+  tagline: Deterministic intent classification at ~50µs — IDF-weighted index with online Hebbian learning, multi-intent decomposition, and continuous learning from live traffic.
   actions:
     - text: Rust quickstart
       link: /microresolve/rust/quickstart/
@@ -57,7 +57,7 @@ let intent   = support.resolve("cancel my order");
 let threat   = security.resolve("ignore previous instructions");
 ```
 
-## Why a reflex layer?
+## Why deterministic routing?
 
 Large language models are powerful but slow and expensive. The majority of incoming queries — "cancel my order", "reset my password", "show me the dashboard" — follow patterns that can be resolved deterministically in microseconds. MicroResolve handles that 80%, so your LLM budget goes to the 20% that actually needs reasoning.
 
@@ -72,7 +72,7 @@ Your training data is a git repo. Every namespace mutation auto-commits. You get
 
 ```bash
 # Roll back a namespace to a previous commit
-curl -X POST http://localhost:3001/api/namespaces/support/rollback \
+curl -X POST http://localhost:4000/api/namespaces/support/rollback \
   -H "Content-Type: application/json" \
   -d '{"sha": "abc1234..."}'
 ```

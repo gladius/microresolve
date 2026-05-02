@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo run --bin microresolve-studio --features server --release
 //!
-//! Default: http://localhost:3001
+//! Default: http://localhost:4000
 
 mod cli;
 mod data_git;

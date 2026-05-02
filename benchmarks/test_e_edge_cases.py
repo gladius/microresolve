@@ -19,7 +19,7 @@ import statistics
 import time
 import urllib.request
 
-BASE = os.environ.get("MR_SERVER_URL", "http://localhost:3001")
+BASE = os.environ.get("MR_SERVER_URL", "http://localhost:8181")
 NS = "test-e-edges"
 
 

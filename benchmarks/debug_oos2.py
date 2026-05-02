@@ -12,7 +12,7 @@ Reuses the agent-tools namespace already populated with 129 tools.
 """
 import json, urllib.request
 
-BASE = "http://localhost:3001"
+BASE = "http://localhost:8181"
 NS = "agent-tools"
 
 OOS = [
