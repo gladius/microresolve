@@ -7,8 +7,9 @@
 //! The HTTP-end-to-end equivalent (which adds ~500µs of TCP/JSON overhead
 //! a real Python client sees) is in `benchmarks/latency.py`.
 
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use microresolve::{MicroResolve, MicroResolveConfig};
+use std::hint::black_box;
 
 const VERBS: &[&str] = &[
     "cancel", "list", "show", "create", "update", "delete", "fetch", "stop", "start", "renew",
