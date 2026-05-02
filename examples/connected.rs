@@ -57,52 +57,73 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         initial_intent, initial_score
     );
 
-    println!("\n─── 4. Apply correction ───────────────────────────────────────");
-    println!("  Push: this query should map to 'cancel_subscription'");
+    println!("\n─── 4. Strict mode: library mutations refused ────────────────");
+    println!("  Connected libraries are READ-ONLY caches. The server is the");
+    println!("  only authoritative writer. Calling ns.correct(...) returns:");
     let wrong = if initial_intent == "(none)" {
         "list_subscriptions"
     } else {
         initial_intent
     };
-    ns.correct(query, wrong, "cancel_subscription")?;
-    println!("  ✓ applied locally + pushed to server");
-
-    println!("\n─── 5. Re-route immediately (local already updated) ──────────");
-    let matches = ns.resolve(query);
-    let local_intent = matches.first().map(|m| m.id.as_str()).unwrap_or("(none)");
-    let local_score = matches.first().map(|m| m.score).unwrap_or(0.0);
-    println!("  query:        \"{}\"", query);
-    println!(
-        "  routed to:    {} (score: {:.2})",
-        local_intent, local_score
-    );
-    if local_intent == "cancel_subscription" {
-        println!("  ✓ Local state instantly reflects correction (no network round-trip).");
+    match ns.correct(query, wrong, "cancel_subscription") {
+        Err(microresolve::Error::ConnectMode) => {
+            println!("    Err(ConnectMode) — refused, as designed.");
+        }
+        other => println!("    unexpected: {:?}", other),
     }
 
-    println!("\n─── 6. Wait for next sync tick (server confirms version bump) ─");
+    println!("\n─── 5. Apply correction via the server's HTTP API ────────────");
+    println!("  POST /api/correct with the correction. Server applies it,");
+    println!("  the library catches up on the next sync tick.");
+    let api_url =
+        std::env::var("MICRORESOLVE_URL").unwrap_or_else(|_| "http://localhost:4000".into());
+    let client = reqwest::blocking::Client::new();
+    let mut req = client
+        .post(format!("{}/api/correct", api_url))
+        .header("X-Namespace-ID", NS)
+        .json(&serde_json::json!({
+            "query": query,
+            "wrong_intent": wrong,
+            "right_intent": "cancel_subscription",
+        }));
+    if let Some(ref key) = api_key {
+        req = req.header("X-Api-Key", key);
+    }
+    let resp = req.send()?;
+    println!("  ✓ POST /api/correct → HTTP {}", resp.status());
+
+    println!("\n─── 6. Wait for sync tick to pull the change ─────────────────");
     let v_before = ns.version();
     println!("  local version before tick: {}", v_before);
     println!("  waiting for sync tick (≤ 6s)...");
+    let mut local_intent = String::from("(unknown)");
     for _ in 0..6 {
         std::thread::sleep(Duration::from_secs(1));
         let v = ns.version();
         if v > v_before {
             println!("  ✓ pulled v{} from server (was v{})", v, v_before);
+            let matches = ns.resolve(query);
+            local_intent = matches
+                .first()
+                .map(|m| m.id.clone())
+                .unwrap_or_else(|| "(none)".to_string());
             break;
         }
     }
 
     println!("\n─── Result ────────────────────────────────────────────────────");
     if local_intent == "cancel_subscription" {
-        println!("  ✓ Library learned. The same query now routes correctly.");
+        println!("  ✓ Library caught up. The same query now routes correctly.");
         println!(
-            "  ✓ Any OTHER connected library subscribed to '{}' will see this correction",
+            "  ✓ Any OTHER connected library subscribed to '{}' will also see this",
             NS
         );
-        println!("    on its next poll — that's the cross-instance propagation story.");
+        println!("    on its next poll — cross-instance propagation via the server.");
     } else {
-        println!("  ✗ Local state didn't update. Check server logs.");
+        println!(
+            "  Note: routes_to {} after sync. Check server-side correction handling.",
+            local_intent
+        );
     }
 
     cleanup_namespace(api_key.as_deref())?;
