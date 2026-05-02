@@ -87,7 +87,7 @@ async function main() {
   }
 
   console.log('\n─── 5. Apply correction via the server\'s HTTP API ───────────');
-  const apiUrl = process.env.MICRORESOLVE_URL || 'http://localhost:4000';
+  const apiUrl = SERVER_URL;
   const headers = { 'Content-Type': 'application/json', 'X-Namespace-ID': NS };
   if (apiKey) headers['X-Api-Key'] = apiKey;
   try {

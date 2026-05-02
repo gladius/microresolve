@@ -75,11 +75,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n─── 5. Apply correction via the server's HTTP API ────────────");
     println!("  POST /api/correct with the correction. Server applies it,");
     println!("  the library catches up on the next sync tick.");
-    let api_url =
-        std::env::var("MICRORESOLVE_URL").unwrap_or_else(|_| "http://localhost:4000".into());
     let client = reqwest::blocking::Client::new();
     let mut req = client
-        .post(format!("{}/api/correct", api_url))
+        .post(format!("{}/api/correct", SERVER))
         .header("X-Namespace-ID", NS)
         .json(&serde_json::json!({
             "query": query,

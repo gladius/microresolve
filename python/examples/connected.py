@@ -91,7 +91,7 @@ def main() -> int:
         print(f"    {type(e).__name__}: {e}  ← refused, as designed.")
 
     print("\n─── 5. Apply correction via the server's HTTP API ───────────")
-    api_url = os.environ.get("MICRORESOLVE_URL", "http://localhost:4000")
+    api_url = SERVER_URL
     headers = {"X-Namespace-ID": NS}
     if api_key:
         headers["X-Api-Key"] = api_key
