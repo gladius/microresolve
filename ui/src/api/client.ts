@@ -177,11 +177,6 @@ export interface RoundTrace {
 }
 
 export interface RouteTrace {
-  l0_corrected: string;
-  l1_normalized: string;
-  l1_expanded: string;
-  l1_injected: string[];
-  l1_disabled: boolean;
   tokens: string[];
   all_scores: { id: string; score: number }[];
   multi: {
@@ -339,11 +334,6 @@ export const api = {
     post<{ lang: string; count: number; source: string }>(`/stopwords/${lang}/add`, { word }),
   removeStopWord: (lang: string, word: string) =>
     del<{ lang: string; count: number; source: string }>(`/stopwords/${lang}/${encodeURIComponent(word)}`),
-  getL0Info: () =>
-    get<{ namespace: string; vocab_size: number; ngram_size: number; min_term_len: number; vocab_sample: string[] }>('/layers/l0'),
-  l0Correct: (query: string) =>
-    post<{ query: string; corrected: string; changed: boolean }>('/layers/l0/correct', { query }),
-
   // Logs
   getLogs: (limit = 100, offset = 0) =>
     get<{ total: number; offset: number; limit: number; entries: LogEntry[] }>(`/logs?limit=${limit}&offset=${offset}`),
@@ -399,7 +389,7 @@ export const api = {
   }) => post<{ message: string }>('/simulate/respond', config),
 
   // Namespaces (isolated routing instances)
-  listNamespaces: () => get<{ id: string; name: string; description: string; auto_learn: boolean; default_threshold: number | null; version?: number; intent_count?: number; l0_enabled?: boolean; l1_morphology?: boolean; l1_synonym?: boolean; l1_abbreviation?: boolean }[]>('/namespaces'),
+  listNamespaces: () => get<{ id: string; name: string; description: string; auto_learn: boolean; default_threshold: number | null; version?: number; intent_count?: number }[]>('/namespaces'),
   createNamespace: (namespace_id: string, name = '', description = '') =>
     post<{ created: string }>('/namespaces', { namespace_id, name, description }),
   deleteNamespace: (namespace_id: string) =>
@@ -408,7 +398,7 @@ export const api = {
       headers: appHeaders(),
       body: JSON.stringify({ namespace_id }),
     }).then(r => { if (!r.ok) throw new Error('Delete failed'); }),
-  updateNamespace: (namespace_id: string, patch: { name?: string; description?: string; auto_learn?: boolean; default_threshold?: number | null; l0_enabled?: boolean; l1_morphology?: boolean; l1_synonym?: boolean; l1_abbreviation?: boolean }) => {
+  updateNamespace: (namespace_id: string, patch: { name?: string; description?: string; auto_learn?: boolean; default_threshold?: number | null }) => {
     // Translate `default_threshold: null` (clear) into the -1.0 sentinel the server expects.
     const body: Record<string, unknown> = { namespace_id };
     for (const [k, v] of Object.entries(patch)) {
@@ -519,7 +509,7 @@ export const api = {
           phrases_added: { intent_id: string; lang: string; phrase: string }[];
           phrases_removed: { intent_id: string; lang: string; phrase: string }[];
           metadata_changes: { intent_id: string; field: string; from: string; to: string }[];
-          l2_edges_changed: number; l1_edges_changed: number;
+          l2_edges_changed: number;
         }>;
       }),
 

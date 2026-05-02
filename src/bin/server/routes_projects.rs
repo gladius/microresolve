@@ -201,7 +201,7 @@ pub async fn train_negative(
     };
     let queries_len = req.queries.len();
     let affected = not_intents.len();
-    h.with_resolver_mut(|r| r.train_negative(&req.queries, &not_intents, req.alpha));
+    h.train_negative(&req.queries, &not_intents, req.alpha);
     maybe_commit(&state, &req.namespace_id);
     Ok(Json(serde_json::json!({
         "trained": req.namespace_id,
@@ -233,10 +233,10 @@ pub async fn rebuild_namespace(
     let n_phrases_before: usize = h
         .intent_ids()
         .iter()
-        .filter_map(|id| h.with_resolver(|r| r.training(id)))
+        .filter_map(|id| h.training(id))
         .map(|v| v.len())
         .sum();
-    h.with_resolver_mut(|r| r.rebuild_l2());
+    h.rebuild_l2();
     maybe_commit(&state, &req.namespace_id);
     Ok(Json(serde_json::json!({
         "rebuilt": req.namespace_id,
@@ -255,8 +255,7 @@ pub async fn list_namespaces(State(state): State<AppState>) -> Json<serde_json::
         .into_iter()
         .map(|id| {
             let h = state.engine.namespace(&id);
-            let (info, version, intent_count) =
-                h.with_resolver(|r| (r.namespace_info(), r.version(), r.intent_count()));
+            let (info, version, intent_count) = (h.namespace_info(), h.version(), h.intent_count());
             serde_json::json!({
                 "id": id,
                 "name": info.name,
@@ -265,10 +264,6 @@ pub async fn list_namespaces(State(state): State<AppState>) -> Json<serde_json::
                 "default_threshold": info.default_threshold,
                 "version": version,
                 "intent_count": intent_count,
-                "l0_enabled": info.l0_enabled,
-                "l1_morphology": info.l1_morphology,
-                "l1_synonym": info.l1_synonym,
-                "l1_abbreviation": info.l1_abbreviation,
             })
         })
         .collect();
@@ -316,11 +311,9 @@ pub async fn create_namespace(
         ));
     }
     let h = state.engine.namespace(id);
-    let _ = h.with_resolver_mut(|r| {
-        r.update_namespace(microresolve::NamespaceEdit {
-            description: Some(req.description.clone()),
-            ..Default::default()
-        })
+    let _ = h.update_namespace(microresolve::NamespaceEdit {
+        description: Some(req.description.clone()),
+        ..Default::default()
     });
     maybe_commit(&state, &req.namespace_id);
     Ok(Json(serde_json::json!({"created": req.namespace_id})))
@@ -367,14 +360,6 @@ pub struct UpdateNamespaceRequest {
     auto_learn: Option<bool>,
     #[serde(default)]
     default_threshold: Option<f32>,
-    #[serde(default)]
-    l0_enabled: Option<bool>,
-    #[serde(default)]
-    l1_morphology: Option<bool>,
-    #[serde(default)]
-    l1_synonym: Option<bool>,
-    #[serde(default)]
-    l1_abbreviation: Option<bool>,
 }
 
 pub async fn update_namespace(
@@ -397,13 +382,9 @@ pub async fn update_namespace(
             default_threshold: req
                 .default_threshold
                 .map(|t| if t < 0.0 { None } else { Some(t) }),
-            l0_enabled: req.l0_enabled,
-            l1_morphology: req.l1_morphology,
-            l1_synonym: req.l1_synonym,
-            l1_abbreviation: req.l1_abbreviation,
             ..Default::default()
         };
-        let _ = h.with_resolver_mut(|r| r.update_namespace(edit));
+        let _ = h.update_namespace(edit);
         maybe_commit(&state, &req.namespace_id);
     }
     if let Some(auto_learn) = req.auto_learn {
@@ -440,7 +421,7 @@ pub async fn list_domain_groups(
                     names.insert(id[..colon].to_string());
                 }
             }
-            for (domain, desc) in h.with_resolver(|r| r.namespace_info().domain_descriptions) {
+            for (domain, desc) in h.namespace_info().domain_descriptions {
                 names.insert(domain.clone());
                 domain_descs.insert(domain, desc);
             }
@@ -498,14 +479,14 @@ pub async fn create_domain(
             format!("namespace '{}' not found", namespace_id),
         )
     })?;
-    let already_exists = h.with_resolver(|r| r.domain_description(&req.domain).is_some());
+    let already_exists = h.domain_description(&req.domain).is_some();
     if already_exists {
         return Err((
             StatusCode::CONFLICT,
             format!("domain '{}' already exists", req.domain),
         ));
     }
-    h.with_resolver_mut(|r| r.set_domain_description(&req.domain, &req.description));
+    h.set_domain_description(&req.domain, &req.description);
     maybe_commit(&state, &namespace_id);
     Ok(Json(serde_json::json!({"created": req.domain})))
 }
@@ -527,7 +508,7 @@ pub async fn delete_domain(
             format!("namespace '{}' not found", namespace_id),
         )
     })?;
-    h.with_resolver_mut(|r| r.remove_domain_description(&req.domain));
+    h.remove_domain_description(&req.domain);
     let prefix = format!("{}:", req.domain);
     let to_remove: Vec<String> = h
         .intent_ids()
@@ -557,7 +538,7 @@ pub async fn update_domain(
 ) -> Json<serde_json::Value> {
     let namespace_id = app_id_from_headers(&headers);
     if let Some(h) = state.engine.try_namespace(&namespace_id) {
-        h.with_resolver_mut(|r| r.set_domain_description(&req.domain, &req.description));
+        h.set_domain_description(&req.domain, &req.description);
         maybe_commit(&state, &namespace_id);
     }
     Json(serde_json::json!({"updated": req.domain}))

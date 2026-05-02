@@ -61,9 +61,9 @@ struct BatchSyncResponse {
     corrections_applied: Option<usize>,
 }
 
-/// Shared state between the Engine and its background sync thread.
+/// Shared state between the `MicroResolve` engine and its background sync thread.
 ///
-/// `namespaces` is a clone of the Engine's namespace map (Arc<RwLock<...>>),
+/// `namespaces` is a clone of the `MicroResolve` namespace map (Arc<RwLock<...>>),
 /// so the sync thread can hot-swap namespace resolvers atomically.
 pub(crate) struct ConnectState {
     pub server: ServerConfig,

@@ -23,7 +23,6 @@
 // of rustdoc + IDE autocomplete. Library users go through `MicroResolve` +
 // `NamespaceHandle`; these modules are not part of the semver surface.
 #[doc(hidden)]
-pub mod ngram;
 #[doc(hidden)]
 pub mod phrase;
 #[doc(hidden)]
@@ -46,7 +45,7 @@ mod resolver_metadata;
 mod resolver_persist;
 
 mod engine;
-pub use engine::{MicroResolve, NamespaceHandle};
+pub use engine::{MicroResolve, NamespaceHandle, ScoreMultiPipelineOut};
 
 pub(crate) type FxHashMap<K, V> = std::collections::HashMap<K, V, rustc_hash::FxBuildHasher>;
 pub(crate) type FxHashSet<T> = std::collections::HashSet<T, rustc_hash::FxBuildHasher>;
@@ -73,17 +72,13 @@ pub struct NegativeTrainingEntry {
 
 /// Single-namespace primitive backing every [`NamespaceHandle`].
 ///
-/// **Library users should not reach for this directly** — use [`Engine`] +
+/// **Library users should not reach for this directly** — use [`MicroResolve`] +
 /// [`NamespaceHandle`]. The type is kept `pub` only because the server
 /// binary, which compiles as a separate crate target, needs it for now.
 /// Treat as internal API: signatures may change without semver consideration.
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct Resolver {
-    /// Typo corrector: character n-gram index built from all known vocabulary.
-    pub(crate) l0: crate::ngram::NgramIndex,
-    /// Morphology graph: normalizes inflections, abbreviations, and synonyms before scoring.
-    pub(crate) l1: crate::scoring::LexicalGraph,
     /// Scoring index: IDF-weighted word→intent associations with anti-Hebbian inhibition.
     pub(crate) l2: crate::scoring::IntentIndex,
     /// Raw training phrases per intent, grouped by language code.
@@ -124,14 +119,6 @@ pub struct Resolver {
     /// this namespace. Persisted in `_ns.json`. Use `rebuild_l2()` + clear
     /// to undo. Rail 2 of three: visible action, reversible, bounded.
     negative_training_log: Vec<NegativeTrainingEntry>,
-    /// Per-namespace reflex-layer toggles. Default to all-on so existing
-    /// namespaces preserve behavior; operators can disable layers per
-    /// namespace when the default behavior is wrong for their content
-    /// (medical terms, code search, etc.).
-    pub(crate) l0_enabled: bool,
-    pub(crate) l1_morphology: bool,
-    pub(crate) l1_synonym: bool,
-    pub(crate) l1_abbreviation: bool,
 }
 
 impl Default for Resolver {

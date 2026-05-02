@@ -2,16 +2,44 @@
 
 All functions assume the MicroResolve server is running on localhost:3001.
 Namespace header: X-Namespace-ID
+
+Auth: since v0.1.9, every /api/* call requires X-Api-Key. The bench tries
+in order:
+  1. MICRORESOLVE_API_KEY env var
+  2. ~/.config/microresolve/admin-key.txt (the sidecar the server writes
+     on first-boot bootstrap)
+  3. /tmp/mr_bench_keys/admin-key.txt (when the bench harness booted the
+     server with `--keys-file /tmp/mr_bench_keys/keys.json`)
 """
 
 import json
+import os
 import time
 import urllib.request
 import urllib.error
 import statistics
+from pathlib import Path
 from typing import Any
 
 BASE = "http://localhost:3001"
+
+
+def _load_api_key() -> str | None:
+    if k := os.environ.get("MICRORESOLVE_API_KEY"):
+        return k.strip()
+    # Bench-specific keys-file first (most specific); fall back to the global
+    # default. Otherwise a stale `~/.config/microresolve/admin-key.txt` from a
+    # prior session would shadow the fresh per-bench key.
+    for candidate in (
+        Path("/tmp/mr_bench_keys/admin-key.txt"),
+        Path.home() / ".config" / "microresolve" / "admin-key.txt",
+    ):
+        if candidate.exists():
+            return candidate.read_text().strip()
+    return None
+
+
+_API_KEY = _load_api_key()
 
 
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -26,6 +54,8 @@ def _req(method: str, path: str, body: Any = None, ns: str | None = None) -> Any
     )
     if ns:
         req.add_header("X-Namespace-ID", ns)
+    if _API_KEY:
+        req.add_header("X-Api-Key", _API_KEY)
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             raw = r.read().strip()

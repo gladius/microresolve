@@ -35,7 +35,7 @@ type ConnectedClient = {
 };
 
 export default function Layout() {
-  const { settings, setSelectedNamespaceId, setSelectedDomain, layerStatus, setLayerStatus } = useAppStore();
+  const { settings, setSelectedNamespaceId, setSelectedDomain } = useAppStore();
   const navigate = useNavigate();
 
   const [namespaces,    setNamespaces]    = useState<string[]>(['default']);
@@ -70,15 +70,6 @@ export default function Layout() {
   useEffect(() => {
     api.listNamespaces().then(ns => {
       setNamespaces(ns.map(n => n.id));
-      const active = ns.find(n => n.id === settings.selectedNamespaceId);
-      if (active) {
-        setLayerStatus({
-          l0:  active.l0_enabled       ?? true,
-          l1m: active.l1_morphology    ?? true,
-          l1s: active.l1_synonym       ?? true,
-          l1a: active.l1_abbreviation  ?? true,
-        });
-      }
     }).catch(() => {});
     fetch('/api/version').then(r => r.json()).then(d => setAppVersion(d.app_version)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -186,16 +177,8 @@ export default function Layout() {
     {
       label: 'Build',
       items: [
-        { to: '/l2', label: 'L2 — Intents', icon: '◆',
+        { to: '/l2', label: 'Intents', icon: '◆',
           hint: 'Manage intents, training phrases, metadata' },
-        { to: '/l1', label: 'L1 — Lexical', icon: '⧉',
-          hint: 'Morphology, synonym, and abbreviation edges',
-          layerStatus: (!layerStatus.l1m && !layerStatus.l1s && !layerStatus.l1a)
-            ? 'off'
-            : (layerStatus.l1m && layerStatus.l1s && layerStatus.l1a) ? undefined : 'partial' },
-        { to: '/l0', label: 'L0 — Spelling', icon: '∼',
-          hint: 'Typo correction — vocabulary inspector + live tester',
-          layerStatus: layerStatus.l0 ? undefined : 'off' },
       ],
     },
     {
@@ -209,7 +192,7 @@ export default function Layout() {
     {
       label: 'Test',
       items: [
-        { to: '/resolve', label: 'Resolve', icon: '▸', hint: 'Probe queries through the full L0→L1→L2→L3 pipeline' },
+        { to: '/resolve', label: 'Resolve', icon: '▸', hint: 'Probe queries through the routing pipeline' },
       ],
     },
     {

@@ -49,7 +49,7 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
                     version_before: state
                         .engine
                         .try_namespace(&app_id)
-                        .map(|h| h.with_resolver(|r| r.version()))
+                        .map(|h| h.version())
                         .unwrap_or(0),
                     ..ReviewStatus::pending()
                 },
@@ -63,7 +63,7 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
             let version_before = state
                 .engine
                 .try_namespace(&app_id)
-                .map(|h| h.with_resolver(|r| r.version()))
+                .map(|h| h.version())
                 .unwrap_or(0);
 
             let model = std::env::var("LLM_MODEL")
@@ -85,7 +85,7 @@ pub async fn run_worker(state: AppState, notify: Arc<Notify>) {
                     let version_after = state
                         .engine
                         .try_namespace(&app_id)
-                        .map(|h| h.with_resolver(|r| r.version()))
+                        .map(|h| h.version())
                         .unwrap_or(0);
 
                     // Resolve log entry (tombstone the binary record)

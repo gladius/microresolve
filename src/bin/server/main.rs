@@ -14,7 +14,6 @@ mod routes_connect;
 mod routes_core;
 mod routes_events;
 mod routes_git;
-mod routes_hebbian;
 mod routes_import;
 mod routes_intents;
 mod routes_logs;
@@ -159,14 +158,8 @@ async fn main() {
     // Build MicroResolve — loads all namespace subdirectories from data_dir.
     let engine = build_engine(data_dir.as_deref());
     for id in engine.namespaces() {
-        let count = engine
-            .namespace(&id)
-            .with_resolver(|r| r.l2().word_intent.len());
-        let l0 = engine.namespace(&id).with_resolver(|r| r.l0().len());
-        println!(
-            "Loaded namespace: {} (L2 words: {}, L0 terms: {})",
-            id, count, l0
-        );
+        let count = engine.namespace(&id).l2_word_count();
+        println!("Loaded namespace: {} (L2 words: {})", id, count);
     }
 
     let log_store = LogStore::new(data_dir.as_deref());
@@ -271,7 +264,6 @@ async fn main() {
         .merge(routes_auth::routes())
         .merge(routes_ui_settings::routes())
         .merge(routes_events::routes())
-        .merge(routes_hebbian::routes())
         .merge(routes_stopwords::routes())
         .merge(routes_git::routes())
         .merge(routes_state::routes())
@@ -478,7 +470,7 @@ async fn get_version(State(state): State<AppState>, headers: HeaderMap) -> Json<
     let version = state
         .engine
         .try_namespace(&app_id)
-        .map(|h| h.with_resolver(|r| r.version()))
+        .map(|h| h.version())
         .unwrap_or(0);
     Json(serde_json::json!({
         "version": version,

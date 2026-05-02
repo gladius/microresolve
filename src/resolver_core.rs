@@ -8,8 +8,6 @@ impl Resolver {
     /// Create a new empty resolver.
     pub fn new() -> Self {
         Self {
-            l0: crate::ngram::NgramIndex::default(),
-            l1: crate::scoring::english_morphology_base(),
             l2: crate::scoring::IntentIndex::new(),
             training: HashMap::new(),
             intent_types: HashMap::new(),
@@ -26,10 +24,6 @@ impl Resolver {
             namespace_default_threshold: None,
             domain_descriptions: HashMap::new(),
             negative_training_log: Vec::new(),
-            l0_enabled: true,
-            l1_morphology: true,
-            l1_synonym: true,
-            l1_abbreviation: true,
         }
     }
 
@@ -92,8 +86,6 @@ impl Resolver {
             .map_err(|e| crate::Error::Parse(format!("invalid JSON: {}", e)))?;
 
         let mut resolver = Self {
-            l0: crate::ngram::NgramIndex::default(),
-            l1: crate::scoring::LexicalGraph::new(),
             l2: crate::scoring::IntentIndex::new(),
             training: state.training,
             intent_types: state.intent_types,
@@ -110,15 +102,11 @@ impl Resolver {
             namespace_default_threshold: None,
             domain_descriptions: HashMap::new(),
             negative_training_log: Vec::new(),
-            l0_enabled: true,
-            l1_morphology: true,
-            l1_synonym: true,
-            l1_abbreviation: true,
         };
 
-        // CRITICAL: rebuild L2 (and transitively L0) from training data so the
-        // imported state is actually usable for routing. Without this, training
-        // data is restored but indices are empty → routing returns no matches.
+        // CRITICAL: rebuild L2 from training data so the imported state is
+        // actually usable for routing. Without this, training data is restored
+        // but the index is empty → routing returns no matches.
         resolver.rebuild_l2();
 
         Ok(resolver)
@@ -126,20 +114,7 @@ impl Resolver {
 
     // ── Scoring layer accessors ───────────────────────────────────────────────
 
-    // ── Internal layer accessors (gated behind `internal` feature) ───────────
-    //
-    // Server bin and other internal callers can reach L0/L1/L2 directly for
-    // advanced orchestration. Published library users do not see these methods
-    // at all (the `internal` feature is not enabled by default).
-    pub fn l0(&self) -> &crate::ngram::NgramIndex {
-        &self.l0
-    }
-    pub fn l1(&self) -> &crate::scoring::LexicalGraph {
-        &self.l1
-    }
-    pub fn l1_mut(&mut self) -> &mut crate::scoring::LexicalGraph {
-        &mut self.l1
-    }
+    // ── Internal layer accessor (gated behind `internal` feature) ───────────
     pub fn l2(&self) -> &crate::scoring::IntentIndex {
         &self.l2
     }
@@ -175,11 +150,7 @@ impl Resolver {
         }
         let delta = -alpha;
         for q in raw_queries {
-            let processed = self
-                .l1
-                .preprocess_with_kinds(q, self.l1_morphology, self.l1_abbreviation)
-                .expanded;
-            let tokens = crate::tokenizer::tokenize(&processed);
+            let tokens = crate::tokenizer::tokenize(q);
             let words: Vec<&str> = tokens
                 .iter()
                 .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
@@ -202,25 +173,14 @@ impl Resolver {
             });
     }
 
-    /// Rebuild L0 from the combined vocabulary of L1 + L2.
-    /// Crate-private — auto-fired by mutating methods; not part of the public API.
-    pub(crate) fn rebuild_l0(&mut self) {
-        self.l0 = crate::ngram::build_for_namespace(Some(&self.l1), Some(&self.l2));
-    }
-
-    /// Preprocess a phrase through L1, learn it into L2, and rebuild L0.
+    /// Tokenize a phrase and learn each token into L2 for the intent. Also
+    /// indexes char-4grams for the cross-provider tiebreaker layer.
     pub fn index_phrase(&mut self, intent_id: &str, phrase: &str) {
         self.index_phrase_no_rebuild(intent_id, phrase);
-        self.rebuild_l0();
     }
 
-    /// Index a phrase into L2 without rebuilding L0.
-    /// Call `rebuild_l0()` once after bulk indexing.
     pub(crate) fn index_phrase_no_rebuild(&mut self, intent_id: &str, phrase: &str) {
-        let preprocessed =
-            self.l1
-                .preprocess_with_kinds(phrase, self.l1_morphology, self.l1_abbreviation);
-        let words = crate::tokenizer::tokenize(&preprocessed.expanded);
+        let words = crate::tokenizer::tokenize(phrase);
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
         if !word_refs.is_empty() {
             self.l2.learn_phrase(&word_refs, intent_id);
@@ -228,10 +188,9 @@ impl Resolver {
         self.l2.index_char_ngrams(phrase, intent_id);
     }
 
-    /// Rebuild L2 from scratch using all training phrases currently in this namespace.
-    /// Clears the existing L2 index, re-indexes every stored phrase, and wipes
-    /// the negative-training audit log (since none of the previous decay calls
-    /// are reflected in the rebuilt weights).
+    /// Rebuild L2 from scratch using all training phrases currently in this
+    /// namespace. Clears the existing L2 index, re-indexes every stored
+    /// phrase, and wipes the negative-training audit log.
     pub fn rebuild_l2(&mut self) {
         self.l2 = crate::scoring::IntentIndex::new();
         let all: Vec<(String, String)> = self
@@ -247,7 +206,6 @@ impl Resolver {
             self.index_phrase_no_rebuild(intent_id, phrase);
         }
         self.l2.rebuild_idf();
-        self.rebuild_l0();
         // Audit log is now stale — every prior train_negative call has been wiped.
         self.negative_training_log.clear();
     }
@@ -267,20 +225,9 @@ impl Resolver {
     /// `opts.gap` — multi-intent cutoff: the top score divided by `gap`
     /// is the floor for secondary matches. Higher = more matches reported.
     pub fn resolve_with(&self, query: &str, opts: &crate::ResolveOptions) -> Vec<crate::Match> {
-        // L0: typo correction (gated by per-namespace toggle)
-        let q0 = if self.l0_enabled {
-            self.l0.correct_query(query)
-        } else {
-            query.to_string()
-        };
-        // L1: normalize + expand (gated by per-namespace edge-kind toggles)
-        let preprocessed =
-            self.l1
-                .preprocess_with_kinds(&q0, self.l1_morphology, self.l1_abbreviation);
-        // L2: score
-        let (scored, _negation) =
-            self.l2
-                .score_multi_normalized(&preprocessed.expanded, opts.threshold, opts.gap);
+        let (scored, _negation) = self
+            .l2
+            .score_multi_normalized(query, opts.threshold, opts.gap);
         scored
             .into_iter()
             .map(|(id, score)| crate::Match { id, score })
@@ -347,11 +294,6 @@ impl Resolver {
         if !wrong_detections.is_empty() && negative_alpha > 0.0 {
             let alpha = negative_alpha.min(0.3);
             self.train_negative(&[original_query.to_string()], wrong_detections, alpha);
-        }
-
-        // 4. Rebuild L0 if vocabulary actually grew.
-        if added > 0 || !spans_to_learn.is_empty() {
-            self.rebuild_l0();
         }
 
         self.version += 1;

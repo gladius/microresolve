@@ -13,14 +13,10 @@ interface NamespaceInfo {
   default_threshold: number | null;
   version?: number;
   intent_count?: number;
-  l0_enabled?: boolean;
-  l1_morphology?: boolean;
-  l1_synonym?: boolean;
-  l1_abbreviation?: boolean;
 }
 
 export default function NamespacesPage() {
-  const { settings, setSelectedNamespaceId, setLayerStatus } = useAppStore();
+  const { settings, setSelectedNamespaceId } = useAppStore();
   const navigate = useNavigate();
   const current = settings.selectedNamespaceId;
 
@@ -182,19 +178,8 @@ export default function NamespacesPage() {
         <EditNamespaceModal
           ns={editingNs}
           onClose={() => setEditingNs(null)}
-          onSaved={(updated) => {
+          onSaved={() => {
             setEditingNs(null);
-            // Push the new layer-toggle state into the global store if the
-            // edited namespace is the one currently selected in the sidebar.
-            // Keeps sidebar pills in sync without a roundtrip.
-            if (updated.id === settings.selectedNamespaceId) {
-              setLayerStatus({
-                l0:  updated.l0_enabled       ?? true,
-                l1m: updated.l1_morphology    ?? true,
-                l1s: updated.l1_synonym       ?? true,
-                l1a: updated.l1_abbreviation  ?? true,
-              });
-            }
             refresh();
           }}
         />
@@ -256,15 +241,11 @@ function EditNamespaceModal({
 }: {
   ns: NamespaceInfo;
   onClose: () => void;
-  onSaved: (updated: NamespaceInfo) => void;
+  onSaved: () => void;
 }) {
   const [description, setDescription] = useState(ns.description);
   const [autoLearn,   setAutoLearn]   = useState(ns.auto_learn);
   const [threshold,   setThreshold]   = useState(ns.default_threshold == null ? '' : String(ns.default_threshold));
-  const [l0,   setL0]   = useState(ns.l0_enabled       ?? true);
-  const [l1m,  setL1m]  = useState(ns.l1_morphology    ?? true);
-  const [l1s,  setL1s]  = useState(ns.l1_synonym       ?? true);
-  const [l1a,  setL1a]  = useState(ns.l1_abbreviation  ?? true);
   const [busy, setBusy] = useState(false);
   const [err,  setErr]  = useState<string | null>(null);
 
@@ -284,21 +265,8 @@ function EditNamespaceModal({
         description,
         auto_learn: autoLearn,
         ...(thresholdValue !== undefined ? { default_threshold: thresholdValue } : {}),
-        l0_enabled: l0,
-        l1_morphology: l1m,
-        l1_synonym: l1s,
-        l1_abbreviation: l1a,
       });
-      onSaved({
-        ...ns,
-        description,
-        auto_learn: autoLearn,
-        default_threshold: thresholdValue ?? null,
-        l0_enabled: l0,
-        l1_morphology: l1m,
-        l1_synonym: l1s,
-        l1_abbreviation: l1a,
-      });
+      onSaved();
     } catch (e) {
       setErr('Failed: ' + (e instanceof Error ? e.message : 'unknown'));
       setBusy(false);
@@ -371,20 +339,6 @@ function EditNamespaceModal({
           </div>
         </div>
 
-        <div className="border-t border-zinc-800 pt-3 space-y-2">
-          <div className="text-[10px] text-zinc-500 uppercase tracking-wide flex items-center gap-1.5">
-            Reflex layers
-            <span
-              title="Disable per layer when defaults are wrong for your content. Examples: turn L0 off for medical/legal namespaces; turn L1 abbreviations off for code search."
-              className="text-zinc-600 cursor-help text-[10px] border border-zinc-700 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center"
-            >?</span>
-          </div>
-          <ModalLayerSwitch label="L0 — Spelling"           hint="Char n-gram typo correction" on={l0}  set={setL0}  />
-          <ModalLayerSwitch label="L1 — Morphology"         hint="canceling → cancel"          on={l1m} set={setL1m} />
-          <ModalLayerSwitch label="L1 — Synonyms"           hint="OOV-only synonym substitution" on={l1s} set={setL1s} />
-          <ModalLayerSwitch label="L1 — Abbreviations"      hint="pr → pull request"           on={l1a} set={setL1a} />
-        </div>
-
         {err && <p className="text-xs text-red-400">{err}</p>}
 
         <div className="flex justify-end gap-2 pt-1">
@@ -408,30 +362,4 @@ function EditNamespaceModal({
   );
 }
 
-/// Local-state switch row for the namespace edit modal. Distinct from the
-/// shared `LayerToggle` in `@/components/LayerToggle`: this one holds value
-/// in caller-managed state and saves on modal submit (atomic), the shared
-/// component PATCHes immediately on click. Different semantics — hence
-/// different name to keep grep results unambiguous.
-function ModalLayerSwitch({ label, hint, on, set }: {
-  label: string; hint: string; on: boolean; set: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        onClick={() => set(!on)}
-        className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-emerald-500' : 'bg-zinc-700'}`}
-      >
-        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : 'translate-x-0'}`} />
-      </button>
-      <div className="flex-1 min-w-0">
-        <div className="text-xs text-zinc-200 leading-tight">{label}</div>
-        <div className="text-[10px] text-zinc-500 leading-tight font-mono">{hint}</div>
-      </div>
-    </div>
-  );
-}
 

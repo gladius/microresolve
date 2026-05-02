@@ -106,26 +106,25 @@ pub async fn add_phrase_to_intent(
         .try_namespace(&app_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
 
-    let exists = h.with_resolver(|r| r.training(&id).is_some());
+    let exists = h.training(&id).is_some();
     if !exists {
         return Err((StatusCode::NOT_FOUND, format!("intent '{}' not found", id)));
     }
 
-    let result = h.with_resolver_mut(|r| r.add_phrase_checked(&id, &req.phrase, &req.lang));
+    let result = h.add_phrase(&id, &req.phrase, &req.lang);
 
     if result.added {
         maybe_commit(&state, &app_id);
     }
 
-    let counts: std::collections::HashMap<String, usize> = h.with_resolver(|r| {
-        r.training_by_lang(&id)
-            .map(|m| {
-                m.iter()
-                    .map(|(lang, ps)| (lang.clone(), ps.len()))
-                    .collect()
-            })
-            .unwrap_or_default()
-    });
+    let counts: std::collections::HashMap<String, usize> = h
+        .training_by_lang(&id)
+        .map(|m| {
+            m.iter()
+                .map(|(lang, ps)| (lang.clone(), ps.len()))
+                .collect()
+        })
+        .unwrap_or_default();
 
     Ok(Json(serde_json::json!({
         "added": result.added,
@@ -146,7 +145,7 @@ pub async fn remove_phrase_from_intent(
         .engine
         .try_namespace(&app_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)))?;
-    let removed = h.with_resolver_mut(|r| r.remove_phrase(&id, &req.phrase));
+    let removed = h.remove_phrase(&id, &req.phrase);
     if removed {
         maybe_commit(&state, &app_id);
         Ok(StatusCode::NO_CONTENT)

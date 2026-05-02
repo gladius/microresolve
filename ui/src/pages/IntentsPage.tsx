@@ -60,7 +60,7 @@ export default function IntentsPage() {
   const allIntentIds = useMemo(() => intents.map(i => i.id), [intents]);
 
   return (
-    <Page title="L2 — Intents" subtitle={`${intents.length} intents`} fullscreen>
+    <Page title="Intents" subtitle={`${intents.length} intents`} fullscreen>
     <div className="flex gap-0 h-full">
       {/* Left: Intent list */}
       <div className="w-72 min-w-[18rem] border-r border-zinc-800 flex flex-col">

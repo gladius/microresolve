@@ -1,4 +1,4 @@
-//! Primary routing endpoints — Hebbian L1+L2 is the sole router.
+//! Primary routing endpoint: query → L2 (IDF + Hebbian) → multi-intent → response.
 
 use crate::log_store::LogRecord;
 use crate::routes_events::emit_queued;
@@ -21,13 +21,6 @@ pub struct RouteMultiRequest {
     /// If false, skip logging to review queue (use for UI test/explore)
     #[serde(default = "default_log")]
     pub log: bool,
-    /// Skip L1 morphology/abbreviation rewriting entirely.
-    #[serde(default)]
-    pub disable_l1: bool,
-    /// Vestigial — synonym expansion was removed; both flags now produce
-    /// identical L1 behaviour. Kept for wire-format compatibility.
-    #[serde(default)]
-    pub grounded_l1: bool,
 }
 
 fn default_threshold() -> f32 {
@@ -40,7 +33,7 @@ fn default_log() -> bool {
     true
 }
 
-/// Multi-intent classification via Hebbian L1+L2.
+/// Multi-intent classification via L2 (IDF + Hebbian).
 pub async fn route_multi(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -49,110 +42,20 @@ pub async fn route_multi(
     let app_id = app_id_from_headers(&headers);
     let t0 = std::time::Instant::now();
 
-    // ── Full L0→L1→L2 pipeline via Resolver ────────────────────────────────────
-    // Run all three layers inside a single read lock on `routers`. Multi-intent
-    // scoring captures a trace of rounds so the UI can render per-layer cards
-    // without a second API call.
-    type PipelineOut = (
-        Option<Vec<(String, f32)>>, // confirmed (token-consumed)
-        Vec<(String, f32)>,         // raw_ranked (single-pass)
-        bool,                       // has_negation
-        String,                     // l0_corrected
-        String,                     // l1_normalized
-        String,                     // l1_expanded (= processed)
-        Vec<String>,                // l1_injected
-        Vec<String>,                // l2_tokens
-        Option<microresolve::scoring::MultiIntentTrace>,
-        f32, // effective_threshold (cascade-resolved)
-    );
-    let pipeline: PipelineOut = match state.engine.try_namespace(&app_id) {
-        Some(h) => h.with_resolver(|router| {
-            let effective_threshold = router.resolve_threshold(req.threshold, default_threshold());
-            let info = router.namespace_info();
-            let q0 = if info.l0_enabled {
-                router.l0().correct_query(&req.query)
-            } else {
-                req.query.clone()
-            };
-            let preprocessed = if req.disable_l1 {
-                microresolve::scoring::PreprocessResult {
-                    original: q0.clone(),
-                    normalized: q0.clone(),
-                    expanded: q0.clone(),
-                    injected: vec![],
-                    semantic_hits: vec![],
-                    was_modified: false,
-                }
-            } else if req.grounded_l1 {
-                let known: std::collections::HashSet<&str> =
-                    router.l2().word_intent.keys().map(|s| s.as_str()).collect();
-                router.l1().preprocess_grounded_with_kinds(
-                    &q0,
-                    &known,
-                    info.l1_morphology,
-                    info.l1_abbreviation,
-                    info.l1_synonym,
-                )
-            } else {
-                router
-                    .l1()
-                    .preprocess_with_kinds(&q0, info.l1_morphology, info.l1_abbreviation)
-            };
-            if preprocessed.was_modified {
-                eprintln!(
-                    "[hebbian/L1] {} | {:?} → {:?} (injected: {:?})",
-                    app_id, preprocessed.original, preprocessed.normalized, preprocessed.injected
+    let (intent_graph_results, raw_ranked, query_has_negation, l2_tokens, multi_trace) =
+        match state.engine.try_namespace(&app_id) {
+            Some(h) => {
+                let p = h.score_multi_pipeline(
+                    &req.query,
+                    req.threshold,
+                    req.gap,
+                    true,
+                    default_threshold(),
                 );
+                (Some(p.multi), p.raw, p.negated, p.tokens, p.trace)
             }
-            let processed = preprocessed.expanded.clone();
-            let injected = preprocessed.injected.clone();
-            let normalized = preprocessed.normalized.clone();
-            let tokens: Vec<String> = microresolve::tokenizer::tokenize(&processed);
-            let (raw, neg) = router.l2().score_normalized(&processed);
-            let (consumed, _neg2, trace) = router.l2().score_multi_normalized_traced(
-                &processed,
-                effective_threshold,
-                req.gap,
-                true,
-            );
-            (
-                Some(consumed),
-                raw,
-                neg,
-                q0,
-                normalized,
-                processed,
-                injected,
-                tokens,
-                trace,
-                effective_threshold,
-            )
-        }),
-        None => (
-            None,
-            vec![],
-            false,
-            req.query.clone(),
-            req.query.clone(),
-            req.query.clone(),
-            vec![],
-            vec![],
-            None,
-            default_threshold(),
-        ),
-    };
-    let (
-        intent_graph_results,
-        raw_ranked,
-        query_has_negation,
-        l0_corrected,
-        l1_normalized,
-        processed_query,
-        hebbian_injected,
-        l2_tokens,
-        multi_trace,
-        effective_threshold,
-    ) = pipeline;
+            None => (None, vec![], false, vec![], None),
+        };
 
     let latency_us = t0.elapsed().as_micros() as u64;
 
@@ -164,32 +67,44 @@ pub async fn route_multi(
         // different actions are never touched.
         if scored.len() > 1 {
             if let Some(h) = state.engine.try_namespace(&app_id) {
-                h.with_resolver(|r| r.disambiguate_cross_provider(&mut scored, &processed_query));
+                h.disambiguate_cross_provider(&mut scored, &req.query);
             }
         }
 
-        let top_score = scored[0].1;
-        let max_score = top_score;
-
-        // ── L5 Disposition: score distribution shape ─────────────────────────
-        // "confident"      — top score solidly above threshold (single OR multi-intent)
-        // "low_confidence" — top score barely above threshold; verify before acting
-        //
-        // Multi-intent queries ("cancel and refund") legitimately fire several
-        // intents at similar scores — that is correct behaviour, not ambiguity.
-        // Caller can iterate `confirmed[]` to act on each.
-        let disposition = if top_score < effective_threshold * 2.0 {
-            "low_confidence"
+        // ── Per-intent confidence (normalized 0-1) ───────────────────────────
+        // Raw scores are unbounded sums of `weight × IDF` — fine for ranking,
+        // useless for human comparison or disposition gates. Confidence is
+        // `raw_score / intent_max_score(query, intent)` clamped to [0,1] —
+        // "what fraction of THIS intent's relevant content matched the query."
+        // Stable across namespace sizes; what disposition + UI consume.
+        let confidences: Vec<f32> = if let Some(h) = state.engine.try_namespace(&app_id) {
+            scored
+                .iter()
+                .map(|(id, score)| h.l2_confidence_for(*score, &l2_tokens, id))
+                .collect()
         } else {
+            vec![0.0; scored.len()]
+        };
+        let top_confidence = confidences.first().copied().unwrap_or(0.0);
+
+        // ── L5 Disposition: now driven by normalized confidence ─────────────
+        // confident:      top intent's normalized confidence ≥ 0.5
+        // low_confidence: 0 < confidence < 0.5 — ranked candidates exist but the
+        //                 best-fit intent only matched a fraction of its training
+        let disposition = if top_confidence >= 0.5 {
             "confident"
+        } else {
+            "low_confidence"
         };
 
         let intents: Vec<serde_json::Value> = scored
             .iter()
-            .map(|(id, score)| {
-                let confidence = if *score >= max_score * 0.8 {
+            .zip(confidences.iter())
+            .map(|((id, score), conf)| {
+                // Categorical band derived from numeric confidence — UI hint.
+                let band = if *conf >= 0.7 {
                     "high"
-                } else if *score >= max_score * 0.5 {
+                } else if *conf >= 0.4 {
                     "medium"
                 } else {
                     "low"
@@ -197,8 +112,9 @@ pub async fn route_multi(
                 serde_json::json!({
                     "id": id,
                     "score": (*score * 100.0).round() / 100.0,
-                    "confidence": confidence,
-                    "source": "hebbian_l2",
+                    "confidence": (*conf * 1000.0).round() / 1000.0,  // 3-decimal rounded
+                    "band": band,
+                    "source": "l2",
                     "position": 0,
                     "span": [0, req.query.len()],
                     "intent_type": "Action",
@@ -209,11 +125,11 @@ pub async fn route_multi(
 
         let confirmed: Vec<&serde_json::Value> = intents
             .iter()
-            .filter(|i| i["confidence"].as_str() != Some("low"))
+            .filter(|i| i["band"].as_str() != Some("low"))
             .collect();
         let candidates: Vec<&serde_json::Value> = intents
             .iter()
-            .filter(|i| i["confidence"].as_str() == Some("low"))
+            .filter(|i| i["band"].as_str() == Some("low"))
             .collect();
 
         let detected_ids: Vec<String> = intents
@@ -236,9 +152,9 @@ pub async fn route_multi(
                     router_version: state
                         .engine
                         .try_namespace(&app_id)
-                        .map(|h| h.with_resolver(|r| r.version()))
+                        .map(|h| h.version())
                         .unwrap_or(0),
-                    source: "hebbian_l2".to_string(),
+                    source: "l2".to_string(),
                 },
             );
             emit_queued(&state, log_id, &req.query, &app_id);
@@ -250,11 +166,6 @@ pub async fn route_multi(
         }).collect();
 
         let trace = serde_json::json!({
-            "l0_corrected": l0_corrected,
-            "l1_normalized": l1_normalized,
-            "l1_expanded": processed_query,
-            "l1_injected": hebbian_injected,
-            "l1_disabled": req.disable_l1,
             "tokens": l2_tokens,
             "all_scores": raw_ranked.iter().take(10).map(|(id, s)|
                 serde_json::json!({"id": id, "score": (*s * 100.0).round() / 100.0})).collect::<Vec<_>>(),
@@ -272,9 +183,7 @@ pub async fn route_multi(
             "disposition": disposition,
             "relations": [],
             "routing_us": latency_us,
-            "source": "hebbian_l2",
-            "hebbian": if hebbian_injected.is_empty() { serde_json::json!(null) }
-                       else { serde_json::json!({"injected": hebbian_injected, "processed_query": processed_query}) },
+            "source": "l2",
             "trace": trace,
         }));
     }
@@ -295,7 +204,7 @@ pub async fn route_multi(
                 router_version: state
                     .engine
                     .try_namespace(&app_id)
-                    .map(|h| h.with_resolver(|r| r.version()))
+                    .map(|h| h.version())
                     .unwrap_or(0),
                 source: "none".to_string(),
             },
@@ -304,11 +213,6 @@ pub async fn route_multi(
     }
 
     let trace = serde_json::json!({
-        "l0_corrected": l0_corrected,
-        "l1_normalized": l1_normalized,
-        "l1_expanded": processed_query,
-        "l1_injected": hebbian_injected,
-        "l1_disabled": req.disable_l1,
         "tokens": l2_tokens,
         "all_scores": [],
         "multi": multi_trace.as_ref().map(|t| serde_json::json!({
@@ -325,8 +229,6 @@ pub async fn route_multi(
         "relations": [],
         "routing_us": latency_us,
         "source": "none",
-        "hebbian": if hebbian_injected.is_empty() { serde_json::json!(null) }
-                   else { serde_json::json!({"injected": hebbian_injected, "processed_query": processed_query}) },
         "trace": trace,
     }))
 }

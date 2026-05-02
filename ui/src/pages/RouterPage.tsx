@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { api, type MultiRouteOutput, type ReviewAnalysis } from '@/api/client';
 import Page from '@/components/Page';
-import LayerCards from '@/components/LayerCards';
 
 const INTENT_COLORS = [
   'text-emerald-400', 'text-blue-400', 'text-amber-400', 'text-pink-400',
@@ -97,7 +96,7 @@ export default function RouterPage() {
       actions={
         <button
           onClick={toggleDebug}
-          title={debug ? 'Hide layer trace' : 'Show layer trace (L0/L1/L2/L3)'}
+          title={debug ? 'Hide trace' : 'Show trace'}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors ${
             debug
               ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-400'
@@ -324,10 +323,10 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
       )}
       {review && <ReviewCard review={review} onApply={onApplySuggestion} />}
 
-      {/* Layer trace — opt-in via header debug toggle (persisted in localStorage) */}
+      {/* Trace — opt-in via header debug toggle (persisted in localStorage) */}
       {debug && result.trace && (
-        <div className="mt-3">
-          <LayerCards original={query} trace={result.trace} />
+        <div className="mt-3 text-xs font-mono text-zinc-500">
+          tokens: {result.trace.tokens.join(' ')}
         </div>
       )}
     </div>
