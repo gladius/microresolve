@@ -62,7 +62,7 @@ pub async fn simulate_turn(
             if !filter.is_empty() && !filter.contains(id.as_str()) {
                 continue;
             }
-            let seeds = h.with_resolver(|r| r.training(id).unwrap_or_default());
+            let seeds = h.training(id).unwrap_or_default();
             defs.push(format!(
                 "- {}: {}",
                 id,
@@ -308,7 +308,7 @@ pub async fn training_generate(
         let mut ids = h.intent_ids();
         ids.sort();
         for id in &ids {
-            let seeds = h.with_resolver(|r| r.training(id).unwrap_or_default());
+            let seeds = h.training(id).unwrap_or_default();
             let intent_type = h
                 .intent(id)
                 .map(|i| i.intent_type)
@@ -424,7 +424,7 @@ pub async fn training_run(
         let scored = state
             .engine
             .try_namespace(&app_id)
-            .map(|h| h.with_resolver(|r| r.resolve(&turn.message)))
+            .map(|h| h.resolve(&turn.message))
             .unwrap_or_default();
         let max_score = scored.iter().map(|m| m.score).fold(0f32, f32::max);
         let confirmed: Vec<String> = scored

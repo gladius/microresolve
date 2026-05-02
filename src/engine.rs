@@ -464,20 +464,194 @@ impl<'e> NamespaceHandle<'e> {
         self.engine.with_resolver(&self.id, |r| r.intent_count())
     }
 
-    // ── Internal escape hatches for the server bin ────────────────────────
-    // Not part of the public API. The server bin compiles as a separate
-    // crate target, which forces these to be `pub` rather than `pub(crate)`,
-    // but `#[doc(hidden)]` keeps them out of rustdoc and IDE autocomplete.
-    // Library users must go through the typed NamespaceHandle methods above.
+    // ── Extended typed API — server bin + bindings ────────────────────────
 
-    #[doc(hidden)]
-    pub fn with_resolver<R>(&self, f: impl FnOnce(&Resolver) -> R) -> R {
-        self.engine.with_resolver(&self.id, f)
+    /// Get all training phrases for an intent (flat, all languages combined).
+    /// Returns `None` if the intent does not exist.
+    pub fn training(&self, intent_id: &str) -> Option<Vec<String>> {
+        self.engine.with_resolver(&self.id, |r| r.training(intent_id))
     }
 
-    #[doc(hidden)]
-    pub fn with_resolver_mut<R>(&self, f: impl FnOnce(&mut Resolver) -> R) -> R {
-        self.engine.with_resolver_mut(&self.id, f)
+    /// Get training phrases grouped by language code.
+    /// Returns `None` if the intent does not exist.
+    pub fn training_by_lang(
+        &self,
+        intent_id: &str,
+    ) -> Option<std::collections::HashMap<String, Vec<String>>> {
+        self.engine
+            .with_resolver(&self.id, |r| r.training_by_lang(intent_id).cloned())
+    }
+
+    /// Remove a single phrase from an intent. Returns `true` if the phrase existed.
+    pub fn remove_phrase(&self, intent_id: &str, phrase: &str) -> bool {
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.remove_phrase(intent_id, phrase))
+    }
+
+    /// Read-only view of namespace-level metadata (name, description, threshold, domains).
+    pub fn namespace_info(&self) -> crate::NamespaceInfo {
+        self.engine.with_resolver(&self.id, |r| r.namespace_info())
+    }
+
+    /// Patch namespace-level metadata fields. `None` fields are left unchanged.
+    pub fn update_namespace(&self, edit: crate::NamespaceEdit) -> Result<(), Error> {
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.update_namespace(edit))
+    }
+
+    /// Export resolver state as a JSON string (for sync/backup).
+    pub fn export_json(&self) -> String {
+        self.engine.with_resolver(&self.id, |r| r.export_json())
+    }
+
+    /// Check whether a phrase would be a useful addition (deduplication + quality check).
+    pub fn check_phrase(&self, intent_id: &str, phrase: &str) -> crate::PhraseCheckResult {
+        self.engine
+            .with_resolver(&self.id, |r| r.check_phrase(intent_id, phrase))
+    }
+
+    /// Negative training: shrink L2 weights for `not_intents` on `queries`.
+    /// `alpha` is clamped to `(0.0, 0.3]` internally.
+    pub fn train_negative(&self, queries: &[String], not_intents: &[String], alpha: f32) {
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.train_negative(queries, not_intents, alpha))
+    }
+
+    /// Rebuild L2 scoring index from stored training phrases.
+    pub fn rebuild_l2(&self) {
+        self.engine.with_resolver_mut(&self.id, |r| r.rebuild_l2())
+    }
+
+    /// Index a single phrase without rebuilding IDF (call `rebuild_idf` after a batch).
+    pub fn index_phrase(&self, intent_id: &str, phrase: &str) {
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.index_phrase(intent_id, phrase))
+    }
+
+    /// Rebuild the IDF table after bulk `index_phrase` calls.
+    pub fn rebuild_idf(&self) {
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.l2_mut().rebuild_idf())
+    }
+
+    /// Reinforce specific query words toward `intent_id` (Hebbian-style weight update).
+    pub fn learn_query_words(&self, words: &[&str], intent_id: &str) {
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.l2_mut().learn_query_words(words, intent_id))
+    }
+
+    /// Number of unique token→intent associations in the L2 index.
+    /// Used for diagnostics and startup logs.
+    pub fn l2_word_count(&self) -> usize {
+        self.engine
+            .with_resolver(&self.id, |r| r.l2().word_intent.len())
+    }
+
+    /// Resolve the effective routing threshold using the standard cascade:
+    /// per-request override → namespace default → `fallback`.
+    pub fn resolve_threshold(&self, request_override: Option<f32>, fallback: f32) -> f32 {
+        self.engine
+            .with_resolver(&self.id, |r| r.resolve_threshold(request_override, fallback))
+    }
+
+    /// Description for a specific domain prefix (e.g., "billing"). `None` if not set.
+    pub fn domain_description(&self, domain: &str) -> Option<String> {
+        self.engine
+            .with_resolver(&self.id, |r| r.domain_description(domain).map(|s| s.to_string()))
+    }
+
+    /// Set the description for a domain prefix.
+    pub fn set_domain_description(&self, domain: &str, description: &str) {
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.set_domain_description(domain, description))
+    }
+
+    /// Remove a domain description.
+    pub fn remove_domain_description(&self, domain: &str) {
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.remove_domain_description(domain))
+    }
+
+    /// Disambiguate cross-provider duplicates in an already-scored result set.
+    /// Mutates `scored` in place; only affects intents whose action name appears
+    /// under multiple providers.
+    pub fn disambiguate_cross_provider(&self, scored: &mut Vec<(String, f32)>, query: &str) {
+        self.engine
+            .with_resolver(&self.id, |r| r.disambiguate_cross_provider(scored, query))
+    }
+
+    /// Per-intent normalized confidence for an already-scored result set.
+    /// `tokens` must be the tokenized form of the original query.
+    pub fn l2_confidence_for(&self, score: f32, tokens: &[String], intent_id: &str) -> f32 {
+        self.engine
+            .with_resolver(&self.id, |r| r.l2().confidence_for(score, tokens, intent_id))
+    }
+
+    /// Output of [`NamespaceHandle::score_multi_pipeline`].
+    // Defined as an associated type alias isn't supported; use a top-level type.
+    // (see `ScoreMultiPipelineOut` below the impl block)
+
+    /// Run the full L2 multi-intent scoring pipeline in a single lock acquisition.
+    ///
+    /// Returns:
+    /// - `multi`: top intents after greedy multi-round extraction
+    /// - `raw`:   all intents ranked by raw score (before threshold)
+    /// - `negated`: whether the query contains a negation signal
+    /// - `tokens`: tokenized query terms (for `l2_confidence_for`)
+    /// - `trace`:  optional detailed round trace (pass `with_trace = true`)
+    /// - `threshold`: the resolved threshold that was applied
+    pub fn score_multi_pipeline(
+        &self,
+        query: &str,
+        threshold_override: Option<f32>,
+        gap: f32,
+        with_trace: bool,
+        fallback_threshold: f32,
+    ) -> crate::ScoreMultiPipelineOut {
+        self.engine.with_resolver(&self.id, |r| {
+            let threshold = r.resolve_threshold(threshold_override, fallback_threshold);
+            let tokens: Vec<String> = crate::tokenizer::tokenize(query);
+            let (raw, negated) = r.l2().score_normalized(query);
+            let (multi, _neg2, trace) =
+                r.l2().score_multi_normalized_traced(query, threshold, gap, with_trace);
+            crate::ScoreMultiPipelineOut {
+                multi,
+                raw,
+                negated,
+                tokens,
+                trace,
+                threshold,
+            }
+        })
+    }
+
+    /// Score all intents against `query` (no threshold applied), returning
+    /// `(ranked_intents, negated)`. Useful when you need scores for a known set
+    /// of detected intents without re-running the full pipeline.
+    pub fn score_all(&self, query: &str) -> (Vec<(String, f32)>, bool) {
+        self.engine
+            .with_resolver(&self.id, |r| r.l2().score_multi_normalized(query, 0.0, 100.0))
+    }
+
+    /// Apply a review result (missed phrases, span learning, anti-Hebbian correction).
+    /// Returns the number of phrases added.
+    pub fn apply_review_local(
+        &self,
+        missed_phrases: &std::collections::HashMap<String, Vec<String>>,
+        spans_to_learn: &[(String, String)],
+        wrong_detections: &[String],
+        original_query: &str,
+        negative_alpha: f32,
+    ) -> usize {
+        self.engine.with_resolver_mut(&self.id, |r| {
+            r.apply_review_local(
+                missed_phrases,
+                spans_to_learn,
+                wrong_detections,
+                original_query,
+                negative_alpha,
+            )
+        })
     }
 
     /// Persist this namespace to disk now. Mostly useful to force a flush
@@ -494,6 +668,27 @@ impl<'e> NamespaceHandle<'e> {
         }
         Ok(())
     }
+}
+
+// ── ScoreMultiPipelineOut ──────────────────────────────────────────────────────
+
+/// Output of [`NamespaceHandle::score_multi_pipeline`].
+///
+/// Bundles all data produced by a single L2 scoring pass so callers never
+/// need to acquire the namespace lock more than once per request.
+pub struct ScoreMultiPipelineOut {
+    /// Top intents after greedy multi-round extraction (threshold applied).
+    pub multi: Vec<(String, f32)>,
+    /// All intents ranked by raw score (no threshold applied).
+    pub raw: Vec<(String, f32)>,
+    /// `true` if the query contains a negation signal.
+    pub negated: bool,
+    /// Tokenized query terms, for use with `l2_confidence_for`.
+    pub tokens: Vec<String>,
+    /// Detailed round trace (populated only when `with_trace` was `true`).
+    pub trace: Option<crate::scoring::MultiIntentTrace>,
+    /// The effective threshold that was applied during scoring.
+    pub threshold: f32,
 }
 
 #[cfg(test)]

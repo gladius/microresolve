@@ -4,8 +4,6 @@ import Layout from '@/components/Layout';
 import HomePage from '@/pages/HomePage';
 import RouterPage from '@/pages/RouterPage';
 import SimulatePage from '@/pages/SimulatePage';
-import L0Page from '@/pages/L0Page';
-import LexicalPage from '@/pages/LexicalPage';
 import ReviewPage from '@/pages/ReviewPage';
 import IntentsPage from '@/pages/IntentsPage';
 import SettingsPage from '@/pages/SettingsPage';
@@ -21,7 +19,7 @@ import OpenAIFunctionsImport from '@/pages/import/OpenAIFunctionsImport';
 import LangChainImport from '@/pages/import/LangChainImport';
 import AuthKeysPage from '@/pages/AuthKeysPage';
 import ConnectedClientsPage from '@/pages/ConnectedClientsPage';
-import { AppContext, defaults, defaultLayerStatus, type AppSettings, type LayerStatus, type ThemeMode } from '@/store';
+import { AppContext, defaults, type AppSettings, type ThemeMode } from '@/store';
 import { setApiNamespaceId, getApiKey } from '@/api/client';
 import AuthGate from '@/components/AuthGate';
 
@@ -73,7 +71,6 @@ async function patchSettings(patch: Partial<{
 
 export default function App() {
   const [settings, setSettings] = useState<AppSettings>(defaults);
-  const [layerStatus, setLayerStatus] = useState<LayerStatus>(defaultLayerStatus);
   const [loaded, setLoaded] = useState(false);
   // Auth state: undefined = checking, false = needs paste, true = good.
   const [hasKey, setHasKey] = useState<boolean>(() => !!getApiKey());
@@ -110,8 +107,6 @@ export default function App() {
     setLanguages: (languages: string[]) => update({ languages }),
     setReviewSkipThreshold: (reviewSkipThreshold: number) => update({ reviewSkipThreshold }),
     setTheme: (theme: ThemeMode) => { update({ theme }); applyTheme(theme); },
-    layerStatus,
-    setLayerStatus,
   };
 
   if (!hasKey) return <AuthGate onAuthorized={() => setHasKey(true)} />;
@@ -126,8 +121,6 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/resolve" element={<RouterPage />} />
             <Route path="/simulate" element={<SimulatePage />} />
-            <Route path="/l0" element={<L0Page />} />
-            <Route path="/l1" element={<LexicalPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/l2" element={<IntentsPage />} />
             <Route path="/import" element={<ImportLanding />} />

@@ -212,7 +212,7 @@ pub async fn review_fix(
             let passes = state
                 .engine
                 .try_namespace(&app_id)
-                .map(|h| h.with_resolver(|r| !r.resolve(&record.query).is_empty()))
+                .map(|h| !h.resolve(&record.query).is_empty())
                 .unwrap_or(false);
             if passes {
                 state.log_store.lock().unwrap().resolve(&app_id, record.id);
@@ -277,7 +277,7 @@ pub async fn review_intent_phrases(
         for id in &req.intent_ids {
             result.insert(
                 id.clone(),
-                h.with_resolver(|r| r.training(id).unwrap_or_default()),
+                h.training(id).unwrap_or_default(),
             );
         }
     }
@@ -332,7 +332,7 @@ pub async fn learn_now(
     let version_before = state
         .engine
         .try_namespace(&app_id)
-        .map(|h| h.with_resolver(|r| r.version()))
+        .map(|h| h.version())
         .unwrap_or(0);
 
     // Broadcast that we're starting (id=0 = ad-hoc, not from log store)
@@ -351,7 +351,7 @@ pub async fn learn_now(
     let version_after = state
         .engine
         .try_namespace(&app_id)
-        .map(|h| h.with_resolver(|r| r.version()))
+        .map(|h| h.version())
         .unwrap_or(0);
 
     let model =
@@ -425,7 +425,7 @@ pub async fn report_query(
             router_version: state
                 .engine
                 .try_namespace(&app_id)
-                .map(|h| h.with_resolver(|r| r.version()))
+                .map(|h| h.version())
                 .unwrap_or(0),
             source: "client_report".to_string(),
         },
@@ -461,9 +461,10 @@ pub async fn learn_words(
     let word_refs: Vec<&str> = req.words.iter().map(|s| s.as_str()).collect();
     let count = word_refs.len();
 
-    state.engine.namespace(&app_id).with_resolver_mut(|r| {
-        r.l2_mut().learn_query_words(&word_refs, &req.intent_id);
-    });
+    state
+        .engine
+        .namespace(&app_id)
+        .learn_query_words(&word_refs, &req.intent_id);
 
     if let Some(h) = state.engine.try_namespace(&app_id) {
         h.flush().ok();

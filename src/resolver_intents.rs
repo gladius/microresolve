@@ -34,7 +34,6 @@ impl Resolver {
             })
             .collect();
 
-        // Index all phrases into L2 before storing — rebuild L0 once at end.
         let mut total_phrases = 0usize;
         for phrases in truncated.values() {
             for phrase in phrases {
@@ -44,7 +43,6 @@ impl Resolver {
         }
         self.training
             .insert(id.to_string(), truncated.into_iter().collect());
-        self.rebuild_l0();
         self.version += 1;
 
         Ok(total_phrases)

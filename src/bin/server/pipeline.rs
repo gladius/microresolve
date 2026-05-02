@@ -8,11 +8,9 @@
 //!      - With `ground_truth: None` (auto worker / review): Turn 1 LLM judges.
 //!      - Turn 2 LLM always runs for missed intents → generates candidate phrases.
 //!   2. `apply_review` — applies the `FullReviewResult`:
-//!      - phrase_pipeline → adds phrases to the L0 inverted-index router
-//!      - L2 Hebbian learn_phrase for accepted phrases
-//!      - L3 anti-Hebbian learn_inhibition for false-positive pairs
-//!      - L1 synonym reinforcement for edges that fired
-//!      - L1 synonym + morphology discovery (LLM) for new vocabulary in misses
+//!      - phrase_pipeline → adds accepted phrases via `Resolver::index_phrase`
+//!      - L2 Hebbian reinforcement on those phrases
+//!      - Anti-Hebbian shrink (negative training) on tokens of wrong detections
 //!
 //! # LLM utilities
 //! `call_llm`, `call_llm_smart`, `extract_json` at the bottom of this file.
@@ -23,12 +21,12 @@ use std::collections::HashMap;
 
 /// Turn 1 (Judge): id + description only. No phrases — descriptions are the interface contract.
 /// Flat cost regardless of how many phrases have been learned.
-pub fn build_intent_labels(router: &microresolve::Resolver) -> String {
-    let mut ids = router.intent_ids();
+pub fn build_intent_labels(h: &microresolve::NamespaceHandle<'_>) -> String {
+    let mut ids = h.intent_ids();
     ids.sort();
     ids.iter()
         .map(|id| {
-            let desc = router.intent(id).map(|i| i.description).unwrap_or_default();
+            let desc = h.intent(id).map(|i| i.description).unwrap_or_default();
             if desc.is_empty() {
                 format!("- {} [NO DESCRIPTION — cannot classify reliably]", id)
             } else {
@@ -42,16 +40,15 @@ pub fn build_intent_labels(router: &microresolve::Resolver) -> String {
 /// Turn 2 context: phrases for specific intents, capped to avoid token bloat.
 /// Shows most-recently-added phrases first (they reflect what was learned, not just bootstrap seeds).
 fn intent_phrases_context(
-    router: &microresolve::Resolver,
+    h: &microresolve::NamespaceHandle<'_>,
     intent_ids: &[String],
     cap: usize,
 ) -> String {
     intent_ids
         .iter()
         .map(|id| {
-            let info = router.intent(id);
-            let desc = info.as_ref().map(|i| i.description.as_str()).unwrap_or("");
-            let phrases = router.training(id).unwrap_or_default();
+            let desc = h.intent(id).map(|i| i.description).unwrap_or_default();
+            let phrases = h.training(id).unwrap_or_default();
             let shown: Vec<&String> = phrases.iter().rev().take(cap).collect();
             let desc_str = if desc.is_empty() {
                 String::new()
@@ -338,7 +335,7 @@ pub async fn phrase_pipeline(
                 if s.is_empty() {
                     continue;
                 }
-                let result = h.with_resolver_mut(|r| r.add_phrase_checked(intent_id, &s, lang));
+                let result = h.add_phrase(intent_id, &s, lang);
                 if result.added {
                     added.push((intent_id.clone(), s));
                 }
@@ -469,19 +466,13 @@ pub async fn full_review(
             .engine
             .try_namespace(app_id)
             .map(|h| {
-                h.with_resolver(|router| {
-                    let pre = router.l1().preprocess(query);
-                    let (all_scores, _) =
-                        router
-                            .l2()
-                            .score_multi_normalized(&pre.expanded, 0.0, 100.0);
-                    detected
-                        .iter()
-                        .filter_map(|id| {
-                            all_scores.iter().find(|(s, _)| s == id).map(|(_, sc)| *sc)
-                        })
-                        .fold(0.0f32, f32::max)
-                })
+                let (all_scores, _) = h.score_all(query);
+                detected
+                    .iter()
+                    .filter_map(|id| {
+                        all_scores.iter().find(|(s, _)| s == id).map(|(_, sc)| *sc)
+                    })
+                    .fold(0.0f32, f32::max)
             })
             .unwrap_or(0.0);
         if top_score >= skip_threshold {
@@ -507,33 +498,28 @@ pub async fn full_review(
     let intent_labels = state
         .engine
         .try_namespace(app_id)
-        .map(|h| h.with_resolver(|r| build_intent_labels(r)))
+        .map(|h| build_intent_labels(&h))
         .unwrap_or_default();
 
     let detected_with_scores: String = state
         .engine
         .try_namespace(app_id)
         .map(|h| {
-            h.with_resolver(|router| {
-                let pre = router.l1().preprocess(query);
-                let (all_scores, _) = router
-                    .l2()
-                    .score_multi_normalized(&pre.expanded, 0.0, 100.0);
-                let score_map: HashMap<&str, f32> =
-                    all_scores.iter().map(|(id, s)| (id.as_str(), *s)).collect();
-                if detected.is_empty() {
-                    "(none detected)".to_string()
-                } else {
-                    detected
-                        .iter()
-                        .map(|id| {
-                            let score = score_map.get(id.as_str()).copied().unwrap_or(0.0);
-                            format!("  {} (L2 score: {:.2})", id, score)
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                }
-            })
+            let (all_scores, _) = h.score_all(query);
+            let score_map: HashMap<&str, f32> =
+                all_scores.iter().map(|(id, s)| (id.as_str(), *s)).collect();
+            if detected.is_empty() {
+                "(none detected)".to_string()
+            } else {
+                detected
+                    .iter()
+                    .map(|id| {
+                        let score = score_map.get(id.as_str()).copied().unwrap_or(0.0);
+                        format!("  {} (L2 score: {:.2})", id, score)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            }
         })
         .unwrap_or_else(|| {
             if detected.is_empty() {
@@ -547,24 +533,12 @@ pub async fn full_review(
             }
         });
 
-    let l1_context: String = state.engine.try_namespace(app_id)
-        .map(|h| h.with_resolver(|router| {
-            let pre = router.l1().preprocess(query);
-            if pre.was_modified && !pre.injected.is_empty() {
-                format!("Resolver expanded query via synonyms: injected {:?} → processed as \"{}\"\n", pre.injected, pre.expanded)
-            } else {
-                String::new()
-            }
-        }))
-        .unwrap_or_default();
-
     // === Turn 1: Judge ===
     // Also asks: is this query relevant to this namespace at all?
     // out_of_scope = true means the query has no domain signal for any intent here —
     // pure conversational filler or a completely different domain. Skip all learning.
     let turn1_prompt = format!(
         "Customer query: \"{query}\"\n\
-         {l1_context}\
          Resolver detected:\n{detected_with_scores}\n\n\
          Available intents:\n{intent_labels}\n\n\
          Which intents does this query EXPLICITLY express? Only literal, not implied.\n\
@@ -714,7 +688,7 @@ async fn full_review_from_sets(
     let existing_phrases: String = state
         .engine
         .try_namespace(app_id)
-        .map(|h| h.with_resolver(|r| intent_phrases_context(r, &all_relevant_intents, 15)))
+        .map(|h| intent_phrases_context(&h, &all_relevant_intents, 15))
         .unwrap_or_default();
 
     // Language instruction: if non-English, generate phrases in that language too
@@ -729,13 +703,12 @@ async fn full_review_from_sets(
         .engine
         .try_namespace(app_id)
         .map(|h| {
-            h.with_resolver(|router| {
-                missed_intents
-                    .iter()
-                    .map(|id| {
-                        let desc = router.intent(id).map(|i| i.description).unwrap_or_default();
-                        let count = router.training(id).unwrap_or_default().len();
-                        let coverage = if count >= 20 {
+            missed_intents
+                .iter()
+                .map(|id| {
+                    let desc = h.intent(id).map(|i| i.description).unwrap_or_default();
+                    let count = h.training(id).unwrap_or_default().len();
+                    let coverage = if count >= 20 {
                             format!(" [{} phrases — well covered, be very targeted]", count)
                         } else if count >= 10 {
                             format!(" [{} phrases — add vocabulary not yet represented]", count)
@@ -750,7 +723,6 @@ async fn full_review_from_sets(
                     })
                     .collect::<Vec<_>>()
                     .join("\n")
-            })
         })
         .unwrap_or_else(|| {
             missed_intents
@@ -796,7 +768,7 @@ async fn full_review_from_sets(
     {
         if let Some(h) = state.engine.try_namespace(app_id) {
             for (intent_id, phrase_val) in sbi {
-                let exists = h.with_resolver(|r| r.training(intent_id).is_some());
+                let exists = h.training(intent_id).is_some();
                 if !exists {
                     eprintln!("[auto-learn/guard] skipping LLM-hallucinated intent '{}' (not in namespace)", intent_id);
                     continue;
@@ -813,7 +785,7 @@ async fn full_review_from_sets(
                     if s.is_empty() {
                         continue;
                     }
-                    let check = h.with_resolver(|r| r.check_phrase(intent_id, &s));
+                    let check = h.check_phrase(intent_id, &s);
                     if !check.redundant
                         && check.warning.as_deref() != Some("No content terms after tokenization")
                     {
@@ -849,7 +821,8 @@ async fn full_review_from_sets(
     })
 }
 
-/// Apply a full review result: add phrases, update L2 edges, add L1 synonyms.
+/// Apply a full review result: add phrases, update L2 weights, anti-Hebbian
+/// shrink on wrong detections.
 pub async fn apply_review(
     state: &AppState,
     app_id: &str,
@@ -874,7 +847,6 @@ pub async fn apply_review(
         || !result.missed_intents.is_empty()
         || !result.wrong_detections.is_empty();
 
-    let mut word_refs_owned: Vec<String> = Vec::new();
     if has_learning {
         let Some(h) = state.engine.try_namespace(app_id) else {
             return added;
@@ -882,15 +854,13 @@ pub async fn apply_review(
 
         let no_phrases: std::collections::HashMap<String, Vec<String>> =
             std::collections::HashMap::new();
-        h.with_resolver_mut(|router| {
-            router.apply_review_local(
-                &no_phrases,
-                &result.spans_to_learn,
-                &result.wrong_detections,
-                original_query,
-                0.1,
-            );
-        });
+        h.apply_review_local(
+            &no_phrases,
+            &result.spans_to_learn,
+            &result.wrong_detections,
+            original_query,
+            0.1,
+        );
         if !result.wrong_detections.is_empty() {
             eprintln!(
                 "[auto-learn/L2b] shrink weights on query tokens for wrong intents: {:?}",
@@ -904,9 +874,6 @@ pub async fn apply_review(
             );
         }
 
-        let normalized = h.with_resolver(|r| r.l1().preprocess(original_query).expanded);
-        word_refs_owned = microresolve::tokenizer::tokenize(&normalized);
-
         if let Err(e) = h.flush() {
             eprintln!("[auto-learn/L2] flush error: {}", e);
         } else {
@@ -914,117 +881,9 @@ pub async fn apply_review(
         }
     }
 
-    if has_learning && !result.missed_intents.is_empty() {
-        let new_to_l1: Vec<String> = state
-            .engine
-            .try_namespace(app_id)
-            .map(|h| {
-                h.with_resolver(|r| {
-                    word_refs_owned
-                        .iter()
-                        .filter(|w| !r.l1().edges.contains_key(w.as_str()))
-                        .cloned()
-                        .collect()
-                })
-            })
-            .unwrap_or_else(|| word_refs_owned.clone());
-
-        if !new_to_l1.is_empty() {
-            eprintln!("[auto-learn/L1] morphology discovery: {:?}", new_to_l1);
-            learn_l1_morphology(state, app_id, &new_to_l1, original_query).await;
-        } else {
-            eprintln!("[auto-learn/L1] skipping — all words already in L1");
-        }
-    }
-
     added
 }
 
-/// Ask the LLM for morphological variants of newly discovered words and add them to L1.
-/// This closes the gap where L2 learns "ping"→send_message but L1 doesn't know "pinging"→"ping".
-async fn learn_l1_morphology(
-    state: &AppState,
-    app_id: &str,
-    new_words: &[String],
-    context_query: &str,
-) {
-    if state.llm_key.is_none() {
-        return;
-    }
-
-    let words_str = new_words.join(", ");
-    let prompt = format!(
-        "These words appeared in a user query (\"{context_query}\") and were just learned by an intent classification engine:\n\
-         Words: [{words_str}]\n\n\
-         For each word, list ONLY morphological variants (inflected forms) that users would naturally type:\n\
-         - verb forms: -ing, -ed, -s, -ion, -er suffixes\n\
-         - Do NOT include synonyms or semantically related words — only inflected forms of the same word\n\
-         - Do NOT include the word itself\n\
-         - Skip words that have no useful variants (e.g. nouns like 'team')\n\n\
-         Respond with ONLY JSON:\n\
-         {{\"variants\": {{\"canonical_word\": [\"variant1\", \"variant2\"]}}}}\n\
-         Example: {{\"variants\": {{\"ping\": [\"pinging\", \"pinged\", \"pings\", \"pinged\"]}}}}"
-    );
-
-    match call_llm(state, &prompt, 400).await {
-        Ok(response) => {
-            let json_str = extract_json(&response);
-            match serde_json::from_str::<serde_json::Value>(json_str) {
-                Ok(parsed) => {
-                    if let Some(variants_map) = parsed["variants"].as_object() {
-                        if let Some(h) = state.engine.try_namespace(app_id) {
-                            let mut learned = 0usize;
-                            for (canonical, var_list) in variants_map {
-                                if let Some(arr) = var_list.as_array() {
-                                    for v in arr {
-                                        if let Some(variant) = v.as_str() {
-                                            let variant = variant.trim().to_lowercase();
-                                            let canonical_s = canonical.clone();
-                                            if !variant.is_empty()
-                                                && variant != canonical_s.as_str()
-                                            {
-                                                h.with_resolver_mut(|r| {
-                                                    r.l1_mut().add(&variant, &canonical_s, 0.97,
-                                                    microresolve::scoring::EdgeKind::Morphological)
-                                                });
-                                                eprintln!(
-                                                    "[auto-learn/L1] {} → {} (morphological)",
-                                                    variant, canonical_s
-                                                );
-                                                learned += 1;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            if learned > 0 {
-                                if let Err(e) = h.flush() {
-                                    eprintln!("[auto-learn/L1] flush error: {}", e);
-                                } else {
-                                    eprintln!(
-                                        "[auto-learn/L1] {} edges added, state persisted",
-                                        learned
-                                    );
-                                }
-                            } else {
-                                eprintln!(
-                                    "[auto-learn/L1] no morphological variants found for {:?}",
-                                    new_words
-                                );
-                            }
-                        }
-                    }
-                }
-                Err(e) => eprintln!(
-                    "[auto-learn/L1] parse error: {} — raw: {}",
-                    e,
-                    &response[..response.len().min(200)]
-                ),
-            }
-        }
-        Err((_, e)) => eprintln!("[auto-learn/L1] LLM call failed: {}", e),
-    }
-}
 
 #[cfg(test)]
 mod tests {

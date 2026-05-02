@@ -11,250 +11,6 @@ use axum::{
 use microresolve::IntentType;
 use std::collections::HashMap;
 
-/// Seed L1 (LexicalGraph) using the accepted phrases as canonical vocabulary context.
-///
-/// Phrases are passed raw (no stop-word filtering) grouped by intent — multilingual safe.
-/// The LLM sees the actual vocabulary L2 learned and decides what abbreviations,
-/// morphological variants, and synonyms are worth mapping TO those words.
-///
-/// Already-covered source words are skipped — safe for incremental imports.
-/// Saves to `_hebbian.json` so `load_hebbian()` picks it up automatically on restart.
-pub async fn seed_into_l1_pub(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
-    seed_into_l1(state, app_id, accepted).await;
-}
-
-async fn seed_into_l1(state: &AppState, app_id: &str, accepted: &[(String, String)]) {
-    eprintln!(
-        "[import/L1] seed_into_l1 called: {} accepted phrases, llm_key={}",
-        accepted.len(),
-        state.llm_key.is_some()
-    );
-    if accepted.is_empty() || state.llm_key.is_none() {
-        return;
-    }
-
-    // Group phrases by intent_id
-    let mut by_intent: std::collections::HashMap<&str, Vec<&str>> = Default::default();
-    for (id, phrase) in accepted {
-        by_intent
-            .entry(id.as_str())
-            .or_default()
-            .push(phrase.as_str());
-    }
-    eprintln!("[import/L1] {} unique intents", by_intent.len());
-
-    // Build intent blocks: description + phrases (raw, no filtering — multilingual safe)
-    let intent_blocks: Vec<String> = {
-        eprintln!("[import/L1] namespace lookup for '{}'", app_id);
-        let Some(h) = state.engine.try_namespace(app_id) else {
-            eprintln!("[import/L1] ERROR: namespace not found for '{}'", app_id);
-            return;
-        };
-        let mut blocks: Vec<String> = by_intent
-            .iter()
-            .map(|(&id, phrases)| {
-                let desc = h.intent(id).map(|i| i.description).unwrap_or_default();
-                let phrase_list = phrases
-                    .iter()
-                    .take(2)
-                    .map(|p| format!("  \"{}\"", p))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                if desc.is_empty() {
-                    format!("{}:\n{}", id, phrase_list)
-                } else {
-                    format!("{} ({}): \n{}", id, desc, phrase_list)
-                }
-            })
-            .collect();
-        blocks.sort();
-        blocks
-    };
-
-    // Source words already in L1 — skip to avoid regenerating (incremental safety)
-    let existing_from_words: std::collections::HashSet<String> = state
-        .engine
-        .try_namespace(app_id)
-        .map(|h| h.with_resolver(|r| r.l1().edges.keys().cloned().collect()))
-        .unwrap_or_default();
-
-    let skip_hint = if existing_from_words.is_empty() {
-        String::new()
-    } else {
-        format!(
-            "\nAlready mapped (skip FROM these): {}\n",
-            existing_from_words
-                .iter()
-                .take(60)
-                .cloned()
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    };
-
-    let prompt = format!(
-        "You are building a lexical graph for an intent classification engine.\n\
-         Below are the intents and the EXACT phrases already learned (these are the canonical vocabulary).\n\
-         Your job: generate mappings FROM words a real user would type → TO words already in the phrases.\n\
-         The target word MUST appear in the phrases shown — do not invent new canonical forms.\n\
-         Works for any language — generate cross-lingual mappings where relevant.\n\n\
-         {}\
-         {}\n\
-         Edge kinds:\n\
-         - \"abbreviation\": shorthand → canonical phrase word (pr→pull request, sub→subscription, w=0.97-0.99)\n\
-         - \"morphological\": inflected form → base form in phrases (cancellation→cancel, merging→merge, w=0.97-0.99)\n\
-           Skip trivial English inflections (gets→get, using→use) unless non-obvious\n\
-         - \"synonym\": different word same meaning → phrase word (terminate→cancel, w=0.80-0.96)\n\n\
-         Respond with ONLY valid JSON:\n\
-         {{\"edges\": [\n\
-           {{\"from\": \"pr\", \"to\": \"pull request\", \"kind\": \"abbreviation\", \"weight\": 0.99}},\n\
-           {{\"from\": \"cancellation\", \"to\": \"cancel\", \"kind\": \"morphological\", \"weight\": 0.98}},\n\
-           {{\"from\": \"terminate\", \"to\": \"cancel\", \"kind\": \"synonym\", \"weight\": 0.88}}\n\
-         ]}}",
-        intent_blocks.join("\n\n"), skip_hint
-    );
-
-    // ── Turn 1: generate candidate edges ────────────────────────────────────
-    eprintln!(
-        "[import/L1] Turn 1: generating candidates ({} intent blocks, prompt ~{} chars)",
-        intent_blocks.len(),
-        prompt.len()
-    );
-    let t1_response = match call_llm(state, &prompt, 4096).await {
-        Ok(r) => r,
-        Err((_, e)) => {
-            eprintln!("[import/L1] Turn 1 failed: {}", e);
-            return;
-        }
-    };
-    let t1_json = match serde_json::from_str::<serde_json::Value>(extract_json(&t1_response)) {
-        Ok(j) => j,
-        Err(e) => {
-            eprintln!(
-                "[import/L1] Turn 1 parse failed: {} — raw: {}",
-                e,
-                &t1_response[..t1_response.len().min(200)]
-            );
-            return;
-        }
-    };
-    let Some(candidates) = t1_json.get("edges").and_then(|e| e.as_array()) else {
-        eprintln!("[import/L1] Turn 1: no 'edges' array");
-        return;
-    };
-    eprintln!("[import/L1] Turn 1: {} candidate edges", candidates.len());
-
-    // ── Turn 2: fix direction errors and obvious duds only ───────────────────
-    let candidates_json = serde_json::to_string_pretty(candidates).unwrap_or_default();
-    let verify_prompt = format!(
-        "Review these lexical graph edges. Keep good ones, fix or remove bad ones.\n\n\
-         REMOVE only if clearly wrong:\n\
-         1. Morphological direction is reversed: FROM must be the longer/inflected form, TO must be\n\
-            the shorter base form. 'listing→list' is CORRECT. 'list→listing' is WRONG — remove it.\n\
-         2. TO word is longer than 4 words — too long for a routing target, remove it.\n\
-         3. FROM and TO are the same word.\n\
-         4. The mapping is clearly wrong domain-wise (e.g. 'terms→subscription' is too vague).\n\n\
-         KEEP everything else — synonyms, cross-lingual mappings, abbreviations, morphological variants.\n\
-         Do NOT remove edges just because FROM word is common — 'terminate→cancel' is valuable.\n\n\
-         Candidate edges:\n{}\n\n\
-         Respond with ONLY valid JSON:\n\
-         {{\"edges\": [{{\"from\": \"...\", \"to\": \"...\", \"kind\": \"...\", \"weight\": 0.0}}]}}",
-        candidates_json
-    );
-
-    eprintln!(
-        "[import/L1] Turn 2: verifying {} candidates",
-        candidates.len()
-    );
-    let t2_response = match call_llm(state, &verify_prompt, 4096).await {
-        Ok(r) => r,
-        Err((_, e)) => {
-            eprintln!("[import/L1] Turn 2 failed: {}", e);
-            return;
-        }
-    };
-    let t2_json = match serde_json::from_str::<serde_json::Value>(extract_json(&t2_response)) {
-        Ok(j) => j,
-        Err(e) => {
-            eprintln!("[import/L1] Turn 2 parse failed: {}", e);
-            return;
-        }
-    };
-    let Some(edges) = t2_json.get("edges").and_then(|e| e.as_array()) else {
-        eprintln!("[import/L1] Turn 2: no 'edges' array");
-        return;
-    };
-    eprintln!(
-        "[import/L1] Turn 2: {} edges after verification (removed {})",
-        edges.len(),
-        candidates.len().saturating_sub(edges.len())
-    );
-
-    let Some(h) = state.engine.try_namespace(app_id) else {
-        return;
-    };
-
-    let mut n_abbrev = 0usize;
-    let mut n_morph = 0usize;
-    let mut n_syn = 0usize;
-
-    for edge in edges {
-        let from = edge
-            .get("from")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-        let to = edge
-            .get("to")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-        let weight = edge.get("weight").and_then(|v| v.as_f64()).unwrap_or(0.9) as f32;
-        let kind_s = edge
-            .get("kind")
-            .and_then(|v| v.as_str())
-            .unwrap_or("synonym")
-            .to_string();
-        if from.is_empty() || to.is_empty() || from == to {
-            continue;
-        }
-        if h.with_resolver(|r| r.l1().edges.contains_key(&*from)) {
-            continue;
-        }
-
-        let kind = match kind_s.as_str() {
-            "abbreviation" => {
-                n_abbrev += 1;
-                microresolve::scoring::EdgeKind::Abbreviation
-            }
-            "morphological" => {
-                n_morph += 1;
-                microresolve::scoring::EdgeKind::Morphological
-            }
-            _ => {
-                n_syn += 1;
-                microresolve::scoring::EdgeKind::Synonym
-            }
-        };
-        eprintln!(
-            "[import/L1] {:>14}: {} → {} (w={:.2})",
-            kind_s, from, to, weight
-        );
-        h.with_resolver_mut(|r| r.l1_mut().add(&from, &to, weight, kind));
-    }
-
-    eprintln!(
-        "[import/L1] total: {} abbreviations + {} morphological + {} synonyms for '{}'",
-        n_abbrev, n_morph, n_syn, app_id
-    );
-
-    if let Err(e) = h.flush() {
-        eprintln!("[import/L1] flush error for {}: {}", app_id, e);
-    }
-}
-
 /// Feed accepted import phrases into the namespace's L2 (IntentIndex).
 ///
 /// Called once after all batch phrase-generation is complete.
@@ -267,9 +23,9 @@ pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)
     };
 
     for (intent_id, phrase) in accepted {
-        h.with_resolver_mut(|r| r.index_phrase(intent_id, phrase));
+        h.index_phrase(intent_id, phrase);
     }
-    h.with_resolver_mut(|r| r.l2_mut().rebuild_idf());
+    h.rebuild_idf();
     eprintln!(
         "[import/L2] seeded {} phrases into count model for '{}'",
         accepted.len(),
@@ -662,7 +418,7 @@ pub async fn import_apply(
                             } else {
                                 format!("{}:{}", req.domain, base)
                             };
-                            let seeds = h.with_resolver(|r| r.training(&name).unwrap_or_default());
+                            let seeds = h.training(&name).unwrap_or_default();
                             format!("  {}: {:?}", name, seeds.iter().take(3).collect::<Vec<_>>())
                         })
                         .collect::<Vec<_>>()
@@ -798,8 +554,6 @@ pub async fn import_apply(
 
     // Feed accepted phrases into L2 count model — zero extra LLM cost
     seed_into_l2(&state, &app_id, &all_accepted);
-    // Seed L1 lexical graph with synonym/morphology edges for new domain vocabulary
-    seed_into_l1(&state, &app_id, &all_accepted).await;
 
     let intent_names: Vec<String> = selected_ops
         .iter()
@@ -821,11 +575,11 @@ pub async fn import_apply(
         serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
     }).collect();
 
-    let (l2_words, l1_edges) = state
+    let l2_words = state
         .engine
         .try_namespace(&app_id)
-        .map(|h| h.with_resolver(|r| (r.l2().word_intent.len(), r.l1().edges.len())))
-        .unwrap_or((0, 0));
+        .map(|h| h.l2_word_count())
+        .unwrap_or(0);
 
     Ok(Json(serde_json::json!({
         "title": parsed.title,
@@ -833,7 +587,6 @@ pub async fn import_apply(
         "imported": intent_names.len(),
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
-        "l1_lexical_edges": l1_edges,
         "l2_unique_words": l2_words,
         "intents": intent_names,
         "per_intent": per_intent,
@@ -1124,7 +877,7 @@ pub async fn mcp_apply(
                             } else {
                                 format!("{}:{}", req.domain, base)
                             };
-                            let seeds = h.with_resolver(|r| r.training(&name).unwrap_or_default());
+                            let seeds = h.training(&name).unwrap_or_default();
                             format!("  {}: {:?}", name, seeds.iter().take(3).collect::<Vec<_>>())
                         })
                         .collect::<Vec<_>>()
@@ -1261,8 +1014,6 @@ pub async fn mcp_apply(
 
     // Feed accepted phrases into L2 count model — zero extra LLM cost
     seed_into_l2(&state, &app_id, &all_accepted);
-    // Seed L1 lexical graph with synonym/morphology edges for new domain vocabulary
-    seed_into_l1(&state, &app_id, &all_accepted).await;
 
     let tool_names: Vec<String> = selected_tools
         .iter()
@@ -1284,17 +1035,16 @@ pub async fn mcp_apply(
         serde_json::json!({ "name": name, "phrases_added": added, "blocked": blocked, "recovered": recovered })
     }).collect();
 
-    let (l2_words, l1_edges) = state
+    let l2_words = state
         .engine
         .try_namespace(&app_id)
-        .map(|h| h.with_resolver(|r| (r.l2().word_intent.len(), r.l1().edges.len())))
-        .unwrap_or((0, 0));
+        .map(|h| h.l2_word_count())
+        .unwrap_or(0);
 
     Ok(Json(serde_json::json!({
         "imported": tool_names.len(),
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
-        "l1_lexical_edges": l1_edges,
         "l2_unique_words": l2_words,
         "intents": tool_names,
         "per_intent": per_intent,

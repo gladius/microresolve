@@ -148,13 +148,12 @@ pub async fn sync(
     let mut corrections_applied: usize = 0;
     for correction in &req.corrections {
         if let Some(h) = state.engine.try_namespace(&correction.namespace) {
-            if h.with_resolver_mut(|r| {
-                r.correct(
-                    &correction.query,
-                    &correction.wrong_intent,
-                    &correction.right_intent,
-                )
-            })
+            if h
+            .correct(
+                &correction.query,
+                &correction.wrong_intent,
+                &correction.right_intent,
+            )
             .is_ok()
             {
                 corrections_applied += 1;
@@ -191,11 +190,11 @@ pub async fn sync(
         let entry = match state.engine.try_namespace(ns_id) {
             None => serde_json::json!({"up_to_date": true, "version": 0}),
             Some(h) => {
-                let server_version = h.with_resolver(|r| r.version());
+                let server_version = h.version();
                 if server_version == *local_version {
                     serde_json::json!({"up_to_date": true, "version": server_version})
                 } else {
-                    let export = h.with_resolver(|r| r.export_json());
+                    let export = h.export_json();
                     serde_json::json!({
                         "up_to_date": false,
                         "version": server_version,

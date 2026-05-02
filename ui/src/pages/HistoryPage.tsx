@@ -40,7 +40,6 @@ interface DiffResult {
   phrases_removed: PhraseChange[];
   metadata_changes: MetadataChange[];
   l2_edges_changed: number;
-  l1_edges_changed: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -99,8 +98,7 @@ function DiffPanel({ namespaceId, from, to }: { namespaceId: string; from: strin
     diff.phrases_added.length === 0 &&
     diff.phrases_removed.length === 0 &&
     diff.metadata_changes.length === 0 &&
-    diff.l2_edges_changed === 0 &&
-    diff.l1_edges_changed === 0;
+    diff.l2_edges_changed === 0;
 
   if (empty) {
     return <div className="text-xs text-zinc-500 py-4">No changes between these commits.</div>;
@@ -233,10 +231,9 @@ function DiffPanel({ namespaceId, from, to }: { namespaceId: string; from: strin
         </div>
       )}
 
-      {(diff.l2_edges_changed > 0 || diff.l1_edges_changed > 0) && (
+      {diff.l2_edges_changed > 0 && (
         <div className="text-zinc-500 font-sans text-[11px]">
-          {diff.l2_edges_changed > 0 && `${diff.l2_edges_changed} routing weight${diff.l2_edges_changed !== 1 ? 's' : ''} updated by training.`}
-          {diff.l1_edges_changed > 0 && ` ${diff.l1_edges_changed} morphology edge${diff.l1_edges_changed !== 1 ? 's' : ''} changed.`}
+          {`${diff.l2_edges_changed} routing weight${diff.l2_edges_changed !== 1 ? 's' : ''} updated by training.`}
         </div>
       )}
     </div>

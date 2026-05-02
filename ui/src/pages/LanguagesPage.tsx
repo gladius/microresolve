@@ -359,7 +359,7 @@ function StopWordsModal({ lang, langName, onClose }: {
         </div>
 
         <div className="px-5 py-2 border-t border-zinc-800 text-[10px] text-zinc-600">
-          Edits override the built-in list. Stop words are excluded from L1 phrase matching.
+          Edits override the built-in list. Stop words are excluded from phrase matching.
         </div>
       </div>
     </div>
