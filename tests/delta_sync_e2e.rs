@@ -77,7 +77,7 @@ fn delta_sync_e2e() {
             "purchase",
             "i want to buy",
         ] {
-            h.add_phrase("greet", phrase, "en");
+            h.add_phrase("greet", phrase, "en").unwrap();
         }
     }
     let server_version_after = server.namespace("test-delta").version();

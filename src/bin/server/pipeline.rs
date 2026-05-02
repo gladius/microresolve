@@ -335,7 +335,9 @@ pub async fn phrase_pipeline(
                 if s.is_empty() {
                     continue;
                 }
-                let result = h.add_phrase(intent_id, &s, lang);
+                let result = h
+                    .add_phrase(intent_id, &s, lang)
+                    .expect("server is standalone; ConnectMode unreachable");
                 if result.added {
                     added.push((intent_id.clone(), s));
                 }
@@ -858,7 +860,8 @@ pub async fn apply_review(
             &result.wrong_detections,
             original_query,
             0.1,
-        );
+        )
+        .expect("server is standalone; ConnectMode unreachable");
         if !result.wrong_detections.is_empty() {
             eprintln!(
                 "[auto-learn/L2b] shrink weights on query tokens for wrong intents: {:?}",

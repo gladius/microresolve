@@ -201,7 +201,8 @@ pub async fn decay_for_intents(
     };
     let queries_len = req.queries.len();
     let affected = not_intents.len();
-    h.decay_for_intents(&req.queries, &not_intents, req.alpha);
+    h.decay_for_intents(&req.queries, &not_intents, req.alpha)
+        .expect("server is standalone; ConnectMode unreachable");
     maybe_commit(&state, &req.namespace_id);
     Ok(Json(serde_json::json!({
         "decayed": req.namespace_id,
@@ -236,7 +237,8 @@ pub async fn rebuild_namespace(
         .filter_map(|id| h.training(id))
         .map(|v| v.len())
         .sum();
-    h.rebuild_index();
+    h.rebuild_index()
+        .expect("server is standalone; ConnectMode unreachable");
     maybe_commit(&state, &req.namespace_id);
     Ok(Json(serde_json::json!({
         "rebuilt": req.namespace_id,
@@ -486,7 +488,8 @@ pub async fn create_domain(
             format!("domain '{}' already exists", req.domain),
         ));
     }
-    h.set_domain_description(&req.domain, &req.description);
+    h.set_domain_description(&req.domain, &req.description)
+        .expect("server is standalone; ConnectMode unreachable");
     maybe_commit(&state, &namespace_id);
     Ok(Json(serde_json::json!({"created": req.domain})))
 }
@@ -508,7 +511,8 @@ pub async fn delete_domain(
             format!("namespace '{}' not found", namespace_id),
         )
     })?;
-    h.remove_domain_description(&req.domain);
+    h.remove_domain_description(&req.domain)
+        .expect("server is standalone; ConnectMode unreachable");
     let prefix = format!("{}:", req.domain);
     let to_remove: Vec<String> = h
         .intent_ids()
@@ -516,7 +520,8 @@ pub async fn delete_domain(
         .filter(|id| id.starts_with(&prefix))
         .collect();
     for id in to_remove {
-        h.remove_intent(&id);
+        h.remove_intent(&id)
+            .expect("server is standalone; ConnectMode unreachable");
     }
     maybe_commit(&state, &namespace_id);
     if let Some(ref dir) = state.data_dir {
@@ -538,7 +543,8 @@ pub async fn update_domain(
 ) -> Json<serde_json::Value> {
     let namespace_id = app_id_from_headers(&headers);
     if let Some(h) = state.engine.try_namespace(&namespace_id) {
-        h.set_domain_description(&req.domain, &req.description);
+        h.set_domain_description(&req.domain, &req.description)
+            .expect("server is standalone; ConnectMode unreachable");
         maybe_commit(&state, &namespace_id);
     }
     Json(serde_json::json!({"updated": req.domain}))

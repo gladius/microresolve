@@ -169,15 +169,17 @@ impl Namespace {
     }
 
     /// Remove an intent and all its phrases.
-    fn remove_intent(&self, intent_id: &str) {
-        self.engine.namespace(&self.id).remove_intent(intent_id);
+    fn remove_intent(&self, intent_id: &str) -> PyResult<()> {
+        self.engine.namespace(&self.id).remove_intent(intent_id)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Add a single phrase to an existing intent.
     ///
     /// Returns a dict with `added` (bool), `redundant` (bool), `warning` (str | None).
     fn add_phrase<'py>(&self, py: Python<'py>, intent_id: &str, phrase: &str, lang: Option<&str>) -> PyResult<Bound<'py, PyDict>> {
-        let result = self.engine.namespace(&self.id).add_phrase(intent_id, phrase, lang.unwrap_or("en"));
+        let result = self.engine.namespace(&self.id).add_phrase(intent_id, phrase, lang.unwrap_or("en"))
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         let d = PyDict::new(py);
         d.set_item("added", result.added)?;
         d.set_item("redundant", result.redundant)?;
@@ -330,13 +332,15 @@ impl Namespace {
     }
 
     /// Set the description for a domain prefix.
-    fn set_domain_description(&self, domain: &str, description: &str) {
-        self.engine.namespace(&self.id).set_domain_description(domain, description);
+    fn set_domain_description(&self, domain: &str, description: &str) -> PyResult<()> {
+        self.engine.namespace(&self.id).set_domain_description(domain, description)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Remove a domain description.
-    fn remove_domain_description(&self, domain: &str) {
-        self.engine.namespace(&self.id).remove_domain_description(domain);
+    fn remove_domain_description(&self, domain: &str) -> PyResult<()> {
+        self.engine.namespace(&self.id).remove_domain_description(domain)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Run the full multi-intent routing pipeline.
@@ -406,34 +410,39 @@ impl Namespace {
     }
 
     /// Reinforce specific query tokens toward `intent_id` (Hebbian-style update).
-    fn reinforce_tokens(&self, words: Vec<String>, intent_id: &str) {
+    fn reinforce_tokens(&self, words: Vec<String>, intent_id: &str) -> PyResult<()> {
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
-        self.engine.namespace(&self.id).reinforce_tokens(&word_refs, intent_id);
+        self.engine.namespace(&self.id).reinforce_tokens(&word_refs, intent_id)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Rebuild the scoring index from stored training phrases.
-    fn rebuild_index(&self) {
-        self.engine.namespace(&self.id).rebuild_index();
+    fn rebuild_index(&self) -> PyResult<()> {
+        self.engine.namespace(&self.id).rebuild_index()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Rebuild IDF table and in-memory caches (call after bulk `index_phrase` calls).
-    fn rebuild_caches(&self) {
-        self.engine.namespace(&self.id).rebuild_caches();
+    fn rebuild_caches(&self) -> PyResult<()> {
+        self.engine.namespace(&self.id).rebuild_caches()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Lower-level phrase ingestion: indexes without dedup check.
     ///
     /// Use `add_phrase` for user-driven additions; use `index_phrase` only for
     /// trusted, pre-validated phrases (e.g., from spec import or auto-learn).
-    fn index_phrase(&self, intent_id: &str, phrase: &str) {
-        self.engine.namespace(&self.id).index_phrase(intent_id, phrase);
+    fn index_phrase(&self, intent_id: &str, phrase: &str) -> PyResult<()> {
+        self.engine.namespace(&self.id).index_phrase(intent_id, phrase)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Anti-Hebbian decay: shrink L2 weights for `not_intents` on `queries`.
     ///
     /// `alpha` is clamped to `(0.0, 0.3]` internally.
-    fn decay_for_intents(&self, queries: Vec<String>, not_intents: Vec<String>, alpha: f32) {
-        self.engine.namespace(&self.id).decay_for_intents(&queries, &not_intents, alpha);
+    fn decay_for_intents(&self, queries: Vec<String>, not_intents: Vec<String>, alpha: f32) -> PyResult<()> {
+        self.engine.namespace(&self.id).decay_for_intents(&queries, &not_intents, alpha)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Apply a review result (missed phrases, span learning, anti-Hebbian correction).
@@ -454,7 +463,7 @@ impl Namespace {
         wrong_detections: Vec<String>,
         original_query: &str,
         negative_alpha: f32,
-    ) -> usize {
+    ) -> PyResult<usize> {
         self.engine.namespace(&self.id).apply_review(
             &missed_phrases,
             &spans_to_learn,
@@ -462,11 +471,13 @@ impl Namespace {
             original_query,
             negative_alpha,
         )
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Remove a single phrase from an intent. Returns `True` if the phrase existed.
-    fn remove_phrase(&self, intent_id: &str, phrase: &str) -> bool {
+    fn remove_phrase(&self, intent_id: &str, phrase: &str) -> PyResult<bool> {
         self.engine.namespace(&self.id).remove_phrase(intent_id, phrase)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Namespace identifier.

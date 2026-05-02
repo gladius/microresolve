@@ -76,22 +76,32 @@ async function main() {
     console.log(`  routed : ${initial} (score: ${matches[0].score.toFixed(2)})`);
   }
 
-  console.log('\n─── 4. Push a correction (local + server) ────────────────────');
+  console.log('\n─── 4. Strict mode: library mutations refused ───────────────');
+  console.log('  Connected libraries are READ-ONLY caches. ns.correct(...) throws:');
   const wrong = initial !== '(none)' ? initial : 'list_subscriptions';
-  ns.correct(query, wrong, 'cancel_subscription');
-  console.log('  ✓ correction applied locally and pushed to server');
-
-  console.log('\n─── 5. Re-resolve immediately ────────────────────────────────');
-  matches = ns.resolve(query);
-  const after = matches[0]?.id ?? '(none)';
-  if (matches.length) {
-    console.log(`  routed : ${after} (score: ${matches[0].score.toFixed(2)})`);
-  }
-  if (after === 'cancel_subscription') {
-    console.log('  ✓ local state instantly reflects the correction');
+  try {
+    ns.correct(query, wrong, 'cancel_subscription');
+    console.log('    UNEXPECTED: correct() succeeded');
+  } catch (e) {
+    console.log(`    ${e.message}  ← refused, as designed.`);
   }
 
-  console.log('\n─── 6. Wait one sync tick to confirm server roundtrip ────────');
+  console.log('\n─── 5. Apply correction via the server\'s HTTP API ───────────');
+  const apiUrl = SERVER_URL;
+  const headers = { 'Content-Type': 'application/json', 'X-Namespace-ID': NS };
+  if (apiKey) headers['X-Api-Key'] = apiKey;
+  try {
+    const resp = await fetch(`${apiUrl}/api/correct`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query, wrong_intent: wrong, right_intent: 'cancel_subscription' }),
+    });
+    console.log(`  ✓ POST /api/correct → HTTP ${resp.status}`);
+  } catch (e) {
+    console.log(`  ✗ HTTP correct failed: ${e.message}`);
+  }
+
+  console.log('\n─── 6. Wait for sync tick to pull the change ────────────────');
   const vBefore = ns.version();
   for (let i = 0; i < 8; i++) {
     await new Promise(r => setTimeout(r, 1000));

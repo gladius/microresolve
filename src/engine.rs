@@ -317,14 +317,18 @@ impl MicroResolve {
         &self,
         ns_id: &str,
         f: impl FnOnce(&mut Resolver) -> R,
-    ) -> R {
+    ) -> Result<R, Error> {
+        #[cfg(feature = "connect")]
+        if self.connect.is_some() {
+            return Err(Error::ConnectMode);
+        }
         let mut ns = self.namespaces.write().unwrap();
         let state = ns
             .get_mut(ns_id)
             .expect("namespace handle invariant: namespace must exist");
         let r = f(&mut state.resolver);
         state.dirty = true;
-        r
+        Ok(r)
     }
 }
 
@@ -364,11 +368,11 @@ impl<'e> NamespaceHandle<'e> {
     ) -> Result<usize, Error> {
         let seeds = seeds.into();
         self.engine
-            .with_resolver_mut(&self.id, |r| r.add_intent(intent_id, seeds))
+            .with_resolver_mut(&self.id, |r| r.add_intent(intent_id, seeds))?
     }
 
     /// Remove an intent and all its phrases/metadata from the namespace.
-    pub fn remove_intent(&self, intent_id: &str) {
+    pub fn remove_intent(&self, intent_id: &str) -> Result<(), Error> {
         self.engine
             .with_resolver_mut(&self.id, |r| r.remove_intent(intent_id))
     }
@@ -381,11 +385,16 @@ impl<'e> NamespaceHandle<'e> {
     /// Patch metadata fields on an intent (description, instructions, etc.).
     pub fn update_intent(&self, intent_id: &str, edit: IntentEdit) -> Result<(), Error> {
         self.engine
-            .with_resolver_mut(&self.id, |r| r.update_intent(intent_id, edit))
+            .with_resolver_mut(&self.id, |r| r.update_intent(intent_id, edit))?
     }
 
     /// Add a single phrase to an existing intent.
-    pub fn add_phrase(&self, intent_id: &str, phrase: &str, lang: &str) -> PhraseCheckResult {
+    pub fn add_phrase(
+        &self,
+        intent_id: &str,
+        phrase: &str,
+        lang: &str,
+    ) -> Result<PhraseCheckResult, Error> {
         self.engine
             .with_resolver_mut(&self.id, |r| r.add_phrase_checked(intent_id, phrase, lang))
     }
@@ -437,11 +446,11 @@ impl<'e> NamespaceHandle<'e> {
         right_intent: &str,
     ) -> Result<(), Error> {
         #[cfg(feature = "connect")]
-        if let Some(ref state) = self.engine.connect {
-            return state.push_correct(&self.id, query, wrong_intent, right_intent);
+        if self.engine.connect.is_some() {
+            return Err(Error::ConnectMode);
         }
         self.engine
-            .with_resolver_mut(&self.id, |r| r.correct(query, wrong_intent, right_intent))
+            .with_resolver_mut(&self.id, |r| r.correct(query, wrong_intent, right_intent))?
     }
 
     #[cfg(feature = "connect")]
@@ -507,7 +516,7 @@ impl<'e> NamespaceHandle<'e> {
     }
 
     /// Remove a single phrase from an intent. Returns `true` if the phrase existed.
-    pub fn remove_phrase(&self, intent_id: &str, phrase: &str) -> bool {
+    pub fn remove_phrase(&self, intent_id: &str, phrase: &str) -> Result<bool, Error> {
         self.engine
             .with_resolver_mut(&self.id, |r| r.remove_phrase(intent_id, phrase))
     }
@@ -520,7 +529,7 @@ impl<'e> NamespaceHandle<'e> {
     /// Patch namespace-level metadata fields. `None` fields are left unchanged.
     pub fn update_namespace(&self, edit: crate::NamespaceEdit) -> Result<(), Error> {
         self.engine
-            .with_resolver_mut(&self.id, |r| r.update_namespace(edit))
+            .with_resolver_mut(&self.id, |r| r.update_namespace(edit))?
     }
 
     /// Export resolver state as a JSON string (for sync/backup).
@@ -536,14 +545,19 @@ impl<'e> NamespaceHandle<'e> {
 
     /// Anti-Hebbian decay: shrink L2 weights for `not_intents` on `queries`.
     /// `alpha` is clamped to `(0.0, 0.3]` internally.
-    pub fn decay_for_intents(&self, queries: &[String], not_intents: &[String], alpha: f32) {
+    pub fn decay_for_intents(
+        &self,
+        queries: &[String],
+        not_intents: &[String],
+        alpha: f32,
+    ) -> Result<(), Error> {
         self.engine.with_resolver_mut(&self.id, |r| {
             r.decay_for_intents(queries, not_intents, alpha)
         })
     }
 
     /// Rebuild the scoring index from stored training phrases.
-    pub fn rebuild_index(&self) {
+    pub fn rebuild_index(&self) -> Result<(), Error> {
         self.engine
             .with_resolver_mut(&self.id, |r| r.rebuild_index())
     }
@@ -552,19 +566,19 @@ impl<'e> NamespaceHandle<'e> {
     /// the duplicate-check or stop-word filtering that `add_phrase` applies. Use `add_phrase`
     /// for user-driven additions; use `index_phrase` only for trusted, pre-validated phrases
     /// (e.g., from spec import or auto-learn).
-    pub fn index_phrase(&self, intent_id: &str, phrase: &str) {
+    pub fn index_phrase(&self, intent_id: &str, phrase: &str) -> Result<(), Error> {
         self.engine
             .with_resolver_mut(&self.id, |r| r.index_phrase(intent_id, phrase))
     }
 
     /// Rebuild the IDF table and in-memory caches after bulk `index_phrase` calls.
-    pub fn rebuild_caches(&self) {
+    pub fn rebuild_caches(&self) -> Result<(), Error> {
         self.engine
             .with_resolver_mut(&self.id, |r| r.index_mut().rebuild_caches())
     }
 
     /// Reinforce specific query tokens toward `intent_id` (Hebbian-style weight update).
-    pub fn reinforce_tokens(&self, words: &[&str], intent_id: &str) {
+    pub fn reinforce_tokens(&self, words: &[&str], intent_id: &str) -> Result<(), Error> {
         self.engine.with_resolver_mut(&self.id, |r| {
             r.index_mut().reinforce_tokens(words, intent_id)
         })
@@ -574,7 +588,7 @@ impl<'e> NamespaceHandle<'e> {
     ///
     /// Idempotent by construction: sets to the given post-value, not a delta.
     /// Used by the delta-sync client to apply `WeightUpdates` ops.
-    pub fn apply_weight_updates(&self, changes: &[(String, String, f32)]) {
+    pub fn apply_weight_updates(&self, changes: &[(String, String, f32)]) -> Result<(), Error> {
         self.engine.with_resolver_mut(&self.id, |r| {
             for (token, intent_id, post_weight) in changes {
                 r.index_mut().set_weight(token, intent_id, *post_weight);
@@ -605,13 +619,13 @@ impl<'e> NamespaceHandle<'e> {
     }
 
     /// Set the description for a domain prefix.
-    pub fn set_domain_description(&self, domain: &str, description: &str) {
+    pub fn set_domain_description(&self, domain: &str, description: &str) -> Result<(), Error> {
         self.engine
             .with_resolver_mut(&self.id, |r| r.set_domain_description(domain, description))
     }
 
     /// Remove a domain description.
-    pub fn remove_domain_description(&self, domain: &str) {
+    pub fn remove_domain_description(&self, domain: &str) -> Result<(), Error> {
         self.engine
             .with_resolver_mut(&self.id, |r| r.remove_domain_description(domain))
     }
@@ -713,7 +727,7 @@ impl<'e> NamespaceHandle<'e> {
         wrong_detections: &[String],
         original_query: &str,
         negative_alpha: f32,
-    ) -> usize {
+    ) -> Result<usize, Error> {
         self.engine.with_resolver_mut(&self.id, |r| {
             r.apply_review(
                 missed_phrases,
@@ -738,7 +752,7 @@ impl<'e> NamespaceHandle<'e> {
     /// typed methods, which are idempotent by design.
     pub fn apply_ops(&self, ops: &[crate::oplog::Op]) -> Result<(), Error> {
         self.engine
-            .with_resolver_mut(&self.id, |r| apply_ops_inner(r, ops))
+            .with_resolver_mut(&self.id, |r| apply_ops_inner(r, ops))?
     }
 
     /// Persist this namespace to disk now. Mostly useful to force a flush

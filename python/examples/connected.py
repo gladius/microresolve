@@ -81,20 +81,33 @@ def main() -> int:
     print(f"  query  : {query!r}")
     print(f"  routed : {initial} (score: {matches[0].score:.2f})" if matches else "  no match")
 
-    print("\n─── 4. Push a correction (local + server) ────────────────────")
+    print("\n─── 4. Strict mode: library mutations refused ───────────────")
+    print("  Connected libraries are READ-ONLY caches. Calling ns.correct(...) raises:")
     wrong = initial if initial != "(none)" else "list_subscriptions"
-    ns.correct(query, wrong, "cancel_subscription")
-    print("  ✓ correction applied locally and pushed to server")
+    try:
+        ns.correct(query, wrong, "cancel_subscription")
+        print("    UNEXPECTED: correct() succeeded")
+    except Exception as e:
+        print(f"    {type(e).__name__}: {e}  ← refused, as designed.")
 
-    print("\n─── 5. Re-resolve immediately ────────────────────────────────")
-    after = ns.resolve(query)
-    after_id = after[0].id if after else "(none)"
-    print(f"  routed : {after_id} (score: {after[0].score:.2f})" if after else "  no match")
-    if after_id == "cancel_subscription":
-        print("  ✓ local state instantly reflects the correction")
+    print("\n─── 5. Apply correction via the server's HTTP API ───────────")
+    api_url = SERVER_URL
+    headers = {"X-Namespace-ID": NS}
+    if api_key:
+        headers["X-Api-Key"] = api_key
+    r = urllib.request.Request(
+        f"{api_url}/api/correct",
+        data=json.dumps({"query": query, "wrong_intent": wrong, "right_intent": "cancel_subscription"}).encode(),
+        headers={**headers, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(r, timeout=5) as resp:
+            print(f"  ✓ POST /api/correct → HTTP {resp.status}")
+    except Exception as e:
+        print(f"  ✗ HTTP correct failed: {e}")
 
-    # Optional: wait for server to confirm via background sync tick.
-    print("\n─── 6. Wait one sync tick to confirm server roundtrip ────────")
+    print("\n─── 6. Wait for sync tick to pull the change ────────────────")
     v_before = ns.version()
     for _ in range(8):
         time.sleep(1)

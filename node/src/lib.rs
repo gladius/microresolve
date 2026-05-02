@@ -269,8 +269,9 @@ impl Namespace {
 
     /// Remove an intent and all its phrases.
     #[napi]
-    pub fn remove_intent(&self, id: String) {
-        self.engine.namespace(&self.id).remove_intent(&id);
+    pub fn remove_intent(&self, id: String) -> Result<()> {
+        self.engine.namespace(&self.id).remove_intent(&id)
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// All intent IDs in this namespace.
@@ -344,14 +345,15 @@ impl Namespace {
 
     /// Add a single phrase to an existing intent.
     #[napi]
-    pub fn add_phrase(&self, intent_id: String, phrase: String, lang: Option<String>) -> PhraseResult {
+    pub fn add_phrase(&self, intent_id: String, phrase: String, lang: Option<String>) -> Result<PhraseResult> {
         let result = self.engine.namespace(&self.id)
-            .add_phrase(&intent_id, &phrase, lang.as_deref().unwrap_or("en"));
-        PhraseResult {
+            .add_phrase(&intent_id, &phrase, lang.as_deref().unwrap_or("en"))
+            .map_err(|e| Error::from_reason(e.to_string()))?;
+        Ok(PhraseResult {
             added: result.added,
             redundant: result.redundant,
             warning: result.warning,
-        }
+        })
     }
 
     /// Read-only view of namespace-level metadata.
@@ -450,14 +452,16 @@ impl Namespace {
 
     /// Set the description for a domain prefix.
     #[napi]
-    pub fn set_domain_description(&self, domain: String, description: String) {
-        self.engine.namespace(&self.id).set_domain_description(&domain, &description);
+    pub fn set_domain_description(&self, domain: String, description: String) -> Result<()> {
+        self.engine.namespace(&self.id).set_domain_description(&domain, &description)
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Remove a domain description.
     #[napi]
-    pub fn remove_domain_description(&self, domain: String) {
-        self.engine.namespace(&self.id).remove_domain_description(&domain);
+    pub fn remove_domain_description(&self, domain: String) -> Result<()> {
+        self.engine.namespace(&self.id).remove_domain_description(&domain)
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Run the full multi-intent routing pipeline.
@@ -516,21 +520,24 @@ impl Namespace {
 
     /// Reinforce specific query tokens toward `intentId` (Hebbian-style update).
     #[napi]
-    pub fn reinforce_tokens(&self, words: Vec<String>, intent_id: String) {
+    pub fn reinforce_tokens(&self, words: Vec<String>, intent_id: String) -> Result<()> {
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
-        self.engine.namespace(&self.id).reinforce_tokens(&word_refs, &intent_id);
+        self.engine.namespace(&self.id).reinforce_tokens(&word_refs, &intent_id)
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Rebuild the scoring index from stored training phrases.
     #[napi]
-    pub fn rebuild_index(&self) {
-        self.engine.namespace(&self.id).rebuild_index();
+    pub fn rebuild_index(&self) -> Result<()> {
+        self.engine.namespace(&self.id).rebuild_index()
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Rebuild IDF table and in-memory caches (call after bulk `indexPhrase` calls).
     #[napi]
-    pub fn rebuild_caches(&self) {
-        self.engine.namespace(&self.id).rebuild_caches();
+    pub fn rebuild_caches(&self) -> Result<()> {
+        self.engine.namespace(&self.id).rebuild_caches()
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Lower-level phrase ingestion: indexes without dedup check.
@@ -538,16 +545,18 @@ impl Namespace {
     /// Use `addPhrase` for user-driven additions; use `indexPhrase` only for
     /// trusted, pre-validated phrases (e.g., from spec import or auto-learn).
     #[napi]
-    pub fn index_phrase(&self, intent_id: String, phrase: String) {
-        self.engine.namespace(&self.id).index_phrase(&intent_id, &phrase);
+    pub fn index_phrase(&self, intent_id: String, phrase: String) -> Result<()> {
+        self.engine.namespace(&self.id).index_phrase(&intent_id, &phrase)
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Anti-Hebbian decay: shrink L2 weights for `notIntents` on `queries`.
     ///
     /// `alpha` is clamped to `(0.0, 0.3]` internally.
     #[napi]
-    pub fn decay_for_intents(&self, queries: Vec<String>, not_intents: Vec<String>, alpha: f64) {
-        self.engine.namespace(&self.id).decay_for_intents(&queries, &not_intents, alpha as f32);
+    pub fn decay_for_intents(&self, queries: Vec<String>, not_intents: Vec<String>, alpha: f64) -> Result<()> {
+        self.engine.namespace(&self.id).decay_for_intents(&queries, &not_intents, alpha as f32)
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Apply a review result (missed phrases, span learning, anti-Hebbian correction).
@@ -567,7 +576,7 @@ impl Namespace {
         wrong_detections: Vec<String>,
         original_query: String,
         negative_alpha: Option<f64>,
-    ) -> u32 {
+    ) -> Result<u32> {
         let spans: Vec<(String, String)> = spans_to_learn
             .into_iter()
             .map(|p| (p.intent_id, p.span))
@@ -578,12 +587,15 @@ impl Namespace {
             &wrong_detections,
             &original_query,
             negative_alpha.unwrap_or(0.1) as f32,
-        ) as u32
+        )
+        .map(|n| n as u32)
+        .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Remove a single phrase from an intent. Returns `true` if the phrase existed.
     #[napi]
-    pub fn remove_phrase(&self, intent_id: String, phrase: String) -> bool {
+    pub fn remove_phrase(&self, intent_id: String, phrase: String) -> Result<bool> {
         self.engine.namespace(&self.id).remove_phrase(&intent_id, &phrase)
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 }
