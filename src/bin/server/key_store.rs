@@ -5,7 +5,7 @@
 //! `last_used_at` is in-memory only (resets on restart) to avoid file writes
 //! on every authenticated request.
 
-use rand::RngCore;
+use rand::Rng;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::RwLock;
