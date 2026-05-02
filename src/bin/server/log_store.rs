@@ -412,6 +412,33 @@ impl LogStore {
         self.apps.get(app_id).map(|al| al.index.len()).unwrap_or(0)
     }
 
+    /// Counts per derived status. Returns `(pending, applied)`. Cheap —
+    /// walks only the in-memory index + review_status map, no disk reads.
+    /// "pending" = alive (still in queue); "applied" = resolved AND the
+    /// LLM-judge actually applied a fix. Manually-dismissed entries
+    /// (rare) are bucketed back into pending until they're explicitly
+    /// auto-learn-applied.
+    pub fn status_counts(&self, app_id: &str) -> (usize, usize) {
+        let Some(al) = self.apps.get(app_id) else {
+            return (0, 0);
+        };
+        let (mut pending, mut applied) = (0, 0);
+        for meta in &al.index {
+            let was_applied = !meta.alive
+                && al
+                    .review_status
+                    .get(&meta.id)
+                    .map(|s| s.applied)
+                    .unwrap_or(false);
+            if was_applied {
+                applied += 1;
+            } else {
+                pending += 1;
+            }
+        }
+        (pending, applied)
+    }
+
     /// Read a single record by id from any app.
     pub fn get_record(&mut self, app_id: &str, id: u64) -> Option<LogRecord> {
         let al = self.apps.get(app_id)?;
@@ -429,6 +456,23 @@ impl LogStore {
         if let Some(al) = self.apps.get_mut(app_id) {
             al.review_status.insert(id, status);
         }
+    }
+
+    /// Look up the LLM review status for a record. Returns `None` if no
+    /// status has been recorded (i.e. record is fresh, never picked up by
+    /// the worker, never manually fixed).
+    pub fn get_review_status(&self, app_id: &str, id: u64) -> Option<ReviewStatus> {
+        self.apps
+            .get(app_id)
+            .and_then(|al| al.review_status.get(&id).cloned())
+    }
+
+    /// Return the alive/resolved bit for a specific record.
+    /// Used to derive UI status without re-querying.
+    pub fn is_alive(&self, app_id: &str, id: u64) -> Option<bool> {
+        self.apps
+            .get(app_id)
+            .and_then(|al| al.index.iter().find(|m| m.id == id).map(|m| m.alive))
     }
 
     /// Return (app_id, id) for all alive unreviewed records.

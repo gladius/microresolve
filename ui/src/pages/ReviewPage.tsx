@@ -17,8 +17,9 @@ export default function ReviewPage() {
   const [autoLearn,    setAutoLearn]    = useState<boolean | null>(null);
   const [toggling,     setToggling]     = useState(false);
   const [toggleError,  setToggleError]  = useState<string | null>(null);
-  const [stats,        setStats]        = useState<{ pending: number; total: number } | null>(null);
+  const [stats,        setStats]        = useState<{ pending: number; total: number; applied: number } | null>(null);
   const [loading,      setLoading]      = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'applied'>('all');
 
   const { settings } = useAppStore();
   const nsId = settings.selectedNamespaceId;
@@ -26,7 +27,7 @@ export default function ReviewPage() {
   const refresh = useCallback(async () => {
     try {
       const [q, i, nsList, s] = await Promise.all([
-        api.getReviewQueue(undefined, 100),
+        api.getReviewQueue(statusFilter === 'all' ? undefined : statusFilter, 100),
         api.listIntents().then(list => list.map((x: any) => x.id)),
         api.listNamespaces(),
         api.getReviewStats(),
@@ -42,7 +43,7 @@ export default function ReviewPage() {
         return null;
       });
     } catch { /* */ } finally { setLoading(false); }
-  }, [nsId]);
+  }, [nsId, statusFilter]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -106,10 +107,32 @@ export default function ReviewPage() {
 
         {/* Left — queue list */}
         <div className="w-72 shrink-0 border-r border-zinc-800 flex flex-col">
-          {/* Filter bar */}
-          <div className="px-3 py-2.5 border-b border-zinc-800 flex items-center flex-shrink-0">
-            <span className="text-[10px] text-zinc-500">{items.length} queued for review</span>
-            <button onClick={refresh} className="ml-auto text-[10px] text-zinc-600 hover:text-zinc-400">↺</button>
+          {/* Status tabs */}
+          <div className="px-2 pt-2 pb-1 border-b border-zinc-800 flex flex-col gap-1.5 flex-shrink-0">
+            <div className="grid grid-cols-3 gap-0.5 bg-zinc-900/50 rounded p-0.5 text-xs">
+              {([
+                ['all',     'All',     stats?.total],
+                ['pending', 'Pending', stats?.pending],
+                ['applied', 'Applied', stats?.applied],
+              ] as const).map(([key, label, count]) => (
+                <button key={key}
+                  onClick={() => setStatusFilter(key as any)}
+                  className={`px-2 py-1 rounded transition-colors ${
+                    statusFilter === key
+                      ? 'bg-zinc-800 text-zinc-100 font-medium'
+                      : 'text-zinc-500 hover:text-zinc-300'
+                  }`}>
+                  <span>{label}</span>
+                  {typeof count === 'number' && count > 0 && (
+                    <span className="ml-1 text-zinc-600">{count}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="px-1 flex items-center text-[10px] text-zinc-500">
+              <span>{items.length} shown</span>
+              <button onClick={refresh} className="ml-auto text-zinc-600 hover:text-zinc-400">↺</button>
+            </div>
           </div>
 
           {/* Queue items */}
@@ -120,22 +143,26 @@ export default function ReviewPage() {
                   ? 'Queue is empty.\nRouted queries appear here for LLM review.'
                   : 'No items match this filter.'}
               </div>
-            ) : visible.map(item => (
-              <button key={item.id} onClick={() => setSelected(item)}
-                className={`w-full text-left px-3 py-3 hover:bg-zinc-800/50 transition-colors ${selected?.id === item.id ? 'bg-zinc-800/70' : ''}`}>
-                <div className="flex items-center gap-2 mb-1">
-                  {item.detected.length > 0 ? (
-                    <span className="text-[10px] text-zinc-400 truncate">{item.detected.join(', ')}</span>
-                  ) : (
-                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0 bg-zinc-800 text-zinc-500">no match</span>
-                  )}
-                  <span className="ml-auto text-[9px] text-zinc-700 flex-shrink-0">
-                    {new Date(item.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-                <div className="text-xs text-zinc-300 truncate font-mono">"{item.query}"</div>
-              </button>
-            ))}
+            ) : visible.map(item => {
+              const cls = item.status === 'applied'
+                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+              return (
+                <button key={item.id} onClick={() => setSelected(item)}
+                  className={`w-full text-left px-3 py-3 hover:bg-zinc-800/50 transition-colors ${selected?.id === item.id ? 'bg-zinc-800/70' : ''}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border flex-shrink-0 ${cls}`}>{item.status}</span>
+                    {item.detected.length > 0 && (
+                      <span className="text-[10px] text-zinc-400 truncate">{item.detected.join(', ')}</span>
+                    )}
+                    <span className="ml-auto text-[9px] text-zinc-700 flex-shrink-0">
+                      {new Date(item.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div className="text-xs text-zinc-300 truncate font-mono">"{item.query}"</div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
