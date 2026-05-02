@@ -103,10 +103,13 @@ impl MicroResolve {
             } else {
                 server.subscribe.clone()
             };
-            // Initial pull for each subscribed namespace.
+            // Initial bootstrap: single snapshot call for all subscribed namespaces.
+            let mut snaps = state.fetch_snapshot(&app_ids)?;
             for app_id in &app_ids {
-                let pulled = state.pull(app_id)?;
-                let resolver = pulled.map(|(r, _v)| r).unwrap_or_else(Resolver::new);
+                let resolver = snaps
+                    .remove(app_id)
+                    .map(|(r, _v)| r)
+                    .unwrap_or_else(Resolver::new);
                 namespaces.write().unwrap().insert(
                     app_id.clone(),
                     NamespaceState {

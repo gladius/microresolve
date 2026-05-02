@@ -41,17 +41,18 @@ pub(crate) struct PendingCorrection {
     pub right_intent: String,
 }
 
-/// Per-namespace sync result from `POST /api/sync/batch`.
+/// Per-namespace sync result from `POST /api/sync`.
 #[derive(Debug, serde::Deserialize)]
 struct BatchNsResult {
     #[serde(default)]
     up_to_date: bool,
     version: u64,
-    #[serde(default)]
-    export: Option<String>,
-    /// Delta ops for delta-aware clients.
+    /// Delta ops — present when the server can cover the gap from the client's version.
     #[serde(default)]
     ops: Option<Vec<crate::oplog::Op>>,
+    /// Set to true when the client is too far behind for delta; must call `/api/snapshot`.
+    #[serde(default)]
+    cold_start_required: bool,
 }
 
 /// Top-level response from `POST /api/sync`.
@@ -121,56 +122,54 @@ impl ConnectState {
             .collect())
     }
 
-    /// Pull a single namespace from the server via the unified sync endpoint.
-    /// Returns `(resolver, version)` on success, or `None` if the server has
-    /// no data for this namespace yet.
-    pub fn pull(&self, app_id: &str) -> Result<Option<(Resolver, u64)>, crate::Error> {
-        let url = format!("{}/api/sync", self.server.url);
-        let mut versions = HashMap::new();
-        versions.insert(app_id.to_string(), 0u64);
-        let body = serde_json::json!({
-            "local_versions": versions,
-            "logs": Vec::<LogEntry>::new(),
-            "corrections": Vec::<PendingCorrection>::new(),
-            "tick_interval_secs": self.server.tick_interval_secs,
-            "library_version": format!("microresolve-rust/{}", env!("CARGO_PKG_VERSION")),
-        });
+    /// Fetch a full snapshot for the given namespace IDs via `POST /api/snapshot`.
+    /// Returns a map of namespace_id → (Resolver, version).
+    /// Namespaces absent from the server response are not included in the result.
+    pub fn fetch_snapshot(
+        &self,
+        ns_ids: &[String],
+    ) -> Result<HashMap<String, (Resolver, u64)>, crate::Error> {
+        let url = format!("{}/api/snapshot", self.server.url);
+        let body = serde_json::json!({ "namespace_ids": ns_ids });
         let mut req = self.http.post(&url).json(&body);
         if let Some(ref key) = self.server.api_key {
             req = req.header("X-Api-Key", key);
         }
         let resp = req
             .send()
-            .map_err(|e| crate::Error::Connect(format!("pull {}: {}", app_id, e)))?;
+            .map_err(|e| crate::Error::Connect(format!("snapshot: {}", e)))?;
         if !resp.status().is_success() {
             return Err(crate::Error::Connect(format!(
-                "pull {}: HTTP {}",
-                app_id,
+                "snapshot: HTTP {}",
                 resp.status()
             )));
         }
-        let parsed: BatchSyncResponse = resp
+        #[derive(serde::Deserialize)]
+        struct SnapshotNs {
+            version: u64,
+            export: String,
+        }
+        #[derive(serde::Deserialize)]
+        struct SnapshotResponse {
+            namespaces: HashMap<String, SnapshotNs>,
+        }
+        let parsed: SnapshotResponse = resp
             .json()
-            .map_err(|e| crate::Error::Connect(e.to_string()))?;
-        match parsed.namespaces.get(app_id) {
-            Some(ns) if !ns.up_to_date => {
-                if let Some(json) = ns.export.as_ref() {
-                    let r = Resolver::import_json(json)?;
+            .map_err(|e| crate::Error::Connect(format!("snapshot parse: {}", e)))?;
+        let mut result = HashMap::new();
+        for (id, ns) in parsed.namespaces {
+            match Resolver::import_json(&ns.export) {
+                Ok(r) => {
                     self.versions
                         .write()
                         .unwrap()
-                        .insert(app_id.to_string(), ns.version);
-                    Ok(Some((r, ns.version)))
-                } else {
-                    self.versions.write().unwrap().insert(app_id.to_string(), 0);
-                    Ok(None)
+                        .insert(id.clone(), ns.version);
+                    result.insert(id, (r, ns.version));
                 }
-            }
-            _ => {
-                self.versions.write().unwrap().insert(app_id.to_string(), 0);
-                Ok(None)
+                Err(e) => eprintln!("[microresolve-connect] snapshot import error {}: {}", id, e),
             }
         }
+        Ok(result)
     }
 
     /// Buffer a correction for the next batch sync tick.
@@ -292,55 +291,56 @@ where
         std::thread::sleep(tick);
         match batch_sync(&state) {
             Ok(resp) => {
+                // Collect namespaces that need a full snapshot.
+                let mut needs_snapshot: Vec<String> = Vec::new();
                 for (app_id, ns_result) in resp.namespaces {
-                    if !ns_result.up_to_date {
-                        if let Some(ops) = ns_result.ops {
-                            // Delta path: apply ops to the live resolver.
-                            // Version counter is only advanced on success; a failure leaves
-                            // the counter unchanged so the server will ship a full export on
-                            // the next tick, self-healing any divergence.
-                            match apply_delta(&app_id, &ops, ns_result.version) {
-                                Ok(()) => {
-                                    state
-                                        .versions
-                                        .write()
-                                        .unwrap()
-                                        .insert(app_id.clone(), ns_result.version);
-                                    eprintln!(
-                                        "[microresolve-connect] delta {} → v{} ({} ops applied)",
-                                        app_id,
-                                        ns_result.version,
-                                        ops.len()
-                                    );
-                                }
-                                Err(e) => {
-                                    eprintln!(
-                                        "[microresolve-connect] delta apply error {} (will retry full export): {}",
-                                        app_id, e
-                                    );
-                                    // Do NOT update version — forces full export on next tick.
-                                }
+                    if ns_result.up_to_date {
+                        continue;
+                    }
+                    if ns_result.cold_start_required {
+                        needs_snapshot.push(app_id);
+                    } else if let Some(ops) = ns_result.ops {
+                        // Delta path: apply ops to the live resolver.
+                        // Version counter is only advanced on success; a failure leaves
+                        // the counter unchanged so the server will signal cold_start_required
+                        // on the next tick.
+                        match apply_delta(&app_id, &ops, ns_result.version) {
+                            Ok(()) => {
+                                state
+                                    .versions
+                                    .write()
+                                    .unwrap()
+                                    .insert(app_id.clone(), ns_result.version);
+                                eprintln!(
+                                    "[microresolve-connect] delta {} → v{} ({} ops applied)",
+                                    app_id,
+                                    ns_result.version,
+                                    ops.len()
+                                );
                             }
-                        } else if let Some(json) = ns_result.export {
-                            match Resolver::import_json(&json) {
-                                Ok(resolver) => {
-                                    state
-                                        .versions
-                                        .write()
-                                        .unwrap()
-                                        .insert(app_id.clone(), ns_result.version);
-                                    apply_pull(&app_id, resolver, ns_result.version);
-                                    eprintln!(
-                                        "[microresolve-connect] reloaded {} → v{}",
-                                        app_id, ns_result.version
-                                    );
-                                }
-                                Err(e) => eprintln!(
-                                    "[microresolve-connect] import error {}: {}",
+                            Err(e) => {
+                                eprintln!(
+                                    "[microresolve-connect] delta apply error {} (will retry snapshot): {}",
                                     app_id, e
-                                ),
+                                );
+                                // Do NOT update version — forces snapshot on next tick.
                             }
                         }
+                    }
+                }
+                // Fetch a single snapshot for all namespaces that need one.
+                if !needs_snapshot.is_empty() {
+                    match state.fetch_snapshot(&needs_snapshot) {
+                        Ok(snaps) => {
+                            for (id, (resolver, version)) in snaps {
+                                apply_pull(&id, resolver, version);
+                                eprintln!(
+                                    "[microresolve-connect] snapshot reloaded {} → v{}",
+                                    id, version
+                                );
+                            }
+                        }
+                        Err(e) => eprintln!("[microresolve-connect] snapshot fetch error: {}", e),
                     }
                 }
             }
