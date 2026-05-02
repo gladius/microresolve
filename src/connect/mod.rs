@@ -277,9 +277,15 @@ pub fn apply_ops(resolver: &mut Resolver, ops: &[crate::oplog::Op]) -> Result<()
 /// Holds an `Arc<ConnectState>` and a weak handle into the MicroResolve's namespace
 /// map. Runs forever; the only termination signal is the MicroResolve instance being dropped
 /// (which drops the strong references and the OS reclaims the thread).
-pub(crate) fn run_background<F>(state: Arc<ConnectState>, apply_pull: F)
+///
+/// `apply_pull` — called for full-export syncs: replaces the resolver wholesale.
+/// `apply_delta` — called for delta syncs: applies a list of ops to the live resolver.
+///   Returns `Ok(())` on success; on `Err` the version counter is NOT advanced so the
+///   server will ship a fresh full export on the next tick.
+pub(crate) fn run_background<F, FD>(state: Arc<ConnectState>, apply_pull: F, apply_delta: FD)
 where
     F: Fn(&str, Resolver, u64) + Send + 'static,
+    FD: Fn(&str, &[crate::oplog::Op]) -> Result<(), crate::Error> + Send + 'static,
 {
     let tick = Duration::from_secs(state.server.tick_interval_secs.max(1));
     loop {
@@ -289,35 +295,32 @@ where
                 for (app_id, ns_result) in resp.namespaces {
                     if !ns_result.up_to_date {
                         if let Some(ops) = ns_result.ops {
-                            // Delta path: apply ops inline.
-                            // We need a mutable resolver — callers provide apply_pull for
-                            // full-swap only; for delta we apply directly via a temp resolver
-                            // and swap. Since we don't have direct mut access here, fall back
-                            // to full-export if ops came without a base. In practice the
-                            // server always sends ops OR export, never both.
-                            //
-                            // NOTE: to apply ops inline we'd need a different callback
-                            // signature. For now pull the current resolver state and patch it.
-                            // This is safe because apply_ops is idempotent.
-                            eprintln!(
-                                "[microresolve-connect] delta {} → v{} ({} ops)",
-                                app_id,
-                                ns_result.version,
-                                ops.len()
-                            );
-                            // Delta apply requires a mutable handle — signal the engine
-                            // via the existing apply_pull callback with a "delta-patched"
-                            // resolver. We skip this for the initial implementation and
-                            // request a full export on the next tick if ops arrive without
-                            // a full export. The server-side behaviour is correct; the
-                            // client just won't use the ops in this background path yet.
-                            // The apply_ops function is exercised via direct engine calls
-                            // (tests + NamespaceHandle::apply_weight_updates).
-                            state
-                                .versions
-                                .write()
-                                .unwrap()
-                                .insert(app_id.clone(), ns_result.version);
+                            // Delta path: apply ops to the live resolver.
+                            // Version counter is only advanced on success; a failure leaves
+                            // the counter unchanged so the server will ship a full export on
+                            // the next tick, self-healing any divergence.
+                            match apply_delta(&app_id, &ops) {
+                                Ok(()) => {
+                                    state
+                                        .versions
+                                        .write()
+                                        .unwrap()
+                                        .insert(app_id.clone(), ns_result.version);
+                                    eprintln!(
+                                        "[microresolve-connect] delta {} → v{} ({} ops applied)",
+                                        app_id,
+                                        ns_result.version,
+                                        ops.len()
+                                    );
+                                }
+                                Err(e) => {
+                                    eprintln!(
+                                        "[microresolve-connect] delta apply error {} (will retry full export): {}",
+                                        app_id, e
+                                    );
+                                    // Do NOT update version — forces full export on next tick.
+                                }
+                            }
                         } else if let Some(json) = ns_result.export {
                             match Resolver::import_json(&json) {
                                 Ok(resolver) => {
@@ -372,6 +375,8 @@ fn batch_sync(state: &ConnectState) -> Result<BatchSyncResponse, crate::Error> {
         "corrections": corrections,
         "tick_interval_secs": state.server.tick_interval_secs,
         "library_version": format!("microresolve-rust/{}", env!("CARGO_PKG_VERSION")),
+        // Tell the server this client can receive and apply delta ops.
+        "supports_delta": true,
     });
     let mut req = state.http.post(&url).json(&body);
     if let Some(ref key) = state.server.api_key {

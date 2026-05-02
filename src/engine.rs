@@ -118,16 +118,32 @@ impl MicroResolve {
             }
             // Spawn the background sync thread.
             let ns_for_thread = Arc::clone(&namespaces);
+            let ns_for_delta = Arc::clone(&namespaces);
             let state_for_thread = Arc::clone(&state);
             std::thread::Builder::new()
                 .name("microresolve-sync".into())
                 .spawn(move || {
-                    crate::connect::run_background(state_for_thread, move |id, resolver, _v| {
-                        if let Some(ns) = ns_for_thread.write().unwrap().get_mut(id) {
-                            ns.resolver = resolver;
-                            ns.dirty = false;
-                        }
-                    });
+                    crate::connect::run_background(
+                        state_for_thread,
+                        move |id, resolver, _v| {
+                            if let Some(ns) = ns_for_thread.write().unwrap().get_mut(id) {
+                                ns.resolver = resolver;
+                                ns.dirty = false;
+                            }
+                        },
+                        move |id, ops| {
+                            if let Some(ns) = ns_for_delta.write().unwrap().get_mut(id) {
+                                crate::connect::apply_ops(&mut ns.resolver, ops)?;
+                                ns.dirty = true;
+                                Ok(())
+                            } else {
+                                Err(crate::Error::Connect(format!(
+                                    "delta apply: namespace '{}' not found",
+                                    id
+                                )))
+                            }
+                        },
+                    );
                 })
                 .map_err(|e| Error::Connect(format!("spawn sync thread: {}", e)))?;
             Some(state)
