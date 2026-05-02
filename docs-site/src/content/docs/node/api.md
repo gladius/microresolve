@@ -15,7 +15,7 @@ const { MicroResolve } = require('microresolve');
 new MicroResolve()
 new MicroResolve({ dataDir: '/tmp/mr' })
 new MicroResolve({
-  serverUrl: 'http://localhost:3001',
+  serverUrl: 'http://localhost:4000',
   apiKey: 'mr_xxx',
   subscribe: ['security'],
   tickIntervalSecs: 30,

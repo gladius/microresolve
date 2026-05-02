@@ -1,6 +1,8 @@
 """Shared utilities for MicroResolve benchmark runners.
 
-All functions assume the MicroResolve server is running on localhost:3001.
+All functions assume the MicroResolve bench server is running on localhost:8181
+(isolated from the main studio on :4000 so regression runs don't clobber the
+operator's UI session).
 Namespace header: X-Namespace-ID
 
 Auth: since v0.1.9, every /api/* call requires X-Api-Key. The bench tries
@@ -21,7 +23,7 @@ import statistics
 from pathlib import Path
 from typing import Any
 
-BASE = "http://localhost:3001"
+BASE = "http://localhost:8181"
 
 
 def _load_api_key() -> str | None:

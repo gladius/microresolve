@@ -187,8 +187,4 @@ Server-sent event stream. Emits events on intent changes, learn completions, and
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/layers/info` | Layer summary for current namespace |
-| `GET` | `/api/layers/l1/edges` | List L1 (morphology) graph edges |
-| `POST` | `/api/layers/l1/edges` | Add an L1 edge |
-| `DELETE` | `/api/layers/l1/edges` | Delete an L1 edge |
-| `POST` | `/api/layers/l1/distill` | Trigger LLM distillation of L1 edges |
 | `POST` | `/api/layers/l2/probe` | Probe L2 scoring layer with a query |

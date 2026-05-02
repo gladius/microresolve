@@ -15,7 +15,7 @@ from microresolve import MicroResolve
 MicroResolve()
 MicroResolve(data_dir="/tmp/mr")
 MicroResolve(
-    server_url="http://localhost:3001",
+    server_url="http://localhost:4000",
     api_key="mr_xxx",
     subscribe=["security"],
     tick_interval_secs=30,

@@ -20,12 +20,12 @@ use std::path::PathBuf;
     version,
     about = "Pre-LLM decision layer: intent classification, tool selection, request triage.",
     long_about = "MicroResolve — a microsecond classical classifier for the pre-LLM decision layer.\n\n\
-        Run without arguments to start the server with defaults (http://localhost:3001).\n\
+        Run without arguments to start the server with defaults (http://localhost:4000).\n\
         Set up persistent config (API keys, etc.) with:  microresolve config\n\n\
         Homepage: https://github.com/gladius/microresolve"
 )]
 pub struct Cli {
-    /// Port to listen on (default: 3001). Overrides MICRORESOLVE_PORT env var and config file.
+    /// Port to listen on (default: 4000). Overrides MICRORESOLVE_PORT env var and config file.
     #[arg(long, value_name = "PORT")]
     pub port: Option<u16>,
 
@@ -138,7 +138,7 @@ pub fn resolve(cli: &Cli) -> ResolvedConfig {
                 .and_then(|v| v.parse().ok())
         })
         .or(file.port)
-        .unwrap_or(3001);
+        .unwrap_or(4000);
 
     let host = cli
         .host
@@ -292,7 +292,7 @@ pub fn run_config_subcommand() -> std::io::Result<()> {
         &mut stdout,
         &mut stdin,
         &mut buf,
-        "Port (blank = 3001)",
+        "Port (blank = 4000)",
         existing.port.map(|p| p.to_string()).as_deref(),
     )?
     .and_then(|s| s.parse().ok());

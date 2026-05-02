@@ -111,7 +111,7 @@ export default function ConnectedClientsPage() {
                     <pre className="mt-2 bg-zinc-950 border border-zinc-800 rounded p-2 text-[11px] text-zinc-300 overflow-x-auto"><code>{`# Python
 from microresolve import MicroResolve
 mr = MicroResolve(
-    server_url="http://localhost:3001",
+    server_url="http://localhost:4000",
     api_key="mr_<your-key>",
 )`}</code></pre>
                   </div>

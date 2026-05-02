@@ -48,7 +48,7 @@ Each namespace is a subdirectory. The `intents.json` file stores the seed phrase
 ## View history
 
 ```bash
-curl "http://localhost:3001/api/namespaces/support/history"
+curl "http://localhost:4000/api/namespaces/support/history"
 ```
 
 Response:
@@ -76,7 +76,7 @@ Response:
 ## Roll back a namespace
 
 ```bash
-curl -X POST http://localhost:3001/api/namespaces/support/rollback \
+curl -X POST http://localhost:4000/api/namespaces/support/rollback \
   -H "Content-Type: application/json" \
   -d '{"sha": "def5678abc1234..."}'
 ```
@@ -90,7 +90,7 @@ Rollback is repo-wide — it resets the entire data directory, not just the name
 ## Semantic diff
 
 ```bash
-curl "http://localhost:3001/api/namespaces/support/diff"
+curl "http://localhost:4000/api/namespaces/support/diff"
 ```
 
 Returns a structured diff of intents added, removed, or changed since the previous commit — more readable than a raw `git diff`.
@@ -100,7 +100,7 @@ Returns a structured diff of intents added, removed, or changed since the previo
 ### Configure a remote
 
 ```bash
-curl -X PUT http://localhost:3001/api/settings/git \
+curl -X PUT http://localhost:4000/api/settings/git \
   -H "Content-Type: application/json" \
   -d '{"remote_url": "git@github.com:your-org/microresolve-data.git"}'
 ```
@@ -108,7 +108,7 @@ curl -X PUT http://localhost:3001/api/settings/git \
 ### Manual push
 
 ```bash
-curl -X POST http://localhost:3001/api/git/push
+curl -X POST http://localhost:4000/api/git/push
 ```
 
 Remote push is best-effort. If the push fails (network error, no remote configured), the server logs the failure but does not block the write operation.
@@ -116,7 +116,7 @@ Remote push is best-effort. If the push fails (network error, no remote configur
 ### Check remote config
 
 ```bash
-curl http://localhost:3001/api/settings/git
+curl http://localhost:4000/api/settings/git
 # {"remote_url": "git@github.com:...", "auto_push": false, "has_repo": true}
 ```
 
@@ -127,7 +127,7 @@ curl http://localhost:3001/api/settings/git
 ## Clear the remote
 
 ```bash
-curl -X PUT http://localhost:3001/api/settings/git \
+curl -X PUT http://localhost:4000/api/settings/git \
   -H "Content-Type: application/json" \
   -d '{"remote_url": null}'
 ```

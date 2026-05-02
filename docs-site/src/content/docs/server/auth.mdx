@@ -14,7 +14,7 @@ Authentication is opt-in. Creating the first API key enables it — from that po
 Pass the key in the `X-Api-Key` header:
 
 ```bash
-curl http://localhost:3001/api/intents \
+curl http://localhost:4000/api/intents \
   -H "X-Namespace-ID: support" \
   -H "X-Api-Key: mr_a1b2c3d4e5f6..."
 ```
@@ -26,7 +26,7 @@ The Studio UI prompts for the API key after your first key is created. Enter it 
 ## Create an API key
 
 ```bash
-curl -X POST http://localhost:3001/api/auth/keys \
+curl -X POST http://localhost:4000/api/auth/keys \
   -H "Content-Type: application/json" \
   -d '{"name": "production"}'
 ```
@@ -50,7 +50,7 @@ Keys are prefixed with `mr_` followed by a hex string.
 ## List API keys
 
 ```bash
-curl http://localhost:3001/api/auth/keys \
+curl http://localhost:4000/api/auth/keys \
   -H "X-Api-Key: mr_a1b2c3d4e5f6..."
 ```
 
@@ -74,7 +74,7 @@ curl http://localhost:3001/api/auth/keys \
 ## Delete an API key
 
 ```bash
-curl -X DELETE http://localhost:3001/api/auth/keys/production \
+curl -X DELETE http://localhost:4000/api/auth/keys/production \
   -H "X-Api-Key: mr_a1b2c3d4e5f6..."
 ```
 
