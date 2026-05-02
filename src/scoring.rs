@@ -65,7 +65,7 @@ pub struct IntentIndex {
     #[serde(default)]
     pub intent_count: usize,
 
-    /// Per-word IDF cache — rebuilt on load via `rebuild_idf`.
+    /// Per-word IDF cache — rebuilt on load via `rebuild_caches`.
     #[serde(skip)]
     idf_cache: FxHashMap<String, f32>,
 
@@ -89,7 +89,7 @@ impl IntentIndex {
     const LEARN_RATE: f32 = 0.3;
 
     /// Recompute intent_count and idf_cache from word_intent in one pass.
-    pub fn rebuild_idf(&mut self) {
+    pub fn rebuild_caches(&mut self) {
         self.known_intents.clear();
         self.known_words.clear();
         self.intent_to_tokens.clear();
@@ -180,7 +180,7 @@ impl IntentIndex {
                 .or_default()
                 .insert(word.to_string());
             if new_intent {
-                self.rebuild_idf();
+                self.rebuild_caches();
             } else {
                 self.refresh_idf_for(word);
             }
@@ -272,7 +272,7 @@ impl IntentIndex {
         rescored
     }
 
-    pub fn learn_query_words(&mut self, words: &[&str], intent: &str) {
+    pub fn reinforce_tokens(&mut self, words: &[&str], intent: &str) {
         for word in words {
             self.learn_word(word, intent, Self::LEARN_RATE);
         }

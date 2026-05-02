@@ -25,7 +25,7 @@ pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)
     for (intent_id, phrase) in accepted {
         h.index_phrase(intent_id, phrase);
     }
-    h.rebuild_idf();
+    h.rebuild_caches();
     eprintln!(
         "[import/L2] seeded {} phrases into count model for '{}'",
         accepted.len(),
@@ -587,7 +587,7 @@ pub async fn import_apply(
         "imported": intent_names.len(),
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
-        "l2_unique_words": l2_words,
+        "vocab_size": l2_words,
         "intents": intent_names,
         "per_intent": per_intent,
     })))
@@ -1045,7 +1045,7 @@ pub async fn mcp_apply(
         "imported": tool_names.len(),
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
-        "l2_unique_words": l2_words,
+        "vocab_size": l2_words,
         "intents": tool_names,
         "per_intent": per_intent,
     })))

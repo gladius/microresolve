@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.1] — Unreleased
+
+### Breaking
+
+- **Import response field `l2_unique_words` renamed to `vocab_size`** — the
+  last `l2_*` key in the external API surface. Callers parsing this field
+  from the OpenAPI or MCP import endpoints must update to `vocab_size`.
+
+---
+
 ## [0.1.9] — 2026-05-01
 
 ### Breaking

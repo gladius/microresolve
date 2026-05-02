@@ -183,7 +183,7 @@ impl Resolver {
         }
 
         // Rebuild IDF cache from the loaded posting lists — O(words) once on load.
-        router.index.rebuild_idf();
+        router.index.rebuild_caches();
 
         Ok(router)
     }

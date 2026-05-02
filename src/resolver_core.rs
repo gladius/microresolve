@@ -172,8 +172,10 @@ impl Resolver {
             });
     }
 
-    /// Tokenize a phrase and learn each token into L2 for the intent. Also
-    /// indexes char-4grams for the cross-provider tiebreaker layer.
+    /// Lower-level phrase ingestion: tokenizes + indexes the phrase into the scoring index without
+    /// the duplicate-check or stop-word filtering that `add_phrase` applies. Use `add_phrase`
+    /// for user-driven additions; use `index_phrase` only for trusted, pre-validated phrases
+    /// (e.g., from spec import or auto-learn).
     pub fn index_phrase(&mut self, intent_id: &str, phrase: &str) {
         self.index_phrase_no_rebuild(intent_id, phrase);
     }
@@ -204,7 +206,7 @@ impl Resolver {
         for (intent_id, phrase) in &all {
             self.index_phrase_no_rebuild(intent_id, phrase);
         }
-        self.index.rebuild_idf();
+        self.index.rebuild_caches();
         // Audit log is now stale — every prior train_negative call has been wiped.
         self.negative_training_log.clear();
     }
@@ -256,7 +258,7 @@ impl Resolver {
     ///
     /// `negative_alpha` is clamped to (0.0, 0.3]; pass `0.1` for a sensible
     /// default. `0.0` or negative skips anti-Hebbian entirely.
-    pub fn apply_review_local(
+    pub fn apply_review(
         &mut self,
         missed_phrases: &HashMap<String, Vec<String>>,
         spans_to_learn: &[(String, String)],
@@ -284,7 +286,7 @@ impl Resolver {
         for (intent_id, span_text) in spans_to_learn {
             let span_words: Vec<String> = crate::tokenizer::tokenize(span_text);
             let span_refs: Vec<&str> = span_words.iter().map(|s| s.as_str()).collect();
-            self.index.learn_query_words(&span_refs, intent_id);
+            self.index.reinforce_tokens(&span_refs, intent_id);
         }
 
         // 3. Anti-Hebbian shrink for wrong detections on this query.
@@ -306,7 +308,7 @@ impl Resolver {
     /// one candidate has more query-unique tokens than the others. If no
     /// candidate has any unique tokens, the group is left intact (genuinely
     /// ambiguous → caller decides).
-    pub fn disambiguate_cross_provider(&self, scored: &mut Vec<(String, f32)>, query: &str) {
+    pub fn deduplicate_by_provider(&self, scored: &mut Vec<(String, f32)>, query: &str) {
         if scored.len() < 2 {
             return;
         }

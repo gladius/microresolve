@@ -524,22 +524,25 @@ impl<'e> NamespaceHandle<'e> {
             .with_resolver_mut(&self.id, |r| r.rebuild_index())
     }
 
-    /// Index a single phrase without rebuilding IDF (call `rebuild_idf` after a batch).
+    /// Lower-level phrase ingestion: tokenizes + indexes the phrase into the scoring index without
+    /// the duplicate-check or stop-word filtering that `add_phrase` applies. Use `add_phrase`
+    /// for user-driven additions; use `index_phrase` only for trusted, pre-validated phrases
+    /// (e.g., from spec import or auto-learn).
     pub fn index_phrase(&self, intent_id: &str, phrase: &str) {
         self.engine
             .with_resolver_mut(&self.id, |r| r.index_phrase(intent_id, phrase))
     }
 
-    /// Rebuild the IDF table after bulk `index_phrase` calls.
-    pub fn rebuild_idf(&self) {
+    /// Rebuild the IDF table and in-memory caches after bulk `index_phrase` calls.
+    pub fn rebuild_caches(&self) {
         self.engine
-            .with_resolver_mut(&self.id, |r| r.index_mut().rebuild_idf())
+            .with_resolver_mut(&self.id, |r| r.index_mut().rebuild_caches())
     }
 
-    /// Reinforce specific query words toward `intent_id` (Hebbian-style weight update).
-    pub fn learn_query_words(&self, words: &[&str], intent_id: &str) {
+    /// Reinforce specific query tokens toward `intent_id` (Hebbian-style weight update).
+    pub fn reinforce_tokens(&self, words: &[&str], intent_id: &str) {
         self.engine.with_resolver_mut(&self.id, |r| {
-            r.index_mut().learn_query_words(words, intent_id)
+            r.index_mut().reinforce_tokens(words, intent_id)
         })
     }
 
@@ -577,12 +580,12 @@ impl<'e> NamespaceHandle<'e> {
             .with_resolver_mut(&self.id, |r| r.remove_domain_description(domain))
     }
 
-    /// Disambiguate cross-provider duplicates in an already-scored result set.
+    /// Deduplicate cross-provider duplicates in an already-scored result set.
     /// Mutates `scored` in place; only affects intents whose action name appears
     /// under multiple providers.
-    pub fn disambiguate_cross_provider(&self, scored: &mut Vec<(String, f32)>, query: &str) {
+    pub fn deduplicate_by_provider(&self, scored: &mut Vec<(String, f32)>, query: &str) {
         self.engine
-            .with_resolver(&self.id, |r| r.disambiguate_cross_provider(scored, query))
+            .with_resolver(&self.id, |r| r.deduplicate_by_provider(scored, query))
     }
 
     /// Per-intent normalized confidence for an already-scored result set.
@@ -638,7 +641,7 @@ impl<'e> NamespaceHandle<'e> {
 
     /// Apply a review result (missed phrases, span learning, anti-Hebbian correction).
     /// Returns the number of phrases added.
-    pub fn apply_review_local(
+    pub fn apply_review(
         &self,
         missed_phrases: &std::collections::HashMap<String, Vec<String>>,
         spans_to_learn: &[(String, String)],
@@ -647,7 +650,7 @@ impl<'e> NamespaceHandle<'e> {
         negative_alpha: f32,
     ) -> usize {
         self.engine.with_resolver_mut(&self.id, |r| {
-            r.apply_review_local(
+            r.apply_review(
                 missed_phrases,
                 spans_to_learn,
                 wrong_detections,

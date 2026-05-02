@@ -67,7 +67,7 @@ pub async fn route_multi(
         // different actions are never touched.
         if scored.len() > 1 {
             if let Some(h) = state.engine.try_namespace(&app_id) {
-                h.disambiguate_cross_provider(&mut scored, &req.query);
+                h.deduplicate_by_provider(&mut scored, &req.query);
             }
         }
 
