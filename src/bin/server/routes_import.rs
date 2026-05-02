@@ -578,7 +578,7 @@ pub async fn import_apply(
     let l2_words = state
         .engine
         .try_namespace(&app_id)
-        .map(|h| h.l2_word_count())
+        .map(|h| h.vocab_size())
         .unwrap_or(0);
 
     Ok(Json(serde_json::json!({
@@ -1038,7 +1038,7 @@ pub async fn mcp_apply(
     let l2_words = state
         .engine
         .try_namespace(&app_id)
-        .map(|h| h.l2_word_count())
+        .map(|h| h.vocab_size())
         .unwrap_or(0);
 
     Ok(Json(serde_json::json!({

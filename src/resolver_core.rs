@@ -8,7 +8,7 @@ impl Resolver {
     /// Create a new empty resolver.
     pub fn new() -> Self {
         Self {
-            l2: crate::scoring::IntentIndex::new(),
+            index: crate::scoring::IntentIndex::new(),
             training: HashMap::new(),
             intent_types: HashMap::new(),
             descriptions: HashMap::new(),
@@ -86,7 +86,7 @@ impl Resolver {
             .map_err(|e| crate::Error::Parse(format!("invalid JSON: {}", e)))?;
 
         let mut resolver = Self {
-            l2: crate::scoring::IntentIndex::new(),
+            index: crate::scoring::IntentIndex::new(),
             training: state.training,
             intent_types: state.intent_types,
             descriptions: state.descriptions,
@@ -107,19 +107,18 @@ impl Resolver {
         // CRITICAL: rebuild L2 from training data so the imported state is
         // actually usable for routing. Without this, training data is restored
         // but the index is empty → routing returns no matches.
-        resolver.rebuild_l2();
+        resolver.rebuild_index();
 
         Ok(resolver)
     }
 
-    // ── Scoring layer accessors ───────────────────────────────────────────────
+    // ── Scoring index accessors ───────────────────────────────────────────────
 
-    // ── Internal layer accessor (gated behind `internal` feature) ───────────
-    pub fn l2(&self) -> &crate::scoring::IntentIndex {
-        &self.l2
+    pub fn index(&self) -> &crate::scoring::IntentIndex {
+        &self.index
     }
-    pub fn l2_mut(&mut self) -> &mut crate::scoring::IntentIndex {
-        &mut self.l2
+    pub fn index_mut(&mut self) -> &mut crate::scoring::IntentIndex {
+        &mut self.index
     }
 
     // ── L2b anti-Hebbian v2: token-level negative training ────────────────────
@@ -142,7 +141,7 @@ impl Resolver {
     /// default for setup-time inoculation from a benign corpus.
     ///
     /// Each call appends to the audit log automatically (see
-    /// `negative_training_log`); use `rebuild_l2()` to reset both the
+    /// `negative_training_log`); use `rebuild_index()` to reset both the
     /// weights and the log.
     pub fn train_negative(&mut self, raw_queries: &[String], not_intents: &[String], alpha: f32) {
         if alpha <= 0.0 || alpha >= 1.0 {
@@ -156,7 +155,7 @@ impl Resolver {
                 .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
                 .collect();
             for intent_id in not_intents {
-                self.l2.reinforce(&words, intent_id, delta);
+                self.index.reinforce(&words, intent_id, delta);
             }
         }
         // Audit trail — appended automatically.
@@ -183,16 +182,16 @@ impl Resolver {
         let words = crate::tokenizer::tokenize(phrase);
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
         if !word_refs.is_empty() {
-            self.l2.learn_phrase(&word_refs, intent_id);
+            self.index.learn_phrase(&word_refs, intent_id);
         }
-        self.l2.index_char_ngrams(phrase, intent_id);
+        self.index.index_char_ngrams(phrase, intent_id);
     }
 
-    /// Rebuild L2 from scratch using all training phrases currently in this
-    /// namespace. Clears the existing L2 index, re-indexes every stored
+    /// Rebuild the scoring index from scratch using all training phrases currently in this
+    /// namespace. Clears the existing index, re-indexes every stored
     /// phrase, and wipes the negative-training audit log.
-    pub fn rebuild_l2(&mut self) {
-        self.l2 = crate::scoring::IntentIndex::new();
+    pub fn rebuild_index(&mut self) {
+        self.index = crate::scoring::IntentIndex::new();
         let all: Vec<(String, String)> = self
             .training
             .iter()
@@ -205,7 +204,7 @@ impl Resolver {
         for (intent_id, phrase) in &all {
             self.index_phrase_no_rebuild(intent_id, phrase);
         }
-        self.l2.rebuild_idf();
+        self.index.rebuild_idf();
         // Audit log is now stale — every prior train_negative call has been wiped.
         self.negative_training_log.clear();
     }
@@ -225,9 +224,7 @@ impl Resolver {
     /// `opts.gap` — multi-intent cutoff: the top score divided by `gap`
     /// is the floor for secondary matches. Higher = more matches reported.
     pub fn resolve_with(&self, query: &str, opts: &crate::ResolveOptions) -> Vec<crate::Match> {
-        let (scored, _negation) = self
-            .l2
-            .score_multi_normalized(query, opts.threshold, opts.gap);
+        let (scored, _negation) = self.index.score_multi(query, opts.threshold, opts.gap);
         scored
             .into_iter()
             .map(|(id, score)| crate::Match { id, score })
@@ -287,7 +284,7 @@ impl Resolver {
         for (intent_id, span_text) in spans_to_learn {
             let span_words: Vec<String> = crate::tokenizer::tokenize(span_text);
             let span_refs: Vec<&str> = span_words.iter().map(|s| s.as_str()).collect();
-            self.l2.learn_query_words(&span_refs, intent_id);
+            self.index.learn_query_words(&span_refs, intent_id);
         }
 
         // 3. Anti-Hebbian shrink for wrong detections on this query.
@@ -337,7 +334,7 @@ impl Resolver {
         let mut unique_count: FxHashMap<&str, usize> = FxHashMap::default();
         for token in &tokens {
             let base = token.strip_prefix("not_").unwrap_or(token.as_str());
-            if let Some(activations) = self.l2.word_intent.get(base) {
+            if let Some(activations) = self.index.word_intent.get(base) {
                 let matching: Vec<&str> = activations
                     .iter()
                     .filter(|(id, _)| scored_ids.contains(id.as_str()))

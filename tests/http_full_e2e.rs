@@ -263,7 +263,7 @@ fn auto_learn_deterministic_path() {
     );
     assert_eq!(s, 200);
 
-    // rebuild_l2 (clears audit log)
+    // rebuild_index (clears audit log)
     let (s, _) = post_json(
         &c,
         &format!("{}/namespaces/rebuild", b),

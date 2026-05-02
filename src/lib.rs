@@ -45,7 +45,7 @@ mod resolver_metadata;
 mod resolver_persist;
 
 mod engine;
-pub use engine::{MicroResolve, NamespaceHandle, ScoreMultiPipelineOut};
+pub use engine::{MicroResolve, NamespaceHandle, RouteMultiOut};
 
 pub(crate) type FxHashMap<K, V> = std::collections::HashMap<K, V, rustc_hash::FxBuildHasher>;
 pub(crate) type FxHashSet<T> = std::collections::HashSet<T, rustc_hash::FxBuildHasher>;
@@ -80,7 +80,7 @@ pub struct NegativeTrainingEntry {
 #[derive(Clone)]
 pub struct Resolver {
     /// Scoring index: IDF-weighted word→intent associations with anti-Hebbian inhibition.
-    pub(crate) l2: crate::scoring::IntentIndex,
+    pub(crate) index: crate::scoring::IntentIndex,
     /// Raw training phrases per intent, grouped by language code.
     /// Structure: { intent_id: { lang_code: [phrases] } }
     /// This is the canonical intent list — `intent_ids()` reads from here.
@@ -115,8 +115,8 @@ pub struct Resolver {
     namespace_default_threshold: Option<f32>,
     /// Descriptions for domain prefixes (e.g., "billing" in "billing:cancel_order").
     domain_descriptions: HashMap<String, String>,
-    /// L2b audit trail: history of every negative-training call applied to
-    /// this namespace. Persisted in `_ns.json`. Use `rebuild_l2()` + clear
+    /// Audit trail: history of every negative-training call applied to
+    /// this namespace. Persisted in `_ns.json`. Use `rebuild_index()` + clear
     /// to undo. Rail 2 of three: visible action, reversible, bounded.
     negative_training_log: Vec<NegativeTrainingEntry>,
 }

@@ -468,7 +468,7 @@ pub fn diff(dir: &Path, ns_id: &str, from: &str, to: &str) -> Result<NamespaceDi
     let to_files: std::collections::HashSet<String> = ls_tree(dir, to, ns_id).into_iter().collect();
 
     // Intent files: {ns_id}/{intent_id}.json or {ns_id}/{domain}/{intent_id}.json
-    // Exclude _ns.json, _l2.json, _domain.json
+    // Exclude _ns.json, _index.json, _domain.json
     let is_intent = |path: &str| -> Option<String> {
         let filename = std::path::Path::new(path).file_name()?.to_str()?;
         if filename.starts_with('_') {
@@ -625,9 +625,9 @@ pub fn diff(dir: &Path, ns_id: &str, from: &str, to: &str) -> Result<NamespaceDi
         .metadata_changes
         .sort_by(|a, b| a.intent_id.cmp(&b.intent_id).then(a.field.cmp(&b.field)));
 
-    // L2 edge count
-    let l2_from = git_show(dir, from, &format!("{}/_l2.json", ns_id));
-    let l2_to = git_show(dir, to, &format!("{}/_l2.json", ns_id));
+    // Index edge count
+    let l2_from = git_show(dir, from, &format!("{}/_index.json", ns_id));
+    let l2_to = git_show(dir, to, &format!("{}/_index.json", ns_id));
     result.l2_edges_changed = count_edge_diff(l2_from.as_deref(), l2_to.as_deref());
 
     Ok(result)
