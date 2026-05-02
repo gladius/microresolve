@@ -309,7 +309,7 @@ jobs:
           pattern: server-*
           path: server-archives
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           body_path: CHANGELOG.md
