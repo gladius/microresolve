@@ -103,10 +103,13 @@ impl MicroResolve {
             } else {
                 server.subscribe.clone()
             };
-            // Initial pull for each subscribed namespace.
+            // Initial bootstrap: single snapshot call for all subscribed namespaces.
+            let mut snaps = state.fetch_snapshot(&app_ids)?;
             for app_id in &app_ids {
-                let pulled = state.pull(app_id)?;
-                let resolver = pulled.map(|(r, _v)| r).unwrap_or_else(Resolver::new);
+                let resolver = snaps
+                    .remove(app_id)
+                    .map(|(r, _v)| r)
+                    .unwrap_or_else(Resolver::new);
                 namespaces.write().unwrap().insert(
                     app_id.clone(),
                     NamespaceState {
@@ -118,16 +121,36 @@ impl MicroResolve {
             }
             // Spawn the background sync thread.
             let ns_for_thread = Arc::clone(&namespaces);
+            let ns_for_delta = Arc::clone(&namespaces);
             let state_for_thread = Arc::clone(&state);
             std::thread::Builder::new()
                 .name("microresolve-sync".into())
                 .spawn(move || {
-                    crate::connect::run_background(state_for_thread, move |id, resolver, _v| {
-                        if let Some(ns) = ns_for_thread.write().unwrap().get_mut(id) {
-                            ns.resolver = resolver;
-                            ns.dirty = false;
-                        }
-                    });
+                    crate::connect::run_background(
+                        state_for_thread,
+                        move |id, resolver, _v| {
+                            if let Some(ns) = ns_for_thread.write().unwrap().get_mut(id) {
+                                ns.resolver = resolver;
+                                ns.dirty = false;
+                            }
+                        },
+                        move |id, ops, target_version| {
+                            if let Some(ns) = ns_for_delta.write().unwrap().get_mut(id) {
+                                crate::connect::apply_ops(&mut ns.resolver, ops)?;
+                                // Sync the resolver's internal counter to the server's
+                                // authoritative version. apply_ops mutates state but
+                                // doesn't bump the counter — that's the server's job.
+                                ns.resolver.set_version(target_version);
+                                ns.dirty = true;
+                                Ok(())
+                            } else {
+                                Err(crate::Error::Connect(format!(
+                                    "delta apply: namespace '{}' not found",
+                                    id
+                                )))
+                            }
+                        },
+                    );
                 })
                 .map_err(|e| Error::Connect(format!("spawn sync thread: {}", e)))?;
             Some(state)
@@ -547,6 +570,18 @@ impl<'e> NamespaceHandle<'e> {
         })
     }
 
+    /// Overwrite index weights for a set of (token, intent_id, post_weight) triples.
+    ///
+    /// Idempotent by construction: sets to the given post-value, not a delta.
+    /// Used by the delta-sync client to apply `WeightUpdates` ops.
+    pub fn apply_weight_updates(&self, changes: &[(String, String, f32)]) {
+        self.engine.with_resolver_mut(&self.id, |r| {
+            for (token, intent_id, post_weight) in changes {
+                r.index_mut().set_weight(token, intent_id, *post_weight);
+            }
+        })
+    }
+
     /// Number of unique token→intent associations in the scoring index.
     /// Used for diagnostics and startup logs.
     pub fn vocab_size(&self) -> usize {
@@ -690,6 +725,22 @@ impl<'e> NamespaceHandle<'e> {
         })
     }
 
+    /// Read-only access to the underlying resolver. Used by server routes for
+    /// oplog inspection without exposing the full `Resolver` type.
+    pub fn with_resolver<R>(&self, f: impl FnOnce(&Resolver) -> R) -> R {
+        self.engine.with_resolver(&self.id, f)
+    }
+
+    /// Apply a sequence of delta-sync ops to this namespace.
+    ///
+    /// Acquires the write lock for the entire sequence to avoid interleaving
+    /// with concurrent local mutations. Each op is applied via the resolver's
+    /// typed methods, which are idempotent by design.
+    pub fn apply_ops(&self, ops: &[crate::oplog::Op]) -> Result<(), Error> {
+        self.engine
+            .with_resolver_mut(&self.id, |r| apply_ops_inner(r, ops))
+    }
+
     /// Persist this namespace to disk now. Mostly useful to force a flush
     /// before reading from disk via another process; otherwise the MicroResolve
     /// instance flushes on drop.
@@ -704,6 +755,70 @@ impl<'e> NamespaceHandle<'e> {
         }
         Ok(())
     }
+}
+
+// ── apply_ops_inner ──────────────────────────────────────────────────────────
+
+/// Apply a list of delta-sync ops to a resolver.
+/// This is the canonical implementation used by both `NamespaceHandle::apply_ops`
+/// and (via re-export) `connect::apply_ops`.
+fn apply_ops_inner(resolver: &mut Resolver, ops: &[crate::oplog::Op]) -> Result<(), Error> {
+    use crate::oplog::Op;
+    for op in ops {
+        match op {
+            Op::IntentAdded {
+                id,
+                phrases_by_lang,
+                ..
+            } => {
+                let seeds = crate::IntentSeeds::Multi(
+                    phrases_by_lang
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect(),
+                );
+                let _ = resolver.add_intent(id, seeds);
+            }
+            Op::IntentRemoved { id } => {
+                resolver.remove_intent(id);
+            }
+            Op::PhraseAdded {
+                intent_id,
+                phrase,
+                lang,
+            } => {
+                resolver.add_phrase(intent_id, phrase, lang);
+            }
+            Op::PhraseRemoved { intent_id, phrase } => {
+                resolver.remove_phrase(intent_id, phrase);
+            }
+            Op::WeightUpdates { changes } => {
+                for (token, intent_id, post_weight) in changes {
+                    resolver
+                        .index_mut()
+                        .set_weight(token, intent_id, *post_weight);
+                }
+            }
+            Op::IntentMetadataUpdated { id, edit_json } => {
+                let edit: crate::IntentEdit = serde_json::from_str(edit_json)
+                    .map_err(|e| Error::Parse(format!("intent edit parse: {}", e)))?;
+                let _ = resolver.update_intent(id, edit);
+            }
+            Op::NamespaceMetadataUpdated { edit_json } => {
+                let edit: crate::NamespaceEdit = serde_json::from_str(edit_json)
+                    .map_err(|e| Error::Parse(format!("namespace edit parse: {}", e)))?;
+                let _ = resolver.update_namespace(edit);
+            }
+            Op::DomainDescription {
+                domain,
+                description,
+            } => match description {
+                Some(d) => resolver.set_domain_description(domain, d),
+                None => resolver.remove_domain_description(domain),
+            },
+        }
+    }
+    Ok(())
 }
 
 // ── RouteMultiOut ──────────────────────────────────────────────────────

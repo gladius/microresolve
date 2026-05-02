@@ -180,6 +180,7 @@ pub fn post_json<T: serde::Serialize>(
 }
 
 /// Helper: GET, return status + body text.
+#[allow(dead_code)]
 pub fn get(
     client: &reqwest::blocking::Client,
     url: &str,
@@ -219,6 +220,7 @@ pub fn delete_json<T: serde::Serialize>(
 }
 
 /// Helper: PATCH with JSON body.
+#[allow(dead_code)]
 pub fn patch_json<T: serde::Serialize>(
     client: &reqwest::blocking::Client,
     url: &str,

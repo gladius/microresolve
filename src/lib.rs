@@ -31,6 +31,7 @@ pub mod scoring;
 pub mod tokenizer;
 
 pub mod import;
+pub mod oplog;
 pub mod types;
 
 #[cfg(feature = "connect")]
@@ -69,6 +70,8 @@ pub struct NegativeTrainingEntry {
     /// Decay rate used. API clamps to (0.0, 0.3].
     pub alpha: f32,
 }
+
+pub use oplog::{Op, OPLOG_MAX};
 
 /// Single-namespace primitive backing every [`NamespaceHandle`].
 ///
@@ -119,6 +122,10 @@ pub struct Resolver {
     /// this namespace. Persisted in `_ns.json`. Use `rebuild_index()` + clear
     /// to undo. Rail 2 of three: visible action, reversible, bounded.
     negative_training_log: Vec<NegativeTrainingEntry>,
+    /// Delta-sync oplog: bounded ring of (version, Op) pairs. Not persisted
+    /// via serde — saved/loaded as `_oplog.json` alongside `_index.json`.
+    #[doc(hidden)]
+    pub oplog: std::collections::VecDeque<(u64, crate::oplog::Op)>,
 }
 
 impl Default for Resolver {

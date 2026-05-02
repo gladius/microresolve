@@ -50,6 +50,8 @@ impl Resolver {
         if !self.training.contains_key(intent_id) {
             return Err(Error::IntentNotFound(intent_id.to_string()));
         }
+        // Serialize edit before consuming its fields.
+        let edit_json = serde_json::to_string(&edit).unwrap_or_default();
         if let Some(t) = edit.intent_type {
             self.intent_types.insert(intent_id.to_string(), t);
         }
@@ -82,6 +84,11 @@ impl Resolver {
         if let Some(g) = edit.guardrails {
             self.guardrails.insert(intent_id.to_string(), g);
         }
+        // Emit metadata op (idempotent on replay).
+        self.bump_with_ops(vec![crate::oplog::Op::IntentMetadataUpdated {
+            id: intent_id.to_string(),
+            edit_json,
+        }]);
         Ok(())
     }
 }

@@ -1,12 +1,13 @@
-//! Connected-mode endpoint: a single unified sync, plus a read-only
-//! roster endpoint for the Studio UI.
+//! Connected-mode endpoints: sync, snapshot, and connected-clients roster.
 //!
-//!   POST /api/sync — one round-trip per tick carrying the client's
-//!                    buffered logs + corrections + per-namespace local
-//!                    versions; server applies everything and returns
-//!                    deltas for each namespace.
-//!   GET  /api/connected_clients — list of currently-active library
-//!                    clients (keyed by API key name). Lazy-GC'd on read.
+//!   POST /api/sync       — delta-only tick: sends buffered logs/corrections,
+//!                          returns ops or `cold_start_required` signal; never
+//!                          includes a full export.
+//!   POST /api/snapshot   — full-state bootstrap for one or more namespaces.
+//!                          Call once at startup and whenever sync signals
+//!                          `cold_start_required`.
+//!   GET  /api/connected_clients — list of currently-active library clients
+//!                          (keyed by API key name). Lazy-GC'd on read.
 //!
 //! Gated behind the `X-Api-Key` middleware when the server has API keys
 //! configured. Empty key set = open mode for local dev (no per-client
@@ -24,6 +25,7 @@ use std::collections::HashMap;
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/sync", axum::routing::post(sync))
+        .route("/api/snapshot", axum::routing::post(snapshot))
         .route(
             "/api/connected_clients",
             axum::routing::get(connected_clients),
@@ -108,6 +110,13 @@ pub struct SyncBatchRequest {
     /// Surfaced in /api/connected_clients for "who's still on the old client?"
     #[serde(default)]
     pub library_version: Option<String>,
+    /// v0.2.0 delta-sync: client opts in to receiving ops instead of full export.
+    #[serde(default)]
+    pub supports_delta: Option<bool>,
+    /// v0.2.0 delta-sync: oldest op version the client can still apply.
+    /// Server falls back to full export if its oplog doesn't reach this far back.
+    #[serde(default)]
+    pub oplog_min_version: Option<u64>,
 }
 
 /// Unified single-round-trip sync.
@@ -184,6 +193,8 @@ pub async fn sync(
     }
 
     // 3. Compute per-namespace deltas.
+    let supports_delta = req.supports_delta.unwrap_or(false);
+    let oplog_min_version = req.oplog_min_version.unwrap_or(0);
     let mut namespaces = serde_json::Map::new();
     for (ns_id, local_version) in &req.local_versions {
         let entry = match state.engine.try_namespace(ns_id) {
@@ -192,12 +203,38 @@ pub async fn sync(
                 let server_version = h.version();
                 if server_version == *local_version {
                     serde_json::json!({"up_to_date": true, "version": server_version})
+                } else if supports_delta {
+                    // Try to serve delta ops.
+                    let oldest = h.with_resolver(|r| r.oplog.front().map(|(v, _)| *v));
+                    let client_version = *local_version;
+                    let client_too_far_behind = oldest.map_or(true, |o| client_version < o);
+                    if client_too_far_behind
+                        || (oplog_min_version > 0 && client_version < oplog_min_version)
+                    {
+                        // Client is too far behind; signal that a full snapshot is needed.
+                        serde_json::json!({
+                            "cold_start_required": true,
+                            "version": server_version,
+                        })
+                    } else {
+                        let ops: Vec<serde_json::Value> = h.with_resolver(|r| {
+                            r.oplog
+                                .iter()
+                                .filter(|(v, _)| *v > client_version && *v <= server_version)
+                                .map(|(v, op)| {
+                                    let mut entry = serde_json::to_value(op).unwrap_or_default();
+                                    entry["version"] = serde_json::json!(*v);
+                                    entry
+                                })
+                                .collect()
+                        });
+                        serde_json::json!({ "version": server_version, "ops": ops })
+                    }
                 } else {
-                    let export = h.export_json();
+                    // Client doesn't support delta; signal that a full snapshot is needed.
                     serde_json::json!({
-                        "up_to_date": false,
+                        "cold_start_required": true,
                         "version": server_version,
-                        "export": export,
                     })
                 }
             }
@@ -210,6 +247,61 @@ pub async fn sync(
         "logs_accepted": logs_accepted,
         "corrections_applied": corrections_applied,
     })))
+}
+
+// ─── Full-state snapshot ─────────────────────────────────────────────────────
+
+/// Request body for `POST /api/snapshot`.
+#[derive(serde::Deserialize)]
+pub struct SnapshotRequest {
+    /// Explicit list of namespace IDs to include. If omitted or empty, all
+    /// namespaces the auth key has access to are returned.
+    #[serde(default)]
+    pub namespace_ids: Vec<String>,
+}
+
+/// `POST /api/snapshot` — returns the full exported state for one or more
+/// namespaces in a single round-trip.  Used at cold-start and whenever
+/// `/api/sync` returns `cold_start_required: true` for a namespace.
+///
+/// Response shape:
+/// ```json
+/// {
+///   "namespaces": {
+///     "billing": { "version": 51, "export": "<resolver json>" },
+///     "support":  { "version": 23, "export": "<resolver json>" }
+///   }
+/// }
+/// ```
+pub async fn snapshot(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<SnapshotRequest>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_auth(&state, &headers)?;
+
+    // Resolve the namespace list: explicit request or all known namespaces.
+    let ids: Vec<String> = if req.namespace_ids.is_empty() {
+        state.engine.namespaces()
+    } else {
+        req.namespace_ids
+    };
+
+    let mut namespaces = serde_json::Map::new();
+    for ns_id in &ids {
+        if let Some(h) = state.engine.try_namespace(ns_id) {
+            let version = h.version();
+            let export = h.export_json();
+            namespaces.insert(
+                ns_id.clone(),
+                serde_json::json!({ "version": version, "export": export }),
+            );
+        }
+        // Unknown namespace IDs are silently omitted — client asked for
+        // something the server doesn't have; it can create it locally.
+    }
+
+    Ok(Json(serde_json::json!({ "namespaces": namespaces })))
 }
 
 // ─── Connected-clients roster (read-only) ────────────────────────────────────
