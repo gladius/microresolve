@@ -5,6 +5,7 @@ import Page from '@/components/Page';
 import GenerationPlan from './GenerationPlan';
 import { ImportReport } from './ImportReport';
 import type { ImportResult } from './ImportReport';
+import DomainPicker from './DomainPicker';
 
 const EXAMPLE = `[
   {
@@ -40,13 +41,26 @@ interface Tool {
   required_params: string[];
 }
 
+/**
+ * Derive a slug suggestion from parsed tools or upload filename.
+ * Tries a common snake_case prefix, else falls back to "tools".
+ */
+function deriveSlugFromTools(tools: Tool[], sourceName: string): string {
+  if (sourceName) return sourceName;
+  if (tools.length === 0) return 'tools';
+  const prefixes = tools.map(t => t.name.split('_')[0]).filter(Boolean);
+  const first = prefixes[0];
+  if (first && prefixes.every(p => p === first)) return first;
+  return 'tools';
+}
+
 export default function LangChainImport() {
   const navigate = useNavigate();
   const { settings } = useAppStore();
   const ns = settings.selectedNamespaceId;
-  const domain = settings.selectedDomain;
 
   const [json, setJson] = useState('');
+  const [sourceName, setSourceName] = useState(''); // derived from filename on upload
   const [tools, setTools] = useState<Tool[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -54,6 +68,10 @@ export default function LangChainImport() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [languages] = useState(['en']);
+  // domain: null = picker not ready / invalid (Apply disabled); string = resolved domain
+  const [domain, setDomain] = useState<string | null>(null);
+
+  const slugSuggestion = deriveSlugFromTools(tools, sourceName);
 
   const headers = () => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -61,8 +79,9 @@ export default function LangChainImport() {
     return h;
   };
 
-  const parse = async (raw: string) => {
-    setError(''); setTools([]); setSelected(new Set()); setResult(null);
+  const parse = async (raw: string, name?: string) => {
+    setError(''); setTools([]); setSelected(new Set()); setResult(null); setDomain(null);
+    if (name !== undefined) setSourceName(name);
     setLoading(true);
     try {
       const r = await fetch('/api/import/mcp/parse', {
@@ -80,6 +99,7 @@ export default function LangChainImport() {
   };
 
   const apply = async () => {
+    if (domain === null) return;
     setImporting(true); setError('');
     try {
       const r = await fetch('/api/import/mcp/apply', {
@@ -108,13 +128,12 @@ export default function LangChainImport() {
   const subtitle = (
     <>
       into <span className="text-emerald-400 font-mono">{ns}</span>
-      {domain && <><span className="text-zinc-600 mx-1">/</span><span className="text-emerald-400 font-mono">{domain}</span></>}
     </>
   );
 
   if (result) return (
     <Page title="LangChain Tools — Import Complete" subtitle={subtitle} actions={backAction} size="lg">
-      <ImportReport result={result} onViewIntents={() => navigate('/l2')} onImportMore={() => setResult(null)} />
+      <ImportReport result={result} onViewIntents={() => navigate('/l2')} onImportMore={() => { setResult(null); setTools([]); setSourceName(''); setDomain(null); }} />
     </Page>
   );
 
@@ -137,7 +156,7 @@ export default function LangChainImport() {
             rows={8}
             className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-xs text-zinc-300 font-mono focus:border-emerald-500 focus:outline-none resize-y"
           />
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button onClick={() => parse(json)} disabled={loading || !json.trim()}
               className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30 transition-colors">
               {loading ? 'Parsing...' : 'Parse'}
@@ -146,6 +165,18 @@ export default function LangChainImport() {
               className="px-3 py-1.5 text-xs border border-zinc-700 text-zinc-400 rounded hover:text-zinc-100 hover:border-zinc-500 transition-colors">
               Load example
             </button>
+            <label className="text-xs text-zinc-500 hover:text-emerald-400 cursor-pointer">
+              Upload .json
+              <input type="file" accept=".json" className="hidden" onChange={async e => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const raw = await f.text();
+                const name = f.name.replace(/\.json$/i, '');
+                setJson(raw);
+                await parse(raw, name);
+                e.target.value = '';
+              }} />
+            </label>
           </div>
         </div>
 
@@ -191,7 +222,14 @@ export default function LangChainImport() {
 
             <GenerationPlan numTools={selected.size} languages={languages} importing={importing} />
 
-            <button onClick={apply} disabled={importing || selected.size === 0}
+            {/* Domain picker — slug derived from filename or common tool prefix */}
+            <DomainPicker
+              suggestedSlug={slugSuggestion}
+              namespaceId={ns}
+              onChange={setDomain}
+            />
+
+            <button onClick={apply} disabled={importing || selected.size === 0 || domain === null}
               className="w-full py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-30 transition-colors">
               {importing ? 'Importing...' : `Import ${selected.size} Tools`}
             </button>

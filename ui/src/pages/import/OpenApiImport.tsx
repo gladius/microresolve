@@ -5,6 +5,7 @@ import Page from '@/components/Page';
 import GenerationPlan from './GenerationPlan';
 import { ImportReport } from './ImportReport';
 import type { ImportResult } from './ImportReport';
+import DomainPicker from './DomainPicker';
 
 interface ParsedOperation {
   id: string; name: string; method: string; path: string;
@@ -30,11 +31,12 @@ export default function OpenApiImport() {
   const [tagFilter, setTagFilter] = useState('');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
+  // domain: null = picker not ready / invalid (Apply disabled); string = resolved domain
+  const [domain, setDomain] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { settings } = useAppStore();
   const currentApp = settings.selectedNamespaceId;
-  const currentDomain = settings.selectedDomain;
   const languages = settings.languages;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (currentApp && currentApp !== 'default') headers['X-Namespace-ID'] = currentApp;
@@ -52,10 +54,10 @@ export default function OpenApiImport() {
   };
 
   const handleImport = async () => {
-    if (!rawSpec || selected.size === 0) return;
+    if (!rawSpec || selected.size === 0 || domain === null) return;
     setImporting(true); setError('');
     try {
-      const res = await fetch('/api/import/apply', { method: 'POST', headers, body: JSON.stringify({ spec: rawSpec, selected: Array.from(selected), domain: currentDomain }) });
+      const res = await fetch('/api/import/apply', { method: 'POST', headers, body: JSON.stringify({ spec: rawSpec, selected: Array.from(selected), domain }) });
       if (!res.ok) throw new Error(await res.text());
       setResult(await res.json());
     } catch (e) { setError(e instanceof Error ? e.message : 'Import failed'); }
@@ -69,12 +71,6 @@ export default function OpenApiImport() {
   const subtitle = (
     <>
       into <span className="text-emerald-400 font-mono">{currentApp}</span>
-      {currentDomain && (
-        <>
-          <span className="text-zinc-600 mx-1">/</span>
-          <span className="text-emerald-400 font-mono">{currentDomain}</span>
-        </>
-      )}
     </>
   );
   const backAction = (
@@ -117,7 +113,7 @@ export default function OpenApiImport() {
               <div className="text-zinc-100 font-semibold">{parsed.title} <span className="text-zinc-500 text-xs">v{parsed.version}</span></div>
               {parsed.description && <div className="text-xs text-zinc-500 mt-0.5">{parsed.description.slice(0, 120)}</div>}
             </div>
-            <button onClick={() => { setParsed(null); setRawSpec(''); }} className="text-xs text-zinc-500 hover:text-zinc-100">Change spec</button>
+            <button onClick={() => { setParsed(null); setRawSpec(''); setDomain(null); }} className="text-xs text-zinc-500 hover:text-zinc-100">Change spec</button>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {parsed.tags.length > 0 && (
@@ -148,9 +144,17 @@ export default function OpenApiImport() {
           {selected.size > 0 && (
             <GenerationPlan numTools={selected.size} languages={languages} importing={importing} />
           )}
+
+          {/* Domain picker — slug derived from API spec title */}
+          <DomainPicker
+            suggestedSlug={parsed.title}
+            namespaceId={currentApp}
+            onChange={setDomain}
+          />
+
           <div className="flex items-center justify-between pt-2">
             {!importing && <div className="text-xs text-zinc-500">Collision guard active</div>}
-            <button onClick={handleImport} disabled={importing || selected.size === 0}
+            <button onClick={handleImport} disabled={importing || selected.size === 0 || domain === null}
               className="px-5 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30 shrink-0">
               {importing ? 'Importing...' : `Import ${selected.size} Operations`}
             </button>
@@ -162,7 +166,7 @@ export default function OpenApiImport() {
         <ImportReport
           result={result}
           onViewIntents={() => navigate('/l2')}
-          onImportMore={() => { setParsed(null); setResult(null); setRawSpec(''); setSpecUrl(''); }}
+          onImportMore={() => { setParsed(null); setResult(null); setRawSpec(''); setSpecUrl(''); setDomain(null); }}
         />
       )}
       </div>

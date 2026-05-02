@@ -5,6 +5,7 @@ import Page from '@/components/Page';
 import GenerationPlan from './GenerationPlan';
 import { ImportReport } from './ImportReport';
 import type { ImportResult } from './ImportReport';
+import DomainPicker from './DomainPicker';
 
 interface McpTool {
   name: string;
@@ -22,6 +23,11 @@ interface SearchResult {
   homepage: string;
 }
 
+/** Strip registry prefixes like "@smithery-ai/" or "smithery/" */
+function stripRegistryPrefix(name: string): string {
+  return name.replace(/^@?[^/]+\//, '');
+}
+
 export default function McpImport() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,14 +42,18 @@ export default function McpImport() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState('');
   const [showPaste, setShowPaste] = useState(false);
+  // domain: null = picker not ready / invalid (Apply disabled); string = resolved domain
+  const [domain, setDomain] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { settings } = useAppStore();
   const currentApp = settings.selectedNamespaceId;
-  const currentDomain = settings.selectedDomain;
   const languages = settings.languages;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (currentApp && currentApp !== 'default') headers['X-Namespace-ID'] = currentApp;
+
+  // Derive slug suggestion from selectedServer (strip registry prefix)
+  const slugSuggestion = selectedServer ? stripRegistryPrefix(selectedServer) : '';
 
   // Search Smithery registry
   const handleSearch = async () => {
@@ -113,13 +123,13 @@ export default function McpImport() {
   };
 
   const applyImport = async () => {
-    if (!mcpJson || selected.size === 0) return;
+    if (!mcpJson || selected.size === 0 || domain === null) return;
     setImporting(true);
     setError('');
     try {
       const res = await fetch('/api/import/mcp/apply', {
         method: 'POST', headers,
-        body: JSON.stringify({ tools_json: mcpJson, selected: Array.from(selected), domain: currentDomain }),
+        body: JSON.stringify({ tools_json: mcpJson, selected: Array.from(selected), domain }),
       });
       if (!res.ok) throw new Error(await res.text());
       setResult(await res.json());
@@ -143,17 +153,12 @@ export default function McpImport() {
     setSearchResults([]);
     setSelectedServer('');
     setShowPaste(false);
+    setDomain(null);
   };
 
   const subtitle = (
     <>
       into <span className="text-emerald-400 font-mono">{currentApp}</span>
-      {currentDomain && (
-        <>
-          <span className="text-zinc-600 mx-1">/</span>
-          <span className="text-emerald-400 font-mono">{currentDomain}</span>
-        </>
-      )}
     </>
   );
   const backAction = (
@@ -298,9 +303,16 @@ export default function McpImport() {
             <GenerationPlan numTools={selected.size} languages={languages} importing={importing} />
           )}
 
+          {/* Domain picker — replaces the old settings.selectedDomain read */}
+          <DomainPicker
+            suggestedSlug={slugSuggestion}
+            namespaceId={currentApp}
+            onChange={setDomain}
+          />
+
           <div className="flex items-center justify-between pt-2">
             {!importing && <div className="text-xs text-zinc-500">Collision guard active</div>}
-            <button onClick={applyImport} disabled={importing || selected.size === 0}
+            <button onClick={applyImport} disabled={importing || selected.size === 0 || domain === null}
               className="px-5 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:opacity-30 shrink-0">
               {importing ? 'Importing...' : `Import ${selected.size} Tools`}
             </button>
@@ -314,4 +326,3 @@ export default function McpImport() {
     </Page>
   );
 }
-
