@@ -40,7 +40,7 @@ pub struct RoundTrace {
     pub consumed: Vec<String>,
 }
 
-/// Full multi-intent resolution trace returned by `score_multi_traced`.
+/// Full multi-intent resolution trace returned by `score_multi_with_trace`.
 #[derive(Serialize, Clone, Debug)]
 pub struct MultiIntentTrace {
     pub rounds: Vec<RoundTrace>,
@@ -383,17 +383,16 @@ impl IntentIndex {
         threshold: f32,
         gap: f32,
     ) -> (Vec<(String, f32)>, bool) {
-        let (results, neg, _trace) = self.score_multi_traced(normalized, threshold, gap, false);
+        let (results, neg, _trace) = self.score_multi_with_trace(normalized, threshold, gap);
         (results, neg)
     }
 
-    pub fn score_multi_traced(
+    pub fn score_multi_with_trace(
         &self,
         normalized: &str,
         threshold: f32,
         _gap: f32,
-        with_trace: bool,
-    ) -> (Vec<(String, f32)>, bool, Option<MultiIntentTrace>) {
+    ) -> (Vec<(String, f32)>, bool, MultiIntentTrace) {
         const GATE_RATIO: f32 = 0.55;
         const MAX_ROUNDS: usize = 3;
 
@@ -423,9 +422,7 @@ impl IntentIndex {
         for round in 0..MAX_ROUNDS {
             let scored = self.score_tokens(&remaining, &confirmed_ids);
             if scored.is_empty() {
-                if with_trace {
-                    stop_reason = Some("no scores".into());
-                }
+                stop_reason = Some("no scores".into());
                 break;
             }
 
@@ -434,32 +431,27 @@ impl IntentIndex {
                 original_top = round_top;
             }
             if round_top < threshold {
-                if with_trace {
-                    stop_reason =
-                        Some(format!("top {:.2} < threshold {:.2}", round_top, threshold));
-                    trace_rounds.push(RoundTrace {
-                        tokens_in: remaining.clone(),
-                        scored: scored.iter().take(5).cloned().collect(),
-                        confirmed: vec![],
-                        consumed: vec![],
-                    });
-                }
+                stop_reason = Some(format!("top {:.2} < threshold {:.2}", round_top, threshold));
+                trace_rounds.push(RoundTrace {
+                    tokens_in: remaining.clone(),
+                    scored: scored.iter().take(5).cloned().collect(),
+                    confirmed: vec![],
+                    consumed: vec![],
+                });
                 break;
             }
             if round > 0 && round_top < original_top * GATE_RATIO {
-                if with_trace {
-                    stop_reason = Some(format!(
-                        "top {:.2} < gate {:.2}",
-                        round_top,
-                        original_top * GATE_RATIO
-                    ));
-                    trace_rounds.push(RoundTrace {
-                        tokens_in: remaining.clone(),
-                        scored: scored.iter().take(5).cloned().collect(),
-                        confirmed: vec![],
-                        consumed: vec![],
-                    });
-                }
+                stop_reason = Some(format!(
+                    "top {:.2} < gate {:.2}",
+                    round_top,
+                    original_top * GATE_RATIO
+                ));
+                trace_rounds.push(RoundTrace {
+                    tokens_in: remaining.clone(),
+                    scored: scored.iter().take(5).cloned().collect(),
+                    confirmed: vec![],
+                    consumed: vec![],
+                });
                 break;
             }
 
@@ -472,9 +464,7 @@ impl IntentIndex {
             }
 
             if round_confirmed.is_empty() {
-                if with_trace {
-                    stop_reason = Some("no confirmed".into());
-                }
+                stop_reason = Some("no confirmed".into());
                 break;
             }
             confirmed.extend(round_confirmed.iter().cloned());
@@ -495,36 +485,28 @@ impl IntentIndex {
                 }
             });
 
-            if with_trace {
-                let remaining_set: FxHashSet<&String> = remaining.iter().collect();
-                let consumed: Vec<String> = tokens_before
-                    .iter()
-                    .filter(|t| !remaining_set.contains(t))
-                    .cloned()
-                    .collect();
-                trace_rounds.push(RoundTrace {
-                    tokens_in: tokens_before,
-                    scored: scored.iter().take(5).cloned().collect(),
-                    confirmed: round_confirmed.iter().map(|(id, _)| id.clone()).collect(),
-                    consumed,
-                });
-            }
+            let remaining_set: FxHashSet<&String> = remaining.iter().collect();
+            let consumed: Vec<String> = tokens_before
+                .iter()
+                .filter(|t| !remaining_set.contains(t))
+                .cloned()
+                .collect();
+            trace_rounds.push(RoundTrace {
+                tokens_in: tokens_before,
+                scored: scored.iter().take(5).cloned().collect(),
+                confirmed: round_confirmed.iter().map(|(id, _)| id.clone()).collect(),
+                consumed,
+            });
 
             if remaining.is_empty() {
-                if with_trace {
-                    stop_reason = Some("all tokens consumed".into());
-                }
+                stop_reason = Some("all tokens consumed".into());
                 break;
             }
         }
 
-        let trace = if with_trace {
-            Some(MultiIntentTrace {
-                rounds: trace_rounds,
-                stop_reason: stop_reason.unwrap_or_else(|| "max rounds reached".into()),
-            })
-        } else {
-            None
+        let trace = MultiIntentTrace {
+            rounds: trace_rounds,
+            stop_reason: stop_reason.unwrap_or_else(|| "max rounds reached".into()),
         };
 
         (confirmed, has_negation, trace)

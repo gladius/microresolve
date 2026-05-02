@@ -14,6 +14,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Import response field `l2_unique_words` renamed to `vocab_size`** — the
   last `l2_*` key in the external API surface. Callers parsing this field
   from the OpenAPI or MCP import endpoints must update to `vocab_size`.
+- **Rust API: `Resolver::train_negative` → `decay_for_intents`** — same
+  signature; name now reflects the actual anti-Hebbian weight-decay behavior.
+- **Rust API: `NamespaceHandle::train_negative` → `decay_for_intents`** —
+  same change at the handle level.
+- **HTTP API: `POST /api/namespaces/train_negative` → `POST /api/namespaces/decay`** —
+  URL change; request body unchanged.
+- **HTTP API: JSON response field `"trained"` → `"decayed"`** on the decay
+  endpoint.
+- **Rust API: `IntentIndex::score_multi_traced(query, threshold, gap, with_trace)` removed** —
+  replaced by `score_multi_with_trace(query, threshold, gap)` which always
+  returns `MultiIntentTrace` (not `Option`). Callers wanting no trace use
+  the existing `score_multi`.
+- **Rust API: `NamespaceHandle::route_multi(query, threshold, gap, with_trace, fallback)` split** —
+  `with_trace: bool` parameter removed. Two methods now:
+  - `route_multi(query, threshold, gap, fallback)` → `RouteMultiOut` with `trace: None`
+  - `route_multi_with_trace(query, threshold, gap, fallback)` → `RouteMultiOut` with `trace: Some(...)`
+- **Rust API: `MicroResolve::effective_threshold` → `resolve_threshold_for`**
+- **Rust API: `MicroResolve::effective_languages` → `languages_for`**
+- **Rust API: `MicroResolve::effective_llm_model` → `llm_model_for`**
 
 ---
 

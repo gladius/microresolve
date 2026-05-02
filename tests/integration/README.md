@@ -22,14 +22,14 @@ Wire-format smoke for the most-used endpoints:
 - Routing (English + French)
 - Phrase add
 - Namespace metadata patch
-- `train_negative` + `rebuild`
+- `decay_for_intents` + `rebuild`
 - Layer info
 - Delete
 
 ### `tests/http_full_e2e.rs` — 4 tests
 - `manual_creation` — multilingual seeds + metadata patch + cross-language routing
 - `mcp_import_three_tools` — full MCP import flow (parse + apply + intent_type derivation + schema preservation)
-- `auto_learn_deterministic_path` — train_negative + rebuild_index + post-rebuild routing
+- `auto_learn_deterministic_path` — decay_for_intents + rebuild_index + post-rebuild routing
 - `auth_keys_endpoint` — key CRUD + auth enforcement (401 without key, 200 with)
 
 ## Other test layers
