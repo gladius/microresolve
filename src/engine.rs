@@ -131,9 +131,13 @@ impl MicroResolve {
                                 ns.dirty = false;
                             }
                         },
-                        move |id, ops| {
+                        move |id, ops, target_version| {
                             if let Some(ns) = ns_for_delta.write().unwrap().get_mut(id) {
                                 crate::connect::apply_ops(&mut ns.resolver, ops)?;
+                                // Sync the resolver's internal counter to the server's
+                                // authoritative version. apply_ops mutates state but
+                                // doesn't bump the counter — that's the server's job.
+                                ns.resolver.set_version(target_version);
                                 ns.dirty = true;
                                 Ok(())
                             } else {

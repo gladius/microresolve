@@ -285,7 +285,7 @@ pub fn apply_ops(resolver: &mut Resolver, ops: &[crate::oplog::Op]) -> Result<()
 pub(crate) fn run_background<F, FD>(state: Arc<ConnectState>, apply_pull: F, apply_delta: FD)
 where
     F: Fn(&str, Resolver, u64) + Send + 'static,
-    FD: Fn(&str, &[crate::oplog::Op]) -> Result<(), crate::Error> + Send + 'static,
+    FD: Fn(&str, &[crate::oplog::Op], u64) -> Result<(), crate::Error> + Send + 'static,
 {
     let tick = Duration::from_secs(state.server.tick_interval_secs.max(1));
     loop {
@@ -299,7 +299,7 @@ where
                             // Version counter is only advanced on success; a failure leaves
                             // the counter unchanged so the server will ship a full export on
                             // the next tick, self-healing any divergence.
-                            match apply_delta(&app_id, &ops) {
+                            match apply_delta(&app_id, &ops, ns_result.version) {
                                 Ok(()) => {
                                     state
                                         .versions

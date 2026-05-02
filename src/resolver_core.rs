@@ -62,6 +62,14 @@ impl Resolver {
         self.version
     }
 
+    /// Force the version counter to a specific value. Used by connected-mode
+    /// clients after applying a batch of delta ops, so `Resolver::version()`
+    /// matches the server's view (op application via `apply_ops` mutates state
+    /// but doesn't bump the counter — the counter is the server's responsibility).
+    pub(crate) fn set_version(&mut self, v: u64) {
+        self.version = v;
+    }
+
     /// Export resolver state as JSON. Used by the server for namespace
     /// export endpoints and by bindings for in-memory transport. For local
     /// persistence prefer `save_to_dir` / `load_from_dir`.
