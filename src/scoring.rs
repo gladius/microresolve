@@ -40,7 +40,7 @@ pub struct RoundTrace {
     pub consumed: Vec<String>,
 }
 
-/// Full multi-intent resolution trace returned by `score_multi_normalized_traced`.
+/// Full multi-intent resolution trace returned by `score_multi_traced`.
 #[derive(Serialize, Clone, Debug)]
 pub struct MultiIntentTrace {
     pub rounds: Vec<RoundTrace>,
@@ -65,7 +65,7 @@ pub struct IntentIndex {
     #[serde(default)]
     pub intent_count: usize,
 
-    /// Per-word IDF cache — rebuilt on load via `rebuild_idf`.
+    /// Per-word IDF cache — rebuilt on load via `rebuild_caches`.
     #[serde(skip)]
     idf_cache: FxHashMap<String, f32>,
 
@@ -89,7 +89,7 @@ impl IntentIndex {
     const LEARN_RATE: f32 = 0.3;
 
     /// Recompute intent_count and idf_cache from word_intent in one pass.
-    pub fn rebuild_idf(&mut self) {
+    pub fn rebuild_caches(&mut self) {
         self.known_intents.clear();
         self.known_words.clear();
         self.intent_to_tokens.clear();
@@ -180,7 +180,7 @@ impl IntentIndex {
                 .or_default()
                 .insert(word.to_string());
             if new_intent {
-                self.rebuild_idf();
+                self.rebuild_caches();
             } else {
                 self.refresh_idf_for(word);
             }
@@ -272,7 +272,7 @@ impl IntentIndex {
         rescored
     }
 
-    pub fn learn_query_words(&mut self, words: &[&str], intent: &str) {
+    pub fn reinforce_tokens(&mut self, words: &[&str], intent: &str) {
         for word in words {
             self.learn_word(word, intent, Self::LEARN_RATE);
         }
@@ -323,7 +323,7 @@ impl IntentIndex {
     }
 
     /// IDF-weighted 1-gram scoring.
-    pub fn score_normalized(&self, normalized: &str) -> (Vec<(String, f32)>, bool) {
+    pub fn score(&self, normalized: &str) -> (Vec<(String, f32)>, bool) {
         const CJK_NEG: &[char] = &['不', '没', '别', '未'];
         let cjk_negated = normalized.chars().any(|c| CJK_NEG.contains(&c));
         let query_for_tokenize: std::borrow::Cow<str> = if cjk_negated {
@@ -377,18 +377,17 @@ impl IntentIndex {
         (result, has_negation)
     }
 
-    pub fn score_multi_normalized(
+    pub fn score_multi(
         &self,
         normalized: &str,
         threshold: f32,
         gap: f32,
     ) -> (Vec<(String, f32)>, bool) {
-        let (results, neg, _trace) =
-            self.score_multi_normalized_traced(normalized, threshold, gap, false);
+        let (results, neg, _trace) = self.score_multi_traced(normalized, threshold, gap, false);
         (results, neg)
     }
 
-    pub fn score_multi_normalized_traced(
+    pub fn score_multi_traced(
         &self,
         normalized: &str,
         threshold: f32,
@@ -588,10 +587,10 @@ impl IntentIndex {
     /// Resolve a query end-to-end: IDF scoring → token consumption →
     /// cross-provider disambiguation → disposition.
     pub fn resolve(&self, query: &str, threshold: f32, top_n: usize) -> RouteResult {
-        let (raw, has_negation) = self.score_normalized(query);
+        let (raw, has_negation) = self.score(query);
         let ranked: Vec<(String, f32)> = raw.into_iter().take(top_n).collect();
 
-        let (mut confirmed, _) = self.score_multi_normalized(query, threshold, 0.0);
+        let (mut confirmed, _) = self.score_multi(query, threshold, 0.0);
 
         if confirmed.is_empty() {
             return RouteResult {

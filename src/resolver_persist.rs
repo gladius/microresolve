@@ -77,9 +77,18 @@ impl Resolver {
 
     /// Load a router from a namespace directory.
     ///
-    /// Reads `_ns.json`, `_l2.json`, per-domain `_domain.json`, and per-intent `*.json` files.
+    /// Reads `_ns.json`, `_index.json`, per-domain `_domain.json`, and per-intent `*.json` files.
     pub fn load_from_dir(path: &Path) -> Result<Self, crate::Error> {
         let mut router = Self::new();
+
+        // One-shot migration: v0.2.0 → v0.2.1 renames _l2.json → _index.json on disk.
+        {
+            let legacy = path.join("_l2.json");
+            let canonical = path.join("_index.json");
+            if legacy.exists() && !canonical.exists() {
+                let _ = std::fs::rename(&legacy, &canonical);
+            }
+        }
 
         // Namespace metadata
         if let Ok(json) = std::fs::read_to_string(path.join("_ns.json")) {
@@ -98,11 +107,10 @@ impl Resolver {
             }
         }
 
-        // L2 (IntentIndex) — track whether L2 was pre-loaded so we can skip
-        // re-indexing below.
-        let l2_preloaded = if let Ok(json) = std::fs::read_to_string(path.join("_l2.json")) {
+        // IntentIndex — track whether it was pre-loaded so we can skip re-indexing below.
+        let l2_preloaded = if let Ok(json) = std::fs::read_to_string(path.join("_index.json")) {
             if let Ok(ig) = serde_json::from_str::<crate::scoring::IntentIndex>(&json) {
-                router.l2 = ig;
+                router.index = ig;
                 true
             } else {
                 false
@@ -175,7 +183,7 @@ impl Resolver {
         }
 
         // Rebuild IDF cache from the loaded posting lists — O(words) once on load.
-        router.l2.rebuild_idf();
+        router.index.rebuild_caches();
 
         Ok(router)
     }
@@ -280,12 +288,13 @@ impl Resolver {
             written.insert(file_path);
         }
 
-        // Save L2 (IntentIndex)
-        if let Ok(json) = serde_json::to_string_pretty(&self.l2) {
-            let l2_path = path.join("_l2.json");
-            std::fs::write(&l2_path, json)
-                .map_err(|e| crate::Error::Persistence(format!("cannot write _l2.json: {}", e)))?;
-            written.insert(l2_path);
+        // Save IntentIndex
+        if let Ok(json) = serde_json::to_string_pretty(&self.index) {
+            let index_path = path.join("_index.json");
+            std::fs::write(&index_path, json).map_err(|e| {
+                crate::Error::Persistence(format!("cannot write _index.json: {}", e))
+            })?;
+            written.insert(index_path);
         }
 
         // Remove stale intent files
@@ -305,7 +314,7 @@ fn split_intent_id(id: &str) -> (Option<&str>, &str) {
 }
 
 /// Deserialize and register one intent file into the engine.
-/// When `skip_indexing` is true (L2 was pre-loaded from _l2.json), only store
+/// When `skip_indexing` is true (index was pre-loaded from _index.json), only store
 /// training data without re-indexing — avoids O(n²) rebuild on startup.
 /// Errors are logged but do not abort the load.
 fn load_intent_file(router: &mut Resolver, path: &Path, intent_id: &str, skip_indexing: bool) {
@@ -342,7 +351,7 @@ fn load_intent_file(router: &mut Resolver, path: &Path, intent_id: &str, skip_in
             .insert(intent_id.to_string(), phrases_by_lang);
         router.version += 1;
     } else {
-        // No _l2.json: index all phrases now (migration path for old namespaces).
+        // No _index.json: index all phrases now (migration path for old namespaces).
         let _ = router.add_intent(intent_id, phrases_by_lang);
     }
 

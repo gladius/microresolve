@@ -42,10 +42,10 @@ pub async fn route_multi(
     let app_id = app_id_from_headers(&headers);
     let t0 = std::time::Instant::now();
 
-    let (intent_graph_results, raw_ranked, query_has_negation, l2_tokens, multi_trace) =
+    let (intent_graph_results, raw_ranked, query_has_negation, tokens, multi_trace) =
         match state.engine.try_namespace(&app_id) {
             Some(h) => {
-                let p = h.score_multi_pipeline(
+                let p = h.route_multi(
                     &req.query,
                     req.threshold,
                     req.gap,
@@ -67,7 +67,7 @@ pub async fn route_multi(
         // different actions are never touched.
         if scored.len() > 1 {
             if let Some(h) = state.engine.try_namespace(&app_id) {
-                h.disambiguate_cross_provider(&mut scored, &req.query);
+                h.deduplicate_by_provider(&mut scored, &req.query);
             }
         }
 
@@ -80,7 +80,7 @@ pub async fn route_multi(
         let confidences: Vec<f32> = if let Some(h) = state.engine.try_namespace(&app_id) {
             scored
                 .iter()
-                .map(|(id, score)| h.l2_confidence_for(*score, &l2_tokens, id))
+                .map(|(id, score)| h.confidence_for(*score, &tokens, id))
                 .collect()
         } else {
             vec![0.0; scored.len()]
@@ -114,7 +114,7 @@ pub async fn route_multi(
                     "score": (*score * 100.0).round() / 100.0,
                     "confidence": (*conf * 1000.0).round() / 1000.0,  // 3-decimal rounded
                     "band": band,
-                    "source": "l2",
+                    "source": "router",
                     "position": 0,
                     "span": [0, req.query.len()],
                     "intent_type": "Action",
@@ -154,7 +154,7 @@ pub async fn route_multi(
                         .try_namespace(&app_id)
                         .map(|h| h.version())
                         .unwrap_or(0),
-                    source: "l2".to_string(),
+                    source: "router".to_string(),
                 },
             );
             emit_queued(&state, log_id, &req.query, &app_id);
@@ -166,7 +166,7 @@ pub async fn route_multi(
         }).collect();
 
         let trace = serde_json::json!({
-            "tokens": l2_tokens,
+            "tokens": tokens,
             "all_scores": raw_ranked.iter().take(10).map(|(id, s)|
                 serde_json::json!({"id": id, "score": (*s * 100.0).round() / 100.0})).collect::<Vec<_>>(),
             "multi": multi_trace.as_ref().map(|t| serde_json::json!({
@@ -183,7 +183,7 @@ pub async fn route_multi(
             "disposition": disposition,
             "relations": [],
             "routing_us": latency_us,
-            "source": "l2",
+            "source": "router",
             "trace": trace,
         }));
     }
@@ -213,7 +213,7 @@ pub async fn route_multi(
     }
 
     let trace = serde_json::json!({
-        "tokens": l2_tokens,
+        "tokens": tokens,
         "all_scores": [],
         "multi": multi_trace.as_ref().map(|t| serde_json::json!({
             "rounds": t.rounds,

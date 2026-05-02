@@ -501,7 +501,7 @@ pub async fn learn_words(
     state
         .engine
         .namespace(&app_id)
-        .learn_query_words(&word_refs, &req.intent_id);
+        .reinforce_tokens(&word_refs, &req.intent_id);
 
     if let Some(h) = state.engine.try_namespace(&app_id) {
         h.flush().ok();

@@ -158,8 +158,8 @@ async fn main() {
     // Build MicroResolve — loads all namespace subdirectories from data_dir.
     let engine = build_engine(data_dir.as_deref());
     for id in engine.namespaces() {
-        let count = engine.namespace(&id).l2_word_count();
-        println!("Loaded namespace: {} (L2 words: {})", id, count);
+        let count = engine.namespace(&id).vocab_size();
+        println!("Loaded namespace: {} (vocab: {})", id, count);
     }
 
     let log_store = LogStore::new(data_dir.as_deref());

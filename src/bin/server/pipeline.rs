@@ -852,7 +852,7 @@ pub async fn apply_review(
 
         let no_phrases: std::collections::HashMap<String, Vec<String>> =
             std::collections::HashMap::new();
-        h.apply_review_local(
+        h.apply_review(
             &no_phrases,
             &result.spans_to_learn,
             &result.wrong_detections,

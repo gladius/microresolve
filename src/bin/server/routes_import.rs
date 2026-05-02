@@ -25,7 +25,7 @@ pub fn seed_into_l2(state: &AppState, app_id: &str, accepted: &[(String, String)
     for (intent_id, phrase) in accepted {
         h.index_phrase(intent_id, phrase);
     }
-    h.rebuild_idf();
+    h.rebuild_caches();
     eprintln!(
         "[import/L2] seeded {} phrases into count model for '{}'",
         accepted.len(),
@@ -578,7 +578,7 @@ pub async fn import_apply(
     let l2_words = state
         .engine
         .try_namespace(&app_id)
-        .map(|h| h.l2_word_count())
+        .map(|h| h.vocab_size())
         .unwrap_or(0);
 
     Ok(Json(serde_json::json!({
@@ -587,7 +587,7 @@ pub async fn import_apply(
         "imported": intent_names.len(),
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
-        "l2_unique_words": l2_words,
+        "vocab_size": l2_words,
         "intents": intent_names,
         "per_intent": per_intent,
     })))
@@ -1038,14 +1038,14 @@ pub async fn mcp_apply(
     let l2_words = state
         .engine
         .try_namespace(&app_id)
-        .map(|h| h.l2_word_count())
+        .map(|h| h.vocab_size())
         .unwrap_or(0);
 
     Ok(Json(serde_json::json!({
         "imported": tool_names.len(),
         "phrases_added": total_added,
         "phrases_blocked": total_blocked,
-        "l2_unique_words": l2_words,
+        "vocab_size": l2_words,
         "intents": tool_names,
         "per_intent": per_intent,
     })))

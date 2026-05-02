@@ -236,12 +236,12 @@ pub async fn rebuild_namespace(
         .filter_map(|id| h.training(id))
         .map(|v| v.len())
         .sum();
-    h.rebuild_l2();
+    h.rebuild_index();
     maybe_commit(&state, &req.namespace_id);
     Ok(Json(serde_json::json!({
         "rebuilt": req.namespace_id,
         "phrases_reindexed": n_phrases_before,
-        "note": "L2 weights rebuilt from training phrases; negative-training log cleared.",
+        "note": "Scoring index rebuilt from training phrases; negative-training log cleared.",
     })))
 }
 

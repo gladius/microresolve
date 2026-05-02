@@ -72,8 +72,8 @@ impl Resolver {
         // Remove empty language entries
         training.retain(|_, phrases| !phrases.is_empty());
 
-        // Rebuild L2 from remaining phrases so stale word→intent edges are cleared.
-        self.rebuild_l2();
+        // Rebuild the index from remaining phrases so stale word→intent edges are cleared.
+        self.rebuild_index();
 
         self.version += 1;
         true
@@ -90,8 +90,8 @@ impl Resolver {
         self.targets.remove(id);
         self.schemas.remove(id);
         self.guardrails.remove(id);
-        // Rebuild L2 from remaining phrases so stale word→intent edges are cleared.
-        self.rebuild_l2();
+        // Rebuild the index from remaining phrases so stale word→intent edges are cleared.
+        self.rebuild_index();
         self.version += 1;
     }
 
