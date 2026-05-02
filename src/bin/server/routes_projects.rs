@@ -255,8 +255,7 @@ pub async fn list_namespaces(State(state): State<AppState>) -> Json<serde_json::
         .into_iter()
         .map(|id| {
             let h = state.engine.namespace(&id);
-            let (info, version, intent_count) =
-                (h.namespace_info(), h.version(), h.intent_count());
+            let (info, version, intent_count) = (h.namespace_info(), h.version(), h.intent_count());
             serde_json::json!({
                 "id": id,
                 "name": info.name,

@@ -158,13 +158,8 @@ async fn main() {
     // Build MicroResolve — loads all namespace subdirectories from data_dir.
     let engine = build_engine(data_dir.as_deref());
     for id in engine.namespaces() {
-        let count = engine
-            .namespace(&id)
-            .l2_word_count();
-        println!(
-            "Loaded namespace: {} (L2 words: {})",
-            id, count
-        );
+        let count = engine.namespace(&id).l2_word_count();
+        println!("Loaded namespace: {} (L2 words: {})", id, count);
     }
 
     let log_store = LogStore::new(data_dir.as_deref());
@@ -269,7 +264,6 @@ async fn main() {
         .merge(routes_auth::routes())
         .merge(routes_ui_settings::routes())
         .merge(routes_events::routes())
-
         .merge(routes_stopwords::routes())
         .merge(routes_git::routes())
         .merge(routes_state::routes())

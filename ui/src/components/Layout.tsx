@@ -70,7 +70,6 @@ export default function Layout() {
   useEffect(() => {
     api.listNamespaces().then(ns => {
       setNamespaces(ns.map(n => n.id));
-      const active = ns.find(n => n.id === settings.selectedNamespaceId);
     }).catch(() => {});
     fetch('/api/version').then(r => r.json()).then(d => setAppVersion(d.app_version)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

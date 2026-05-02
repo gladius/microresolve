@@ -225,9 +225,9 @@ impl Resolver {
     /// `opts.gap` — multi-intent cutoff: the top score divided by `gap`
     /// is the floor for secondary matches. Higher = more matches reported.
     pub fn resolve_with(&self, query: &str, opts: &crate::ResolveOptions) -> Vec<crate::Match> {
-        let (scored, _negation) =
-            self.l2
-                .score_multi_normalized(query, opts.threshold, opts.gap);
+        let (scored, _negation) = self
+            .l2
+            .score_multi_normalized(query, opts.threshold, opts.gap);
         scored
             .into_iter()
             .map(|(id, score)| crate::Match { id, score })

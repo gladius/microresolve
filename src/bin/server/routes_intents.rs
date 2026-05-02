@@ -119,7 +119,11 @@ pub async fn add_phrase_to_intent(
 
     let counts: std::collections::HashMap<String, usize> = h
         .training_by_lang(&id)
-        .map(|m| m.iter().map(|(lang, ps)| (lang.clone(), ps.len())).collect())
+        .map(|m| {
+            m.iter()
+                .map(|(lang, ps)| (lang.clone(), ps.len()))
+                .collect()
+        })
         .unwrap_or_default();
 
     Ok(Json(serde_json::json!({

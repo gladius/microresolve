@@ -148,8 +148,7 @@ pub async fn sync(
     let mut corrections_applied: usize = 0;
     for correction in &req.corrections {
         if let Some(h) = state.engine.try_namespace(&correction.namespace) {
-            if h
-            .correct(
+            if h.correct(
                 &correction.query,
                 &correction.wrong_intent,
                 &correction.right_intent,

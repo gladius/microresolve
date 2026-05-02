@@ -469,7 +469,8 @@ impl<'e> NamespaceHandle<'e> {
     /// Get all training phrases for an intent (flat, all languages combined).
     /// Returns `None` if the intent does not exist.
     pub fn training(&self, intent_id: &str) -> Option<Vec<String>> {
-        self.engine.with_resolver(&self.id, |r| r.training(intent_id))
+        self.engine
+            .with_resolver(&self.id, |r| r.training(intent_id))
     }
 
     /// Get training phrases grouped by language code.
@@ -550,14 +551,16 @@ impl<'e> NamespaceHandle<'e> {
     /// Resolve the effective routing threshold using the standard cascade:
     /// per-request override → namespace default → `fallback`.
     pub fn resolve_threshold(&self, request_override: Option<f32>, fallback: f32) -> f32 {
-        self.engine
-            .with_resolver(&self.id, |r| r.resolve_threshold(request_override, fallback))
+        self.engine.with_resolver(&self.id, |r| {
+            r.resolve_threshold(request_override, fallback)
+        })
     }
 
     /// Description for a specific domain prefix (e.g., "billing"). `None` if not set.
     pub fn domain_description(&self, domain: &str) -> Option<String> {
-        self.engine
-            .with_resolver(&self.id, |r| r.domain_description(domain).map(|s| s.to_string()))
+        self.engine.with_resolver(&self.id, |r| {
+            r.domain_description(domain).map(|s| s.to_string())
+        })
     }
 
     /// Set the description for a domain prefix.
@@ -583,13 +586,10 @@ impl<'e> NamespaceHandle<'e> {
     /// Per-intent normalized confidence for an already-scored result set.
     /// `tokens` must be the tokenized form of the original query.
     pub fn l2_confidence_for(&self, score: f32, tokens: &[String], intent_id: &str) -> f32 {
-        self.engine
-            .with_resolver(&self.id, |r| r.l2().confidence_for(score, tokens, intent_id))
+        self.engine.with_resolver(&self.id, |r| {
+            r.l2().confidence_for(score, tokens, intent_id)
+        })
     }
-
-    /// Output of [`NamespaceHandle::score_multi_pipeline`].
-    // Defined as an associated type alias isn't supported; use a top-level type.
-    // (see `ScoreMultiPipelineOut` below the impl block)
 
     /// Run the full L2 multi-intent scoring pipeline in a single lock acquisition.
     ///
@@ -612,8 +612,9 @@ impl<'e> NamespaceHandle<'e> {
             let threshold = r.resolve_threshold(threshold_override, fallback_threshold);
             let tokens: Vec<String> = crate::tokenizer::tokenize(query);
             let (raw, negated) = r.l2().score_normalized(query);
-            let (multi, _neg2, trace) =
-                r.l2().score_multi_normalized_traced(query, threshold, gap, with_trace);
+            let (multi, _neg2, trace) = r
+                .l2()
+                .score_multi_normalized_traced(query, threshold, gap, with_trace);
             crate::ScoreMultiPipelineOut {
                 multi,
                 raw,
@@ -629,8 +630,9 @@ impl<'e> NamespaceHandle<'e> {
     /// `(ranked_intents, negated)`. Useful when you need scores for a known set
     /// of detected intents without re-running the full pipeline.
     pub fn score_all(&self, query: &str) -> (Vec<(String, f32)>, bool) {
-        self.engine
-            .with_resolver(&self.id, |r| r.l2().score_multi_normalized(query, 0.0, 100.0))
+        self.engine.with_resolver(&self.id, |r| {
+            r.l2().score_multi_normalized(query, 0.0, 100.0)
+        })
     }
 
     /// Apply a review result (missed phrases, span learning, anti-Hebbian correction).

@@ -469,9 +469,7 @@ pub async fn full_review(
                 let (all_scores, _) = h.score_all(query);
                 detected
                     .iter()
-                    .filter_map(|id| {
-                        all_scores.iter().find(|(s, _)| s == id).map(|(_, sc)| *sc)
-                    })
+                    .filter_map(|id| all_scores.iter().find(|(s, _)| s == id).map(|(_, sc)| *sc))
                     .fold(0.0f32, f32::max)
             })
             .unwrap_or(0.0);
@@ -709,20 +707,20 @@ async fn full_review_from_sets(
                     let desc = h.intent(id).map(|i| i.description).unwrap_or_default();
                     let count = h.training(id).unwrap_or_default().len();
                     let coverage = if count >= 20 {
-                            format!(" [{} phrases — well covered, be very targeted]", count)
-                        } else if count >= 10 {
-                            format!(" [{} phrases — add vocabulary not yet represented]", count)
-                        } else {
-                            format!(" [{} phrases — add diverse new vocabulary]", count)
-                        };
-                        if desc.is_empty() {
-                            format!("  - {}{}", id, coverage)
-                        } else {
-                            format!("  - {} ({}){}", id, desc, coverage)
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n")
+                        format!(" [{} phrases — well covered, be very targeted]", count)
+                    } else if count >= 10 {
+                        format!(" [{} phrases — add vocabulary not yet represented]", count)
+                    } else {
+                        format!(" [{} phrases — add diverse new vocabulary]", count)
+                    };
+                    if desc.is_empty() {
+                        format!("  - {}{}", id, coverage)
+                    } else {
+                        format!("  - {} ({}){}", id, desc, coverage)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
         })
         .unwrap_or_else(|| {
             missed_intents
@@ -883,7 +881,6 @@ pub async fn apply_review(
 
     added
 }
-
 
 #[cfg(test)]
 mod tests {

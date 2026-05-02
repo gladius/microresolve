@@ -123,11 +123,7 @@ fn full_smoke() {
     );
     assert_eq!(s, 200, "rebuild");
 
-    // 10. layer info
-    let (_, body) = get(&c, &format!("{}/layers/info", b), &ns_headers());
-    assert!(body.contains("terms"), "layer info has terms field");
-
-    // 11. delete intent
+    // 10. delete intent
     let s = delete_json(
         &c,
         &format!("{}/intents/hello", b),

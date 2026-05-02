@@ -275,10 +275,7 @@ pub async fn review_intent_phrases(
     let mut result: HashMap<String, Vec<String>> = HashMap::new();
     if let Some(h) = state.engine.try_namespace(&app_id) {
         for id in &req.intent_ids {
-            result.insert(
-                id.clone(),
-                h.training(id).unwrap_or_default(),
-            );
+            result.insert(id.clone(), h.training(id).unwrap_or_default());
         }
     }
     Json(serde_json::json!(result))
