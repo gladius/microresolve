@@ -87,6 +87,37 @@ pub struct IntentEditOptions {
     pub guardrails: Option<Vec<String>>,
 }
 
+/// A single intent + score pair in a routing result.
+#[napi(object)]
+pub struct ScoredIntent {
+    pub id: String,
+    pub score: f64,
+}
+
+/// Output of `routeMulti` / `routeMultiWithTrace`.
+#[napi(object)]
+pub struct RouteMultiResult {
+    /// Top intents after greedy multi-round extraction (threshold applied).
+    pub multi: Vec<ScoredIntent>,
+    /// All intents ranked by raw score (no threshold applied).
+    pub raw: Vec<ScoredIntent>,
+    /// `true` if the query contains a negation signal.
+    pub negated: bool,
+    /// Tokenized query terms, for use with `confidenceFor`.
+    pub tokens: Vec<String>,
+    /// Effective threshold that was applied.
+    pub threshold: f64,
+    /// Per-round trace as a JSON string. `null` when using `routeMulti`.
+    pub trace: Option<String>,
+}
+
+/// An intent + span pair used in `applyReview`.
+#[napi(object)]
+pub struct SpanPair {
+    pub intent_id: String,
+    pub span: String,
+}
+
 /// Options for `new MicroResolve(options)`.
 #[napi(object)]
 pub struct EngineOptions {
@@ -358,5 +389,201 @@ impl Namespace {
     pub fn flush(&self) -> Result<()> {
         self.engine.namespace(&self.id).flush()
             .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
+    // ── Extended typed API ─────────────────────────────────────────────────
+
+    /// Number of unique token→intent associations in the scoring index.
+    #[napi]
+    pub fn vocab_size(&self) -> u32 {
+        self.engine.namespace(&self.id).vocab_size() as u32
+    }
+
+    /// Per-intent normalized confidence for an already-scored result.
+    ///
+    /// `tokens` must be the tokenized form of the original query (use
+    /// `routeMulti(query).tokens` to obtain them).
+    #[napi]
+    pub fn confidence_for(&self, score: f64, tokens: Vec<String>, intent_id: String) -> f64 {
+        self.engine.namespace(&self.id)
+            .confidence_for(score as f32, &tokens, &intent_id) as f64
+    }
+
+    /// Flat list of all training phrases for an intent (all languages combined).
+    ///
+    /// Returns `null` if the intent does not exist.
+    #[napi]
+    pub fn training(&self, intent_id: String) -> Option<Vec<String>> {
+        self.engine.namespace(&self.id).training(&intent_id)
+    }
+
+    /// Training phrases grouped by language code.
+    ///
+    /// Returns `null` if the intent does not exist.
+    #[napi]
+    pub fn training_by_lang(&self, intent_id: String) -> Option<HashMap<String, Vec<String>>> {
+        self.engine.namespace(&self.id).training_by_lang(&intent_id)
+    }
+
+    /// Export namespace state as a JSON string (for sync/backup).
+    #[napi]
+    pub fn export_json(&self) -> String {
+        self.engine.namespace(&self.id).export_json()
+    }
+
+    /// Check whether a phrase would be a useful addition (deduplication check).
+    #[napi]
+    pub fn check_phrase(&self, intent_id: String, phrase: String) -> PhraseResult {
+        let result = self.engine.namespace(&self.id).check_phrase(&intent_id, &phrase);
+        PhraseResult {
+            added: result.added,
+            redundant: result.redundant,
+            warning: result.warning,
+        }
+    }
+
+    /// Description for a specific domain prefix. Returns `null` if not set.
+    #[napi]
+    pub fn domain_description(&self, domain: String) -> Option<String> {
+        self.engine.namespace(&self.id).domain_description(&domain)
+    }
+
+    /// Set the description for a domain prefix.
+    #[napi]
+    pub fn set_domain_description(&self, domain: String, description: String) {
+        self.engine.namespace(&self.id).set_domain_description(&domain, &description);
+    }
+
+    /// Remove a domain description.
+    #[napi]
+    pub fn remove_domain_description(&self, domain: String) {
+        self.engine.namespace(&self.id).remove_domain_description(&domain);
+    }
+
+    /// Run the full multi-intent routing pipeline.
+    ///
+    /// Returns a `RouteMultiResult` object with `multi`, `raw`, `negated`,
+    /// `tokens`, and `threshold` fields.
+    #[napi]
+    pub fn route_multi(
+        &self,
+        query: String,
+        threshold_override: Option<f64>,
+        gap: Option<f64>,
+        fallback_threshold: Option<f64>,
+    ) -> RouteMultiResult {
+        let out = self.engine.namespace(&self.id).route_multi(
+            &query,
+            threshold_override.map(|v| v as f32),
+            gap.unwrap_or(1.5) as f32,
+            fallback_threshold.unwrap_or(0.3) as f32,
+        );
+        RouteMultiResult {
+            multi: out.multi.into_iter().map(|(id, s)| ScoredIntent { id, score: s as f64 }).collect(),
+            raw: out.raw.into_iter().map(|(id, s)| ScoredIntent { id, score: s as f64 }).collect(),
+            negated: out.negated,
+            tokens: out.tokens,
+            threshold: out.threshold as f64,
+            trace: None,
+        }
+    }
+
+    /// Like `routeMulti` but includes a per-round trace in the `trace` field (JSON string).
+    #[napi]
+    pub fn route_multi_with_trace(
+        &self,
+        query: String,
+        threshold_override: Option<f64>,
+        gap: Option<f64>,
+        fallback_threshold: Option<f64>,
+    ) -> RouteMultiResult {
+        let out = self.engine.namespace(&self.id).route_multi_with_trace(
+            &query,
+            threshold_override.map(|v| v as f32),
+            gap.unwrap_or(1.5) as f32,
+            fallback_threshold.unwrap_or(0.3) as f32,
+        );
+        let trace_json = out.trace.as_ref().and_then(|t| serde_json::to_string(t).ok());
+        RouteMultiResult {
+            multi: out.multi.into_iter().map(|(id, s)| ScoredIntent { id, score: s as f64 }).collect(),
+            raw: out.raw.into_iter().map(|(id, s)| ScoredIntent { id, score: s as f64 }).collect(),
+            negated: out.negated,
+            tokens: out.tokens,
+            threshold: out.threshold as f64,
+            trace: trace_json,
+        }
+    }
+
+    /// Reinforce specific query tokens toward `intentId` (Hebbian-style update).
+    #[napi]
+    pub fn reinforce_tokens(&self, words: Vec<String>, intent_id: String) {
+        let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
+        self.engine.namespace(&self.id).reinforce_tokens(&word_refs, &intent_id);
+    }
+
+    /// Rebuild the scoring index from stored training phrases.
+    #[napi]
+    pub fn rebuild_index(&self) {
+        self.engine.namespace(&self.id).rebuild_index();
+    }
+
+    /// Rebuild IDF table and in-memory caches (call after bulk `indexPhrase` calls).
+    #[napi]
+    pub fn rebuild_caches(&self) {
+        self.engine.namespace(&self.id).rebuild_caches();
+    }
+
+    /// Lower-level phrase ingestion: indexes without dedup check.
+    ///
+    /// Use `addPhrase` for user-driven additions; use `indexPhrase` only for
+    /// trusted, pre-validated phrases (e.g., from spec import or auto-learn).
+    #[napi]
+    pub fn index_phrase(&self, intent_id: String, phrase: String) {
+        self.engine.namespace(&self.id).index_phrase(&intent_id, &phrase);
+    }
+
+    /// Anti-Hebbian decay: shrink L2 weights for `notIntents` on `queries`.
+    ///
+    /// `alpha` is clamped to `(0.0, 0.3]` internally.
+    #[napi]
+    pub fn decay_for_intents(&self, queries: Vec<String>, not_intents: Vec<String>, alpha: f64) {
+        self.engine.namespace(&self.id).decay_for_intents(&queries, &not_intents, alpha as f32);
+    }
+
+    /// Apply a review result (missed phrases, span learning, anti-Hebbian correction).
+    ///
+    /// - `missedPhrases`:   object mapping intent_id → phrase list
+    /// - `spansToLearn`:    array of `{ intentId, span }` objects
+    /// - `wrongDetections`: array of intent IDs that were wrongly detected
+    /// - `originalQuery`:   the original query text
+    /// - `negativeAlpha`:   anti-Hebbian decay strength (0.0–0.3, default 0.1)
+    ///
+    /// Returns the number of phrases added.
+    #[napi]
+    pub fn apply_review(
+        &self,
+        missed_phrases: HashMap<String, Vec<String>>,
+        spans_to_learn: Vec<SpanPair>,
+        wrong_detections: Vec<String>,
+        original_query: String,
+        negative_alpha: Option<f64>,
+    ) -> u32 {
+        let spans: Vec<(String, String)> = spans_to_learn
+            .into_iter()
+            .map(|p| (p.intent_id, p.span))
+            .collect();
+        self.engine.namespace(&self.id).apply_review(
+            &missed_phrases,
+            &spans,
+            &wrong_detections,
+            &original_query,
+            negative_alpha.unwrap_or(0.1) as f32,
+        ) as u32
+    }
+
+    /// Remove a single phrase from an intent. Returns `true` if the phrase existed.
+    #[napi]
+    pub fn remove_phrase(&self, intent_id: String, phrase: String) -> bool {
+        self.engine.namespace(&self.id).remove_phrase(&intent_id, &phrase)
     }
 }

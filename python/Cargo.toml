@@ -16,3 +16,4 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.28", features = ["extension-module", "abi3-py38"] }
 microresolve-core = { package = "microresolve", path = "..", features = ["connect"] }
+serde_json = "1"

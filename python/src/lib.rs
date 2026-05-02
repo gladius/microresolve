@@ -278,6 +278,197 @@ impl Namespace {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    // ── Extended typed API ─────────────────────────────────────────────────
+
+    /// Number of unique token→intent associations in the scoring index.
+    fn vocab_size(&self) -> usize {
+        self.engine.namespace(&self.id).vocab_size()
+    }
+
+    /// Per-intent normalized confidence for an already-scored result.
+    ///
+    /// `tokens` must be the tokenized form of the original query (use
+    /// `route_multi(query)[\"tokens\"]` to obtain them).
+    fn confidence_for(&self, score: f32, tokens: Vec<String>, intent_id: &str) -> f32 {
+        self.engine.namespace(&self.id).confidence_for(score, &tokens, intent_id)
+    }
+
+    /// Flat list of all training phrases for an intent (all languages combined).
+    ///
+    /// Returns `None` if the intent does not exist.
+    fn training(&self, intent_id: &str) -> Option<Vec<String>> {
+        self.engine.namespace(&self.id).training(intent_id)
+    }
+
+    /// Training phrases grouped by language code.
+    ///
+    /// Returns `None` if the intent does not exist.
+    fn training_by_lang(&self, intent_id: &str) -> Option<HashMap<String, Vec<String>>> {
+        self.engine.namespace(&self.id).training_by_lang(intent_id)
+    }
+
+    /// Export namespace state as a JSON string (for sync/backup).
+    fn export_json(&self) -> String {
+        self.engine.namespace(&self.id).export_json()
+    }
+
+    /// Check whether a phrase would be a useful addition (deduplication check).
+    ///
+    /// Returns a dict with `added` (bool), `redundant` (bool), `warning` (str | None).
+    fn check_phrase<'py>(&self, py: Python<'py>, intent_id: &str, phrase: &str) -> PyResult<Bound<'py, PyDict>> {
+        let result = self.engine.namespace(&self.id).check_phrase(intent_id, phrase);
+        let d = PyDict::new(py);
+        d.set_item("added", result.added)?;
+        d.set_item("redundant", result.redundant)?;
+        d.set_item("warning", result.warning)?;
+        Ok(d)
+    }
+
+    /// Description for a specific domain prefix. Returns `None` if not set.
+    fn domain_description(&self, domain: &str) -> Option<String> {
+        self.engine.namespace(&self.id).domain_description(domain)
+    }
+
+    /// Set the description for a domain prefix.
+    fn set_domain_description(&self, domain: &str, description: &str) {
+        self.engine.namespace(&self.id).set_domain_description(domain, description);
+    }
+
+    /// Remove a domain description.
+    fn remove_domain_description(&self, domain: &str) {
+        self.engine.namespace(&self.id).remove_domain_description(domain);
+    }
+
+    /// Run the full multi-intent routing pipeline.
+    ///
+    /// Returns a dict with:
+    ///   - `multi`:     list of `[intent_id, score]` after threshold + gap filtering
+    ///   - `raw`:       list of `[intent_id, score]` (all intents, no threshold)
+    ///   - `negated`:   bool — true if query contains a negation signal
+    ///   - `tokens`:    list of tokenized query terms
+    ///   - `threshold`: resolved threshold that was applied
+    ///
+    /// Optional params:
+    ///   - `threshold_override`: override the namespace default (None = use cascade)
+    ///   - `gap`:                secondary-intent floor multiplier (default 1.5)
+    ///   - `fallback_threshold`: cascade fallback (default 0.3)
+    #[pyo3(signature = (query, threshold_override=None, gap=1.5, fallback_threshold=0.3))]
+    fn route_multi<'py>(
+        &self,
+        py: Python<'py>,
+        query: &str,
+        threshold_override: Option<f32>,
+        gap: f32,
+        fallback_threshold: f32,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let out = self.engine.namespace(&self.id)
+            .route_multi(query, threshold_override, gap, fallback_threshold);
+        let d = PyDict::new(py);
+        let multi: Vec<(String, f32)> = out.multi;
+        let raw: Vec<(String, f32)> = out.raw;
+        let multi_py: Vec<(String, f32)> = multi;
+        let raw_py: Vec<(String, f32)> = raw;
+        d.set_item("multi", multi_py)?;
+        d.set_item("raw", raw_py)?;
+        d.set_item("negated", out.negated)?;
+        d.set_item("tokens", out.tokens)?;
+        d.set_item("threshold", out.threshold)?;
+        Ok(d)
+    }
+
+    /// Like `route_multi` but includes a detailed per-round trace for debugging.
+    ///
+    /// Same return shape as `route_multi` plus a `trace` key containing the
+    /// serialized `MultiIntentTrace` as a JSON string.
+    #[pyo3(signature = (query, threshold_override=None, gap=1.5, fallback_threshold=0.3))]
+    fn route_multi_with_trace<'py>(
+        &self,
+        py: Python<'py>,
+        query: &str,
+        threshold_override: Option<f32>,
+        gap: f32,
+        fallback_threshold: f32,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let out = self.engine.namespace(&self.id)
+            .route_multi_with_trace(query, threshold_override, gap, fallback_threshold);
+        let d = PyDict::new(py);
+        let multi_py: Vec<(String, f32)> = out.multi;
+        let raw_py: Vec<(String, f32)> = out.raw;
+        d.set_item("multi", multi_py)?;
+        d.set_item("raw", raw_py)?;
+        d.set_item("negated", out.negated)?;
+        d.set_item("tokens", out.tokens)?;
+        d.set_item("threshold", out.threshold)?;
+        let trace_json = out.trace.as_ref()
+            .and_then(|t| serde_json::to_string(t).ok());
+        d.set_item("trace", trace_json)?;
+        Ok(d)
+    }
+
+    /// Reinforce specific query tokens toward `intent_id` (Hebbian-style update).
+    fn reinforce_tokens(&self, words: Vec<String>, intent_id: &str) {
+        let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
+        self.engine.namespace(&self.id).reinforce_tokens(&word_refs, intent_id);
+    }
+
+    /// Rebuild the scoring index from stored training phrases.
+    fn rebuild_index(&self) {
+        self.engine.namespace(&self.id).rebuild_index();
+    }
+
+    /// Rebuild IDF table and in-memory caches (call after bulk `index_phrase` calls).
+    fn rebuild_caches(&self) {
+        self.engine.namespace(&self.id).rebuild_caches();
+    }
+
+    /// Lower-level phrase ingestion: indexes without dedup check.
+    ///
+    /// Use `add_phrase` for user-driven additions; use `index_phrase` only for
+    /// trusted, pre-validated phrases (e.g., from spec import or auto-learn).
+    fn index_phrase(&self, intent_id: &str, phrase: &str) {
+        self.engine.namespace(&self.id).index_phrase(intent_id, phrase);
+    }
+
+    /// Anti-Hebbian decay: shrink L2 weights for `not_intents` on `queries`.
+    ///
+    /// `alpha` is clamped to `(0.0, 0.3]` internally.
+    fn decay_for_intents(&self, queries: Vec<String>, not_intents: Vec<String>, alpha: f32) {
+        self.engine.namespace(&self.id).decay_for_intents(&queries, &not_intents, alpha);
+    }
+
+    /// Apply a review result (missed phrases, span learning, anti-Hebbian correction).
+    ///
+    /// Parameters:
+    ///   - `missed_phrases`:   dict mapping intent_id → list of missed phrases
+    ///   - `spans_to_learn`:   list of `[intent_id, span_text]` pairs
+    ///   - `wrong_detections`: list of intent IDs that were wrongly detected
+    ///   - `original_query`:   the original query text
+    ///   - `negative_alpha`:   anti-Hebbian decay strength (0.0–0.3)
+    ///
+    /// Returns the number of phrases added.
+    #[pyo3(signature = (missed_phrases, spans_to_learn, wrong_detections, original_query, negative_alpha=0.1))]
+    fn apply_review(
+        &self,
+        missed_phrases: HashMap<String, Vec<String>>,
+        spans_to_learn: Vec<(String, String)>,
+        wrong_detections: Vec<String>,
+        original_query: &str,
+        negative_alpha: f32,
+    ) -> usize {
+        self.engine.namespace(&self.id).apply_review(
+            &missed_phrases,
+            &spans_to_learn,
+            &wrong_detections,
+            original_query,
+            negative_alpha,
+        )
+    }
+
+    /// Remove a single phrase from an intent. Returns `True` if the phrase existed.
+    fn remove_phrase(&self, intent_id: &str, phrase: &str) -> bool {
+        self.engine.namespace(&self.id).remove_phrase(intent_id, phrase)
+    }
+
     /// Namespace identifier.
     #[getter]
     fn id(&self) -> &str { &self.id }
