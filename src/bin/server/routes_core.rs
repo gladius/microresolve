@@ -42,20 +42,17 @@ pub async fn route_multi(
     let app_id = app_id_from_headers(&headers);
     let t0 = std::time::Instant::now();
 
-    let (intent_graph_results, raw_ranked, query_has_negation, tokens, multi_trace) =
-        match state.engine.try_namespace(&app_id) {
-            Some(h) => {
-                let p = h.route_multi(
-                    &req.query,
-                    req.threshold,
-                    req.gap,
-                    true,
-                    default_threshold(),
-                );
-                (Some(p.multi), p.raw, p.negated, p.tokens, p.trace)
-            }
-            None => (None, vec![], false, vec![], None),
-        };
+    let (intent_graph_results, raw_ranked, query_has_negation, tokens, multi_trace) = match state
+        .engine
+        .try_namespace(&app_id)
+    {
+        Some(h) => {
+            let p =
+                h.route_multi_with_trace(&req.query, req.threshold, req.gap, default_threshold());
+            (Some(p.multi), p.raw, p.negated, p.tokens, p.trace)
+        }
+        None => (None, vec![], false, vec![], None),
+    };
 
     let latency_us = t0.elapsed().as_micros() as u64;
 

@@ -256,8 +256,8 @@ impl MicroResolve {
 
     // ── Effective config (cascade: namespace → engine) ─────────────────────
 
-    /// Effective resolve threshold for a namespace.
-    pub fn effective_threshold(&self, ns_id: &str) -> f32 {
+    /// Effective resolve threshold for a namespace (cascade: namespace → engine).
+    pub fn resolve_threshold_for(&self, ns_id: &str) -> f32 {
         let ns = self.namespaces.read().unwrap();
         ns.get(ns_id)
             .and_then(|s| s.config.default_threshold)
@@ -265,7 +265,7 @@ impl MicroResolve {
     }
 
     /// Effective language list for a namespace.
-    pub fn effective_languages(&self, ns_id: &str) -> Vec<String> {
+    pub fn languages_for(&self, ns_id: &str) -> Vec<String> {
         let ns = self.namespaces.read().unwrap();
         ns.get(ns_id)
             .and_then(|s| s.config.languages.clone())
@@ -273,7 +273,7 @@ impl MicroResolve {
     }
 
     /// Effective LLM model for a namespace, or `None` if no LLM is configured.
-    pub fn effective_llm_model(&self, ns_id: &str) -> Option<String> {
+    pub fn llm_model_for(&self, ns_id: &str) -> Option<String> {
         let ns = self.namespaces.read().unwrap();
         ns.get(ns_id)
             .and_then(|s| s.config.llm_model.clone())
@@ -373,7 +373,7 @@ impl<'e> NamespaceHandle<'e> {
     /// In connected mode, every call buffers a log entry that the engine's
     /// background tick ships to the server.
     pub fn resolve(&self, query: &str) -> Vec<Match> {
-        let threshold = self.engine.effective_threshold(&self.id);
+        let threshold = self.engine.resolve_threshold_for(&self.id);
         let opts = ResolveOptions {
             threshold,
             gap: 1.5,
@@ -511,11 +511,12 @@ impl<'e> NamespaceHandle<'e> {
             .with_resolver(&self.id, |r| r.check_phrase(intent_id, phrase))
     }
 
-    /// Negative training: shrink L2 weights for `not_intents` on `queries`.
+    /// Anti-Hebbian decay: shrink L2 weights for `not_intents` on `queries`.
     /// `alpha` is clamped to `(0.0, 0.3]` internally.
-    pub fn train_negative(&self, queries: &[String], not_intents: &[String], alpha: f32) {
-        self.engine
-            .with_resolver_mut(&self.id, |r| r.train_negative(queries, not_intents, alpha))
+    pub fn decay_for_intents(&self, queries: &[String], not_intents: &[String], alpha: f32) {
+        self.engine.with_resolver_mut(&self.id, |r| {
+            r.decay_for_intents(queries, not_intents, alpha)
+        })
     }
 
     /// Rebuild the scoring index from stored training phrases.
@@ -603,29 +604,58 @@ impl<'e> NamespaceHandle<'e> {
     /// - `raw`:   all intents ranked by raw score (before threshold)
     /// - `negated`: whether the query contains a negation signal
     /// - `tokens`: tokenized query terms (for `confidence_for`)
-    /// - `trace`:  optional detailed round trace (pass `with_trace = true`)
+    /// - `trace`:  `None` (use `route_multi_with_trace` for round-level diagnostics)
     /// - `threshold`: the resolved threshold that was applied
     pub fn route_multi(
         &self,
         query: &str,
         threshold_override: Option<f32>,
         gap: f32,
-        with_trace: bool,
         fallback_threshold: f32,
     ) -> crate::RouteMultiOut {
         self.engine.with_resolver(&self.id, |r| {
             let threshold = r.resolve_threshold(threshold_override, fallback_threshold);
             let tokens: Vec<String> = crate::tokenizer::tokenize(query);
             let (raw, negated) = r.index().score(query);
-            let (multi, _neg2, trace) = r
-                .index()
-                .score_multi_traced(query, threshold, gap, with_trace);
+            let (multi, _neg2) = r.index().score_multi(query, threshold, gap);
             crate::RouteMultiOut {
                 multi,
                 raw,
                 negated,
                 tokens,
-                trace,
+                trace: None,
+                threshold,
+            }
+        })
+    }
+
+    /// Like `route_multi` but also returns a detailed per-round trace for debugging.
+    ///
+    /// Returns:
+    /// - `multi`: top intents after greedy multi-round extraction
+    /// - `raw`:   all intents ranked by raw score (before threshold)
+    /// - `negated`: whether the query contains a negation signal
+    /// - `tokens`: tokenized query terms (for `confidence_for`)
+    /// - `trace`:  `Some(MultiIntentTrace)` with per-round diagnostics
+    /// - `threshold`: the resolved threshold that was applied
+    pub fn route_multi_with_trace(
+        &self,
+        query: &str,
+        threshold_override: Option<f32>,
+        gap: f32,
+        fallback_threshold: f32,
+    ) -> crate::RouteMultiOut {
+        self.engine.with_resolver(&self.id, |r| {
+            let threshold = r.resolve_threshold(threshold_override, fallback_threshold);
+            let tokens: Vec<String> = crate::tokenizer::tokenize(query);
+            let (raw, negated) = r.index().score(query);
+            let (multi, _neg2, trace) = r.index().score_multi_with_trace(query, threshold, gap);
+            crate::RouteMultiOut {
+                multi,
+                raw,
+                negated,
+                tokens,
+                trace: Some(trace),
                 threshold,
             }
         })
@@ -760,14 +790,14 @@ mod tests {
     }
 
     #[test]
-    fn effective_threshold_cascades() {
+    fn resolve_threshold_for_cascades() {
         let engine = MicroResolve::new(MicroResolveConfig {
             default_threshold: 0.42,
             ..Default::default()
         })
         .unwrap();
         let _ = engine.namespace("a");
-        assert_eq!(engine.effective_threshold("a"), 0.42);
+        assert_eq!(engine.resolve_threshold_for("a"), 0.42);
         let _ = engine.namespace_with(
             "b",
             NamespaceConfig {
@@ -775,6 +805,6 @@ mod tests {
                 ..Default::default()
             },
         );
-        assert_eq!(engine.effective_threshold("b"), 0.99);
+        assert_eq!(engine.resolve_threshold_for("b"), 0.99);
     }
 }

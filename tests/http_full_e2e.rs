@@ -254,10 +254,10 @@ fn auto_learn_deterministic_path() {
         &json!({"id":"cancel","phrases":["cancel order","stop order"]}),
     );
 
-    // train_negative (audit log auto-fires)
+    // decay_for_intents (audit log auto-fires)
     let (s, _) = post_json(
         &c,
-        &format!("{}/namespaces/train_negative", b),
+        &format!("{}/namespaces/decay", b),
         &[],
         &json!({"namespace_id": NS_AL, "queries":["weather is nice today"], "alpha": 0.1}),
     );

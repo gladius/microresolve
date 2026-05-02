@@ -81,15 +81,6 @@ impl Resolver {
     pub fn load_from_dir(path: &Path) -> Result<Self, crate::Error> {
         let mut router = Self::new();
 
-        // One-shot migration: v0.2.0 → v0.2.1 renames _l2.json → _index.json on disk.
-        {
-            let legacy = path.join("_l2.json");
-            let canonical = path.join("_index.json");
-            if legacy.exists() && !canonical.exists() {
-                let _ = std::fs::rename(&legacy, &canonical);
-            }
-        }
-
         // Namespace metadata
         if let Ok(json) = std::fs::read_to_string(path.join("_ns.json")) {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json) {

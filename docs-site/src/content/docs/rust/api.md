@@ -32,9 +32,9 @@ let engine = MicroResolve::new(MicroResolveConfig {
 | `remove_namespace(id)` | Drop a namespace from memory (does not delete data on disk) |
 | `reload_namespace(id)` | Reload a namespace from disk (after external changes) |
 | `flush()` | Persist all dirty namespaces to disk |
-| `effective_threshold(ns_id)` | Effective resolve threshold for a namespace (cascade: namespace → engine) |
-| `effective_languages(ns_id)` | Effective language list for a namespace |
-| `effective_llm_model(ns_id)` | Effective LLM model for a namespace, or `None` |
+| `resolve_threshold_for(ns_id)` | Effective resolve threshold for a namespace (cascade: namespace → engine) |
+| `languages_for(ns_id)` | Effective language list for a namespace |
+| `llm_model_for(ns_id)` | Effective LLM model for a namespace, or `None` |
 | `config()` | Return a reference to the `MicroResolveConfig` |
 
 ## MicroResolveConfig

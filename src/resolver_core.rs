@@ -143,7 +143,12 @@ impl Resolver {
     /// Each call appends to the audit log automatically (see
     /// `negative_training_log`); use `rebuild_index()` to reset both the
     /// weights and the log.
-    pub fn train_negative(&mut self, raw_queries: &[String], not_intents: &[String], alpha: f32) {
+    pub fn decay_for_intents(
+        &mut self,
+        raw_queries: &[String],
+        not_intents: &[String],
+        alpha: f32,
+    ) {
         if alpha <= 0.0 || alpha >= 1.0 {
             return;
         }
@@ -207,7 +212,7 @@ impl Resolver {
             self.index_phrase_no_rebuild(intent_id, phrase);
         }
         self.index.rebuild_caches();
-        // Audit log is now stale — every prior train_negative call has been wiped.
+        // Audit log is now stale — every prior decay_for_intents call has been wiped.
         self.negative_training_log.clear();
     }
 
@@ -245,7 +250,7 @@ impl Resolver {
     ///    query words (vocabulary growth from the customer's own phrasing).
     /// 3. **Anti-Hebbian shrink** — for each intent in `wrong_detections`,
     ///    decay the weights of every token in `original_query` toward that
-    ///    intent (gentle bounded multiplicative decay via `train_negative`).
+    ///    intent (gentle bounded multiplicative decay via `decay_for_intents`).
     /// 4. **Audit log** — append one `NegativeTrainingEntry` summarising the
     ///    shrink, so this review is reversible.
     ///
@@ -292,7 +297,7 @@ impl Resolver {
         // 3. Anti-Hebbian shrink for wrong detections on this query.
         if !wrong_detections.is_empty() && negative_alpha > 0.0 {
             let alpha = negative_alpha.min(0.3);
-            self.train_negative(&[original_query.to_string()], wrong_detections, alpha);
+            self.decay_for_intents(&[original_query.to_string()], wrong_detections, alpha);
         }
 
         self.version += 1;

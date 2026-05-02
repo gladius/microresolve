@@ -105,14 +105,14 @@ fn full_smoke() {
     let (_, body) = get(&c, &format!("{}/namespaces", b), &[]);
     assert!(body.contains("Smoke"), "namespace name persisted");
 
-    // 8. train_negative (audit log auto-fires)
+    // 8. decay_for_intents (audit log auto-fires)
     let (s, _) = post_json(
         &c,
-        &format!("{}/namespaces/train_negative", b),
+        &format!("{}/namespaces/decay", b),
         &[],
         &json!({"namespace_id": NS, "queries":["unrelated"], "alpha": 0.1}),
     );
-    assert_eq!(s, 200, "train_negative");
+    assert_eq!(s, 200, "decay_for_intents");
 
     // 9. rebuild (clears audit log)
     let (s, _) = post_json(

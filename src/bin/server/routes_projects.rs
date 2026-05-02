@@ -21,7 +21,7 @@ pub fn routes() -> axum::Router<AppState> {
         .route("/api/namespaces", post(create_namespace))
         .route("/api/namespaces", delete(delete_namespace))
         .route("/api/namespaces", patch(update_namespace))
-        .route("/api/namespaces/train_negative", post(train_negative))
+        .route("/api/namespaces/decay", post(decay_for_intents))
         .route("/api/namespaces/rebuild", post(rebuild_namespace))
         .route("/api/namespaces/{id}/history", get(namespace_history))
         .route("/api/namespaces/{id}/rollback", post(namespace_rollback))
@@ -171,7 +171,7 @@ fn default_alpha() -> f32 {
     0.1
 }
 
-pub async fn train_negative(
+pub async fn decay_for_intents(
     State(state): State<AppState>,
     Json(req): Json<TrainNegativeRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
@@ -201,10 +201,10 @@ pub async fn train_negative(
     };
     let queries_len = req.queries.len();
     let affected = not_intents.len();
-    h.train_negative(&req.queries, &not_intents, req.alpha);
+    h.decay_for_intents(&req.queries, &not_intents, req.alpha);
     maybe_commit(&state, &req.namespace_id);
     Ok(Json(serde_json::json!({
-        "trained": req.namespace_id,
+        "decayed": req.namespace_id,
         "queries": queries_len,
         "intents_affected": affected,
         "alpha": req.alpha,
