@@ -1,0 +1,24 @@
+{
+  "description": "User has a specific URL or webpage and wants its contents fetched and summarized.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "fetch this url",
+      "scrape this page",
+      "pull the contents of",
+      "download what is at this link and summarize",
+      "open this article and tell me the main points",
+      "grab the html from this address",
+      "visit this page and extract the prices",
+      "follow this link and read it for me",
+      "go to https example com and pull back the body of the page in markdown",
+      "I need the text on this webpage retrieved so I can quote from it later"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

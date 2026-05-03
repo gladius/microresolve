@@ -1,0 +1,24 @@
+{
+  "description": "User wants to read, write, list, move, or delete local files or directories.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "read this file",
+      "list the directory",
+      "save to disk",
+      "create a new file called notes md in my home folder",
+      "write the report to output txt",
+      "delete the temp folder",
+      "move all the logs to archive",
+      "show me what is inside the downloads directory",
+      "open the json file at config production json and dump its contents",
+      "I need you to walk through every file in this folder and rename them with a date prefix"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

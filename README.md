@@ -20,6 +20,8 @@ persona, who to refuse — run in 50µs and improve while your app runs.
 - **Multilingual** — Latin + CJK tokenization; learns whichever language your traffic is in.
 - **One engine, many namespaces** — tool routing, intent triage, compliance gates, abuse detection — same engine, isolated namespaces.
 
+> **Not a perfect one-stop classifier.** Every router has false-positive / false-negative failure modes; MicroResolve does too. The pitch is: fast deterministic routing that converges on your traffic via corrections — the corrections are the product. Cold-start packs give you a starting point; deployment-time corrections shape the index to your domain. Used right, it works.
+
 > v0.1 — early release; pin exact versions in production.
 
 [**Documentation**](https://gladius.github.io/microresolve/) ·

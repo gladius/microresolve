@@ -1,0 +1,24 @@
+{
+  "description": "User wants to execute code, run a shell command, or evaluate a script in a sandbox.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "run this script",
+      "execute the python",
+      "shell out and call",
+      "evaluate this snippet of javascript and return the output",
+      "run the test suite for me",
+      "exec npm install in the frontend folder",
+      "call the build command and show me the errors",
+      "spin up a sandbox and try this code",
+      "I want you to run my python program with these arguments and capture stdout",
+      "execute the bash command listed below in the workspace and report the exit code"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

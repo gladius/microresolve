@@ -1,0 +1,24 @@
+{
+  "description": "User wants to send a message via email, Slack, SMS, or chat.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "send an email",
+      "message my team",
+      "text the contractor",
+      "draft an email to the design team",
+      "slack the engineers about the outage",
+      "shoot a message to legal asking for review",
+      "email the client a status update",
+      "DM Bob and tell him the meeting moved",
+      "compose and send a polite reply to that vendor about the late delivery",
+      "I need you to send a quick message to my manager letting her know I will be remote tomorrow"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

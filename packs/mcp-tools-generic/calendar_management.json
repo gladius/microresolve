@@ -1,0 +1,24 @@
+{
+  "description": "User wants to schedule, reschedule, cancel, or check availability of calendar events.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "schedule a meeting",
+      "block off my calendar",
+      "find me a free slot",
+      "create an event tomorrow at 3pm with the design team",
+      "reschedule the standup to monday",
+      "cancel the friday review and notify attendees",
+      "what does my calendar look like next week",
+      "book a 30 minute call with sarah for some time on thursday",
+      "I need a meeting set up with marketing and engineering for some time next sprint",
+      "move the all hands to a different day because of the conflict with the offsite"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

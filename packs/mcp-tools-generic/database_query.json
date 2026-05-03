@@ -1,0 +1,24 @@
+{
+  "description": "User wants to run a query against a database — SQL, NoSQL, key-value, or vector store.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "query the database",
+      "run sql",
+      "fetch rows",
+      "select all customers from postgres where signup is after march",
+      "count orders in the last week from the orders table",
+      "show me the schema of the users table",
+      "find documents in mongo where status is pending",
+      "look up the row for user id 42 in the production db",
+      "I need a SQL statement that joins orders and customers and returns total revenue by region",
+      "execute a query on the analytics warehouse to pull last quarters churn numbers"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

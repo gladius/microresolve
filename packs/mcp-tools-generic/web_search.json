@@ -1,0 +1,24 @@
+{
+  "description": "User wants to search the web for information they don't already have.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "search the web",
+      "google this",
+      "look up online",
+      "find me articles about climate policy",
+      "search for recent news on the election",
+      "what does the internet say about this",
+      "look up the wikipedia page for paracetamol",
+      "browse for reviews of the new iphone",
+      "I need you to search the web and tell me who won the world cup yesterday",
+      "can you query a search engine and summarize what comes back about quantum computing"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}
