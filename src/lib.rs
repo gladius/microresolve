@@ -6,23 +6,21 @@
 //! ## Quick Start
 //!
 //! ```
-//! use microresolve::Resolver;
+//! use microresolve::{MicroResolve, MicroResolveConfig};
 //!
-//! let mut resolver = Resolver::new();
-//! resolver.add_intent("cancel_order", &["cancel my order", "stop my order"]);
-//! resolver.add_intent("track_order",  &["where is my package", "track my order"]);
+//! let engine = MicroResolve::new(MicroResolveConfig::default()).unwrap();
+//! let ns = engine.namespace("orders");
+//! ns.add_intent("cancel_order", &["cancel my order", "stop my order"][..]).unwrap();
+//! ns.add_intent("track_order",  &["where is my package", "track my order"][..]).unwrap();
 //!
-//! let matches = resolver.resolve("I want to cancel");
-//! assert_eq!(matches[0].id, "cancel_order");
+//! let result = ns.resolve("I want to cancel");
+//! assert_eq!(result.intents[0].id, "cancel_order");
 //! ```
-//!
-//! For tunable threshold/gap, use `resolve_with(query, &ResolveOptions { ... })`.
 
 // Internal layers — kept `pub` because the server bin (a separate crate
 // target) reaches into them directly, but `#[doc(hidden)]` keeps them out
 // of rustdoc + IDE autocomplete. Library users go through `MicroResolve` +
 // `NamespaceHandle`; these modules are not part of the semver surface.
-#[doc(hidden)]
 #[doc(hidden)]
 pub mod phrase;
 #[doc(hidden)]

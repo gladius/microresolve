@@ -97,38 +97,6 @@ pub struct NamespaceConfig {
     pub description: String,
 }
 
-/// A routing match: an intent identifier paired with its score.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Match {
-    /// The intent identifier.
-    pub id: String,
-    /// Match score (higher = better match).
-    pub score: f32,
-}
-
-/// Tunable options for `Resolver::resolve_with`.
-///
-/// `Default::default()` returns sensible defaults that match the zero-arg
-/// `resolve()` overload: threshold 0.3, gap 1.5.
-#[derive(Debug, Clone, Copy)]
-pub struct ResolveOptions {
-    /// Minimum score for a match to be returned. Typical range: 0.1–0.5.
-    /// Lower = more permissive (more false positives), higher = stricter.
-    pub threshold: f32,
-    /// Multi-intent gap cutoff. Top score divided by `gap` is the floor for
-    /// secondary matches to be reported. Higher values include more matches.
-    pub gap: f32,
-}
-
-impl Default for ResolveOptions {
-    fn default() -> Self {
-        Self {
-            threshold: 0.3,
-            gap: 1.5,
-        }
-    }
-}
-
 /// Errors returned by the public Resolver / MicroResolve / connect API.
 #[derive(Debug)]
 pub enum Error {

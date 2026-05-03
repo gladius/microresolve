@@ -307,28 +307,6 @@ impl Resolver {
             .collect()
     }
 
-    /// Resolve a natural-language query to matching intents using default
-    /// options (threshold 0.3, gap 1.5).
-    ///
-    /// Returns matches sorted by score (descending). Empty Vec if nothing
-    /// scored above threshold. For tunable behavior, see `resolve_with`.
-    pub fn resolve(&self, query: &str) -> Vec<crate::Match> {
-        self.resolve_with(query, &crate::ResolveOptions::default())
-    }
-
-    /// Resolve with explicit options.
-    ///
-    /// `opts.threshold` — minimum score to include (typical 0.1–0.5).
-    /// `opts.gap` — multi-intent cutoff: the top score divided by `gap`
-    /// is the floor for secondary matches. Higher = more matches reported.
-    pub fn resolve_with(&self, query: &str, opts: &crate::ResolveOptions) -> Vec<crate::Match> {
-        let (scored, _negation) = self.index.score_multi(query, opts.threshold, opts.gap);
-        scored
-            .into_iter()
-            .map(|(id, score)| crate::Match { id, score })
-            .collect()
-    }
-
     /// Apply the resolver-local part of a review to the index in one shot.
     ///
     /// Performs every mutation a confirmed review should produce:
