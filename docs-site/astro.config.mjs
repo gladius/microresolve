@@ -25,6 +25,7 @@ export default defineConfig({
           items: [
             { label: 'Introduction', slug: 'index' },
             { label: 'Concepts', slug: 'concepts' },
+            { label: 'Bands & Disposition', slug: 'concepts-bands' },
           ],
         },
         {

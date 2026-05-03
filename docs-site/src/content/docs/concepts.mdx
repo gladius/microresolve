@@ -66,8 +66,8 @@ ns.add_intent("cancel_order", &IntentSeeds::Phrases(vec![
 Classification (called `resolve`) takes a query string and returns a ranked list of matching intents with scores. A score above the threshold means the engine is confident enough to act.
 
 ```rust
-let matches = ns.resolve("I need to cancel this");
-// [Match { id: "cancel_order", score: 0.91 }]
+let result = ns.resolve("I need to cancel this");
+// ResolveResult { disposition: Confident, intents: [IntentMatch { id: "cancel_order", score: 0.91, band: High }] }
 ```
 
 The engine uses a weighted lexical index: tokens in the query are looked up in a word→intent weight table. Each token's weight is multiplied by its IDF (inverse document frequency) — common words like "the" contribute little; distinctive words like "jailbreak" contribute a lot. Scores are summed across tokens.
@@ -95,12 +95,14 @@ Two parameters control what gets returned:
 See [Threshold Tuning](/microresolve/threshold-tuning/) for detailed guidance.
 
 ```rust
-use microresolve::ResolveOptions;
+use microresolve::Disposition;
 
-let matches = ns.resolve_with("cancel my order and get a refund", ResolveOptions {
-    threshold: 0.3,
-    gap: 1.5,
-});
+let result = ns.resolve("cancel my order and get a refund");
+match result.disposition {
+    Disposition::Confident    => { /* act on result.intents */ }
+    Disposition::LowConfidence => { /* ask user or disambiguate */ }
+    Disposition::NoMatch      => { /* fallback path */ }
+}
 ```
 
 ## Corrections

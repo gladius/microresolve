@@ -70,15 +70,16 @@ let security = engine.namespace_with("security", NamespaceConfig {
 });
 ```
 
-Or override per call:
+For a per-call override, use `resolve_with_options` (lower-level; prefer setting per-namespace threshold):
 
 ```rust
-use microresolve::ResolveOptions;
-
-let matches = ns.resolve_with(query, ResolveOptions {
-    threshold: 1.3,
-    gap: 2.0,
-});
+let (result, _trace) = ns.resolve_with_options(
+    query,
+    Some(1.3),  // threshold_override
+    2.0,        // gap
+    0.3,        // fallback_threshold
+    false,      // with_trace
+);
 ```
 
 ## Block vs tag

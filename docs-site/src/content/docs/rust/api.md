@@ -73,8 +73,8 @@ Returned by `engine.namespace()`. Provides all classification and training opera
 
 | Method | Description |
 |--------|-------------|
-| `resolve(query)` | Classify query; returns `Vec<Match>` |
-| `resolve_with(query, opts)` | Classify with custom `ResolveOptions` |
+| `resolve(query)` | Classify query; returns `ResolveResult` |
+| `resolve_with_trace(query)` | Classify and return `(ResolveResult, ResolveTrace)` |
 
 ### Learning
 
@@ -98,25 +98,58 @@ pub enum IntentSeeds {
 }
 ```
 
-## Match
+## ResolveResult
 
 ```rust
-pub struct Match {
+pub struct ResolveResult {
+    pub intents: Vec<IntentMatch>,
+    pub disposition: Disposition,
+}
+```
+
+Returned by `resolve()`. `intents` is sorted by score descending.
+
+## IntentMatch
+
+```rust
+pub struct IntentMatch {
     pub id: String,
     pub score: f32,
+    /// Normalized confidence in [0,1]: score / max_score_in_set.
+    pub confidence: f32,
+    pub band: Band,
 }
 ```
 
-Returned by `resolve()` and `resolve_with()`. Sorted by score descending.
-
-## ResolveOptions
+## Band
 
 ```rust
-pub struct ResolveOptions {
-    pub threshold: f32,  // minimum score; default 0.3
-    pub gap: f32,        // score ratio gap for multi-intent; default 1.5
+pub enum Band { High, Medium, Low }
+```
+
+`High` means the score is at or above the namespace threshold. See [Bands and Disposition](/microresolve/concepts-bands/) for decision patterns.
+
+## Disposition
+
+```rust
+pub enum Disposition { Confident, LowConfidence, NoMatch }
+```
+
+`Confident` if any intent has `Band::High`; `LowConfidence` if intents exist but none is `High`; `NoMatch` if the result is empty.
+
+## ResolveTrace
+
+```rust
+pub struct ResolveTrace {
+    pub tokens: Vec<String>,
+    pub all_scores: Vec<(String, f32)>,
+    pub multi_round_trace: MultiIntentTrace,
+    pub negated: bool,
+    pub threshold_applied: f32,
 }
 ```
+
+Returned alongside `ResolveResult` by `resolve_with_trace()`. Useful for debugging and threshold calibration.
 
 ## NamespaceConfig
 

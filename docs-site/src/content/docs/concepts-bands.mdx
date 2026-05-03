@@ -1,0 +1,87 @@
+---
+title: Bands & Disposition
+description: How MicroResolve classifies match strength and how to act on it.
+---
+
+Every `resolve()` call returns a `ResolveResult` with three signals: `score`, `confidence`, and `band` per intent, plus an overall `disposition`. They answer three different questions.
+
+## score
+
+Raw inverted-index score for an intent. Sum of `(token weight × IDF)` across matched tokens. Unbounded, typically `0.0`–`~1.5`. Magnitude depends on query length and vocabulary overlap.
+
+Use it to compare matches **within** a single query. Don't compare scores across namespaces — they're not normalized.
+
+## confidence
+
+`score ÷ max_score_in_set`. Always in `[0.0, 1.0]`. The top intent is always `1.0`; a runner-up shows how close it is to the leader.
+
+Useful for "how dominant is the winner?" — `confidence: 0.95` on the second intent means a near-tie; `0.19` means the top is clearly out front.
+
+## band
+
+Bucketed verdict against the namespace threshold. Three values:
+
+| Band | Cutoff | Meaning |
+|---|---|---|
+| `High` | `score >= threshold` (default `0.3`) | Confident match; safe to act on. |
+| `Medium` | `score >= max(threshold * 0.2, 0.05)` | Plausible candidate; surface for disambiguation, don't act blindly. |
+| `Low` | below candidate cutoff | Weak signal; usually filtered out. |
+
+Banding is computed on top of the namespace threshold, so raising your threshold automatically narrows what counts as `High`.
+
+## disposition
+
+One-line summary of the intents list:
+
+| Disposition | When | Recommended action |
+|---|---|---|
+| `Confident` | At least one intent is `High` | Act on `intents[0]` directly. |
+| `LowConfidence` | Intents present but none are `High` | Ask the user, or route to LLM disambiguation across `intents`. |
+| `NoMatch` | `intents` is empty | Fallback path: LLM, default response, or escalation. |
+
+## Decision pattern
+
+This is the canonical pre-LLM filter pattern:
+
+```rust
+use microresolve::Disposition;
+
+let result = ns.resolve(query);
+match result.disposition {
+    Disposition::Confident => {
+        // Cheap path: act on the deterministic answer.
+        handle_intent(&result.intents[0].id, query)
+    }
+    Disposition::LowConfidence => {
+        // Hand candidates to an LLM for disambiguation.
+        let candidates: Vec<&str> = result.intents.iter()
+            .map(|m| m.id.as_str())
+            .collect();
+        llm_disambiguate(query, &candidates)
+    }
+    Disposition::NoMatch => {
+        // No router signal; full LLM fallback.
+        llm_fallback(query)
+    }
+}
+```
+
+The same pattern works in Python (`result.disposition == "Confident"`) and Node (`result.disposition === 'Confident'`). String values are stable across all three bindings.
+
+## Filtering by band
+
+When you want only the high-confidence picks (e.g. for tool routing where a low-band match is worse than no match):
+
+```python
+high_only = [m for m in result.intents if m.band == "High"]
+```
+
+```typescript
+const highOnly = result.intents.filter(m => m.band === 'High');
+```
+
+```rust
+let high_only: Vec<_> = result.intents.iter()
+    .filter(|m| m.band == microresolve::Band::High)
+    .collect();
+```

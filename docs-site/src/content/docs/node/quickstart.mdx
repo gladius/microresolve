@@ -38,11 +38,11 @@ ns.addIntent('track_order', [
   'shipping status',
 ]);
 
-const matches = ns.resolve('I need to cancel');
-for (const { id, score } of matches) {
-  console.log(`${id}: ${score.toFixed(2)}`);
+const result = ns.resolve('I need to cancel');
+for (const m of result.intents) {
+  console.log(`${m.id}: ${m.score.toFixed(2)} [${m.band}]`);
 }
-// cancel_order: 0.91
+// cancel_order: 0.91 [High]
 ```
 
 ## CommonJS
@@ -66,16 +66,21 @@ await engine.flush();
 ## Custom threshold per namespace
 
 ```typescript
-const security = engine.namespaceWith('security', { defaultThreshold: 1.3 });
+const security = engine.namespace('security');
+security.updateNamespace({ defaultThreshold: 1.3 });
 ```
 
-## Override threshold per call
+## Acting on disposition
 
 ```typescript
-import type { ResolveOptions } from 'microresolve';
-
-const opts: ResolveOptions = { threshold: 0.3, gap: 1.5 };
-const matches = ns.resolveWith('cancel my order and get a refund', opts);
+const result = ns.resolve('cancel my order and get a refund');
+if (result.disposition === 'Confident') {
+  handleIntent(result.intents[0].id);
+} else if (result.disposition === 'LowConfidence') {
+  askUserOrRouteToLlm(result.intents);
+} else {
+  fallback();
+}
 ```
 
 ## Add phrases at runtime
@@ -102,13 +107,14 @@ ns.correct('where did my parcel go', null, 'track_order');
 ## TypeScript types
 
 ```typescript
-import type { Match, PhraseResult } from 'microresolve';
+import type { ResolveResult, IntentMatch, PhraseResult } from 'microresolve';
 
-const matches: Match[] = ns.resolve('cancel my order');
-// Match = { id: string; score: number }
+const result: ResolveResult = ns.resolve('cancel my order');
+// ResolveResult = { intents: IntentMatch[]; disposition: string }
+// IntentMatch   = { id: string; score: number; confidence: number; band: string }
 
-const result: PhraseResult = ns.addPhrase('cancel_order', 'abort order');
-// PhraseResult = { added: boolean; redundant: boolean; newTerms: string[]; warning?: string }
+const phraseResult: PhraseResult = ns.addPhrase('cancel_order', 'abort order');
+// PhraseResult = { added: boolean; redundant: boolean; warning?: string }
 ```
 
 ## Vercel AI SDK integration
@@ -121,14 +127,14 @@ const engine = new MicroResolve({ dataDir: '~/.local/share/microresolve' });
 const ns = engine.namespace('support');
 
 async function handleMessage(message: string) {
-  const matches = ns.resolve(message);
+  const result = ns.resolve(message);
 
-  if (matches.length > 0 && matches[0].score > 0.7) {
+  if (result.disposition === 'Confident') {
     // High confidence — handle directly
-    return handleIntent(matches[0].id, message);
+    return handleIntent(result.intents[0].id, message);
   }
 
-  // Low confidence — fall back to LLM
+  // LowConfidence or NoMatch — fall back to LLM
   return generateText({ model: /* ... */, prompt: message });
 }
 ```

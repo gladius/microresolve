@@ -34,10 +34,10 @@ ns.add_intent("track_order", [
     "shipping status",
 ])
 
-matches = ns.resolve("I need to cancel")
-for m in matches:
-    print(f"{m['id']}: {m['score']:.2f}")
-# cancel_order: 0.91
+result = ns.resolve("I need to cancel")
+for m in result.intents:
+    print(f"{m.id}: {m.score:.2f} [{m.band}]")
+# cancel_order: 0.91 [High]
 ```
 
 ## Persist to disk
@@ -55,14 +55,23 @@ On the next startup, namespaces are auto-loaded from `data_dir`.
 
 ## Custom threshold per namespace
 
+Set the threshold once on the namespace; subsequent `resolve()` calls use it.
+
 ```python
-ns_security = engine.namespace_with("security", threshold=1.3)
+ns_security = engine.namespace("security")
+ns_security.update_namespace({"default_threshold": 1.3})
 ```
 
-## Override threshold per call
+## Acting on disposition
 
 ```python
-matches = ns.resolve("cancel my order and get a refund", threshold=0.3, gap=1.5)
+result = ns.resolve("cancel my order and get a refund")
+if result.disposition == "Confident":
+    handle_intent(result.intents[0].id)
+elif result.disposition == "LowConfidence":
+    ask_user_or_route_to_llm(result.intents)
+else:
+    fallback()
 ```
 
 ## Add phrases at runtime
@@ -103,9 +112,9 @@ engine = MicroResolve(data_dir="~/.local/share/microresolve")
 ns = engine.namespace("support")
 
 def handle(query: str) -> str:
-    matches = ns.resolve(query)
-    if matches and matches[0]["score"] > 0.7:
-        return handle_intent(matches[0]["id"], query)
+    result = ns.resolve(query)
+    if result.disposition == "Confident":
+        return handle_intent(result.intents[0].id, query)
     return llm_fallback(query)
 ```
 
