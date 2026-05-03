@@ -151,14 +151,14 @@ fn connected_mutations_refused() {
     );
     assert_connect_mode!("correct", ns.correct("hello", "greet", "greet2"));
 
-    // Reads must still work. Use route_multi with a low threshold —
-    // resolve()'s default threshold (0.3) is just above what a single
-    // seed-phrase produces (~0.28 with IDF=ln(2) and weight=0.4).
-    let result = ns.route_multi("hello", None, 0.0, 0.05);
+    // Reads must still work. resolve() uses the namespace default threshold;
+    // with two short seed phrases the score is near the 0.3 threshold so
+    // we use resolve_with_options with a lower override to ensure a match.
+    let (result, _) = ns.resolve_with_options("hello", Some(0.05), 1.5, 0.05, false);
     assert!(
-        !result.multi.is_empty(),
+        !result.intents.is_empty(),
         "read methods must still work in connected mode; got: {:?}",
-        result.multi
+        result.intents
     );
     let _ = ns.intent_ids();
     let _ = ns.intent_count();
@@ -237,13 +237,14 @@ fn sync_thread_works_in_connect_mode() {
     wait_tick();
 
     // The new phrase should now be routable.
-    let result = engine
-        .namespace(NS2)
-        .route_multi("howdy partner", None, 0.05, 0.0);
+    let (result, _) =
+        engine
+            .namespace(NS2)
+            .resolve_with_options("howdy partner", Some(0.05), 1.5, 0.05, false);
     assert!(
-        result.multi.iter().any(|(id, _)| id == "greet"),
+        result.intents.iter().any(|m| m.id == "greet"),
         "background sync applied the server-side phrase; got: {:?}",
-        result.multi
+        result.intents
     );
 
     // Cleanup.

@@ -251,7 +251,7 @@ pub async fn review_fix(
             let passes = state
                 .engine
                 .try_namespace(&app_id)
-                .map(|h| !h.resolve(&record.query).is_empty())
+                .map(|h| !h.resolve(&record.query).intents.is_empty())
                 .unwrap_or(false);
             if passes {
                 state.log_store.lock().unwrap().resolve(&app_id, record.id);

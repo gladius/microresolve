@@ -166,14 +166,12 @@ def run_simulation(sessions: list[dict], max_sessions: int = 500):
         for msg in session["messages"]:
             # Route through server API — exactly like production
             try:
-                resp = requests.post(f"{BASE}/route_multi", json={
+                resp = requests.post(f"{BASE}/resolve", json={
                     "query": msg,
                     "threshold": 0.3,
                 })
                 result = resp.json()
-                detected = [r["id"] for r in result.get("confirmed", [])]
-                candidates = [r["id"] for r in result.get("candidates", [])]
-                all_intents = detected + candidates
+                all_intents = [r["id"] for r in result.get("intents", [])]
 
                 for intent_id in all_intents:
                     intent_hits[intent_id] = intent_hits.get(intent_id, 0) + 1

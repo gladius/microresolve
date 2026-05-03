@@ -20,8 +20,8 @@ curl -s -X POST "$BASE/route" -H 'Content-Type: application/json' \
   -d '{"query":"I need to cancel something"}'
 echo
 
-echo -e "\n=== Multi-intent ==="
-curl -s -X POST "$BASE/route_multi" -H 'Content-Type: application/json' \
+echo -e "\n=== Resolve ==="
+curl -s -X POST "$BASE/resolve" -H 'Content-Type: application/json' \
   -d '{"query":"cancel my order and give me a refund","threshold":0.3}'
 echo
 

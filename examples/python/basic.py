@@ -20,11 +20,11 @@ results = r.route("I need to cancel something")
 for res in results:
     print(f"  {res['id']} (score: {res['score']:.2f})")
 
-# --- Multi-intent ---
-print("\n=== Multi-intent ===")
-multi = r.route_multi("cancel my order and give me a refund")
-for intent in multi["confirmed"]:
-    print(f"  {intent['id']} (score: {intent['score']:.2f}, type: {intent['intent_type']})")
+# --- Resolve ---
+print("\n=== Resolve ===")
+result = r.resolve("cancel my order and give me a refund")
+for intent in result["intents"]:
+    print(f"  {intent['id']} (score: {intent['score']:.2f}, band: {intent['band']})")
 
 # --- Learning ---
 print("\n=== Learning ===")

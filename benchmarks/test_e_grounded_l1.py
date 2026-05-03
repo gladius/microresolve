@@ -108,11 +108,11 @@ def measure(grounded_l1):
     hits = 0
     results = []
     for query, expected in TEST_QUERIES:
-        res = _req("POST", "/api/route_multi", {
-            "query": query, "log": False, "grounded_l1": grounded_l1,
+        res = _req("POST", "/api/resolve", {
+            "query": query, "log": False,
         }, ns=NS)
-        ranked = res.get("ranked") or []
-        top = ranked[0]["id"] if ranked else "(none)"
+        intents = res.get("intents") or []
+        top = intents[0]["id"] if intents else "(none)"
         ok = top == expected
         hits += 1 if ok else 0
         results.append({

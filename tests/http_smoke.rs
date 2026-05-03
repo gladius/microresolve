@@ -70,7 +70,7 @@ fn full_smoke() {
     // 5. routing
     let (_, body) = post_json(
         &c,
-        &format!("{}/route_multi", b),
+        &format!("{}/resolve", b),
         &ns_headers(),
         &json!({"query":"hi there"}),
     );
@@ -78,7 +78,7 @@ fn full_smoke() {
 
     let (_, body) = post_json(
         &c,
-        &format!("{}/route_multi", b),
+        &format!("{}/resolve", b),
         &ns_headers(),
         &json!({"query":"au revoir"}),
     );

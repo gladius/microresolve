@@ -75,7 +75,7 @@ fn manual_creation() {
     // Routing in both languages
     let (_, body) = post_json(
         &c,
-        &format!("{}/route_multi", b),
+        &format!("{}/resolve", b),
         &ns_h(),
         &json!({"query":"please cancel my plan"}),
     );
@@ -87,7 +87,7 @@ fn manual_creation() {
 
     let (_, body) = post_json(
         &c,
-        &format!("{}/route_multi", b),
+        &format!("{}/resolve", b),
         &ns_h(),
         &json!({"query":"je veux annuler"}),
     );
@@ -195,7 +195,7 @@ fn mcp_import_three_tools() {
     // MCP intents resolve
     let (_, body) = post_json(
         &c,
-        &format!("{}/route_multi", b),
+        &format!("{}/resolve", b),
         &h,
         &json!({"query":"refund this order"}),
     );
@@ -207,7 +207,7 @@ fn mcp_import_three_tools() {
 
     let (_, body) = post_json(
         &c,
-        &format!("{}/route_multi", b),
+        &format!("{}/resolve", b),
         &h,
         &json!({"query":"send email to customer"}),
     );
@@ -275,7 +275,7 @@ fn auto_learn_deterministic_path() {
     // Routing still works after rebuild
     let (_, body) = post_json(
         &c,
-        &format!("{}/route_multi", b),
+        &format!("{}/resolve", b),
         &h,
         &json!({"query":"refund please"}),
     );

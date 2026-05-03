@@ -35,10 +35,10 @@ app.post('/route', (req, res) => {
   res.json({ intent: results[0].id, score: results[0].score });
 });
 
-app.post('/route_multi', (req, res) => {
+app.post('/resolve', (req, res) => {
   const { query, threshold = 0.3 } = req.body;
   if (!query) return res.status(400).json({ error: 'query required' });
-  res.json(router.routeMulti(query, threshold));
+  res.json(router.resolve(query, threshold));
 });
 
 app.post('/learn', (req, res) => {

@@ -16,22 +16,99 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-// ── Match ─────────────────────────────────────────────────────────────────────
+// ── IntentMatch ───────────────────────────────────────────────────────────────
 
-/// A classification match: intent id paired with its match score.
-#[pyclass(get_all, from_py_object)]
+/// A single intent in a resolve result.
+#[pyclass(get_all)]
 #[derive(Clone)]
-struct Match {
-    /// Intent identifier.
-    id: String,
-    /// Match score (higher = better match).
-    score: f32,
+struct IntentMatch {
+    pub id: String,
+    pub score: f32,
+    /// Normalized confidence in [0,1].
+    pub confidence: f32,
+    /// Score band: `"High"`, `"Medium"`, or `"Low"`.
+    pub band: String,
 }
 
 #[pymethods]
-impl Match {
+impl IntentMatch {
     fn __repr__(&self) -> String {
-        format!("Match(id={:?}, score={:.4})", self.id, self.score)
+        format!(
+            "IntentMatch(id={:?}, score={:.4}, confidence={:.3}, band={:?})",
+            self.id, self.score, self.confidence, self.band
+        )
+    }
+}
+
+// ── ResolveResult ─────────────────────────────────────────────────────────────
+
+/// Output of `Namespace.resolve()`.
+#[pyclass(get_all)]
+#[derive(Clone)]
+struct ResolveResult {
+    /// Ranked descending by score. May be empty.
+    pub intents: Vec<IntentMatch>,
+    /// `"Confident"`, `"LowConfidence"`, or `"NoMatch"`.
+    pub disposition: String,
+}
+
+#[pymethods]
+impl ResolveResult {
+    fn __repr__(&self) -> String {
+        format!(
+            "ResolveResult(disposition={:?}, intents={})",
+            self.disposition,
+            self.intents.len()
+        )
+    }
+}
+
+fn core_result_to_py(r: microresolve_core::ResolveResult) -> ResolveResult {
+    let disposition = match r.disposition {
+        microresolve_core::Disposition::Confident => "Confident",
+        microresolve_core::Disposition::LowConfidence => "LowConfidence",
+        microresolve_core::Disposition::NoMatch => "NoMatch",
+    }
+    .to_string();
+    let intents = r
+        .intents
+        .into_iter()
+        .map(|m| IntentMatch {
+            id: m.id,
+            score: m.score,
+            confidence: m.confidence,
+            band: match m.band {
+                microresolve_core::Band::High => "High",
+                microresolve_core::Band::Medium => "Medium",
+                microresolve_core::Band::Low => "Low",
+            }
+            .to_string(),
+        })
+        .collect();
+    ResolveResult { intents, disposition }
+}
+
+// ── ResolveTrace ──────────────────────────────────────────────────────────────
+
+/// Diagnostic trace from `Namespace.resolve_with_trace()`.
+#[pyclass(get_all)]
+struct ResolveTrace {
+    pub tokens: Vec<String>,
+    /// All scored intents as (id, score) tuples.
+    pub all_scores: Vec<(String, f32)>,
+    /// Per-round trace as a JSON string.
+    pub multi_round_trace: String,
+    pub negated: bool,
+    pub threshold_applied: f32,
+}
+
+#[pymethods]
+impl ResolveTrace {
+    fn __repr__(&self) -> String {
+        format!(
+            "ResolveTrace(tokens={:?}, negated={}, threshold={})",
+            self.tokens, self.negated, self.threshold_applied
+        )
     }
 }
 
@@ -139,22 +216,28 @@ impl Namespace {
 
     /// Resolve a query to matching intents.
     ///
-    /// Returns a list of `Match` objects sorted by score descending.
-    fn resolve(&self, query: &str) -> Vec<Match> {
+    /// Returns a `ResolveResult` with `intents` (list of `IntentMatch`) and
+    /// `disposition` (`"Confident"`, `"LowConfidence"`, or `"NoMatch"`).
+    fn resolve(&self, query: &str) -> ResolveResult {
         let handle = self.engine.namespace(&self.id);
-        handle.resolve(query).into_iter()
-            .map(|m| Match { id: m.id, score: m.score })
-            .collect()
+        core_result_to_py(handle.resolve(query))
     }
 
-    /// Resolve with explicit threshold and gap overrides.
-    #[pyo3(signature = (query, threshold=0.3, gap=1.5))]
-    fn resolve_with(&self, query: &str, threshold: f32, gap: f32) -> Vec<Match> {
-        let opts = microresolve_core::ResolveOptions { threshold, gap };
+    /// Like `resolve` but also returns a `ResolveTrace` with per-round diagnostics.
+    fn resolve_with_trace(&self, query: &str) -> (ResolveResult, ResolveTrace) {
         let handle = self.engine.namespace(&self.id);
-        handle.resolve_with(query, opts).into_iter()
-            .map(|m| Match { id: m.id, score: m.score })
-            .collect()
+        let (result, trace) = handle.resolve_with_trace(query);
+        let trace_json = serde_json::to_string(&trace.multi_round_trace).unwrap_or_default();
+        (
+            core_result_to_py(result),
+            ResolveTrace {
+                tokens: trace.tokens,
+                all_scores: trace.all_scores,
+                multi_round_trace: trace_json,
+                negated: trace.negated,
+                threshold_applied: trace.threshold_applied,
+            },
+        )
     }
 
     /// Correct a mis-classification: move query from `wrong_intent` to `right_intent`.
@@ -290,7 +373,7 @@ impl Namespace {
     /// Per-intent normalized confidence for an already-scored result.
     ///
     /// `tokens` must be the tokenized form of the original query (use
-    /// `route_multi(query)[\"tokens\"]` to obtain them).
+    /// `resolve_with_trace(query)[1].tokens` to obtain them).
     fn confidence_for(&self, score: f32, tokens: Vec<String>, intent_id: &str) -> f32 {
         self.engine.namespace(&self.id).confidence_for(score, &tokens, intent_id)
     }
@@ -343,71 +426,6 @@ impl Namespace {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    /// Run the full multi-intent routing pipeline.
-    ///
-    /// Returns a dict with:
-    ///   - `multi`:     list of `[intent_id, score]` after threshold + gap filtering
-    ///   - `raw`:       list of `[intent_id, score]` (all intents, no threshold)
-    ///   - `negated`:   bool — true if query contains a negation signal
-    ///   - `tokens`:    list of tokenized query terms
-    ///   - `threshold`: resolved threshold that was applied
-    ///
-    /// Optional params:
-    ///   - `threshold_override`: override the namespace default (None = use cascade)
-    ///   - `gap`:                secondary-intent floor multiplier (default 1.5)
-    ///   - `fallback_threshold`: cascade fallback (default 0.3)
-    #[pyo3(signature = (query, threshold_override=None, gap=1.5, fallback_threshold=0.3))]
-    fn route_multi<'py>(
-        &self,
-        py: Python<'py>,
-        query: &str,
-        threshold_override: Option<f32>,
-        gap: f32,
-        fallback_threshold: f32,
-    ) -> PyResult<Bound<'py, PyDict>> {
-        let out = self.engine.namespace(&self.id)
-            .route_multi(query, threshold_override, gap, fallback_threshold);
-        let d = PyDict::new(py);
-        let multi: Vec<(String, f32)> = out.multi;
-        let raw: Vec<(String, f32)> = out.raw;
-        let multi_py: Vec<(String, f32)> = multi;
-        let raw_py: Vec<(String, f32)> = raw;
-        d.set_item("multi", multi_py)?;
-        d.set_item("raw", raw_py)?;
-        d.set_item("negated", out.negated)?;
-        d.set_item("tokens", out.tokens)?;
-        d.set_item("threshold", out.threshold)?;
-        Ok(d)
-    }
-
-    /// Like `route_multi` but includes a detailed per-round trace for debugging.
-    ///
-    /// Same return shape as `route_multi` plus a `trace` key containing the
-    /// serialized `MultiIntentTrace` as a JSON string.
-    #[pyo3(signature = (query, threshold_override=None, gap=1.5, fallback_threshold=0.3))]
-    fn route_multi_with_trace<'py>(
-        &self,
-        py: Python<'py>,
-        query: &str,
-        threshold_override: Option<f32>,
-        gap: f32,
-        fallback_threshold: f32,
-    ) -> PyResult<Bound<'py, PyDict>> {
-        let out = self.engine.namespace(&self.id)
-            .route_multi_with_trace(query, threshold_override, gap, fallback_threshold);
-        let d = PyDict::new(py);
-        let multi_py: Vec<(String, f32)> = out.multi;
-        let raw_py: Vec<(String, f32)> = out.raw;
-        d.set_item("multi", multi_py)?;
-        d.set_item("raw", raw_py)?;
-        d.set_item("negated", out.negated)?;
-        d.set_item("tokens", out.tokens)?;
-        d.set_item("threshold", out.threshold)?;
-        let trace_json = out.trace.as_ref()
-            .and_then(|t| serde_json::to_string(t).ok());
-        d.set_item("trace", trace_json)?;
-        Ok(d)
-    }
 
     /// Reinforce specific query tokens toward `intent_id` (Hebbian-style update).
     fn reinforce_tokens(&self, words: Vec<String>, intent_id: &str) -> PyResult<()> {
@@ -600,7 +618,9 @@ fn py_to_seeds(obj: &Bound<'_, PyAny>) -> PyResult<microresolve_core::IntentSeed
 fn microresolve(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<MicroResolve>()?;
     m.add_class::<Namespace>()?;
-    m.add_class::<Match>()?;
+    m.add_class::<IntentMatch>()?;
+    m.add_class::<ResolveResult>()?;
+    m.add_class::<ResolveTrace>()?;
     m.add_class::<NamespaceInfo>()?;
     m.add_class::<IntentInfo>()?;
     Ok(())

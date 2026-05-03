@@ -159,42 +159,26 @@ export type IntentType = 'action' | 'context';
 export type ConfidenceTier = 'high' | 'medium' | 'low';
 export type DetectionSource = 'dual' | 'paraphrase' | 'routing';
 
-export interface MultiRouteResult {
+export type BandLabel = 'High' | 'Medium' | 'Low';
+export type Disposition = 'Confident' | 'LowConfidence' | 'NoMatch';
+
+export interface ResolveIntent {
   id: string;
   score: number;
-  position: number;
-  span: [number, number];
-  intent_type: IntentType;
-  confidence: ConfidenceTier;
-  source: DetectionSource;
+  confidence: number;
+  band: BandLabel;
 }
 
-export interface RoundTrace {
-  tokens_in: string[];
-  scored: [string, number][];
-  confirmed: string[];
-  consumed: string[];
-}
-
-export interface RouteTrace {
+export interface ResolveTrace {
   tokens: string[];
-  all_scores: { id: string; score: number }[];
-  multi: {
-    rounds: RoundTrace[];
-    stop_reason: string;
-    pre_inhibit: [string, number][];
-    suppressions: [string, string, number][];
-    has_negation: boolean;
-  } | null;
+  [key: string]: unknown;
 }
 
-export interface MultiRouteOutput {
-  confirmed: MultiRouteResult[];
-  candidates: MultiRouteResult[];
-  relations: { type: string; [key: string]: unknown }[];
+export interface ResolveOutput {
+  intents: ResolveIntent[];
+  disposition: Disposition;
   routing_us: number;
-  ranked?: { id: string; score: number }[];
-  trace?: RouteTrace;
+  trace?: ResolveTrace;
 }
 
 export interface NamespaceModel {
@@ -260,8 +244,8 @@ export const api = {
   health: () => get<string>('/health'),
 
   // Routing
-  routeMulti: (query: string, threshold = 0.3, log = true) =>
-    post<MultiRouteOutput>('/route_multi', { query, threshold, log }),
+  resolve: (query: string, threshold = 0.3, log = true) =>
+    post<ResolveOutput>('/resolve', { query, threshold, log }),
 
   // Intents
   listIntents: () => get<IntentInfo[]>('/intents'),

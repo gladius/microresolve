@@ -42,9 +42,9 @@ def route(req: RouteRequest):
     return {"intent": results[0]["id"], "score": results[0]["score"]}
 
 
-@app.post("/route_multi")
-def route_multi(req: RouteRequest):
-    result = router.route_multi(req.query, req.threshold)
+@app.post("/resolve")
+def resolve(req: RouteRequest):
+    result = router.resolve(req.query, req.threshold)
     return result
 
 

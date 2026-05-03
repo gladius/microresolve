@@ -48,9 +48,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let query = "drop my subscription right now";
 
     println!("\n─── 3. Route a query (initially) ──────────────────────────────");
-    let matches = ns.resolve(query);
-    let initial_intent = matches.first().map(|m| m.id.as_str()).unwrap_or("(none)");
-    let initial_score = matches.first().map(|m| m.score).unwrap_or(0.0);
+    let result = ns.resolve(query);
+    let initial_intent = result
+        .intents
+        .first()
+        .map(|m| m.id.as_str())
+        .unwrap_or("(none)");
+    let initial_score = result.intents.first().map(|m| m.score).unwrap_or(0.0);
     println!("  query:        \"{}\"", query);
     println!(
         "  routed to:    {} (score: {:.2})",
@@ -100,10 +104,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let v = ns.version();
         if v > v_before {
             println!("  ✓ pulled v{} from server (was v{})", v, v_before);
-            let matches = ns.resolve(query);
-            local_intent = matches
-                .first()
-                .map(|m| m.id.clone())
+            let result2 = ns.resolve(query);
+            local_intent = result2
+                .intents
+                .into_iter()
+                .next()
+                .map(|m| m.id)
                 .unwrap_or_else(|| "(none)".to_string());
             break;
         }

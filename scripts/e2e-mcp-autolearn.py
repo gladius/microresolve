@@ -117,11 +117,8 @@ def import_namespace(port: int, ns: str, tools: list[tuple[str, str]], desc: str
 
 
 def assert_resolves(port: int, ns: str, query: str, expected: str, label: str) -> bool:
-    res = req("POST", port, "/api/route_multi", {"query": query, "threshold": 0.05}, ns=ns)
-    # `confirmed` is the token-consumed multi-intent list; `ranked` is the
-    # raw top-N ordering. Use confirmed (most authoritative); fall back to
-    # ranked if no confirmed match.
-    top_list = res.get("confirmed") or res.get("ranked") or []
+    res = req("POST", port, "/api/resolve", {"query": query, "threshold": 0.05}, ns=ns)
+    top_list = res.get("intents") or []
     top = top_list[0]["id"] if top_list else "(none)"
     ok = top == expected
     flag = "✓" if ok else "✗"
@@ -164,9 +161,9 @@ def main() -> int:
         # ── 3. Cross-namespace isolation ───────────────────────────────────
         print("\n[3] Cross-namespace isolation probe...")
         # "cancel_subscription" exists in stripe; ask shopify — must not match
-        cross = req("POST", port, "/api/route_multi",
+        cross = req("POST", port, "/api/resolve",
                     {"query": "cancel_subscription", "threshold": 0.05}, ns="shopify-mcp")
-        cross_list = cross.get("confirmed") or cross.get("ranked") or []
+        cross_list = cross.get("intents") or []
         cross_top = cross_list[0]["id"] if cross_list else "(none)"
         if cross_top == "cancel_subscription":
             print(f"  ✗ shopify-mcp returned stripe's cancel_subscription — CROSS-NS LEAK")

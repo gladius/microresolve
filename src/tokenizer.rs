@@ -700,7 +700,7 @@ pub fn generate_cjk_residual_bigrams(text: &str) -> Vec<String> {
 /// comma+conjunction patterns, and bare conjunctions between clauses.
 /// Returns character positions where breaks occur.
 ///
-/// Each segment is scored independently in route_multi to prevent
+/// Each segment is scored independently in resolve to prevent
 /// noise term accumulation across clause boundaries.
 pub fn segment_breaks(query: &str) -> Vec<usize> {
     let chars: Vec<char> = query.chars().collect();

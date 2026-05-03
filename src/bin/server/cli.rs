@@ -323,7 +323,7 @@ pub fn run_config_subcommand() -> std::io::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     let toml_str = toml::to_string_pretty(&new_config)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
     std::fs::write(&path, toml_str)?;
 
     // Best-effort: make config file user-read-only (the API key is sensitive).

@@ -147,6 +147,7 @@ impl AppLog {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(path)?;
         let mut index = Vec::new();
         let mut offset = 0u64;

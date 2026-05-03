@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { api, type MultiRouteOutput, type ReviewAnalysis } from '@/api/client';
+import { api, type ResolveOutput, type ReviewAnalysis } from '@/api/client';
 import Page from '@/components/Page';
 
 const INTENT_COLORS = [
@@ -13,7 +13,7 @@ const INTENT_BG_COLORS = [
 
 type Message =
   | { type: 'query'; text: string }
-  | { type: 'result'; result: MultiRouteOutput; latency: number; query: string; review?: ReviewAnalysis; reviewing?: boolean }
+  | { type: 'result'; result: ResolveOutput; latency: number; query: string; review?: ReviewAnalysis; reviewing?: boolean }
   | { type: 'training'; query: string }
   | { type: 'trained'; query: string; phrases_added: number; summary: string }
   | { type: 'error'; text: string };
@@ -58,7 +58,7 @@ export default function RouterPage() {
     push({ type: 'query', text: raw });
     const t0 = performance.now();
     try {
-      const result = await api.routeMulti(raw, 0.3, true);
+      const result = await api.resolve(raw, 0.3, true);
       const latency = performance.now() - t0;
       push({ type: 'result', result, latency, query: raw });
     } catch (err) {
@@ -210,7 +210,7 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
 
   // Result card
   const { result, latency, query, review, reviewing } = msg;
-  const allIntents = [...(result?.confirmed || []), ...(result?.candidates || [])];
+  const allIntents = result?.intents || [];
   if (!result || allIntents.length === 0) {
     const noIntents = intentCount !== null && intentCount === 0;
     return (
@@ -233,36 +233,36 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
     );
   }
 
-  const confirmed = result.confirmed || [];
-  const candidates = result.candidates || [];
+  const highIntents = allIntents.filter(i => i.band === 'High');
+  const mediumIntents = allIntents.filter(i => i.band === 'Medium');
   const bestScore = Math.max(...allIntents.map(i => i.score));
-  const isWeak = confirmed.length > 0 && confirmed[0].confidence !== 'high';
+  const isWeak = result.disposition !== 'Confident';
 
   return (
     <div className="pl-5 mb-3">
-      {/* Highlighted query card */}
+      {/* Query card */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-2">
-        <HighlightedQuery query={query} intents={allIntents} />
+        <HighlightedQuery query={query} />
       </div>
 
-      {/* Confirmed intents */}
-      {confirmed.length > 0 && (
+      {/* Intent list */}
+      {highIntents.length > 0 && (
         <div className="mb-1">
-          {candidates.length > 0 && (
-            <div className="text-[10px] text-emerald-400/60 uppercase font-semibold tracking-wide mb-0.5 pl-1">Confirmed</div>
+          {mediumIntents.length > 0 && (
+            <div className="text-[10px] text-emerald-400/60 uppercase font-semibold tracking-wide mb-0.5 pl-1">Matched</div>
           )}
-          {confirmed.map((intent, i) => (
+          {highIntents.map((intent, i) => (
             <IntentRow key={intent.id} intent={intent} index={i} bestScore={bestScore} isMulti={allIntents.length > 1} />
           ))}
         </div>
       )}
 
-      {/* Candidate intents */}
-      {candidates.length > 0 && (
+      {/* Medium-band intents */}
+      {mediumIntents.length > 0 && (
         <div className="mb-1">
-          <div className="text-[10px] text-zinc-500 uppercase font-semibold tracking-wide mb-0.5 pl-1 mt-1">Candidates</div>
-          {candidates.map((intent, i) => (
-            <IntentRow key={intent.id} intent={intent} index={confirmed.length + i} bestScore={bestScore} isMulti={allIntents.length > 1} />
+          <div className="text-[10px] text-zinc-500 uppercase font-semibold tracking-wide mb-0.5 pl-1 mt-1">Low confidence</div>
+          {mediumIntents.map((intent, i) => (
+            <IntentRow key={intent.id} intent={intent} index={highIntents.length + i} bestScore={bestScore} isMulti={allIntents.length > 1} />
           ))}
         </div>
       )}
@@ -270,7 +270,7 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
       {/* Timing + Train */}
       <div className="flex items-center gap-3 pl-2">
         <div className="text-zinc-600 text-xs">
-          {confirmed.length} confirmed{candidates.length > 0 ? `, ${candidates.length} candidates` : ''}{' '}
+          {allIntents.length} intent{allIntents.length !== 1 ? 's' : ''}{' '}
           <span className="text-zinc-700">·</span>{' '}
           <span className="text-emerald-400 font-semibold" title="library routing time">resolved in {result.routing_us != null ? (result.routing_us < 1000 ? `${result.routing_us}µs` : `${(result.routing_us / 1000).toFixed(1)}ms`) : '—'}</span>
           <span className="text-zinc-700"> · </span>
@@ -283,32 +283,6 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
           </button>
         )}
       </div>
-
-      {/* Relations */}
-      {result.relations.length > 0 && (
-        <div className="pl-2 mt-1 flex flex-wrap gap-1.5">
-          {result.relations.map((rel, i) => {
-            const labels: Record<string, string> = {
-              sequential: 'do in order',
-              conditional: 'if/then',
-              negation: 'negated',
-              parallel: 'at the same time',
-            };
-            const hint: Record<string, string> = {
-              sequential: 'Intents should be handled in sequence',
-              conditional: 'One intent is conditional on another',
-              negation: 'User is negating or cancelling an intent',
-              parallel: 'Intents can be handled simultaneously',
-            };
-            return (
-              <span key={i} title={hint[rel.type] || rel.type}
-                className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-1.5 py-0.5 rounded font-mono cursor-default">
-                {labels[rel.type] || rel.type}
-              </span>
-            );
-          })}
-        </div>
-      )}
 
 
 
@@ -335,14 +309,14 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
 
 // --- Intent row ---
 
-const CONFIDENCE_STYLES: Record<string, string> = {
-  high: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10',
-  medium: 'text-amber-400 border-amber-400/40 bg-amber-400/10',
-  low: 'text-zinc-400 border-zinc-500/40 bg-zinc-500/10',
+const BAND_STYLES: Record<string, string> = {
+  High: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10',
+  Medium: 'text-amber-400 border-amber-400/40 bg-amber-400/10',
+  Low: 'text-zinc-400 border-zinc-500/40 bg-zinc-500/10',
 };
 
 function IntentRow({ intent, index, bestScore, isMulti }: {
-  intent: { id: string; score: number; intent_type: string; span: [number, number]; confidence?: string };
+  intent: { id: string; score: number; confidence: number; band: string };
   index: number;
   bestScore: number;
   isMulti: boolean;
@@ -351,26 +325,16 @@ function IntentRow({ intent, index, bestScore, isMulti }: {
   const isWeak = isMulti && relativeScore < 0.3;
   const color = INTENT_COLORS[index % INTENT_COLORS.length];
   const bgColor = INTENT_BG_COLORS[index % INTENT_BG_COLORS.length];
-  const confidence = intent.confidence || 'low';
-  const confStyle = CONFIDENCE_STYLES[confidence] || CONFIDENCE_STYLES.low;
+  const band = intent.band || 'Low';
+  const bandStyle = BAND_STYLES[band] || BAND_STYLES.Low;
 
   return (
     <div className={`flex items-center gap-2.5 font-mono text-sm px-2 py-1 rounded ${bgColor} ${isWeak ? 'opacity-40' : ''}`}>
-      <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase ${confStyle}`}>
-        {confidence}
+      <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase ${bandStyle}`}>
+        {band.toLowerCase()}
       </span>
       <span className={`font-semibold ${color}`}>{intent.id}</span>
       <span className="text-amber-400">{intent.score.toFixed(2)}</span>
-      <span className={`text-[9px] px-1 py-0.5 rounded border font-semibold uppercase ${
-        intent.intent_type === 'context'
-          ? 'text-cyan-400 border-cyan-400/30'
-          : 'text-emerald-400 border-emerald-400/30'
-      }`}>
-        {intent.intent_type}
-      </span>
-      {isMulti && (
-        <span className="text-zinc-600 text-xs">[{intent.span[0]},{intent.span[1]}]</span>
-      )}
       {isWeak && <span className="text-zinc-600 text-[10px]">weak</span>}
     </div>
   );
@@ -463,46 +427,10 @@ function ReviewCard({ review, onApply }: {
 }
 
 
-// --- Highlighted query with colored spans ---
+// --- Query display ---
 
-function HighlightedQuery({
-  query, intents,
-}: {
-  query: string;
-  intents: { id: string; span: [number, number] }[];
-}) {
-  const charMap = new Array(query.length).fill(-1);
-  intents.forEach((intent, idx) => {
-    const [start, end] = intent.span;
-    for (let i = Math.max(0, start); i < Math.min(query.length, end); i++) {
-      charMap[i] = idx;
-    }
-  });
-
-  const segments: { text: string; intentIdx: number }[] = [];
-  let i = 0;
-  while (i < query.length) {
-    const currentIdx = charMap[i];
-    let j = i + 1;
-    while (j < query.length && charMap[j] === currentIdx) j++;
-    segments.push({ text: query.slice(i, j), intentIdx: currentIdx });
-    i = j;
-  }
-
+function HighlightedQuery({ query }: { query: string }) {
   return (
-    <div className="font-mono text-sm leading-relaxed">
-      {segments.map((seg, i) => {
-        if (seg.intentIdx === -1) {
-          return <span key={i} className="text-zinc-500">{seg.text}</span>;
-        }
-        const color = INTENT_COLORS[seg.intentIdx % INTENT_COLORS.length];
-        const intent = intents[seg.intentIdx];
-        return (
-          <span key={i} className={`${color} font-semibold`} title={intent.id}>
-            {seg.text}
-          </span>
-        );
-      })}
-    </div>
+    <div className="font-mono text-sm leading-relaxed text-zinc-300">{query}</div>
   );
 }

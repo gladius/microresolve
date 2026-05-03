@@ -27,11 +27,11 @@ fn resolve_is_deterministic_across_invocations() {
     for _ in 1..50 {
         let result = ns.resolve(query);
         assert_eq!(
-            result.len(),
-            first.len(),
+            result.intents.len(),
+            first.intents.len(),
             "result length changed across invocations"
         );
-        for (a, b) in first.iter().zip(result.iter()) {
+        for (a, b) in first.intents.iter().zip(result.intents.iter()) {
             assert_eq!(a.id, b.id, "intent order changed across invocations");
             assert!(
                 (a.score - b.score).abs() < 1e-6,
@@ -50,9 +50,9 @@ fn top_intent_is_stable() {
     let engine = make_engine();
     let ns = engine.namespace("det-test");
     let query = "I am having thoughts of hurting myself";
-    let top = ns.resolve(query).into_iter().next().map(|m| m.id);
+    let top = ns.resolve(query).intents.into_iter().next().map(|m| m.id);
     for _ in 0..50 {
-        let got = ns.resolve(query).into_iter().next().map(|m| m.id);
+        let got = ns.resolve(query).intents.into_iter().next().map(|m| m.id);
         assert_eq!(got, top, "top intent changed across invocations");
     }
 }

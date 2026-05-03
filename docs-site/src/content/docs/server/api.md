@@ -22,7 +22,7 @@ The MicroResolve server exposes a REST API on port 3001. All endpoints accept an
 ### Resolve a query
 
 ```
-POST /api/route_multi
+POST /api/resolve
 X-Namespace-ID: support
 Content-Type: application/json
 ```
@@ -36,10 +36,10 @@ Content-Type: application/json
 ```json
 {
   "intents": [
-    { "id": "cancel_order", "score": 0.91 }
+    { "id": "cancel_order", "score": 0.91, "confidence": 0.98, "band": "High" }
   ],
-  "query": "cancel my order",
-  "latency_us": 31
+  "disposition": "Confident",
+  "routing_us": 31
 }
 ```
 

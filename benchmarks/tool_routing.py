@@ -223,17 +223,12 @@ def measure(pairs: list[tuple[str, str]], grounded_l1: bool = False) -> dict:
     misclassifications: list[tuple[str, str, str]] = []
     for query, expected in pairs:
         t0 = time.perf_counter()
-        res = _req("POST", "/api/route_multi", {
+        res = _req("POST", "/api/resolve", {
             "query": query,
             "log": False,
-            "grounded_l1": grounded_l1,
         }, ns=NS)
         latencies_us.append((time.perf_counter() - t0) * 1_000_000.0)
-        # Server returns "ranked" sorted by score; "confirmed" is the post-
-        # consume multi-intent set. For a single-tool routing task, top-N
-        # of `ranked` is what we want.
-        ranked = res.get("ranked") or res.get("confirmed") or []
-        top_ids = [m["id"] for m in ranked[:3]]
+        top_ids = [m["id"] for m in res.get("intents", [])[:3]]
         if top_ids and top_ids[0] == expected:
             top1_hits += 1
         if expected in top_ids:

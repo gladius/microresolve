@@ -214,7 +214,7 @@ candidate set sharpens over time.
 ## HTTP API
 
 Send `X-Namespace-ID: my-namespace` to isolate intents per namespace. The
-core endpoints are `/api/route_multi`, `/api/intents`, `/api/training/{review,apply}`,
+core endpoints are `/api/resolve`, `/api/intents`, `/api/training/{review,apply}`,
 and `/api/import/mcp/{search,fetch,apply}`. Full reference in the
 [server API docs](https://gladius.github.io/microresolve/server/api/).
 

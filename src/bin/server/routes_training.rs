@@ -420,12 +420,13 @@ pub async fn training_run(
     let mut results = Vec::new();
 
     for turn in &req.turns {
-        // Route via L0→L1→L2+L3 — same pipeline as production /api/route_multi.
-        let scored = state
+        // Route via the same scoring pipeline as /api/resolve.
+        let result = state
             .engine
             .try_namespace(&app_id)
             .map(|h| h.resolve(&turn.message))
             .unwrap_or_default();
+        let scored = &result.intents;
         let max_score = scored.iter().map(|m| m.score).fold(0f32, f32::max);
         let confirmed: Vec<String> = scored
             .iter()

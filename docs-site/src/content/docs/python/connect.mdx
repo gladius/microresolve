@@ -18,7 +18,7 @@ BASE = "http://localhost:4000"
 HEADERS = {"X-Namespace-ID": "support"}
 
 def classify(query: str) -> list[dict]:
-    r = httpx.post(f"{BASE}/api/route_multi",
+    r = httpx.post(f"{BASE}/api/resolve",
                    headers=HEADERS,
                    json={"query": query})
     r.raise_for_status()
@@ -66,7 +66,7 @@ import httpx
 BASE = "http://localhost:4000"
 
 def classify(query: str, ns: str = "support") -> list[dict]:
-    r = httpx.post(f"{BASE}/api/route_multi",
+    r = httpx.post(f"{BASE}/api/resolve",
                    headers={"X-Namespace-ID": ns},
                    json={"query": query})
     r.raise_for_status()

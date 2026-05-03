@@ -16,15 +16,33 @@ use napi_derive::napi;
 
 use microresolve_core::{
     MicroResolve as CoreEngine, MicroResolveConfig, ServerConfig, IntentSeeds,
-    IntentEdit, IntentType, ResolveOptions,
+    IntentEdit, IntentType,
     NamespaceEdit, NamespaceInfo as CoreNamespaceInfo,
 };
 
-/// A classification match: intent id + score.
-#[napi(object)]
-pub struct Match {
-    pub id: String,
-    pub score: f64,
+fn core_result_to_node(r: microresolve_core::ResolveResult) -> ResolveResult {
+    let disposition = match r.disposition {
+        microresolve_core::Disposition::Confident => "Confident",
+        microresolve_core::Disposition::LowConfidence => "LowConfidence",
+        microresolve_core::Disposition::NoMatch => "NoMatch",
+    }
+    .to_string();
+    let intents = r
+        .intents
+        .into_iter()
+        .map(|m| IntentMatch {
+            id: m.id,
+            score: m.score as f64,
+            confidence: m.confidence as f64,
+            band: match m.band {
+                microresolve_core::Band::High => "High",
+                microresolve_core::Band::Medium => "Medium",
+                microresolve_core::Band::Low => "Low",
+            }
+            .to_string(),
+        })
+        .collect();
+    ResolveResult { intents, disposition }
 }
 
 /// Read-only view of an intent's metadata and training phrases.
@@ -87,28 +105,34 @@ pub struct IntentEditOptions {
     pub guardrails: Option<Vec<String>>,
 }
 
-/// A single intent + score pair in a routing result.
+/// A single intent match in a resolve result.
 #[napi(object)]
-pub struct ScoredIntent {
+pub struct IntentMatch {
     pub id: String,
     pub score: f64,
+    /// Normalized confidence in [0,1].
+    pub confidence: f64,
+    /// Score band: `"High"`, `"Medium"`, or `"Low"`.
+    pub band: String,
 }
 
-/// Output of `routeMulti` / `routeMultiWithTrace`.
+/// Output of `resolve()`.
 #[napi(object)]
-pub struct RouteMultiResult {
-    /// Top intents after greedy multi-round extraction (threshold applied).
-    pub multi: Vec<ScoredIntent>,
-    /// All intents ranked by raw score (no threshold applied).
-    pub raw: Vec<ScoredIntent>,
-    /// `true` if the query contains a negation signal.
-    pub negated: bool,
-    /// Tokenized query terms, for use with `confidenceFor`.
+pub struct ResolveResult {
+    /// Ranked descending by score. May be empty.
+    pub intents: Vec<IntentMatch>,
+    /// `"Confident"`, `"LowConfidence"`, or `"NoMatch"`.
+    pub disposition: String,
+}
+
+/// Diagnostic trace from `resolveWithTrace()`.
+#[napi(object)]
+pub struct ResolveTrace {
     pub tokens: Vec<String>,
-    /// Effective threshold that was applied.
-    pub threshold: f64,
-    /// Per-round trace as a JSON string. `null` when using `routeMulti`.
-    pub trace: Option<String>,
+    pub negated: bool,
+    pub threshold_applied: f64,
+    /// Per-round trace as a JSON string.
+    pub multi_round_trace: String,
 }
 
 /// An intent + span pair used in `applyReview`.
@@ -248,14 +272,29 @@ impl Namespace {
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
-    /// Resolve a query. Returns matches sorted by score descending.
+    /// Resolve a query. Returns a `ResolveResult` with `intents` and `disposition`.
     #[napi]
-    pub fn resolve(&self, query: String) -> Vec<Match> {
+    pub fn resolve(&self, query: String) -> ResolveResult {
         let ns = self.engine.namespace(&self.id);
-        ns.resolve(&query)
-            .into_iter()
-            .map(|m| Match { id: m.id, score: m.score as f64 })
-            .collect()
+        core_result_to_node(ns.resolve(&query))
+    }
+
+    /// Like `resolve` but also returns a `ResolveTrace` with per-round diagnostics.
+    #[napi]
+    pub fn resolve_with_trace(&self, query: String) -> (ResolveResult, ResolveTrace) {
+        let ns = self.engine.namespace(&self.id);
+        let (result, trace) = ns.resolve_with_trace(&query);
+        let trace_json =
+            serde_json::to_string(&trace.multi_round_trace).unwrap_or_default();
+        (
+            core_result_to_node(result),
+            ResolveTrace {
+                tokens: trace.tokens,
+                negated: trace.negated,
+                threshold_applied: trace.threshold_applied as f64,
+                multi_round_trace: trace_json,
+            },
+        )
     }
 
     /// Correct a mis-classification: nudge the engine from `wrong` toward `right`.
@@ -292,19 +331,6 @@ impl Namespace {
         self.engine.namespace(&self.id).version() as u32
     }
 
-    /// Resolve with explicit threshold and gap overrides.
-    #[napi]
-    pub fn resolve_with(&self, query: String, threshold: Option<f64>, gap: Option<f64>) -> Vec<Match> {
-        let opts = ResolveOptions {
-            threshold: threshold.unwrap_or(0.3) as f32,
-            gap: gap.unwrap_or(1.5) as f32,
-        };
-        let ns = self.engine.namespace(&self.id);
-        ns.resolve_with(&query, opts)
-            .into_iter()
-            .map(|m| Match { id: m.id, score: m.score as f64 })
-            .collect()
-    }
 
     /// Read-only view of an intent's metadata. Returns `null` if not found.
     #[napi]
@@ -404,7 +430,7 @@ impl Namespace {
     /// Per-intent normalized confidence for an already-scored result.
     ///
     /// `tokens` must be the tokenized form of the original query (use
-    /// `routeMulti(query).tokens` to obtain them).
+    /// `resolveWithTrace(query).trace.tokens` to obtain them).
     #[napi]
     pub fn confidence_for(&self, score: f64, tokens: Vec<String>, intent_id: String) -> f64 {
         self.engine.namespace(&self.id)
@@ -464,59 +490,6 @@ impl Namespace {
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
-    /// Run the full multi-intent routing pipeline.
-    ///
-    /// Returns a `RouteMultiResult` object with `multi`, `raw`, `negated`,
-    /// `tokens`, and `threshold` fields.
-    #[napi]
-    pub fn route_multi(
-        &self,
-        query: String,
-        threshold_override: Option<f64>,
-        gap: Option<f64>,
-        fallback_threshold: Option<f64>,
-    ) -> RouteMultiResult {
-        let out = self.engine.namespace(&self.id).route_multi(
-            &query,
-            threshold_override.map(|v| v as f32),
-            gap.unwrap_or(1.5) as f32,
-            fallback_threshold.unwrap_or(0.3) as f32,
-        );
-        RouteMultiResult {
-            multi: out.multi.into_iter().map(|(id, s)| ScoredIntent { id, score: s as f64 }).collect(),
-            raw: out.raw.into_iter().map(|(id, s)| ScoredIntent { id, score: s as f64 }).collect(),
-            negated: out.negated,
-            tokens: out.tokens,
-            threshold: out.threshold as f64,
-            trace: None,
-        }
-    }
-
-    /// Like `routeMulti` but includes a per-round trace in the `trace` field (JSON string).
-    #[napi]
-    pub fn route_multi_with_trace(
-        &self,
-        query: String,
-        threshold_override: Option<f64>,
-        gap: Option<f64>,
-        fallback_threshold: Option<f64>,
-    ) -> RouteMultiResult {
-        let out = self.engine.namespace(&self.id).route_multi_with_trace(
-            &query,
-            threshold_override.map(|v| v as f32),
-            gap.unwrap_or(1.5) as f32,
-            fallback_threshold.unwrap_or(0.3) as f32,
-        );
-        let trace_json = out.trace.as_ref().and_then(|t| serde_json::to_string(t).ok());
-        RouteMultiResult {
-            multi: out.multi.into_iter().map(|(id, s)| ScoredIntent { id, score: s as f64 }).collect(),
-            raw: out.raw.into_iter().map(|(id, s)| ScoredIntent { id, score: s as f64 }).collect(),
-            negated: out.negated,
-            tokens: out.tokens,
-            threshold: out.threshold as f64,
-            trace: trace_json,
-        }
-    }
 
     /// Reinforce specific query tokens toward `intentId` (Hebbian-style update).
     #[napi]

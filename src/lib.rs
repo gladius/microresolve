@@ -46,7 +46,14 @@ mod resolver_metadata;
 mod resolver_persist;
 
 mod engine;
-pub use engine::{MicroResolve, NamespaceHandle, RouteMultiOut};
+pub use engine::{
+    Band, Disposition, IntentMatch, MicroResolve, NamespaceHandle, ResolveResult, ResolveTrace,
+};
+
+/// Default routing threshold (cascade fallback).
+pub const DEFAULT_THRESHOLD: f32 = 0.3;
+/// Default multi-intent gap multiplier.
+pub const DEFAULT_GAP: f32 = 1.5;
 
 pub(crate) type FxHashMap<K, V> = std::collections::HashMap<K, V, rustc_hash::FxBuildHasher>;
 pub(crate) type FxHashSet<T> = std::collections::HashSet<T, rustc_hash::FxBuildHasher>;
@@ -112,7 +119,7 @@ pub struct Resolver {
     /// Human-readable description of this namespace.
     namespace_description: String,
     /// Default routing threshold for this namespace.
-    /// Used as fallback when /api/route_multi requests omit `threshold`.
+    /// Used as fallback when /api/resolve requests omit `threshold`.
     /// `None` means "no override, use the compile-time default."
     /// `Some(0.0)` is a valid (degenerate) setting — accept all matches.
     namespace_default_threshold: Option<f32>,

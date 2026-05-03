@@ -11,7 +11,7 @@ their own namespace by pointing at a server with `LLM_API_KEY` set:
 
   GET  /api/import/mcp/fetch       (server's tools/list)
   POST /api/import/mcp/apply       (creates intents + LLM L1 augmentation)
-  POST /api/route_multi            (the routing call)
+  POST /api/resolve                (the routing call)
   POST /api/training/review        (auto-learn Turn 2 + Turn 3)
   POST /api/training/apply         (commit the correction)
 
@@ -228,12 +228,11 @@ def setup_namespace(all_tools):
 # ── Routing call (server-reported latency) ──────────────────────────────────
 
 def route(query):
-    res = _req("POST", "/api/route_multi",
+    res = _req("POST", "/api/resolve",
                {"query": query, "log": False}, ns=NS)
-    ranked    = [r["id"] for r in (res.get("ranked") or [])]
-    confirmed = [r["id"] for r in (res.get("confirmed") or [])]
+    intents    = [r["id"] for r in (res.get("intents") or [])]
     routing_us = float(res.get("routing_us") or 0)
-    return ranked, confirmed, routing_us
+    return intents, intents, routing_us
 
 
 # ── Metrics ─────────────────────────────────────────────────────────────────

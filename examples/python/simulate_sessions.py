@@ -71,12 +71,10 @@ def run_sessions(sessions: list, verbose: bool = True):
             emotion = turn.get("emotion", "")
 
             # Route through server API
-            resp = requests.post(f"{BASE}/route_multi", headers=HEADERS, json={"query": msg, "threshold": 0.3})
+            resp = requests.post(f"{BASE}/resolve", headers=HEADERS, json={"query": msg, "threshold": 0.3})
             result = resp.json()
 
-            detected_confirmed = {r["id"] for r in result.get("confirmed", [])}
-            detected_candidates = {r["id"] for r in result.get("candidates", [])}
-            detected_all = detected_confirmed | detected_candidates
+            detected_all = {r["id"] for r in result.get("intents", [])}
 
             matched = expected & detected_all
             missed = expected - detected_all

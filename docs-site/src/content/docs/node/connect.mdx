@@ -17,13 +17,13 @@ const HEADERS = {
 };
 
 async function classify(query: string) {
-  const res = await fetch(`${BASE}/api/route_multi`, {
+  const res = await fetch(`${BASE}/api/resolve`, {
     method: 'POST',
     headers: HEADERS,
     body: JSON.stringify({ query }),
   });
   const data = await res.json();
-  return data.intents as Array<{ id: string; score: number }>;
+  return data.intents as Array<{ id: string; score: number; band: string }>;
 }
 
 const matches = await classify('cancel my order');
@@ -70,13 +70,13 @@ From Node.js the recommended pattern is to route all calls through the server's 
 const BASE = 'http://localhost:4000';
 
 async function classify(query: string, ns = 'support') {
-  const res = await fetch(`${BASE}/api/route_multi`, {
+  const res = await fetch(`${BASE}/api/resolve`, {
     method: 'POST',
     headers: { 'X-Namespace-ID': ns, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
   });
   const data = await res.json();
-  return data.intents as Array<{ id: string; score: number }>;
+  return data.intents as Array<{ id: string; score: number; band: string }>;
 }
 
 async function reportCorrection(

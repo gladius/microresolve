@@ -121,7 +121,7 @@ def load_seeds(ns: str, intent_phrases: dict[str, list[str]]) -> int:
 
 def route_query(ns: str, text: str) -> dict:
     """Route a single query. Returns the full response dict."""
-    return _req("POST", "/api/route_multi", {"query": text}, ns=ns)
+    return _req("POST", "/api/resolve", {"query": text}, ns=ns)
 
 
 def run_queries(ns: str, examples: list[dict]) -> list[dict]:
@@ -138,7 +138,7 @@ def run_queries(ns: str, examples: list[dict]) -> list[dict]:
         try:
             resp = route_query(ns, text)
             elapsed_us = resp.get("routing_us") or (time.perf_counter() - t0) * 1_000_000
-            predicted = [r["id"] for r in resp.get("confirmed", [])]
+            predicted = [r["id"] for r in resp.get("intents", [])]
             top1 = predicted[0] if predicted else None
             results.append({
                 "text": text,

@@ -43,19 +43,19 @@ def measure(grounded_l1, label):
     rejected = 0
     leaks = []
     for q in OOS:
-        res = req("POST", "/api/route_multi",
-                  {"query": q, "log": False, "grounded_l1": grounded_l1}, ns=NS)
-        confirmed = [r["id"] for r in (res.get("confirmed") or [])]
-        ranked    = [(r["id"], round(r.get("score", 0), 2))
-                     for r in (res.get("ranked") or [])[:3]]
-        if not confirmed:
+        res = req("POST", "/api/resolve",
+                  {"query": q, "log": False}, ns=NS)
+        intents = [r["id"] for r in (res.get("intents") or [])]
+        top3    = [(r["id"], round(r.get("score", 0), 2))
+                   for r in (res.get("intents") or [])[:3]]
+        if not intents:
             rejected += 1
         else:
-            leaks.append((q, confirmed, ranked))
+            leaks.append((q, intents, top3))
     print(f"\n[{label}] reject {rejected}/{len(OOS)} = {100*rejected/len(OOS):.0f}%")
     for q, c, r in leaks:
         print(f"  ✗ {q!r}")
-        print(f"    confirmed: {c}")
+        print(f"    intents: {c}")
         print(f"    top-3 raw: {r}")
 
 

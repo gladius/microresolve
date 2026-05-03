@@ -55,8 +55,10 @@ export declare class Namespace {
    * ```
    */
   addIntent(id: string, seeds: Array<string> | Record<string, Array<string>>): number
-  /** Resolve a query. Returns matches sorted by score descending. */
-  resolve(query: string): Array<Match>
+  /** Resolve a query. Returns a `ResolveResult` with `intents` and `disposition`. */
+  resolve(query: string): ResolveResult
+  /** Like `resolve` but also returns a `ResolveTrace` with per-round diagnostics. */
+  resolveWithTrace(query: string): [ResolveResult, ResolveTrace]
   /**
    * Correct a mis-classification: nudge the engine from `wrong` toward `right`.
    * Applied locally immediately; in connected mode buffered for the next sync tick.
@@ -70,8 +72,6 @@ export declare class Namespace {
   intentCount(): number
   /** Monotonic version counter; increments on every mutation. */
   version(): number
-  /** Resolve with explicit threshold and gap overrides. */
-  resolveWith(query: string, threshold?: number | undefined | null, gap?: number | undefined | null): Array<Match>
   /** Read-only view of an intent's metadata. Returns `null` if not found. */
   intent(intentId: string): IntentInfo | null
   /**
@@ -82,11 +82,83 @@ export declare class Namespace {
   updateIntent(intentId: string, edit: IntentEditOptions): void
   /** Add a single phrase to an existing intent. */
   addPhrase(intentId: string, phrase: string, lang?: string | undefined | null): PhraseResult
+  /** Read-only view of namespace-level metadata. */
+  namespaceInfo(): NamespaceInfo
+  /**
+   * Patch namespace-level metadata fields.
+   *
+   * All fields are optional; omitted (undefined) fields leave existing values unchanged.
+   */
+  updateNamespace(edit: NamespaceEditOptions): void
   /** Flush this namespace to disk (no-op if `MicroResolve` has no `dataDir`). */
   flush(): void
+  /** Number of unique token→intent associations in the scoring index. */
+  vocabSize(): number
+  /**
+   * Per-intent normalized confidence for an already-scored result.
+   *
+   * `tokens` must be the tokenized form of the original query (use
+   * `routeMulti(query).tokens` to obtain them).
+   */
+  confidenceFor(score: number, tokens: Array<string>, intentId: string): number
+  /**
+   * Flat list of all training phrases for an intent (all languages combined).
+   *
+   * Returns `null` if the intent does not exist.
+   */
+  training(intentId: string): Array<string> | null
+  /**
+   * Training phrases grouped by language code.
+   *
+   * Returns `null` if the intent does not exist.
+   */
+  trainingByLang(intentId: string): Record<string, Array<string>> | null
+  /** Export namespace state as a JSON string (for sync/backup). */
+  exportJson(): string
+  /** Check whether a phrase would be a useful addition (deduplication check). */
+  checkPhrase(intentId: string, phrase: string): PhraseResult
+  /** Description for a specific domain prefix. Returns `null` if not set. */
+  domainDescription(domain: string): string | null
+  /** Set the description for a domain prefix. */
+  setDomainDescription(domain: string, description: string): void
+  /** Remove a domain description. */
+  removeDomainDescription(domain: string): void
+  /** Reinforce specific query tokens toward `intentId` (Hebbian-style update). */
+  reinforceTokens(words: Array<string>, intentId: string): void
+  /** Rebuild the scoring index from stored training phrases. */
+  rebuildIndex(): void
+  /** Rebuild IDF table and in-memory caches (call after bulk `indexPhrase` calls). */
+  rebuildCaches(): void
+  /**
+   * Lower-level phrase ingestion: indexes without dedup check.
+   *
+   * Use `addPhrase` for user-driven additions; use `indexPhrase` only for
+   * trusted, pre-validated phrases (e.g., from spec import or auto-learn).
+   */
+  indexPhrase(intentId: string, phrase: string): void
+  /**
+   * Anti-Hebbian decay: shrink L2 weights for `notIntents` on `queries`.
+   *
+   * `alpha` is clamped to `(0.0, 0.3]` internally.
+   */
+  decayForIntents(queries: Array<string>, notIntents: Array<string>, alpha: number): void
+  /**
+   * Apply a review result (missed phrases, span learning, anti-Hebbian correction).
+   *
+   * - `missedPhrases`:   object mapping intent_id → phrase list
+   * - `spansToLearn`:    array of `{ intentId, span }` objects
+   * - `wrongDetections`: array of intent IDs that were wrongly detected
+   * - `originalQuery`:   the original query text
+   * - `negativeAlpha`:   anti-Hebbian decay strength (0.0–0.3, default 0.1)
+   *
+   * Returns the number of phrases added.
+   */
+  applyReview(missedPhrases: Record<string, Array<string>>, spansToLearn: Array<SpanPair>, wrongDetections: Array<string>, originalQuery: string, negativeAlpha?: number | undefined | null): number
+  /** Remove a single phrase from an intent. Returns `true` if the phrase existed. */
+  removePhrase(intentId: string, phrase: string): boolean
 }
 
-/** Options for `new Engine(options)`. */
+/** Options for `new MicroResolve(options)`. */
 export interface EngineOptions {
   /**
    * Path to persist namespace data. Each namespace is a sub-directory.
@@ -126,10 +198,48 @@ export interface IntentInfo {
   training: Record<string, Array<string>>
 }
 
-/** A classification match: intent id + score. */
-export interface Match {
+/** A single intent match in a resolve result. */
+export interface IntentMatch {
   id: string
   score: number
+  /** Normalized confidence in [0,1]. */
+  confidence: number
+  /** Score band: `"High"`, `"Medium"`, or `"Low"`. */
+  band: string
+}
+
+/**
+ * Edit options accepted by `updateNamespace`.
+ *
+ * All fields are optional; omitted fields leave the existing value unchanged.
+ */
+export interface NamespaceEditOptions {
+  name?: string
+  description?: string
+  /**
+   * Per-namespace threshold override.
+   *   - omit / `undefined` → leave existing value alone
+   *   - any non-negative number → set as the new threshold
+   *   - `-1` (sentinel, matches the server's HTTP API) → clear the override
+   *
+   * The sentinel-based convention is the napi-rs friendly equivalent of
+   * `Option<Option<f32>>`, which napi-rs does not natively support.
+   */
+  defaultThreshold?: number
+}
+
+/**
+ * Read-only view of namespace-level metadata, including reflex-layer toggles.
+ *
+ * Returned by `Namespace.namespaceInfo()`.
+ */
+export interface NamespaceInfo {
+  /** Human-readable display name. */
+  name: string
+  /** Human-readable description. */
+  description: string
+  /** Per-namespace routing threshold override. `null` → use engine default. */
+  defaultThreshold?: number
 }
 
 /** Result from `addPhrase`. */
@@ -137,4 +247,27 @@ export interface PhraseResult {
   added: boolean
   redundant: boolean
   warning?: string
+}
+
+/** Output of `resolve()`. */
+export interface ResolveResult {
+  /** Ranked descending by score. May be empty. */
+  intents: Array<IntentMatch>
+  /** `"Confident"`, `"LowConfidence"`, or `"NoMatch"`. */
+  disposition: string
+}
+
+/** Diagnostic trace from `resolveWithTrace()`. */
+export interface ResolveTrace {
+  tokens: Array<string>
+  negated: boolean
+  thresholdApplied: number
+  /** Per-round trace as a JSON string. */
+  multiRoundTrace: string
+}
+
+/** An intent + span pair used in `applyReview`. */
+export interface SpanPair {
+  intentId: string
+  span: string
 }

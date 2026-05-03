@@ -93,14 +93,15 @@ fn delta_sync_background_loop_applies_ops() {
 
     // ── Step 5: Assert connected engine has the new phrase ───────────────
     // Route "howdy partner" — should now resolve to "greet".
-    let result = engine
-        .namespace(NS)
-        .route_multi("howdy partner", None, 0.05, 0.0);
-    let matched = result.multi.iter().any(|(id, _)| id == "greet");
+    let (result, _) =
+        engine
+            .namespace(NS)
+            .resolve_with_options("howdy partner", Some(0.05), 1.5, 0.05, false);
+    let matched = result.intents.iter().any(|m| m.id == "greet");
     assert!(
         matched,
         "connected engine should route 'howdy partner' to 'greet' after delta sync; got: {:?}",
-        result.multi
+        result.intents
     );
 
     // Record the connected engine's version after applying the phrase delta.
@@ -170,14 +171,18 @@ fn delta_sync_background_loop_applies_ops() {
         // its stored version = server_version_after_decay, so the NEXT tick will
         // say up_to_date. We verify this indirectly: the connected engine still
         // routes correctly (weights were applied, not corrupted).
-        let result2 = engine
-            .namespace(NS)
-            .route_multi("howdy partner", None, 0.05, 0.0);
-        let still_routes = result2.multi.iter().any(|(id, _)| id == "greet");
+        let (result2, _) = engine.namespace(NS).resolve_with_options(
+            "howdy partner",
+            Some(0.05),
+            1.5,
+            0.05,
+            false,
+        );
+        let still_routes = result2.intents.iter().any(|m| m.id == "greet");
         assert!(
             still_routes,
             "routing must survive decay delta sync; got: {:?}",
-            result2.multi
+            result2.intents
         );
     }
 

@@ -62,18 +62,17 @@ def main():
     }, ns=NS, timeout=300)
 
     def show(query, label):
-        res = req("POST", "/api/route_multi", {"query": query, "log": False}, ns=NS)
-        ranked = res.get("ranked") or []
-        confirmed = res.get("confirmed") or []
-        top3 = [(r["id"], round(r.get("score", 0), 3)) for r in ranked[:3]]
-        c = [r["id"] for r in confirmed]
+        res = req("POST", "/api/resolve", {"query": query, "log": False}, ns=NS)
+        intents = res.get("intents") or []
+        top3 = [(r["id"], round(r.get("score", 0), 3)) for r in intents[:3]]
+        c = [r["id"] for r in intents]
         print(f"  [{label}] {query!r}")
-        print(f"     ranked top-3: {top3}")
-        print(f"     confirmed:    {c}")
+        print(f"     top-3: {top3}")
+        print(f"     intents: {c}")
 
-    print("\n=== OOS (should have empty `confirmed`) ===")
+    print("\n=== OOS (should have empty intents) ===")
     for q in OOS: show(q, "OOS")
-    print("\n=== IN-SCOPE (should confirm one) ===")
+    print("\n=== IN-SCOPE (should return one) ===")
     for q in IN_SCOPE: show(q, "IN ")
 
     try: req("DELETE", "/api/namespaces", {"namespace_id": NS})

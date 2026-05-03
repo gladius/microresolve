@@ -63,7 +63,7 @@ pub fn routes() -> axum::Router<AppState> {
 pub fn seed_gen_params(num_langs: usize) -> (usize, u32, u32) {
     let n = num_langs.max(1) as u32;
     let tokens_per_intent = n * 50 + 30; // num_langs × 5 phrases × 10 tokens + JSON overhead
-    let batch_size = ((8192 / tokens_per_intent) as usize).max(1).min(10);
+    let batch_size = ((8192 / tokens_per_intent) as usize).clamp(1, 10);
     let max_tokens = 8192;
     (batch_size, max_tokens, tokens_per_intent)
 }
@@ -82,7 +82,7 @@ fn default_tool_count() -> usize {
 /// Returns the generation plan so the UI can show the user exactly what will happen.
 pub async fn import_params(Query(q): Query<ImportParamsQuery>) -> Json<serde_json::Value> {
     let (batch_size, max_tokens, tokens_per_tool) = seed_gen_params(q.num_langs);
-    let total_batches = (q.num_tools + batch_size - 1) / batch_size;
+    let total_batches = q.num_tools.div_ceil(batch_size);
     // Expected output per batch: batch_size tools × tokens_per_tool (max_tokens=8192 is the ceiling)
     let expected_output_per_batch = batch_size as u32 * tokens_per_tool;
     let total_output_tokens = total_batches as u32 * expected_output_per_batch;

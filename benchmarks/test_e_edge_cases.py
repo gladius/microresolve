@@ -77,12 +77,12 @@ def setup():
 
 # ── Probes ──────────────────────────────────────────────────────────────────
 
-def route(query, grounded_l1):
-    res = req("POST", "/api/route_multi",
-        {"query": query, "log": False, "grounded_l1": grounded_l1}, ns=NS)
-    ranked = res.get("ranked") or []
-    top = ranked[0]["id"] if ranked else "(none)"
-    return top, ranked, res.get("routing_us", 0)
+def route(query, grounded_l1=False):
+    res = req("POST", "/api/resolve",
+        {"query": query, "log": False}, ns=NS)
+    intents = res.get("intents") or []
+    top = intents[0]["id"] if intents else "(none)"
+    return top, intents, res.get("routing_us", 0)
 
 
 def check(label, query, expected, grounded_l1=True):

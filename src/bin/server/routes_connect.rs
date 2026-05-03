@@ -207,7 +207,7 @@ pub async fn sync(
                     // Try to serve delta ops.
                     let oldest = h.with_resolver(|r| r.oplog.front().map(|(v, _)| *v));
                     let client_version = *local_version;
-                    let client_too_far_behind = oldest.map_or(true, |o| client_version < o);
+                    let client_too_far_behind = oldest.is_none_or(|o| client_version < o);
                     if client_too_far_behind
                         || (oplog_min_version > 0 && client_version < oplog_min_version)
                     {

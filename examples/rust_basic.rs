@@ -46,6 +46,7 @@ fn main() {
         .ok();
 
     println!("Intents: {:?}", support.intent_ids());
-    let matches = support.resolve("please cancel my order");
-    println!("Top match: {:?}", matches.first());
+    let result = support.resolve("please cancel my order");
+    println!("Top match: {:?}", result.intents.first());
+    println!("Disposition: {:?}", result.disposition);
 }

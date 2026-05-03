@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end latency benchmark for MicroResolve's HTTP API.
 
-Measures `POST /api/route_multi` latency including HTTP overhead — the
+Measures `POST /api/resolve` latency including HTTP overhead — the
 number a real client sees. For pure in-process latency, see the Rust
 criterion bench at `benches/resolve.rs` (next benchmark).
 
@@ -156,7 +156,7 @@ def measure(queries: list[str]) -> list[float]:
     latencies_us: list[float] = []
     for q in queries:
         t0 = time.perf_counter()
-        _req("POST", "/api/route_multi", {"query": q, "log": False}, ns=NS)
+        _req("POST", "/api/resolve", {"query": q, "log": False}, ns=NS)
         t1 = time.perf_counter()
         latencies_us.append((t1 - t0) * 1_000_000.0)
     return latencies_us
