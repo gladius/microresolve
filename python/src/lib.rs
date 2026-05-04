@@ -85,7 +85,10 @@ fn core_result_to_py(r: microresolve_core::ResolveResult) -> ResolveResult {
             .to_string(),
         })
         .collect();
-    ResolveResult { intents, disposition }
+    ResolveResult {
+        intents,
+        disposition,
+    }
 }
 
 // ── ResolveTrace ──────────────────────────────────────────────────────────────
@@ -168,9 +171,12 @@ struct IntentInfo {
 #[pymethods]
 impl IntentInfo {
     fn __repr__(&self) -> String {
-        format!("IntentInfo(id={:?}, intent_type={:?}, phrases={})",
-            self.id, self.intent_type,
-            self.training.values().map(|v| v.len()).sum::<usize>())
+        format!(
+            "IntentInfo(id={:?}, intent_type={:?}, phrases={})",
+            self.id,
+            self.intent_type,
+            self.training.values().map(|v| v.len()).sum::<usize>()
+        )
     }
 }
 
@@ -213,7 +219,8 @@ impl Namespace {
     fn add_intent(&self, intent_id: &str, phrases: &Bound<'_, PyAny>) -> PyResult<usize> {
         let seeds = py_to_seeds(phrases)?;
         let handle = self.engine.namespace(&self.id);
-        handle.add_intent(intent_id, seeds)
+        handle
+            .add_intent(intent_id, seeds)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
@@ -250,21 +257,33 @@ impl Namespace {
     /// Raises `ValueError` if `right_intent` does not exist.
     fn correct(&self, query: &str, wrong_intent: &str, right_intent: &str) -> PyResult<()> {
         let handle = self.engine.namespace(&self.id);
-        handle.correct(query, wrong_intent, right_intent)
+        handle
+            .correct(query, wrong_intent, right_intent)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Remove an intent and all its phrases.
     fn remove_intent(&self, intent_id: &str) -> PyResult<()> {
-        self.engine.namespace(&self.id).remove_intent(intent_id)
+        self.engine
+            .namespace(&self.id)
+            .remove_intent(intent_id)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Add a single phrase to an existing intent.
     ///
     /// Returns a dict with `added` (bool), `redundant` (bool), `warning` (str | None).
-    fn add_phrase<'py>(&self, py: Python<'py>, intent_id: &str, phrase: &str, lang: Option<&str>) -> PyResult<Bound<'py, PyDict>> {
-        let result = self.engine.namespace(&self.id).add_phrase(intent_id, phrase, lang.unwrap_or("en"))
+    fn add_phrase<'py>(
+        &self,
+        py: Python<'py>,
+        intent_id: &str,
+        phrase: &str,
+        lang: Option<&str>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = self
+            .engine
+            .namespace(&self.id)
+            .add_phrase(intent_id, phrase, lang.unwrap_or("en"))
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         let d = PyDict::new(py);
         d.set_item("added", result.added)?;
@@ -277,7 +296,10 @@ impl Namespace {
     ///
     /// Returns `None` if the intent does not exist.
     fn intent(&self, intent_id: &str) -> Option<IntentInfo> {
-        self.engine.namespace(&self.id).intent(intent_id).map(info_to_py)
+        self.engine
+            .namespace(&self.id)
+            .intent(intent_id)
+            .map(info_to_py)
     }
 
     /// Update metadata fields on an existing intent.
@@ -292,8 +314,11 @@ impl Namespace {
             e.intent_type = Some(match s.as_str() {
                 "action" => microresolve_core::IntentType::Action,
                 "context" => microresolve_core::IntentType::Context,
-                other => return Err(pyo3::exceptions::PyValueError::new_err(
-                    format!("intent_type must be 'action' or 'context', got '{other}'"))),
+                other => {
+                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                        "intent_type must be 'action' or 'context', got '{other}'"
+                    )))
+                }
             });
         }
         if let Some(v) = edit.get_item("description")? {
@@ -308,7 +333,9 @@ impl Namespace {
         if let Some(v) = edit.get_item("guardrails")? {
             e.guardrails = Some(v.extract::<Vec<String>>()?);
         }
-        self.engine.namespace(&self.id).update_intent(intent_id, e)
+        self.engine
+            .namespace(&self.id)
+            .update_intent(intent_id, e)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
@@ -330,7 +357,9 @@ impl Namespace {
 
     /// Persist this namespace to disk now. No-op when `data_dir` is not set.
     fn flush(&self) -> PyResult<()> {
-        self.engine.namespace(&self.id).flush()
+        self.engine
+            .namespace(&self.id)
+            .flush()
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
@@ -362,7 +391,8 @@ impl Namespace {
             }
         }
         let handle = self.engine.namespace(&self.id);
-        handle.update_namespace(e)
+        handle
+            .update_namespace(e)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
@@ -378,7 +408,9 @@ impl Namespace {
     /// `tokens` must be the tokenized form of the original query (use
     /// `resolve_with_trace(query)[1].tokens` to obtain them).
     fn confidence_for(&self, score: f32, tokens: Vec<String>, intent_id: &str) -> f32 {
-        self.engine.namespace(&self.id).confidence_for(score, &tokens, intent_id)
+        self.engine
+            .namespace(&self.id)
+            .confidence_for(score, &tokens, intent_id)
     }
 
     /// Flat list of all training phrases for an intent (all languages combined).
@@ -403,8 +435,16 @@ impl Namespace {
     /// Check whether a phrase would be a useful addition (deduplication check).
     ///
     /// Returns a dict with `added` (bool), `redundant` (bool), `warning` (str | None).
-    fn check_phrase<'py>(&self, py: Python<'py>, intent_id: &str, phrase: &str) -> PyResult<Bound<'py, PyDict>> {
-        let result = self.engine.namespace(&self.id).check_phrase(intent_id, phrase);
+    fn check_phrase<'py>(
+        &self,
+        py: Python<'py>,
+        intent_id: &str,
+        phrase: &str,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let result = self
+            .engine
+            .namespace(&self.id)
+            .check_phrase(intent_id, phrase);
         let d = PyDict::new(py);
         d.set_item("added", result.added)?;
         d.set_item("redundant", result.redundant)?;
@@ -419,40 +459,51 @@ impl Namespace {
 
     /// Set the description for a domain prefix.
     fn set_domain_description(&self, domain: &str, description: &str) -> PyResult<()> {
-        self.engine.namespace(&self.id).set_domain_description(domain, description)
+        self.engine
+            .namespace(&self.id)
+            .set_domain_description(domain, description)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Remove a domain description.
     fn remove_domain_description(&self, domain: &str) -> PyResult<()> {
-        self.engine.namespace(&self.id).remove_domain_description(domain)
+        self.engine
+            .namespace(&self.id)
+            .remove_domain_description(domain)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
-
 
     /// Reinforce specific query tokens toward `intent_id` (Hebbian-style update).
     fn reinforce_tokens(&self, words: Vec<String>, intent_id: &str) -> PyResult<()> {
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
-        self.engine.namespace(&self.id).reinforce_tokens(&word_refs, intent_id)
+        self.engine
+            .namespace(&self.id)
+            .reinforce_tokens(&word_refs, intent_id)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Rebuild the scoring index from stored training phrases.
     fn rebuild_index(&self) -> PyResult<()> {
-        self.engine.namespace(&self.id).rebuild_index()
+        self.engine
+            .namespace(&self.id)
+            .rebuild_index()
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// EXPERIMENTAL: set voting-token gate. 1 = disabled. 2+ = require N distinct
     /// query tokens to back an intent before full-strength scoring.
     fn set_min_voting_tokens(&self, min: u32) -> PyResult<()> {
-        self.engine.namespace(&self.id).set_min_voting_tokens(min)
+        self.engine
+            .namespace(&self.id)
+            .set_min_voting_tokens(min)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Rebuild IDF table and in-memory caches (call after bulk `index_phrase` calls).
     fn rebuild_caches(&self) -> PyResult<()> {
-        self.engine.namespace(&self.id).rebuild_caches()
+        self.engine
+            .namespace(&self.id)
+            .rebuild_caches()
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
@@ -461,15 +512,24 @@ impl Namespace {
     /// Use `add_phrase` for user-driven additions; use `index_phrase` only for
     /// trusted, pre-validated phrases (e.g., from spec import or auto-learn).
     fn index_phrase(&self, intent_id: &str, phrase: &str) -> PyResult<()> {
-        self.engine.namespace(&self.id).index_phrase(intent_id, phrase)
+        self.engine
+            .namespace(&self.id)
+            .index_phrase(intent_id, phrase)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Anti-Hebbian decay: shrink L2 weights for `not_intents` on `queries`.
     ///
     /// `alpha` is clamped to `(0.0, 0.3]` internally.
-    fn decay_for_intents(&self, queries: Vec<String>, not_intents: Vec<String>, alpha: f32) -> PyResult<()> {
-        self.engine.namespace(&self.id).decay_for_intents(&queries, &not_intents, alpha)
+    fn decay_for_intents(
+        &self,
+        queries: Vec<String>,
+        not_intents: Vec<String>,
+        alpha: f32,
+    ) -> PyResult<()> {
+        self.engine
+            .namespace(&self.id)
+            .decay_for_intents(&queries, &not_intents, alpha)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
@@ -492,25 +552,31 @@ impl Namespace {
         original_query: &str,
         negative_alpha: f32,
     ) -> PyResult<usize> {
-        self.engine.namespace(&self.id).apply_review(
-            &missed_phrases,
-            &spans_to_learn,
-            &wrong_detections,
-            original_query,
-            negative_alpha,
-        )
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+        self.engine
+            .namespace(&self.id)
+            .apply_review(
+                &missed_phrases,
+                &spans_to_learn,
+                &wrong_detections,
+                original_query,
+                negative_alpha,
+            )
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Remove a single phrase from an intent. Returns `True` if the phrase existed.
     fn remove_phrase(&self, intent_id: &str, phrase: &str) -> PyResult<bool> {
-        self.engine.namespace(&self.id).remove_phrase(intent_id, phrase)
+        self.engine
+            .namespace(&self.id)
+            .remove_phrase(intent_id, phrase)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Namespace identifier.
     #[getter]
-    fn id(&self) -> &str { &self.id }
+    fn id(&self) -> &str {
+        &self.id
+    }
 
     fn __repr__(&self) -> String {
         format!("Namespace(id={:?})", self.id)
@@ -574,7 +640,9 @@ impl MicroResolve {
         };
         let engine = microresolve_core::MicroResolve::new(config)
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        Ok(Self { inner: Arc::new(engine) })
+        Ok(Self {
+            inner: Arc::new(engine),
+        })
     }
 
     /// Return (or lazily create) a namespace handle.
@@ -582,7 +650,10 @@ impl MicroResolve {
     /// The namespace is created in-memory on first access. With `data_dir` set,
     /// an existing namespace directory is loaded automatically.
     fn namespace(&self, id: &str) -> Namespace {
-        Namespace { engine: Arc::clone(&self.inner), id: id.to_string() }
+        Namespace {
+            engine: Arc::clone(&self.inner),
+            id: id.to_string(),
+        }
     }
 
     /// IDs of all currently loaded namespaces.
@@ -594,7 +665,8 @@ impl MicroResolve {
     ///
     /// Raises `IOError` on failure.
     fn flush(&self) -> PyResult<()> {
-        self.inner.flush()
+        self.inner
+            .flush()
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
@@ -615,7 +687,7 @@ fn py_to_seeds(obj: &Bound<'_, PyAny>) -> PyResult<microresolve_core::IntentSeed
         return Ok(microresolve_core::IntentSeeds::from(map));
     }
     Err(pyo3::exceptions::PyTypeError::new_err(
-        "phrases must be list[str] or dict[str, list[str]]"
+        "phrases must be list[str] or dict[str, list[str]]",
     ))
 }
 

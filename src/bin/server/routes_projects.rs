@@ -387,9 +387,13 @@ pub async fn update_namespace(
             default_threshold: req
                 .default_threshold
                 .map(|t| if t < 0.0 { None } else { Some(t) }),
-            default_min_voting_tokens: req
-                .default_min_voting_tokens
-                .map(|m| if m <= 0 { None } else { Some(m as u32) }),
+            default_min_voting_tokens: req.default_min_voting_tokens.map(|m| {
+                if m <= 0 {
+                    None
+                } else {
+                    Some(m as u32)
+                }
+            }),
             ..Default::default()
         };
         let _ = h.update_namespace(edit);

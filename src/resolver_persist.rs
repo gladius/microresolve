@@ -50,8 +50,7 @@ impl Resolver {
         if let Some(v) = edit.default_min_voting_tokens {
             self.namespace_default_min_voting_tokens = v;
             // Propagate to live IntentIndex so scoring picks up the new value.
-            self.index
-                .set_min_voting_tokens(v.unwrap_or(1));
+            self.index.set_min_voting_tokens(v.unwrap_or(1));
         }
         if let Some(dd) = edit.domain_descriptions {
             self.domain_descriptions = dd;

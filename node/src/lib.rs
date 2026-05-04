@@ -15,9 +15,8 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use microresolve_core::{
-    MicroResolve as CoreEngine, MicroResolveConfig, ServerConfig, IntentSeeds,
-    IntentEdit, IntentType,
-    NamespaceEdit, NamespaceInfo as CoreNamespaceInfo,
+    IntentEdit, IntentSeeds, IntentType, MicroResolve as CoreEngine, MicroResolveConfig,
+    NamespaceEdit, NamespaceInfo as CoreNamespaceInfo, ServerConfig,
 };
 
 fn core_result_to_node(r: microresolve_core::ResolveResult) -> ResolveResult {
@@ -42,7 +41,10 @@ fn core_result_to_node(r: microresolve_core::ResolveResult) -> ResolveResult {
             .to_string(),
         })
         .collect();
-    ResolveResult { intents, disposition }
+    ResolveResult {
+        intents,
+        disposition,
+    }
 }
 
 /// Read-only view of an intent's metadata and training phrases.
@@ -217,17 +219,21 @@ impl MicroResolve {
             ..Default::default()
         };
 
-        let inner = CoreEngine::new(config)
-            .map_err(|e| Error::from_reason(e.to_string()))?;
+        let inner = CoreEngine::new(config).map_err(|e| Error::from_reason(e.to_string()))?;
 
-        Ok(MicroResolve { inner: Arc::new(inner) })
+        Ok(MicroResolve {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Get a `Namespace` handle for the given id.
     /// The namespace is created lazily on first write.
     #[napi]
     pub fn namespace(&self, id: String) -> Namespace {
-        Namespace { engine: Arc::clone(&self.inner), id }
+        Namespace {
+            engine: Arc::clone(&self.inner),
+            id,
+        }
     }
 
     /// All namespace IDs currently loaded in this engine.
@@ -239,7 +245,9 @@ impl MicroResolve {
     /// Flush all dirty namespaces to disk (no-op if no `dataDir` was set).
     #[napi]
     pub fn flush(&self) -> Result<()> {
-        self.inner.flush().map_err(|e| Error::from_reason(e.to_string()))
+        self.inner
+            .flush()
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 }
 
@@ -291,8 +299,7 @@ impl Namespace {
     pub fn resolve_with_trace(&self, query: String) -> (ResolveResult, ResolveTrace) {
         let ns = self.engine.namespace(&self.id);
         let (result, trace) = ns.resolve_with_trace(&query);
-        let trace_json =
-            serde_json::to_string(&trace.multi_round_trace).unwrap_or_default();
+        let trace_json = serde_json::to_string(&trace.multi_round_trace).unwrap_or_default();
         (
             core_result_to_node(result),
             ResolveTrace {
@@ -316,7 +323,9 @@ impl Namespace {
     /// Remove an intent and all its phrases.
     #[napi]
     pub fn remove_intent(&self, id: String) -> Result<()> {
-        self.engine.namespace(&self.id).remove_intent(&id)
+        self.engine
+            .namespace(&self.id)
+            .remove_intent(&id)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
@@ -338,19 +347,21 @@ impl Namespace {
         self.engine.namespace(&self.id).version() as u32
     }
 
-
     /// Read-only view of an intent's metadata. Returns `null` if not found.
     #[napi]
     pub fn intent(&self, intent_id: String) -> Option<IntentInfo> {
-        self.engine.namespace(&self.id).intent(&intent_id).map(|info| IntentInfo {
-            id: info.id,
-            intent_type: match info.intent_type {
-                IntentType::Action => "action".to_string(),
-                IntentType::Context => "context".to_string(),
-            },
-            description: info.description,
-            training: info.training,
-        })
+        self.engine
+            .namespace(&self.id)
+            .intent(&intent_id)
+            .map(|info| IntentInfo {
+                id: info.id,
+                intent_type: match info.intent_type {
+                    IntentType::Action => "action".to_string(),
+                    IntentType::Context => "context".to_string(),
+                },
+                description: info.description,
+                training: info.training,
+            })
     }
 
     /// Update metadata fields on an existing intent.
@@ -363,23 +374,34 @@ impl Namespace {
             e.intent_type = Some(match t.as_str() {
                 "action" => IntentType::Action,
                 "context" => IntentType::Context,
-                other => return Err(Error::from_reason(format!(
-                    "intentType must be 'action' or 'context', got '{other}'"
-                ))),
+                other => {
+                    return Err(Error::from_reason(format!(
+                        "intentType must be 'action' or 'context', got '{other}'"
+                    )))
+                }
             });
         }
         e.description = edit.description;
         e.instructions = edit.instructions;
         e.persona = edit.persona;
         e.guardrails = edit.guardrails;
-        self.engine.namespace(&self.id).update_intent(&intent_id, e)
+        self.engine
+            .namespace(&self.id)
+            .update_intent(&intent_id, e)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Add a single phrase to an existing intent.
     #[napi]
-    pub fn add_phrase(&self, intent_id: String, phrase: String, lang: Option<String>) -> Result<PhraseResult> {
-        let result = self.engine.namespace(&self.id)
+    pub fn add_phrase(
+        &self,
+        intent_id: String,
+        phrase: String,
+        lang: Option<String>,
+    ) -> Result<PhraseResult> {
+        let result = self
+            .engine
+            .namespace(&self.id)
             .add_phrase(&intent_id, &phrase, lang.as_deref().unwrap_or("en"))
             .map_err(|e| Error::from_reason(e.to_string()))?;
         Ok(PhraseResult {
@@ -411,10 +433,18 @@ impl Namespace {
             name: edit.name,
             description: edit.description,
             default_threshold: edit.default_threshold.map(|t| {
-                if t < 0.0 { None } else { Some(t as f32) }
+                if t < 0.0 {
+                    None
+                } else {
+                    Some(t as f32)
+                }
             }),
             default_min_voting_tokens: edit.default_min_voting_tokens.map(|m| {
-                if m <= 0 { None } else { Some(m as u32) }
+                if m <= 0 {
+                    None
+                } else {
+                    Some(m as u32)
+                }
             }),
             domain_descriptions: None,
         };
@@ -426,7 +456,9 @@ impl Namespace {
     /// Flush this namespace to disk (no-op if `MicroResolve` has no `dataDir`).
     #[napi]
     pub fn flush(&self) -> Result<()> {
-        self.engine.namespace(&self.id).flush()
+        self.engine
+            .namespace(&self.id)
+            .flush()
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
@@ -444,7 +476,8 @@ impl Namespace {
     /// `resolveWithTrace(query).trace.tokens` to obtain them).
     #[napi]
     pub fn confidence_for(&self, score: f64, tokens: Vec<String>, intent_id: String) -> f64 {
-        self.engine.namespace(&self.id)
+        self.engine
+            .namespace(&self.id)
             .confidence_for(score as f32, &tokens, &intent_id) as f64
     }
 
@@ -473,7 +506,10 @@ impl Namespace {
     /// Check whether a phrase would be a useful addition (deduplication check).
     #[napi]
     pub fn check_phrase(&self, intent_id: String, phrase: String) -> PhraseResult {
-        let result = self.engine.namespace(&self.id).check_phrase(&intent_id, &phrase);
+        let result = self
+            .engine
+            .namespace(&self.id)
+            .check_phrase(&intent_id, &phrase);
         PhraseResult {
             added: result.added,
             redundant: result.redundant,
@@ -490,30 +526,37 @@ impl Namespace {
     /// Set the description for a domain prefix.
     #[napi]
     pub fn set_domain_description(&self, domain: String, description: String) -> Result<()> {
-        self.engine.namespace(&self.id).set_domain_description(&domain, &description)
+        self.engine
+            .namespace(&self.id)
+            .set_domain_description(&domain, &description)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Remove a domain description.
     #[napi]
     pub fn remove_domain_description(&self, domain: String) -> Result<()> {
-        self.engine.namespace(&self.id).remove_domain_description(&domain)
+        self.engine
+            .namespace(&self.id)
+            .remove_domain_description(&domain)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
-
 
     /// Reinforce specific query tokens toward `intentId` (Hebbian-style update).
     #[napi]
     pub fn reinforce_tokens(&self, words: Vec<String>, intent_id: String) -> Result<()> {
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
-        self.engine.namespace(&self.id).reinforce_tokens(&word_refs, &intent_id)
+        self.engine
+            .namespace(&self.id)
+            .reinforce_tokens(&word_refs, &intent_id)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Rebuild the scoring index from stored training phrases.
     #[napi]
     pub fn rebuild_index(&self) -> Result<()> {
-        self.engine.namespace(&self.id).rebuild_index()
+        self.engine
+            .namespace(&self.id)
+            .rebuild_index()
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
@@ -525,14 +568,18 @@ impl Namespace {
     /// `default_min_voting_tokens` via `updateNamespace` to persist.
     #[napi]
     pub fn set_min_voting_tokens(&self, min: u32) -> Result<()> {
-        self.engine.namespace(&self.id).set_min_voting_tokens(min)
+        self.engine
+            .namespace(&self.id)
+            .set_min_voting_tokens(min)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Rebuild IDF table and in-memory caches (call after bulk `indexPhrase` calls).
     #[napi]
     pub fn rebuild_caches(&self) -> Result<()> {
-        self.engine.namespace(&self.id).rebuild_caches()
+        self.engine
+            .namespace(&self.id)
+            .rebuild_caches()
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
@@ -542,7 +589,9 @@ impl Namespace {
     /// trusted, pre-validated phrases (e.g., from spec import or auto-learn).
     #[napi]
     pub fn index_phrase(&self, intent_id: String, phrase: String) -> Result<()> {
-        self.engine.namespace(&self.id).index_phrase(&intent_id, &phrase)
+        self.engine
+            .namespace(&self.id)
+            .index_phrase(&intent_id, &phrase)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
@@ -550,8 +599,15 @@ impl Namespace {
     ///
     /// `alpha` is clamped to `(0.0, 0.3]` internally.
     #[napi]
-    pub fn decay_for_intents(&self, queries: Vec<String>, not_intents: Vec<String>, alpha: f64) -> Result<()> {
-        self.engine.namespace(&self.id).decay_for_intents(&queries, &not_intents, alpha as f32)
+    pub fn decay_for_intents(
+        &self,
+        queries: Vec<String>,
+        not_intents: Vec<String>,
+        alpha: f64,
+    ) -> Result<()> {
+        self.engine
+            .namespace(&self.id)
+            .decay_for_intents(&queries, &not_intents, alpha as f32)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 
@@ -577,21 +633,25 @@ impl Namespace {
             .into_iter()
             .map(|p| (p.intent_id, p.span))
             .collect();
-        self.engine.namespace(&self.id).apply_review(
-            &missed_phrases,
-            &spans,
-            &wrong_detections,
-            &original_query,
-            negative_alpha.unwrap_or(0.1) as f32,
-        )
-        .map(|n| n as u32)
-        .map_err(|e| Error::from_reason(e.to_string()))
+        self.engine
+            .namespace(&self.id)
+            .apply_review(
+                &missed_phrases,
+                &spans,
+                &wrong_detections,
+                &original_query,
+                negative_alpha.unwrap_or(0.1) as f32,
+            )
+            .map(|n| n as u32)
+            .map_err(|e| Error::from_reason(e.to_string()))
     }
 
     /// Remove a single phrase from an intent. Returns `true` if the phrase existed.
     #[napi]
     pub fn remove_phrase(&self, intent_id: String, phrase: String) -> Result<bool> {
-        self.engine.namespace(&self.id).remove_phrase(&intent_id, &phrase)
+        self.engine
+            .namespace(&self.id)
+            .remove_phrase(&intent_id, &phrase)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 }
