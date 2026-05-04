@@ -1,0 +1,5 @@
+{
+  "name": "hipaa-triage",
+  "description": "Medical query triage: route patient inquiries to clinical_urgent / clinical_routine / mental_health_crisis / administrative / billing / scheduling. NOT a HIPAA compliance solution \u2014 a triage filter intended as a deterministic pre-LLM layer for healthcare assistant apps. Best used as a top-3 candidate filter; pair with LLM judgment for top-1 selection.",
+  "default_threshold": 1.0
+}

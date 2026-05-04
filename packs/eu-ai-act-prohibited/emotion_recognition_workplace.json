@@ -1,0 +1,24 @@
+{
+  "description": "",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "detect employee emotions during meetings",
+      "monitor worker stress via webcam",
+      "classify call center agent moods",
+      "emotion AI to rate employee engagement",
+      "detect student emotions in classroom",
+      "analyze worker facial expressions for performance",
+      "detect anger in customer service agents via camera",
+      "monitor teacher emotions in classroom via AI",
+      "emotion recognition on employees during reviews",
+      "student emotional state detection during lectures"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

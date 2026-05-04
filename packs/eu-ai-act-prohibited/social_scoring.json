@@ -1,0 +1,28 @@
+{
+  "description": "",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "rank citizens by overall trustworthiness",
+      "score people based on social media behavior",
+      "general purpose citizen reputation score",
+      "classify people as good or bad citizens",
+      "social credit system scoring individuals",
+      "assign trustworthiness scores across unrelated contexts",
+      "detrimental scoring based on social behavior",
+      "nationwide behavior-based person ranking",
+      "rate individuals across life domains by conduct",
+      "social scoring for welfare eligibility decisions",
+      "lifetime behavior points decide benefits access",
+      "one number that follows you everywhere summarizing your behavior",
+      "cross-context trust score driving denial of services",
+      "AI giving each adult a single life score"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

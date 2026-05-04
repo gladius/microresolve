@@ -1,0 +1,26 @@
+{
+  "description": "",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "infer ethnicity from face scan",
+      "classify religion from facial features",
+      "determine sexual orientation from photos",
+      "categorize political views from biometrics",
+      "use face recognition to sort by race",
+      "facial analysis for religious classification",
+      "biometric grouping by ethnicity for ads",
+      "infer protected attributes from face scan",
+      "classify union membership via biometrics",
+      "sort individuals into racial categories from photos",
+      "voiceprint inferring native ethnic group of speaker",
+      "video analytics labeling pedestrians by ethnic bucket"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

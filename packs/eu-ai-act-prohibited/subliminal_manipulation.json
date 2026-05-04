@@ -1,0 +1,26 @@
+{
+  "description": "",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "subliminal messages to change voting behavior",
+      "below awareness stimuli to influence purchases",
+      "manipulative techniques beyond consumer awareness",
+      "hidden audio cues to shift opinion",
+      "imperceptible prompts to alter decisions",
+      "subliminal video frames to steer choices",
+      "deceptive techniques to distort behavior materially",
+      "covert cues that bypass conscious reasoning",
+      "subliminal ad imagery to change behavior",
+      "techniques below perceptual threshold to influence",
+      "below-threshold suggestion system for political persuasion",
+      "manipulation outside user awareness targeting kids to buy"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

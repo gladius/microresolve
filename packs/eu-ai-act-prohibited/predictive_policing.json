@@ -1,0 +1,25 @@
+{
+  "description": "",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "predict who will commit crimes",
+      "profile individuals for likelihood of offending",
+      "AI system forecasting criminal behavior of person",
+      "risk score for future crime by individual",
+      "predict arrests based on personality profile",
+      "individual crime risk prediction from profile",
+      "forecast individual recidivism solely from profile",
+      "single out persons likely to commit future crimes",
+      "personality-based prediction of criminal propensity",
+      "predicting future criminality of named individuals",
+      "AI flagging specific people as likely criminals without any crime"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

@@ -1,0 +1,5 @@
+{
+  "name": "eu-ai-act-prohibited",
+  "description": "EU AI Act Article 5 prohibited-practice triage. Detects whether a deployment intent matches one of the 6 explicitly prohibited categories: biometric categorization, emotion recognition in workplace/education, exploitation of vulnerability, predictive policing on natural persons, social scoring, subliminal manipulation. Pre-LLM filter for compliance review.",
+  "default_threshold": 1.0
+}
