@@ -9,11 +9,14 @@ name = "microresolve"
 # Drift between pyproject.toml and Cargo.toml caused the v0.1.7 PyPI miss
 # (wheels built as 0.1.6 because pyproject hadn't been bumped).
 dynamic = ["version"]
-description = "Pre-LLM reflex layer — embedded decision engine for intent classification, safety filtering, tool selection. Sub-millisecond, CPU-only, continuous learning."
+description = "System 1 relay for LLM apps — sub-millisecond intent classification, safety gating, tool selection. CPU-only, continuous learning from corrections."
+# README from the repo root renders as long_description on the PyPI project page.
+# Without this, https://pypi.org/project/microresolve/ has no body content.
+readme = "../README.md"
 requires-python = ">=3.8"
 license = "MIT OR Apache-2.0"
 authors = [{ name = "Gladius Thayalarajan" }]
-keywords = ["intent", "classification", "nlp", "pre-llm", "safety"]
+keywords = ["intent", "classification", "pre-llm", "llm", "safety", "agent-router", "prefilter"]
 
 [project.urls]
 Homepage = "https://github.com/gladius/microresolve"

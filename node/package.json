@@ -1,7 +1,7 @@
 {
   "name": "microresolve",
   "version": "0.2.0",
-  "description": "Pre-LLM reflex layer — embedded decision engine for intent, safety, tool selection. Sub-millisecond classification with continuous learning.",
+  "description": "System 1 relay for LLM apps — sub-millisecond intent classification, safety gating, tool selection. CPU-only, continuous learning from corrections.",
   "author": "Gladius Thayalarajan",
   "license": "MIT OR Apache-2.0",
   "homepage": "https://github.com/gladius/microresolve",
@@ -15,15 +15,18 @@
   "keywords": [
     "intent",
     "classification",
-    "nlp",
     "pre-llm",
-    "safety"
+    "llm",
+    "safety",
+    "agent-router",
+    "prefilter"
   ],
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
     "index.js",
-    "index.d.ts"
+    "index.d.ts",
+    "README.md"
   ],
   "napi": {
     "binaryName": "microresolve",

@@ -3,13 +3,13 @@ name = "microresolve"
 version = "0.2.0"
 edition = "2021"
 authors = ["Gladius Thayalarajan"]
-description = "Pre-LLM decision engine: intent classification, tool selection, request triage. ~50μs per call, CPU-only, continuous learning."
+description = "System 1 relay for LLM apps — sub-millisecond intent classification, safety gating, tool selection. CPU-only, continuous learning from corrections."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/gladius/microresolve"
 homepage = "https://github.com/gladius/microresolve"
 documentation = "https://docs.rs/microresolve"
 readme = "README.md"
-keywords = ["intent", "classification", "nlp", "sparse-vectors", "pre-llm"]
+keywords = ["intent-classification", "pre-llm", "llm", "safety", "agent-router"]
 categories = ["text-processing", "algorithms"]
 
 # Strip non-library artifacts from the crates.io tarball. Cargo's default
