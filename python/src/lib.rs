@@ -126,14 +126,16 @@ struct NamespaceInfo {
     description: String,
     /// Per-namespace routing threshold override. `None` → use engine default.
     default_threshold: Option<f32>,
+    /// Per-namespace voting-token gate override. `None` → use engine default (1, disabled).
+    default_min_voting_tokens: Option<u32>,
 }
 
 #[pymethods]
 impl NamespaceInfo {
     fn __repr__(&self) -> String {
         format!(
-            "NamespaceInfo(name={:?}, default_threshold={:?})",
-            self.name, self.default_threshold
+            "NamespaceInfo(name={:?}, default_threshold={:?}, default_min_voting_tokens={:?})",
+            self.name, self.default_threshold, self.default_min_voting_tokens
         )
     }
 }
@@ -143,6 +145,7 @@ fn ns_info_to_py(info: microresolve_core::NamespaceInfo) -> NamespaceInfo {
         name: info.name,
         description: info.description,
         default_threshold: info.default_threshold,
+        default_min_voting_tokens: info.default_min_voting_tokens,
     }
 }
 
@@ -437,6 +440,13 @@ impl Namespace {
     /// Rebuild the scoring index from stored training phrases.
     fn rebuild_index(&self) -> PyResult<()> {
         self.engine.namespace(&self.id).rebuild_index()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// EXPERIMENTAL: set voting-token gate. 1 = disabled. 2+ = require N distinct
+    /// query tokens to back an intent before full-strength scoring.
+    fn set_min_voting_tokens(&self, min: u32) -> PyResult<()> {
+        self.engine.namespace(&self.id).set_min_voting_tokens(min)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 

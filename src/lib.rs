@@ -121,6 +121,11 @@ pub struct Resolver {
     /// `None` means "no override, use the compile-time default."
     /// `Some(0.0)` is a valid (degenerate) setting — accept all matches.
     namespace_default_threshold: Option<f32>,
+    /// Default voting-token gate for this namespace.
+    /// `None` means "no override, use the compile-time default (1 = disabled)."
+    /// `Some(1)` explicitly disables; `Some(2)` or higher activates the gate.
+    /// See `IntentIndex::min_voting_tokens` for behavior.
+    namespace_default_min_voting_tokens: Option<u32>,
     /// Descriptions for domain prefixes (e.g., "billing" in "billing:cancel_order").
     domain_descriptions: HashMap<String, String>,
     /// Audit trail: history of every negative-training call applied to

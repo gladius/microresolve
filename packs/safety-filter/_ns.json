@@ -1,5 +1,6 @@
 {
   "name": "safety-filter",
   "description": "Pre-LLM jailbreak / prompt-injection detection. Five intents covering the canonical attack taxonomy: prompt injection, system-prompt extraction, role override (DAN-style), safety bypass, and encoding-based evasion.",
-  "default_threshold": 0.3
+  "default_threshold": 1.5,
+  "default_min_voting_tokens": 3
 }

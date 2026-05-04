@@ -325,6 +325,9 @@ pub struct NamespaceInfo {
     pub name: String,
     pub description: String,
     pub default_threshold: Option<f32>,
+    /// Default voting-token gate. `None` = compile-time default (1, disabled).
+    /// `Some(1)` = explicitly disabled. `Some(2+)` = active gate.
+    pub default_min_voting_tokens: Option<u32>,
     pub domain_descriptions: std::collections::HashMap<String, String>,
 }
 
@@ -338,6 +341,8 @@ pub struct NamespaceEdit {
     pub description: Option<String>,
     /// `Some(None)` clears the override; `Some(Some(_))` sets it.
     pub default_threshold: Option<Option<f32>>,
+    /// `Some(None)` clears the override; `Some(Some(_))` sets it.
+    pub default_min_voting_tokens: Option<Option<u32>>,
     /// Replaces the entire domain-description map. To delete a single
     /// domain, omit it from the map.
     pub domain_descriptions: Option<std::collections::HashMap<String, String>>,

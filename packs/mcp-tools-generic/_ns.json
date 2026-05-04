@@ -1,5 +1,6 @@
 {
   "name": "mcp-tools-generic",
   "description": "Tool prefilter for the most common MCP / function-calling categories. Routes a user request to the broad tool family (search, send, fetch, file, db, code, calendar) so the agent only has to choose among that family's specific tools.",
-  "default_threshold": 0.3
+  "default_threshold": 1.5,
+  "default_min_voting_tokens": 2
 }

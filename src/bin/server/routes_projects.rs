@@ -264,6 +264,7 @@ pub async fn list_namespaces(State(state): State<AppState>) -> Json<serde_json::
                 "description": info.description,
                 "auto_learn": modes.get(&id).map(|m| m == "auto").unwrap_or(false),
                 "default_threshold": info.default_threshold,
+                "default_min_voting_tokens": info.default_min_voting_tokens,
                 "version": version,
                 "intent_count": intent_count,
             })
@@ -362,6 +363,8 @@ pub struct UpdateNamespaceRequest {
     auto_learn: Option<bool>,
     #[serde(default)]
     default_threshold: Option<f32>,
+    #[serde(default)]
+    default_min_voting_tokens: Option<i32>,
 }
 
 pub async fn update_namespace(
@@ -384,6 +387,9 @@ pub async fn update_namespace(
             default_threshold: req
                 .default_threshold
                 .map(|t| if t < 0.0 { None } else { Some(t) }),
+            default_min_voting_tokens: req
+                .default_min_voting_tokens
+                .map(|m| if m <= 0 { None } else { Some(m as u32) }),
             ..Default::default()
         };
         let _ = h.update_namespace(edit);

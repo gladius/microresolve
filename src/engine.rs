@@ -543,6 +543,14 @@ impl<'e> NamespaceHandle<'e> {
             .with_resolver_mut(&self.id, |r| r.index_mut().rebuild_caches())
     }
 
+    /// EXPERIMENTAL: set the voting-token gate. 1 (default) = disabled.
+    /// 2+ = require at least N distinct query tokens to vote for an intent
+    /// before it can score at full strength. Addresses single-token FPs.
+    pub fn set_min_voting_tokens(&self, min: u32) -> Result<(), Error> {
+        self.engine
+            .with_resolver_mut(&self.id, |r| r.index_mut().set_min_voting_tokens(min))
+    }
+
     /// Reinforce specific query tokens toward `intent_id` (Hebbian-style weight update).
     pub fn reinforce_tokens(&self, words: &[&str], intent_id: &str) -> Result<(), Error> {
         self.engine.with_resolver_mut(&self.id, |r| {

@@ -23,6 +23,7 @@ impl Resolver {
             name: self.namespace_name.clone(),
             description: self.namespace_description.clone(),
             default_threshold: self.namespace_default_threshold,
+            default_min_voting_tokens: self.namespace_default_min_voting_tokens,
             domain_descriptions: self.domain_descriptions.clone(),
         }
     }
@@ -45,6 +46,12 @@ impl Resolver {
         }
         if let Some(t) = edit.default_threshold {
             self.namespace_default_threshold = t.map(|t| t.max(0.0));
+        }
+        if let Some(v) = edit.default_min_voting_tokens {
+            self.namespace_default_min_voting_tokens = v;
+            // Propagate to live IntentIndex so scoring picks up the new value.
+            self.index
+                .set_min_voting_tokens(v.unwrap_or(1));
         }
         if let Some(dd) = edit.domain_descriptions {
             self.domain_descriptions = dd;
@@ -107,6 +114,12 @@ impl Resolver {
                 if let Some(t) = val.get("default_threshold").and_then(|t| t.as_f64()) {
                     router.namespace_default_threshold = Some(t as f32);
                 }
+                if let Some(v) = val
+                    .get("default_min_voting_tokens")
+                    .and_then(|v| v.as_u64())
+                {
+                    router.namespace_default_min_voting_tokens = Some(v as u32);
+                }
             }
         }
 
@@ -121,6 +134,13 @@ impl Resolver {
         } else {
             false
         };
+
+        // Propagate namespace-level voting-gate default to the live index.
+        // _ns.json is the source of truth; _index.json's serialized field
+        // (if any) gets overwritten by the namespace setting.
+        if let Some(v) = router.namespace_default_min_voting_tokens {
+            router.index.set_min_voting_tokens(v);
+        }
 
         let entries = std::fs::read_dir(path).map_err(|e| {
             crate::Error::Persistence(format!("cannot read {}: {}", path.display(), e))
@@ -218,6 +238,9 @@ impl Resolver {
         });
         if let Some(t) = self.namespace_default_threshold {
             ns_meta["default_threshold"] = serde_json::json!(t);
+        }
+        if let Some(v) = self.namespace_default_min_voting_tokens {
+            ns_meta["default_min_voting_tokens"] = serde_json::json!(v);
         }
         std::fs::write(
             path.join("_ns.json"),
@@ -525,6 +548,36 @@ mod tests {
         // Negative input is clamped to 0.0; 0.0 is a valid (degenerate) setting,
         // distinct from None which means "no override."
         assert_eq!(r.namespace_info().default_threshold, Some(0.0));
+    }
+
+    #[test]
+    fn min_voting_tokens_round_trip() {
+        let dir = tmp_dir("voting_set");
+        let mut r = Resolver::new();
+        assert_eq!(r.namespace_info().default_min_voting_tokens, None);
+        r.update_namespace(crate::NamespaceEdit {
+            default_min_voting_tokens: Some(Some(3)),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(r.namespace_info().default_min_voting_tokens, Some(3));
+        r.save_to_dir(&dir).unwrap();
+
+        let r2 = Resolver::load_from_dir(&dir).unwrap();
+        assert_eq!(r2.namespace_info().default_min_voting_tokens, Some(3));
+        // Live index should reflect the persisted gate after load.
+        assert_eq!(r2.index.min_voting_tokens, 3);
+
+        // Clearing.
+        let mut r3 = r2;
+        r3.update_namespace(crate::NamespaceEdit {
+            default_min_voting_tokens: Some(None),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(r3.namespace_info().default_min_voting_tokens, None);
+        assert_eq!(r3.index.min_voting_tokens, 1);
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

@@ -75,6 +75,8 @@ pub struct NamespaceInfo {
     pub description: String,
     /// Per-namespace routing threshold override. `null` → use engine default.
     pub default_threshold: Option<f64>,
+    /// Per-namespace voting-token gate override. `null` → use engine default (1, disabled).
+    pub default_min_voting_tokens: Option<u32>,
 }
 
 /// Edit options accepted by `updateNamespace`.
@@ -92,6 +94,11 @@ pub struct NamespaceEditOptions {
     /// The sentinel-based convention is the napi-rs friendly equivalent of
     /// `Option<Option<f32>>`, which napi-rs does not natively support.
     pub default_threshold: Option<f64>,
+    /// Per-namespace voting-token gate override.
+    ///   - omit / `undefined` → leave existing value alone
+    ///   - `0` or negative → clear the override (revert to engine default of 1)
+    ///   - positive integer → set as the new gate
+    pub default_min_voting_tokens: Option<i32>,
 }
 
 /// Edit object accepted by `updateIntent`.
@@ -391,6 +398,7 @@ impl Namespace {
             name: info.name,
             description: info.description,
             default_threshold: info.default_threshold.map(|t| t as f64),
+            default_min_voting_tokens: info.default_min_voting_tokens,
         }
     }
 
@@ -404,6 +412,9 @@ impl Namespace {
             description: edit.description,
             default_threshold: edit.default_threshold.map(|t| {
                 if t < 0.0 { None } else { Some(t as f32) }
+            }),
+            default_min_voting_tokens: edit.default_min_voting_tokens.map(|m| {
+                if m <= 0 { None } else { Some(m as u32) }
             }),
             domain_descriptions: None,
         };
@@ -503,6 +514,18 @@ impl Namespace {
     #[napi]
     pub fn rebuild_index(&self) -> Result<()> {
         self.engine.namespace(&self.id).rebuild_index()
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
+    /// Set the voting-token gate on the live scoring index.
+    ///
+    /// `1` disables the gate (default). `2`+ requires that many distinct
+    /// query tokens to vouch for an intent before it scores at full strength.
+    /// Persists across the namespace lifetime but not to disk — set
+    /// `default_min_voting_tokens` via `updateNamespace` to persist.
+    #[napi]
+    pub fn set_min_voting_tokens(&self, min: u32) -> Result<()> {
+        self.engine.namespace(&self.id).set_min_voting_tokens(min)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
 

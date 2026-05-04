@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/api/client';
+import TuningPanel from '@/components/TuningPanel';
 
 // 2026 layout: sidebar + fullscreen main area. No top navbar bloat.
 // Namespace switcher lives in the sidebar header. Domains are managed
@@ -295,6 +296,11 @@ export default function Layout() {
             </div>
           )}
         </div>
+
+        {/* Tuning pill — compact knobs for active namespace */}
+        {!collapsed && (
+          <TuningPanel compact namespaceId={activeNs} />
+        )}
 
         {/* Nav groups */}
         <nav className="flex-1 py-2 overflow-y-auto">

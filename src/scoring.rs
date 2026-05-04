@@ -78,6 +78,15 @@ pub struct IntentIndex {
     /// Reverse index: `intent_id → set of tokens that fire on this intent`.
     #[serde(skip)]
     intent_to_tokens: FxHashMap<String, FxHashSet<String>>,
+
+    /// Voting-token gate: dampen scores when only a small number of distinct
+    /// query tokens contribute to an intent. 1 = disabled (default behavior),
+    /// 2+ = active. With 2: queries where only 1 token votes get score × 0.4.
+    /// With 3: 1 token → 0.0, 2 tokens → 0.5. Addresses single-token FPs
+    /// where one accidentally-shared word fires an intent without other
+    /// supporting evidence.
+    #[serde(default)]
+    pub min_voting_tokens: u32,
 }
 
 impl IntentIndex {
@@ -115,6 +124,12 @@ impl IntentIndex {
 
     pub fn known_words(&self) -> &FxHashSet<String> {
         &self.known_words
+    }
+
+    /// Set voting-token gate. 1 (or 0) = disabled. 2+ = active.
+    /// See `min_voting_tokens` field documentation for behavior.
+    pub fn set_min_voting_tokens(&mut self, min: u32) {
+        self.min_voting_tokens = min;
     }
 
     fn refresh_idf_for(&mut self, word: &str) {
@@ -375,6 +390,11 @@ impl IntentIndex {
         let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
         let mut scores: FxHashMap<String, f32> = FxHashMap::default();
         let mut has_negation = cjk_negated;
+        // Voting-token tracking: distinct (intent, base_token) pairs that
+        // contributed positive signal above the voting threshold. Used after
+        // the main loop to dampen single-token FPs.
+        let mut voting_pairs: FxHashSet<(String, String)> = FxHashSet::default();
+        const VOTING_EPSILON: f32 = 0.05;
 
         let all_bases: FxHashSet<&str> = tokens
             .iter()
@@ -397,6 +417,9 @@ impl IntentIndex {
                     let delta = weight * idf;
                     *scores.entry(intent.clone()).or_insert(0.0) +=
                         if is_negated { -delta } else { delta };
+                    if !is_negated && delta > VOTING_EPSILON {
+                        voting_pairs.insert((intent.clone(), base.to_string()));
+                    }
                 }
             }
         }
@@ -404,6 +427,26 @@ impl IntentIndex {
         for rule in &self.conjunctions {
             if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
                 *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
+            }
+        }
+
+        // Apply voting-token gate (no-op when min_voting_tokens <= 1).
+        if self.min_voting_tokens > 1 {
+            let mut voting_count: FxHashMap<String, usize> = FxHashMap::default();
+            for (intent, _) in &voting_pairs {
+                *voting_count.entry(intent.clone()).or_insert(0) += 1;
+            }
+            let min = self.min_voting_tokens as usize;
+            let mut updates: Vec<(String, f32)> = Vec::new();
+            for (intent, score) in scores.iter() {
+                let count = voting_count.get(intent).copied().unwrap_or(0);
+                let multiplier = voting_multiplier(count, min);
+                if (multiplier - 1.0).abs() > 1e-6 {
+                    updates.push((intent.clone(), score * multiplier));
+                }
+            }
+            for (intent, new_score) in updates {
+                scores.insert(intent, new_score);
             }
         }
 
@@ -553,6 +596,8 @@ impl IntentIndex {
         exclude_intents: &FxHashSet<String>,
     ) -> Vec<(String, f32)> {
         let mut scores: FxHashMap<String, f32> = FxHashMap::default();
+        let mut voting_pairs: FxHashSet<(String, String)> = FxHashSet::default();
+        const VOTING_EPSILON: f32 = 0.05;
 
         for token in tokens {
             let is_negated = token.starts_with("not_");
@@ -570,6 +615,9 @@ impl IntentIndex {
                     let delta = weight * idf;
                     *scores.entry(intent.clone()).or_insert(0.0) +=
                         if is_negated { -delta } else { delta };
+                    if !is_negated && delta > VOTING_EPSILON {
+                        voting_pairs.insert((intent.clone(), base.to_string()));
+                    }
                 }
             }
         }
@@ -583,6 +631,26 @@ impl IntentIndex {
                 && rule.words.iter().all(|w| all_bases.contains(w.as_str()))
             {
                 *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
+            }
+        }
+
+        // Apply voting-token gate (no-op when min_voting_tokens <= 1).
+        if self.min_voting_tokens > 1 {
+            let mut voting_count: FxHashMap<String, usize> = FxHashMap::default();
+            for (intent, _) in &voting_pairs {
+                *voting_count.entry(intent.clone()).or_insert(0) += 1;
+            }
+            let min = self.min_voting_tokens as usize;
+            let mut updates: Vec<(String, f32)> = Vec::new();
+            for (intent, score) in scores.iter() {
+                let count = voting_count.get(intent).copied().unwrap_or(0);
+                let multiplier = voting_multiplier(count, min);
+                if (multiplier - 1.0).abs() > 1e-6 {
+                    updates.push((intent.clone(), score * multiplier));
+                }
+            }
+            for (intent, new_score) in updates {
+                scores.insert(intent, new_score);
             }
         }
 
@@ -719,5 +787,58 @@ impl IntentIndex {
             activation_edges,
             self.conjunctions.len(),
         )
+    }
+}
+
+/// Voting-token gate multiplier.
+///
+/// `count` is the number of distinct query tokens that contributed positive
+/// signal (above VOTING_EPSILON) to this intent. `min` is the configured
+/// floor — full strength requires `count >= min`.
+///
+/// - count == 0: 0.0 (irrelevant; score would be zero already)
+/// - count >= min: 1.0 (full strength)
+/// - count < min: linear ramp from 0.4 to 1.0 across [1, min]
+///
+/// Example with min = 3:
+/// - 1 token vote → 0.4 (heavy dampen — likely accidental match)
+/// - 2 token votes → 0.7 (mild dampen)
+/// - 3+ token votes → 1.0 (full)
+fn voting_multiplier(count: usize, min: usize) -> f32 {
+    if count == 0 {
+        return 0.0;
+    }
+    if min <= 1 || count >= min {
+        return 1.0;
+    }
+    // Linear ramp: count=1 → 0.4; count=min → 1.0
+    let span = (min - 1) as f32;
+    let progress = (count - 1) as f32;
+    0.4 + (0.6 * progress / span)
+}
+
+#[cfg(test)]
+mod voting_gate_tests {
+    use super::voting_multiplier;
+    #[test]
+    fn voting_multiplier_disabled_when_min_one() {
+        assert_eq!(voting_multiplier(0, 1), 0.0);
+        assert_eq!(voting_multiplier(1, 1), 1.0);
+        assert_eq!(voting_multiplier(5, 1), 1.0);
+    }
+    #[test]
+    fn voting_multiplier_min_two() {
+        assert_eq!(voting_multiplier(0, 2), 0.0);
+        assert_eq!(voting_multiplier(1, 2), 0.4);
+        assert_eq!(voting_multiplier(2, 2), 1.0);
+        assert_eq!(voting_multiplier(3, 2), 1.0);
+    }
+    #[test]
+    fn voting_multiplier_min_three() {
+        assert_eq!(voting_multiplier(0, 3), 0.0);
+        assert!((voting_multiplier(1, 3) - 0.4).abs() < 1e-6);
+        assert!((voting_multiplier(2, 3) - 0.7).abs() < 1e-6);
+        assert_eq!(voting_multiplier(3, 3), 1.0);
+        assert_eq!(voting_multiplier(4, 3), 1.0);
     }
 }

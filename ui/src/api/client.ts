@@ -373,7 +373,16 @@ export const api = {
   }) => post<{ message: string }>('/simulate/respond', config),
 
   // Namespaces (isolated routing instances)
-  listNamespaces: () => get<{ id: string; name: string; description: string; auto_learn: boolean; default_threshold: number | null; version?: number; intent_count?: number }[]>('/namespaces'),
+  listNamespaces: () => get<{
+    id: string;
+    name: string;
+    description: string;
+    auto_learn: boolean;
+    default_threshold: number | null;
+    default_min_voting_tokens: number | null;
+    version?: number;
+    intent_count?: number;
+  }[]>('/namespaces'),
   createNamespace: (namespace_id: string, name = '', description = '') =>
     post<{ created: string }>('/namespaces', { namespace_id, name, description }),
   deleteNamespace: (namespace_id: string) =>
@@ -382,11 +391,18 @@ export const api = {
       headers: appHeaders(),
       body: JSON.stringify({ namespace_id }),
     }).then(r => { if (!r.ok) throw new Error('Delete failed'); }),
-  updateNamespace: (namespace_id: string, patch: { name?: string; description?: string; auto_learn?: boolean; default_threshold?: number | null }) => {
-    // Translate `default_threshold: null` (clear) into the -1.0 sentinel the server expects.
+  updateNamespace: (namespace_id: string, patch: {
+    name?: string;
+    description?: string;
+    auto_learn?: boolean;
+    default_threshold?: number | null;
+    default_min_voting_tokens?: number | null;
+  }) => {
+    // Translate null (clear) into the sentinel the server expects.
     const body: Record<string, unknown> = { namespace_id };
     for (const [k, v] of Object.entries(patch)) {
       if (k === 'default_threshold' && v === null) body[k] = -1.0;
+      else if (k === 'default_min_voting_tokens' && v === null) body[k] = 0;
       else if (v !== undefined) body[k] = v;
     }
     return fetch(`${BASE}/namespaces`, {

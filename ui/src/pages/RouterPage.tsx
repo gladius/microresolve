@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { api, type ResolveOutput, type ReviewAnalysis } from '@/api/client';
 import Page from '@/components/Page';
+import TuningPanel from '@/components/TuningPanel';
+import { useAppStore } from '@/store';
 
 const INTENT_COLORS = [
   'text-emerald-400', 'text-blue-400', 'text-amber-400', 'text-pink-400',
@@ -21,6 +23,9 @@ type Message =
 const DEBUG_KEY = 'resolve.debug';
 
 export default function RouterPage() {
+  const { settings } = useAppStore();
+  const activeNs = settings.selectedNamespaceId;
+
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [intentCount, setIntentCount] = useState<number | null>(null);
@@ -108,61 +113,69 @@ export default function RouterPage() {
         </button>
       }
     >
-    <div className="flex flex-col h-full px-6 py-4">
-      <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
-            <div className="space-y-1">
-              <div className="text-zinc-300 text-sm font-medium">Test your router</div>
-              <div className="text-zinc-600 text-xs max-w-sm leading-relaxed">
-                Type any natural language query. The router detects which intents it matches — in under 1ms.
-                Weak or missing results show a <span className="text-emerald-400">Train →</span> button to improve instantly.
+    <div className="flex h-full min-h-0">
+      {/* Main chat column */}
+      <div className="flex flex-col flex-1 min-w-0 px-6 py-4">
+        <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
+              <div className="space-y-1">
+                <div className="text-zinc-300 text-sm font-medium">Test your router</div>
+                <div className="text-zinc-600 text-xs max-w-sm leading-relaxed">
+                  Type any natural language query. The router detects which intents it matches — in under 1ms.
+                  Weak or missing results show a <span className="text-emerald-400">Train →</span> button to improve instantly.
+                </div>
+              </div>
+              <div className="space-y-1.5 text-left">
+                <div className="text-[10px] text-zinc-600 uppercase tracking-wide font-semibold mb-2">Try these</div>
+                {[
+                  'cancel my subscription',
+                  'I need to refund my last order and update my address',
+                  'how do I reset my password',
+                ].map(q => (
+                  <button key={q} onClick={() => handleInput(q)}
+                    className="block w-full text-left text-xs font-mono text-emerald-400 hover:text-emerald-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded px-3 py-1.5 transition-colors">
+                    {q}
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="space-y-1.5 text-left">
-              <div className="text-[10px] text-zinc-600 uppercase tracking-wide font-semibold mb-2">Try these</div>
-              {[
-                'cancel my subscription',
-                'I need to refund my last order and update my address',
-                'how do I reset my password',
-              ].map(q => (
-                <button key={q} onClick={() => handleInput(q)}
-                  className="block w-full text-left text-xs font-mono text-emerald-400 hover:text-emerald-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded px-3 py-1.5 transition-colors">
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <MessageBubble
-            key={i}
-            msg={msg}
-            onApplySuggestion={applySuggestion}
-            onTrain={handleTrain}
-            intentCount={intentCount}
-            debug={debug}
+          )}
+          {messages.map((msg, i) => (
+            <MessageBubble
+              key={i}
+              msg={msg}
+              onApplySuggestion={applySuggestion}
+              onTrain={handleTrain}
+              intentCount={intentCount}
+              debug={debug}
+            />
+          ))}
+          <div ref={bottomRef} />
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex gap-2 pt-3 border-t border-zinc-800">
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Type a natural language query…"
+            className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 font-mono text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
+            autoFocus
           />
-        ))}
-        <div ref={bottomRef} />
+          <button
+            type="submit"
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors text-sm"
+          >
+            Resolve
+          </button>
+        </form>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2 pt-3 border-t border-zinc-800">
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="Type a natural language query…"
-          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 font-mono text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
-          autoFocus
-        />
-        <button
-          type="submit"
-          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors text-sm"
-        >
-          Resolve
-        </button>
-      </form>
+      {/* Tuning side panel */}
+      <div className="w-56 shrink-0 border-l border-zinc-800 p-4 overflow-y-auto">
+        <TuningPanel namespaceId={activeNs} compact={false} />
+      </div>
     </div>
     </Page>
   );
