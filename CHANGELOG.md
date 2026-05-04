@@ -18,25 +18,29 @@ into any `data_dir`:
   intents covering the canonical attack taxonomy (prompt injection,
   system-prompt extraction, role override, safety bypass, encoding-based
   evasion). 100 hand-curated seed phrases. On internal eval (50 attacks,
-  50 random benigns): **98% recall / 4% FP at threshold 1.8**.
+  50 random benigns from CLINC150): **98% recall / 8% FP at default
+  settings (`min_voting_tokens=3, threshold=1.5`)**.
 - **`eu-ai-act-prohibited`** — Article 5 prohibited-practice triage
   filter. 6 intents (biometric categorization, emotion recognition in
   workplace/education, exploitation of vulnerability, predictive policing
   on natural persons, social scoring, subliminal manipulation). On
-  internal eval: **85% top-1 / 6% FP at threshold 1.5**.
+  internal eval (60 prohibited, 50 benign): **85% top-1 / 6% FP at
+  default settings (`min_voting_tokens=2, threshold=1.5`)**.
 - **`hipaa-triage`** — medical query triage routing patient inquiries to
   one of clinical_urgent / clinical_routine / mental_health_crisis /
   administrative / billing / scheduling. 743 hand-curated seeds drawn
   from public clinical references (AHRQ ED chief complaints, ESI triage,
   HIPAA Right of Access, No Surprises Act, SAMHSA crisis materials).
   Best used as **triage / candidate filter** — pair with LLM judgment
-  for top-1 selection. On internal eval: **81% top-1, 98% top-3 / 6% FP
-  at threshold 3.0**. NOT a HIPAA compliance solution; see pack
-  description.
+  for top-1 selection. On internal eval (97 medical, 85 benign):
+  **96.9% top-1 / 36.5% FP at default (`min=3, threshold=1.5`)**, or
+  **94.8% top-1 / 21.2% FP at `threshold=2.0`** for stricter precision.
+  NOT a HIPAA compliance solution; see pack description.
 - **`mcp-tools-generic`** — generic tool-router for MCP-style agents
   (web_search, send_message, fetch_url, file_operations, database_query,
-  code_execution, calendar_management). Best for closed-domain dispatch;
-  open-ended chat traffic produces FPs from idiomatic English.
+  code_execution, calendar_management). Default settings
+  (`min_voting_tokens=2, threshold=1.5`). Best for closed-domain
+  dispatch; open-ended chat traffic produces FPs from idiomatic English.
 
 All packs ship as bag-of-words inverted index. Pack format is a directory
 of JSON files (one per intent + `_ns.json`); install by copying into
@@ -92,6 +96,32 @@ for thresholds and the canonical decision pattern.
   deferred — no concept-tagging system ships in v0.2.0. Concept research
   is preserved on the `experiment/concept-index` branch as research
   record; revisit in v0.3 with production-traffic validation.
+
+### Added — Voting-token gate (false-positive reduction)
+
+A per-namespace structural filter that suppresses single-word false
+positives like `"let me speak from the heart"` matching a clinical
+intent because of `"heart"` alone. For each candidate intent, count how
+many distinct query tokens contribute weight > 0.05 to its score; if
+fewer than `min_voting_tokens` vouch, scale the intent's score by a
+sliding penalty (0.4 at 1 voter → 1.0 at the threshold). Default is
+**1 (off)** — the gate is a no-op for existing namespaces. The 4
+reference packs ship with calibrated values (see per-pack notes).
+
+Cascade plumbing mirrors `default_threshold`: per-request override →
+namespace `default_min_voting_tokens` → engine default (1). Persisted
+in `_ns.json`. Exposed end-to-end through Rust API
+(`NamespaceHandle::set_min_voting_tokens`), HTTP (`PATCH /api/namespaces`),
+Python and Node bindings, and the Studio UI's per-namespace
+TuningPanel (sidebar pill + Resolve right-rail).
+
+On closed-set classification (CLINC150 / BANKING77) at default `min=1`
+the gate is exactly a no-op — measured top-1 within ±0.07pp of 0.1.x
+baselines. On open-world packs at calibrated defaults, FP drops
+substantially at unchanged or barely-changed recall (safety: 36%→8% FP
+at 98% recall; EU AI Act: 24%→6% FP at 85% top-1; HIPAA: see pack
+notes). Eval is on small author-curated corpora — see Known
+limitations.
 
 ### Removed
 
@@ -158,8 +188,16 @@ for thresholds and the canonical decision pattern.
 
 ### Benchmarks
 
-- **CLINC150**: 91.5% top-1 post-learning (locked, no regression vs 0.1.x).
-- **BANKING77**: 86.6% top-1 post-learning (locked).
+- **CLINC150**: seed-only **80.1%** top-1 (4500 test) — matches 0.1.x
+  published baseline within noise. After-learning (reinforce missed
+  queries with their true label, no LLM): **97.4%** top-1, an
+  unintended improvement of ~6pp over the 0.1.x published number,
+  attributable to engine work landed earlier in the 0.2.0 cycle
+  (L3-inhibition removal, IDF caching at index time).
+- **BANKING77**: seed-only **73.15%** (matches 0.1.x exactly).
+  After-learning: **94.6%** top-1 (vs 0.1.x published 86.6%).
+- Voting-gate at default `min=1` is a no-op on closed-set benches —
+  measured CLINC drift: -0.07pp (within noise).
 - p50 latency: ~85µs / p95: ~190µs.
 
 ### Server / Ops
@@ -172,16 +210,45 @@ for thresholds and the canonical decision pattern.
 
 ### Known limitations
 
-- HIPAA pack: 81% top-1 on internal eval is workable but not clinical
-  grade. Production deployments need per-customer seed curation.
-  Mental-health-crisis intent at 93% recall is not safe for
-  unsupervised use; pair with human review.
-- mcp-tools-generic at threshold 1.5: 21% FP on idiomatic English. For
-  open-ended chat applications, raise threshold or use only the High
-  band.
-- safety-filter is a **pre-filter**, not a complete defense. Adversarial
-  novel paraphrasing bypasses any deterministic vocabulary-based
-  classifier. Pair with a dedicated safety classifier
+MicroResolve is the **System 1 relay** — deterministic, sub-millisecond,
+running on every request. It always hands its output to your
+**System 2**: typically an LLM, optionally a human reviewer for
+high-stakes domains. MicroResolve never talks to the user. The
+numbers below should be read in that architecture: high recall +
+acceptable FP on the legitimate side is the design target, because
+your System 2 filters out the remaining FPs — the LLM either acts on
+the suggestion (the cheap path) or asks the user to confirm with the
+candidate list we provide (when we flag uncertainty).
+
+We're using Kahneman's framework as an architecture metaphor (fast
+intuitive layer feeding a slow deliberative one), not making
+cognitive-science claims about LLMs being literal System 2s.
+
+- **Eval methodology**: pack eval corpora are **small (n=50–97 per
+  side) and author-curated** — same heads wrote seeds and tests, so
+  vocabulary leakage is unavoidable. Published recall/FP rates have
+  wide confidence intervals (~±2pp at n=50). Production deployments
+  should re-measure on captured customer traffic before relying on
+  absolute numbers.
+- **HIPAA pack**: 36.5% FP on synthetic benigns at default reflects
+  the natural overlap between medical and everyday vocabulary. As a
+  System 1 relay feeding an LLM and/or human reviewer, this is workable
+  — each FP becomes a one-line "did you mean a clinical question?"
+  confirmation in the System 2 reply, not a misroute. **Do not run
+  unsupervised.** Mental-health-crisis intent has not been validated
+  in any production setting and must not be used for crisis routing
+  without explicit human review.
+- **OOS detection**: on closed-set classification, ~96% of
+  out-of-scope queries still classify in-scope at default threshold.
+  The filter is calibrated for *in-scope* classification, not OOS
+  detection — pair with an explicit OOS classifier or raise the
+  threshold for open-world deployments.
+- **mcp-tools-generic** at default settings: open-ended chat traffic
+  produces FPs from idiomatic English. Best for closed-domain dispatch
+  — raise threshold for chat applications.
+- **safety-filter** is a pre-filter, not a complete defense.
+  Adversarial novel paraphrasing bypasses any deterministic
+  vocabulary-based classifier. Pair with a dedicated safety classifier
   (LlamaGuard / Prompt-Guard / OpenAI Moderation) for production
   adversarial coverage.
 

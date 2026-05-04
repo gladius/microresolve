@@ -7,9 +7,15 @@
 [![CI](https://github.com/gladius/microresolve/actions/workflows/ci.yml/badge.svg)](https://github.com/gladius/microresolve/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-MicroResolve is a deterministic intent router for LLM apps. The decisions
-your LLM keeps making — which tool, which model, what guardrail, what
-persona, who to refuse — run in 50µs and improve while your app runs.
+**MicroResolve is the System 1 relay for LLM apps.** Every request runs
+through a sub-millisecond reflex layer that picks a candidate intent +
+confidence band and hands the result to your **System 2** — your LLM,
+or a human reviewer for high-stakes domains (HIPAA, legal, financial).
+We never talk to your users; we give your decision-maker a head start.
+
+Tool selection, intent triage, guardrail dispatch, refusal
+classification — the routing decisions your LLM keeps making run in
+50µs here and improve on your traffic via corrections.
 
 **In the box**
 
@@ -266,21 +272,32 @@ Four pre-curated packs ship in the [`packs/`](packs/) directory. Drop into
 any data dir and the engine picks them up on next start (or copy at runtime
 via `engine.namespace(id)` after staging the files).
 
-| Pack | Intents | Seeds | What it's for |
-|---|---|---|---|
-| **`safety-filter`** | 5 | 100 | Pre-LLM jailbreak / prompt-injection detection. 98% recall / 4% FP at threshold 1.8 on internal eval. Pre-filter pattern: catch obvious attacks deterministically; pair with a dedicated safety classifier (LlamaGuard / Prompt-Guard) for adversarial coverage. |
-| **`eu-ai-act-prohibited`** | 6 | 70 | Article 5 prohibited-practice triage (biometric categorization, emotion recognition in workplace/education, exploitation of vulnerability, predictive policing on natural persons, social scoring, subliminal manipulation). 85% top-1 / 6% FP at threshold 1.5. Pair with lawyer review for final determination. |
-| **`hipaa-triage`** | 6 | 743 | Medical query triage (clinical_urgent, clinical_routine, mental_health_crisis, administrative, billing, scheduling). 81% top-1, **98% top-3** / 6% FP at threshold 3.0. Best as a top-3 candidate filter — pair with LLM judgment for top-1. **Not a HIPAA compliance solution**; just a triage layer. Production deployments need per-patient-population seed curation. |
-| **`mcp-tools-generic`** | 7 | 70 | Generic MCP-style tool router (web_search, send_message, fetch_url, file_operations, database_query, code_execution, calendar_management). For closed-domain tool dispatch — open-ended chat traffic produces FPs from idiomatic English. |
+| Pack | Intents | Seeds | Default | What it's for |
+|---|---|---|---|---|
+| **`safety-filter`** | 5 | 100 | min=3, thr=1.5 | Pre-LLM jailbreak / prompt-injection detection. **98% recall / 8% FP** on 50/50 eval. Pre-filter pattern: catch obvious attacks deterministically; pair with a dedicated safety classifier (LlamaGuard / Prompt-Guard) for adversarial coverage. |
+| **`eu-ai-act-prohibited`** | 6 | 70 | min=2, thr=1.5 | Article 5 prohibited-practice triage (biometric categorization, emotion recognition in workplace/education, exploitation of vulnerability, predictive policing on natural persons, social scoring, subliminal manipulation). **85% top-1 / 6% FP**. Pair with lawyer review for final determination. |
+| **`hipaa-triage`** | 6 | 743 | min=3, thr=1.5 | Medical query triage (clinical_urgent, clinical_routine, mental_health_crisis, administrative, billing, scheduling). **96.9% top-1 / 36.5% FP** at default; **94.8% / 21.2% at thr=2.0** for stricter precision. **Triage / candidate filter**, not a final decision — pair with LLM judgment or human review. **Not a HIPAA compliance solution**; just a triage layer. Production deployments need per-patient-population seed curation. |
+| **`mcp-tools-generic`** | 7 | 70 | min=2, thr=1.5 | Generic MCP-style tool router (web_search, send_message, fetch_url, file_operations, database_query, code_execution, calendar_management). For closed-domain tool dispatch — open-ended chat traffic produces FPs from idiomatic English. |
 
-All packs are bag-of-words IDF inverted indexes. Pack format = directory of
-JSON files, one per intent + `_ns.json` for namespace metadata. Install by
-copying into your `data_dir`. They improve on your specific traffic via the
-correction loop — the cold-start numbers above are the floor, not the ceiling.
+All packs are bag-of-words IDF inverted indexes with a per-namespace
+**voting-token gate** (`min`) and **threshold** (`thr`). Pack format =
+directory of JSON files, one per intent + `_ns.json` for namespace
+metadata. Install by copying into your `data_dir`. They improve on your
+specific traffic via the correction loop — the cold-start numbers above
+are the floor, not the ceiling.
 
-> **Each pack ships with a calibrated `default_threshold` in `_ns.json`.** That's
-> the starting point for your traffic. As corrections come in, you'll likely
-> tune up or down for your FP/recall trade-off.
+> **Each pack ships with a calibrated `default_threshold` and
+> `default_min_voting_tokens` in `_ns.json`.** That's the starting point
+> for your traffic. Tune live in the Studio sidebar (TuningPanel) or via
+> `PATCH /api/namespaces` for your FP/recall trade-off.
+>
+> **Position in the stack**: MicroResolve is the **System 1 relay** —
+> sub-millisecond, deterministic, running on every request. The result
+> is always handed to your **System 2** (typically your LLM; a human
+> reviewer in regulated domains). System 2 acts on confident matches
+> cheaply, or asks the user to confirm with the candidate list when we
+> flag uncertainty. The published FP rates are sized for that
+> architecture, not for unsupervised use.
 
 ## License
 
