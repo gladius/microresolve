@@ -7,32 +7,183 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.2.1] — Unreleased
+## [0.2.0] — Unreleased
 
-### Breaking
+### Added — Reference packs
 
-- **Import response field `l2_unique_words` renamed to `vocab_size`** — the
-  last `l2_*` key in the external API surface. Callers parsing this field
-  from the OpenAPI or MCP import endpoints must update to `vocab_size`.
-- **Rust API: `Resolver::train_negative` → `decay_for_intents`** — same
-  signature; name now reflects the actual anti-Hebbian weight-decay behavior.
-- **Rust API: `NamespaceHandle::train_negative` → `decay_for_intents`** —
-  same change at the handle level.
-- **HTTP API: `POST /api/namespaces/train_negative` → `POST /api/namespaces/decay`** —
-  URL change; request body unchanged.
-- **HTTP API: JSON response field `"trained"` → `"decayed"`** on the decay
-  endpoint.
-- **Rust API: `IntentIndex::score_multi_traced(query, threshold, gap, with_trace)` removed** —
-  replaced by `score_multi_with_trace(query, threshold, gap)` which always
-  returns `MultiIntentTrace` (not `Option`). Callers wanting no trace use
-  the existing `score_multi`.
-- **Rust API: `NamespaceHandle::route_multi(query, threshold, gap, with_trace, fallback)` split** —
-  `with_trace: bool` parameter removed. Two methods now:
-  - `route_multi(query, threshold, gap, fallback)` → `RouteMultiOut` with `trace: None`
-  - `route_multi_with_trace(query, threshold, gap, fallback)` → `RouteMultiOut` with `trace: Some(...)`
-- **Rust API: `MicroResolve::effective_threshold` → `resolve_threshold_for`**
-- **Rust API: `MicroResolve::effective_languages` → `languages_for`**
-- **Rust API: `MicroResolve::effective_llm_model` → `llm_model_for`**
+Four pre-curated namespace packs ship with the library, drop-in installable
+into any `data_dir`:
+
+- **`safety-filter`** — pre-LLM jailbreak / prompt-injection detection. 5
+  intents covering the canonical attack taxonomy (prompt injection,
+  system-prompt extraction, role override, safety bypass, encoding-based
+  evasion). 100 hand-curated seed phrases. On internal eval (50 attacks,
+  50 random benigns): **98% recall / 4% FP at threshold 1.8**.
+- **`eu-ai-act-prohibited`** — Article 5 prohibited-practice triage
+  filter. 6 intents (biometric categorization, emotion recognition in
+  workplace/education, exploitation of vulnerability, predictive policing
+  on natural persons, social scoring, subliminal manipulation). On
+  internal eval: **85% top-1 / 6% FP at threshold 1.5**.
+- **`hipaa-triage`** — medical query triage routing patient inquiries to
+  one of clinical_urgent / clinical_routine / mental_health_crisis /
+  administrative / billing / scheduling. 743 hand-curated seeds drawn
+  from public clinical references (AHRQ ED chief complaints, ESI triage,
+  HIPAA Right of Access, No Surprises Act, SAMHSA crisis materials).
+  Best used as **triage / candidate filter** — pair with LLM judgment
+  for top-1 selection. On internal eval: **81% top-1, 98% top-3 / 6% FP
+  at threshold 3.0**. NOT a HIPAA compliance solution; see pack
+  description.
+- **`mcp-tools-generic`** — generic tool-router for MCP-style agents
+  (web_search, send_message, fetch_url, file_operations, database_query,
+  code_execution, calendar_management). Best for closed-domain dispatch;
+  open-ended chat traffic produces FPs from idiomatic English.
+
+All packs ship as bag-of-words inverted index. Pack format is a directory
+of JSON files (one per intent + `_ns.json`); install by copying into
+`data_dir/<pack-name>/`.
+
+### Added — Bands and Disposition
+
+Every `resolve()` return now includes a `band` per intent (`High` /
+`Medium` / `Low`) and an overall `disposition` (`Confident` /
+`LowConfidence` / `NoMatch`). The pre-LLM filter pattern is the
+recommended consumer:
+
+```rust
+match result.disposition {
+    Disposition::Confident    => act(result.intents[0]),  // deterministic
+    Disposition::LowConfidence => llm_disambiguate(result.intents),
+    Disposition::NoMatch      => llm_fallback(query),
+}
+```
+
+Same shape exposed in Python and Node bindings as string values.
+
+See [Bands & Disposition](docs-site/src/content/docs/concepts-bands.mdx)
+for thresholds and the canonical decision pattern.
+
+### Added — Connected mode (live sync)
+
+- **`MicroResolveConfig.server`** — when `Some(ServerConfig)`, the engine
+  pulls subscribed namespaces from a running server on startup and keeps
+  them in sync via a background poll thread. `resolve()` calls in
+  connected mode buffer log entries that are flushed each tick;
+  `correct()` proxies the correction to the server, which is the sole
+  writer.
+- **Strict connect mode**: every mutation method on `NamespaceHandle`
+  (`add_intent`, `add_phrase`, `correct`, `decay_for_intents`, etc.)
+  returns `Error::ConnectMode` when the engine is connected. The library
+  is a read-only cache; the server is authoritative. Background sync
+  thread bypasses this guard via the internal `apply_ops` path.
+- **Delta sync**: connected libraries pull additive op sequences
+  (`PhraseAdded`, `WeightUpdates`, etc.) from `/api/sync` rather than
+  full-state snapshots. CRDT-style merge: token weights take the max
+  across replicas. Cold-start uses `/api/snapshot`; subsequent ticks
+  use `/api/sync` with the local version as the watermark.
+
+### Added — Pack format helpers
+
+- **Per-namespace `default_threshold` cascade**: `_ns.json` may set
+  `default_threshold`; `update_namespace()` PATCHes it; `/api/resolve`
+  cascades request override → namespace default → engine compile-time
+  default (0.3). Lets pack authors ship calibrated thresholds with each
+  pack.
+- **`POST /api/namespaces/{id}/concepts`** has been considered and
+  deferred — no concept-tagging system ships in v0.2.0. Concept research
+  is preserved on the `experiment/concept-index` branch as research
+  record; revisit in v0.3 with production-traffic validation.
+
+### Removed
+
+- **L0 (typo correction) and L1 (lexical-graph query rewriting) layers**
+  removed entirely. Both produced silent corruption on real workloads
+  (e.g. "please" → "leave"). The remaining engine is the IDF-weighted
+  inverted index + multi-intent decomposition + Hebbian learning ("L2").
+- **`Resolver::resolve` (legacy single-best `Vec<Match>` form)**,
+  `Resolver::resolve_with`, `Match` struct, `ResolveOptions` struct.
+  Replaced by `NamespaceHandle::resolve()` returning `ResolveResult`.
+
+### Breaking — Public API
+
+- **Routing collapsed to two entry points.** Removed: `route_multi`,
+  `route_multi_with_trace`, legacy single-best `resolve`, `resolve_with`,
+  `RouteMultiOut`, `Match` tuple form, `ResolveOptions`. New surface:
+  - `NamespaceHandle::resolve(query) -> ResolveResult`
+  - `NamespaceHandle::resolve_with_trace(query) -> (ResolveResult, ResolveTrace)`
+- **HTTP: `POST /api/route_multi` renamed to `POST /api/resolve`**.
+  Response body now: `{ intents: [{id, score, confidence, band}], disposition, routing_us, trace? }`.
+  No more `confirmed[]` / `candidates[]` split — consumers filter `intents[]` by `band`.
+- **Rust API: `Resolver::train_negative` → `decay_for_intents`** at
+  both Resolver and NamespaceHandle level. Name reflects the actual
+  anti-Hebbian weight-decay behavior.
+- **HTTP: `POST /api/namespaces/train_negative` → `POST /api/namespaces/decay`**
+  with response field `"trained"` → `"decayed"`.
+- **Rust API: `IntentIndex::score_multi_traced(query, threshold, gap, with_trace)`
+  split** into `score_multi` (no trace) and `score_multi_with_trace`
+  (always returns `MultiIntentTrace`, not `Option`).
+- **Rust API: `MicroResolve::effective_threshold/effective_languages/effective_llm_model`**
+  renamed to `resolve_threshold_for/languages_for/llm_model_for`.
+- **Import response field `l2_unique_words` renamed to `vocab_size`** —
+  last `l2_*` key in the external API surface.
+- **L2 internal naming cleanup**: `_l2.json` → `_index.json`,
+  `score_normalized` field renamed, source string `"router"` → `"learning"`.
+  No backward-compat shim; existing data dirs from 0.1.x need a one-line
+  rename (`_l2.json → _index.json`) or just regenerate via `rebuild`.
+
+### Bindings
+
+- **Python (PyO3)** + **Node (napi-rs)** parity sweep: 17 missing
+  methods added to both bindings. Both now expose the full
+  `NamespaceHandle` surface — `resolve`, `resolve_with_trace`,
+  `add_intent`, `add_phrase`, `remove_phrase`, `remove_intent`,
+  `correct`, `intent`, `update_intent`, `intent_ids`, `intent_count`,
+  `version`, `namespace_info`, `update_namespace`, `vocab_size`,
+  `confidence_for`, `training`, `training_by_lang`, `export_json`,
+  `check_phrase`, `domain_description`, `set_domain_description`,
+  `remove_domain_description`, `reinforce_tokens`, `rebuild_index`,
+  `rebuild_caches`, `index_phrase`, `decay_for_intents`,
+  `apply_review`, `flush`.
+
+### Studio UI
+
+- **Review queue** now shows all entries with status (auto-applied,
+  manually corrected, pending, escalated) — not just the pending subset.
+- **Import domain UX overhaul** across all 5 importers (OpenAPI,
+  MCP, Postman, OpenAI Functions, LangChain): operator-decided domain
+  picker on every flow.
+- **Studio bootstrap auth**: every `/api/*` route requires
+  `X-Api-Key`. Server auto-mints an admin key on first boot, persists
+  to `~/.config/microresolve/admin-key.txt`. Studio paste-screen
+  on first load. `KeyScope` schema (`admin` / `library`) on every key.
+
+### Benchmarks
+
+- **CLINC150**: 91.5% top-1 post-learning (locked, no regression vs 0.1.x).
+- **BANKING77**: 86.6% top-1 post-learning (locked).
+- p50 latency: ~85µs / p95: ~190µs.
+
+### Server / Ops
+
+- **Default port: 4000** (was 3001 in 0.1.x).
+- **`microresolve-studio --no-browser`** flag (was `--no-open`).
+- **`--keys-file <path>`** for keystore isolation.
+- **CRDT-mergeable Hebbian weights** for delta sync between
+  cooperating replicas (max-merge per `(token, intent)` edge).
+
+### Known limitations
+
+- HIPAA pack: 81% top-1 on internal eval is workable but not clinical
+  grade. Production deployments need per-customer seed curation.
+  Mental-health-crisis intent at 93% recall is not safe for
+  unsupervised use; pair with human review.
+- mcp-tools-generic at threshold 1.5: 21% FP on idiomatic English. For
+  open-ended chat applications, raise threshold or use only the High
+  band.
+- safety-filter is a **pre-filter**, not a complete defense. Adversarial
+  novel paraphrasing bypasses any deterministic vocabulary-based
+  classifier. Pair with a dedicated safety classifier
+  (LlamaGuard / Prompt-Guard / OpenAI Moderation) for production
+  adversarial coverage.
 
 ---
 

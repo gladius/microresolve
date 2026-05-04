@@ -22,7 +22,7 @@ persona, who to refuse — run in 50µs and improve while your app runs.
 
 > **Not a perfect one-stop classifier.** Every router has false-positive / false-negative failure modes; MicroResolve does too. The pitch is: fast deterministic routing that converges on your traffic via corrections — the corrections are the product. Cold-start packs give you a starting point; deployment-time corrections shape the index to your domain. Used right, it works.
 
-> v0.1 — early release; pin exact versions in production.
+> v0.2 — early release; pin exact versions in production.
 
 [**Documentation**](https://gladius.github.io/microresolve/) ·
 [**Benchmarks & methodology**](benchmarks/) ·
@@ -259,6 +259,28 @@ like "取消订阅然后退款" decomposes the same way an English query does.
 - **OpenAPI / Swagger** — each endpoint becomes an intent
 - **OpenAI function-calling schemas**
 - **LangChain tools**
+
+## Reference packs
+
+Four pre-curated packs ship in the [`packs/`](packs/) directory. Drop into
+any data dir and the engine picks them up on next start (or copy at runtime
+via `engine.namespace(id)` after staging the files).
+
+| Pack | Intents | Seeds | What it's for |
+|---|---|---|---|
+| **`safety-filter`** | 5 | 100 | Pre-LLM jailbreak / prompt-injection detection. 98% recall / 4% FP at threshold 1.8 on internal eval. Pre-filter pattern: catch obvious attacks deterministically; pair with a dedicated safety classifier (LlamaGuard / Prompt-Guard) for adversarial coverage. |
+| **`eu-ai-act-prohibited`** | 6 | 70 | Article 5 prohibited-practice triage (biometric categorization, emotion recognition in workplace/education, exploitation of vulnerability, predictive policing on natural persons, social scoring, subliminal manipulation). 85% top-1 / 6% FP at threshold 1.5. Pair with lawyer review for final determination. |
+| **`hipaa-triage`** | 6 | 743 | Medical query triage (clinical_urgent, clinical_routine, mental_health_crisis, administrative, billing, scheduling). 81% top-1, **98% top-3** / 6% FP at threshold 3.0. Best as a top-3 candidate filter — pair with LLM judgment for top-1. **Not a HIPAA compliance solution**; just a triage layer. Production deployments need per-patient-population seed curation. |
+| **`mcp-tools-generic`** | 7 | 70 | Generic MCP-style tool router (web_search, send_message, fetch_url, file_operations, database_query, code_execution, calendar_management). For closed-domain tool dispatch — open-ended chat traffic produces FPs from idiomatic English. |
+
+All packs are bag-of-words IDF inverted indexes. Pack format = directory of
+JSON files, one per intent + `_ns.json` for namespace metadata. Install by
+copying into your `data_dir`. They improve on your specific traffic via the
+correction loop — the cold-start numbers above are the floor, not the ceiling.
+
+> **Each pack ships with a calibrated `default_threshold` in `_ns.json`.** That's
+> the starting point for your traffic. As corrections come in, you'll likely
+> tune up or down for your FP/recall trade-off.
 
 ## License
 

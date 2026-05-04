@@ -98,7 +98,7 @@ export declare class Namespace {
    * Per-intent normalized confidence for an already-scored result.
    *
    * `tokens` must be the tokenized form of the original query (use
-   * `resolveWithTrace(query)[1].tokens` to obtain them).
+   * `resolveWithTrace(query).trace.tokens` to obtain them).
    */
   confidenceFor(score: number, tokens: Array<string>, intentId: string): number
   /**
