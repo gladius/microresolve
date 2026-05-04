@@ -19,7 +19,7 @@ use std::sync::Arc;
 // ── IntentMatch ───────────────────────────────────────────────────────────────
 
 /// A single intent in a resolve result.
-#[pyclass(get_all)]
+#[pyclass(get_all, from_py_object)]
 #[derive(Clone)]
 struct IntentMatch {
     pub id: String,
@@ -43,7 +43,7 @@ impl IntentMatch {
 // ── ResolveResult ─────────────────────────────────────────────────────────────
 
 /// Output of `Namespace.resolve()`.
-#[pyclass(get_all)]
+#[pyclass(get_all, from_py_object)]
 #[derive(Clone)]
 struct ResolveResult {
     /// Ranked descending by score. May be empty.

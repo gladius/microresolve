@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { api, type ResolveOutput, type ReviewAnalysis } from '@/api/client';
 import Page from '@/components/Page';
-import { useAppStore } from '@/store';
 
 const INTENT_COLORS = [
   'text-emerald-400', 'text-blue-400', 'text-amber-400', 'text-pink-400',
@@ -22,8 +21,6 @@ type Message =
 const DEBUG_KEY = 'resolve.debug';
 
 export default function RouterPage() {
-  const { settings } = useAppStore();
-
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [intentCount, setIntentCount] = useState<number | null>(null);
