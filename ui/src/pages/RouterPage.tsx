@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { api, type ResolveOutput, type ReviewAnalysis } from '@/api/client';
 import Page from '@/components/Page';
-import TuningPanel from '@/components/TuningPanel';
 import { useAppStore } from '@/store';
 
 const INTENT_COLORS = [
@@ -24,7 +23,6 @@ const DEBUG_KEY = 'resolve.debug';
 
 export default function RouterPage() {
   const { settings } = useAppStore();
-  const activeNs = settings.selectedNamespaceId;
 
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -113,9 +111,7 @@ export default function RouterPage() {
         </button>
       }
     >
-    <div className="flex h-full min-h-0">
-      {/* Main chat column */}
-      <div className="flex flex-col flex-1 min-w-0 px-6 py-4">
+    <div className="flex flex-col h-full min-h-0 px-6 py-4">
         <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
@@ -170,12 +166,6 @@ export default function RouterPage() {
             Resolve
           </button>
         </form>
-      </div>
-
-      {/* Tuning side panel */}
-      <div className="w-56 shrink-0 border-l border-zinc-800 p-4 overflow-y-auto">
-        <TuningPanel namespaceId={activeNs} compact={false} />
-      </div>
     </div>
     </Page>
   );
