@@ -299,6 +299,17 @@ are the floor, not the ceiling.
 > flag uncertainty. The published FP rates are sized for that
 > architecture, not for unsupervised use.
 
+## Commercial support
+
+I help teams ship MicroResolve in regulated environments — HIPAA,
+financial, legal, government — where the self-serve path isn't enough.
+Custom packs for your domain, threshold/eval calibration on your real
+traffic, on-prem deployment review, integration help. Solo author,
+project-based engagements, no enterprise SLAs.
+
+Contact: `gladius.thayalarajan@gmail.com` · subject line
+`MicroResolve · <your context>`
+
 ## License
 
 Dual-licensed under **MIT** or **Apache-2.0** at your option — the
