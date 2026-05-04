@@ -127,6 +127,15 @@ export declare class Namespace {
   reinforceTokens(words: Array<string>, intentId: string): void
   /** Rebuild the scoring index from stored training phrases. */
   rebuildIndex(): void
+  /**
+   * Set the voting-token gate on the live scoring index.
+   *
+   * `1` disables the gate (default). `2`+ requires that many distinct
+   * query tokens to vouch for an intent before it scores at full strength.
+   * Persists across the namespace lifetime but not to disk — set
+   * `default_min_voting_tokens` via `updateNamespace` to persist.
+   */
+  setMinVotingTokens(min: number): void
   /** Rebuild IDF table and in-memory caches (call after bulk `indexPhrase` calls). */
   rebuildCaches(): void
   /**
@@ -226,6 +235,13 @@ export interface NamespaceEditOptions {
    * `Option<Option<f32>>`, which napi-rs does not natively support.
    */
   defaultThreshold?: number
+  /**
+   * Per-namespace voting-token gate override.
+   *   - omit / `undefined` → leave existing value alone
+   *   - `0` or negative → clear the override (revert to engine default of 1)
+   *   - positive integer → set as the new gate
+   */
+  defaultMinVotingTokens?: number
 }
 
 /**
@@ -240,6 +256,8 @@ export interface NamespaceInfo {
   description: string
   /** Per-namespace routing threshold override. `null` → use engine default. */
   defaultThreshold?: number
+  /** Per-namespace voting-token gate override. `null` → use engine default (1, disabled). */
+  defaultMinVotingTokens?: number
 }
 
 /** Result from `addPhrase`. */

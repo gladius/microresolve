@@ -173,91 +173,14 @@ Haiku 4.5).
 | BANKING77  | 77      | 50    | 81.9 %       | 85.0 %             | 94.1 % | 21 µs       |
 | BANKING77  | 77      | 130   | 85.5 %       | 92.8 %             | 96.0 % | 23 µs       |
 
-## How it works
+## Architecture, multi-intent, multilingual, HTTP API
 
-Queries go directly to the **L2 intent scorer** — a deterministic IDF-weighted inverted index with online Hebbian learning:
+Deeper concept docs live on the [documentation site](https://gladius.github.io/microresolve/concepts/):
 
-```text
-raw query
-  → L2  intent scoring  (IDF-weighted sparse term graph + Hebbian learning)
-  → L4  cross-provider tiebreak  (when equal-score providers compete)
-  → result
-
-failures → review queue → auto-learn worker → L2 updated
-```
-
-L2 is the core scorer: each intent has a learned sparse vector of IDF-weighted terms.
-Multi-intent decomposition uses a token-consumption pass — once the top intent is
-confirmed, its tokens are consumed and the remaining tokens are re-scored to detect
-additional intents in the same query. L4 breaks ties when the same action exists
-across multiple providers. There are no preprocessing layers; raw tokens are looked
-up directly, making the engine safe for medical, legal, and code namespaces.
-
-Every confirmed routing reinforces term weights. Every correction
-shifts weights away from the wrong intent. No retraining; the data
-updates in place.
-
-## Confirm-turn pattern (System 1 → System 2)
-
-MicroResolve returns ranked candidates; the LLM picks one or falls back
-to the full catalog when nothing fits. **Always include a
-`confirm_full_catalog` fallback tool in your agent prompt** — without it,
-out-of-scope queries and novel phrasing route to the wrong tool:
-
-```text
-Candidate tools (from the prefilter):
-  - tool_a  (...description...)
-  - tool_b  (...description...)
-  - tool_c  (...description...)
-
-If one of these clearly applies, call it. Otherwise — unsure, out of
-scope, or candidates look unrelated — call `confirm_full_catalog` to
-receive every tool, then pick.
-```
-
-The prefilter shrinks 150 tools to 3 in ~60 µs; the LLM is the final
-picker. Every confirmed call flows back as a corrected example, so the
-candidate set sharpens over time.
-
-## HTTP API
-
-Send `X-Namespace-ID: my-namespace` to isolate intents per namespace. The
-core endpoints are `/api/resolve`, `/api/intents`, `/api/training/{review,apply}`,
-and `/api/import/mcp/{search,fetch,apply}`. Full reference in the
-[server API docs](https://gladius.github.io/microresolve/server/api/).
-
-## Multi-intent, projection, and multilingual
-
-**Native multi-intent** — a single query can confirm several intents in
-one call, with the relation between them detected:
-
-```text
-"cancel my order and update my address"
-  → cancel_order   (confirmed, high)
-  → update_address (confirmed, medium)
-  → relation: parallel
-```
-
-Detected relations: `sequential`, `conditional`, `negation`, `parallel`.
-
-**Projected context** — co-occurrence tracking discovers what auxiliary
-intents typically fire alongside the primary one, so your orchestrator
-can pre-fetch them in parallel without an extra LLM round-trip:
-
-```text
-"I want a refund"
-  → refund_order  (confirmed, high)
-  → projected:    check_balance (21 %), warranty_lookup (13 %)
-```
-
-These relationships emerge from accumulated routing — they're not
-configured.
-
-**Multilingual** — Latin scripts via whitespace tokenization, CJK
-(Chinese / Japanese / Korean) via Aho-Corasick automaton + character
-bigrams, all in the same namespace. Per-language seed phrases per intent.
-Multi-intent decomposition runs after tokenization, so a Chinese query
-like "取消订阅然后退款" decomposes the same way an English query does.
+- [Concepts](https://gladius.github.io/microresolve/concepts/) — classification pipeline, multi-intent decomposition, projected context (co-occurrence), multilingual / CJK tokenization
+- [Bands & Disposition](https://gladius.github.io/microresolve/concepts-bands/) — the System 1 → System 2 confirm-turn pattern, including the `confirm_full_catalog` fallback for tool routing
+- [HTTP API reference](https://gladius.github.io/microresolve/server/api/) — namespaces via `X-Namespace-ID`; core endpoints `/api/resolve`, `/api/intents`, `/api/training/*`, `/api/import/*`
+- [Threshold tuning](https://gladius.github.io/microresolve/threshold-tuning/) — calibrating threshold + voting-gate per pack
 
 ## Import formats
 
@@ -307,8 +230,7 @@ Custom packs for your domain, threshold/eval calibration on your real
 traffic, on-prem deployment review, integration help. Solo author,
 project-based engagements, no enterprise SLAs.
 
-Contact: `gladius.thayalarajan@gmail.com` · subject line
-`MicroResolve · <your context>`
+Contact: [gladius.thayalarajan@gmail.com](mailto:gladius.thayalarajan@gmail.com)
 
 ## License
 
@@ -324,8 +246,3 @@ commercial use.
 Unless you state otherwise, any contribution intentionally submitted for
 inclusion in this work shall be dual-licensed as above, without any
 additional terms or conditions.
-
-## Commercial support
-
-Maintained by Gladius Thayalarajan — consulting on custom integrations,
-multilingual tuning, and agent-stack tool routing: [gladius.thayalarajan@gmail.com](mailto:gladius.thayalarajan@gmail.com).

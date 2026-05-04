@@ -105,6 +105,39 @@ match result.disposition {
 }
 ```
 
+## Multi-intent decomposition
+
+A single query can confirm several intents in one call, with the relation between them detected.
+
+```text
+"cancel my order and update my address"
+  → cancel_order   (confirmed, high)
+  → update_address (confirmed, medium)
+  → relation: parallel
+```
+
+Detected relations: `sequential`, `conditional`, `negation`, `parallel`.
+
+Decomposition uses a token-consumption pass: once the top intent is confirmed, its tokens are consumed and the remaining tokens are re-scored to find the next intent. Tune the [gap](#threshold-and-gap) lower to surface more multi-intent matches.
+
+## Projected context
+
+Co-occurrence tracking discovers what auxiliary intents typically fire alongside the primary one — useful for orchestrators that want to pre-fetch supporting calls in parallel without an extra LLM round-trip.
+
+```text
+"I want a refund"
+  → refund_order  (confirmed, high)
+  → projected:    check_balance (21 %), warranty_lookup (13 %)
+```
+
+These relationships emerge from accumulated routing history; they're not configured.
+
+## Multilingual
+
+Latin scripts use whitespace tokenization. CJK (Chinese / Japanese / Korean) uses an Aho-Corasick automaton over a curated lexicon plus character-bigram fallback — all in the same namespace. Per-language seed phrases per intent.
+
+Multi-intent decomposition runs after tokenization, so a Chinese query like 取消订阅然后退款 ("cancel subscription, then refund") decomposes the same way an English query does.
+
 ## Corrections
 
 When the engine classifies incorrectly, call `correct()`. This moves signal toward the right intent and suppresses the wrong one for similar queries. No batch retraining. The improvement takes effect immediately.

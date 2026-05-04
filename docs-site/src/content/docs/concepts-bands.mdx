@@ -85,3 +85,20 @@ let high_only: Vec<_> = result.intents.iter()
     .filter(|m| m.band == microresolve::Band::High)
     .collect();
 ```
+
+## Tool-routing fallback
+
+When using MicroResolve as a tool prefilter for an LLM agent (narrowing 100+ tools to 3 candidates), always include a `confirm_full_catalog` fallback tool in your agent prompt. Without it, out-of-scope queries and novel phrasing route to the wrong tool:
+
+```text
+Candidate tools (from the prefilter):
+  - tool_a  (...description...)
+  - tool_b  (...description...)
+  - tool_c  (...description...)
+
+If one of these clearly applies, call it. Otherwise — unsure, out of
+scope, or candidates look unrelated — call `confirm_full_catalog` to
+receive every tool, then pick.
+```
+
+The prefilter shrinks the candidate set in microseconds; the LLM is the final picker. Every confirmed call flows back as a corrected example, so the candidate set sharpens over time.
