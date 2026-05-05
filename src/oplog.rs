@@ -20,7 +20,6 @@ pub enum Op {
     IntentAdded {
         id: String,
         phrases_by_lang: HashMap<String, Vec<String>>,
-        intent_type: Option<String>,
         description: Option<String>,
         instructions: Option<String>,
         persona: Option<String>,

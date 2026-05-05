@@ -66,7 +66,6 @@ impl Resolver {
         let mut ops: Vec<crate::oplog::Op> = vec![crate::oplog::Op::IntentAdded {
             id: id.to_string(),
             phrases_by_lang,
-            intent_type: None,
             description: None,
             instructions: None,
             persona: None,
@@ -133,7 +132,6 @@ impl Resolver {
     /// Remove an intent and all its data.
     pub fn remove_intent(&mut self, id: &str) {
         self.training.remove(id);
-        self.intent_types.remove(id);
         self.descriptions.remove(id);
         self.instructions.remove(id);
         self.persona.remove(id);

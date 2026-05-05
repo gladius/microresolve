@@ -7,8 +7,6 @@ use axum::{
     routing::{get, patch, post},
     Json,
 };
-use microresolve::IntentType;
-
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/intents", get(list_intents).post(add_intent))
@@ -27,8 +25,6 @@ pub fn routes() -> axum::Router<AppState> {
 /// Partial update of an intent. Any subset of fields may be provided.
 #[derive(serde::Deserialize)]
 pub struct PatchIntentRequest {
-    #[serde(default)]
-    pub intent_type: Option<IntentType>,
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
@@ -54,7 +50,6 @@ pub async fn patch_intent(
     ))?;
 
     let edit = microresolve::IntentEdit {
-        intent_type: req.intent_type,
         description: req.description,
         instructions: req.instructions,
         persona: req.persona,
@@ -179,7 +174,6 @@ pub async fn list_intents(
                 "phrases": seeds,
                 "phrases_by_lang": info.training,
                 "learned_count": 0usize,
-                "intent_type": info.intent_type,
                 "instructions": info.instructions,
                 "persona": info.persona,
                 "source": info.source,
@@ -203,8 +197,6 @@ pub struct AddIntentRequest {
     #[serde(default)]
     phrases_by_lang: Option<std::collections::HashMap<String, Vec<String>>>,
     #[serde(default)]
-    intent_type: Option<IntentType>,
-    #[serde(default)]
     description: Option<String>,
 }
 
@@ -223,12 +215,11 @@ pub async fn add_intent(
         let _ = h.add_intent(&req.id, seed_refs.as_slice());
     }
 
-    if req.intent_type.is_some() || req.description.is_some() {
+    if let Some(desc) = req.description.filter(|d| !d.is_empty()) {
         let _ = h.update_intent(
             &req.id,
             microresolve::IntentEdit {
-                intent_type: req.intent_type,
-                description: req.description.filter(|d| !d.is_empty()),
+                description: Some(desc),
                 ..Default::default()
             },
         );

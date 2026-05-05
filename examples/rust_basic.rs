@@ -2,7 +2,7 @@
 //!
 //! Run: cargo run --example rust_basic
 
-use microresolve::{IntentEdit, IntentType, MicroResolve, MicroResolveConfig};
+use microresolve::{MicroResolve, MicroResolveConfig};
 
 fn main() {
     let engine = MicroResolve::new(MicroResolveConfig::default()).expect("engine init");
@@ -26,24 +26,6 @@ fn main() {
             ],
         )
         .unwrap();
-    support
-        .update_intent(
-            "cancel_order",
-            IntentEdit {
-                intent_type: Some(IntentType::Action),
-                ..Default::default()
-            },
-        )
-        .ok();
-    support
-        .update_intent(
-            "track_order",
-            IntentEdit {
-                intent_type: Some(IntentType::Action),
-                ..Default::default()
-            },
-        )
-        .ok();
 
     println!("Intents: {:?}", support.intent_ids());
     let result = support.resolve("please cancel my order");

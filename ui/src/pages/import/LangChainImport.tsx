@@ -133,7 +133,7 @@ export default function LangChainImport() {
 
   if (result) return (
     <Page title="LangChain Tools — Import Complete" subtitle={subtitle} actions={backAction} size="lg">
-      <ImportReport result={result} onViewIntents={() => navigate('/l2')} onImportMore={() => { setResult(null); setTools([]); setSourceName(''); setDomain(null); }} />
+      <ImportReport result={result} onViewIntents={() => navigate('/intents')} onImportMore={() => { setResult(null); setTools([]); setSourceName(''); setDomain(null); }} />
     </Page>
   );
 

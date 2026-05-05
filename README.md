@@ -96,17 +96,51 @@ Pre-built tarballs for Linux (x86_64 / aarch64, glibc + musl), macOS
 # Linux x86_64 — adjust for your platform from the releases page
 curl -L https://github.com/gladius/microresolve/releases/latest/download/microresolve-studio-x86_64-unknown-linux-gnu.tar.gz \
   | tar xz
-./microresolve-studio --data ./data
+
+# One-time interactive setup: data dir, port, optional LLM key
+./microresolve-studio config
+
+# Install a reference pack (see the table below for available packs)
+./microresolve-studio install safety-filter
+./microresolve-studio install hipaa-triage   # or any of the other 4
+
+# Start the Studio (uses ~/.config/microresolve/config.toml)
+./microresolve-studio
 # Studio at http://localhost:4000
 ```
 
 All artifacts come from the same source-of-truth Rust core — same algorithm,
 same data files, fully interchangeable.
 
+## Why this lets you use a smaller LLM
+
+200-tool catalogs force the LLM to be a frontier model — small models
+drop tools beyond ~50 in catalog and hallucinate calls on the long
+tail. MicroResolve narrows to ~3 candidates in 50µs, so the LLM that
+follows can be a small one.
+
+```
+without:  query → 200 schemas → frontier model     → ~$0.03  · 1.5s
+with:     query → 50µs prefilter → 3 → small model → ~$0.0002 · 0.3s
+```
+
+| | Today | With MicroResolve |
+|---|---|---|
+| Prompt | 20K tokens (200 schemas) | 300 tokens (3 candidates) |
+| Model | GPT-5 / Sonnet 4.6 / Gemini Pro | GPT-5 nano / Haiku 4.5 / Flash |
+| Cost / call | ~$0.03 | ~$0.0002 |
+| Latency | 1.5s | 0.3s |
+
+50–200× cheaper, 3–5× faster. When confidence is low, the LLM gets
+the full catalog as fallback — see
+[Bands & Disposition](https://gladius.github.io/microresolve/concepts-bands/).
+
 ## Reference packs
 
-Four pre-curated packs ship in [`packs/`](packs/). Drop into any data dir;
-the engine picks them up on next start.
+Four pre-curated packs ship as v0.2.1 release tarballs. Install via
+`microresolve-studio install <pack>` (CLI fetches the tarball matching
+your binary version), or copy from [`packs/`](packs/) into any data dir
+manually.
 
 | Pack | Intents | Seeds | Default | What it's for |
 |---|---|---|---|---|

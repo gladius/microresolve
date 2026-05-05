@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFetch } from '@/hooks/useFetch';
-import { api, type IntentInfo, type IntentType, type NamespaceModel } from '@/api/client';
+import { api, type IntentInfo, type NamespaceModel } from '@/api/client';
 import { useAppStore } from '@/store';
 import Page from '@/components/Page';
 
@@ -187,8 +187,6 @@ function IntentListItem({
 }: {
   intent: IntentInfo; selected: boolean; onClick: () => void;
 }) {
-  const typeChar = intent.intent_type === 'action' ? 'A' : 'C';
-  const typeColor = intent.intent_type === 'action' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30' : 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30';
   const colon = intent.id.indexOf(':');
   const shortName = colon > 0 ? intent.id.slice(colon + 1) : intent.id;
   return (
@@ -199,9 +197,6 @@ function IntentListItem({
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className={`text-[9px] w-4 h-4 flex items-center justify-center rounded border font-bold ${typeColor}`}>
-          {typeChar}
-        </span>
         <span className="text-emerald-400 font-mono text-sm font-semibold truncate flex-1" title={intent.id}>{shortName}</span>
         <span className="text-zinc-600 text-[11px]">{intent.phrases.length}</span>
         {intent.learned_count > 0 && (
@@ -222,7 +217,7 @@ function IntentListItem({
 
 // --- Right detail panel with tabs ---
 
-type DetailTab = 'details' | 'phrases' | 'stats';
+type DetailTab = 'details' | 'phrases';
 
 function IntentDetailPanel({
   intent, onRefresh, onDeleted,
@@ -231,11 +226,6 @@ function IntentDetailPanel({
 }) {
   const [activeTab, setActiveTab] = useState<DetailTab>('details');
   const [phraseSearch, setPhraseSearch] = useState('');
-
-  const handleTypeChange = async (newType: IntentType) => {
-    await api.patchIntent(intent.id, { intent_type: newType });
-    onRefresh();
-  };
 
   const handleDelete = async () => {
     if (!confirm(`Delete intent "${intent.id}"?`)) return;
@@ -247,8 +237,7 @@ function IntentDetailPanel({
 
   const tabs: { id: DetailTab; label: string; count?: number }[] = [
     { id: 'details', label: 'Details' },
-    { id: 'phrases', label: 'Phrases', count: intent.phrases.length },
-    { id: 'stats', label: 'Stats' },
+    { id: 'phrases', label: 'Learnt phrases', count: intent.phrases.length },
   ];
 
   return (
@@ -258,21 +247,6 @@ function IntentDetailPanel({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-semibold text-emerald-400 font-mono">{intent.id}</h2>
-            <div className="flex rounded overflow-hidden border border-zinc-700">
-              {(['action', 'context'] as IntentType[]).map(t => (
-                <button
-                  key={t}
-                  onClick={() => handleTypeChange(t)}
-                  className={`text-[10px] px-2 py-1 font-semibold uppercase transition-colors ${
-                    intent.intent_type === t
-                      ? t === 'action' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-cyan-400/20 text-cyan-400'
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
             {intent.source && (
               <span className="text-[10px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-1.5 py-0.5 uppercase">
                 {intent.source.label || intent.source.type}
@@ -341,9 +315,6 @@ function IntentDetailPanel({
         {activeTab === 'details' && (
           <DetailsTab intent={intent} onRefresh={onRefresh} />
         )}
-        {activeTab === 'stats' && (
-          <StatsTab intent={intent} />
-        )}
       </div>
     </div>
   );
@@ -355,8 +326,8 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
   const [newPhrase, setNewPhrase] = useState('');
   const [showBulk, setShowBulk] = useState(false);
   const [bulkText, setBulkText] = useState('');
-  const [showAI, setShowAI] = useState(false);
-  const [aiDescription, setAIDescription] = useState('');
+  const [showAI, setShowAI] = useState(true);
+  const [aiDescription, setAIDescription] = useState(intent.description || '');
   const [languages, setLanguages] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState('');
@@ -444,6 +415,24 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
 
   return (
     <div className="flex flex-col h-full gap-3">
+      {/* Inline stats — total · langs · learned (replaces the dropped Stats tab) */}
+      <div className="text-xs text-zinc-500 font-mono">
+        <span className="text-zinc-300">{intent.phrases.length}</span> example{intent.phrases.length === 1 ? '' : 's'}
+        {langKeys.length > 0 && (
+          <>
+            <span className="text-zinc-700 mx-2">·</span>
+            <span className="text-zinc-300">{langKeys.length}</span> lang{langKeys.length === 1 ? '' : 's'}
+            <span className="text-zinc-600 ml-1">({langKeys.join(', ')})</span>
+          </>
+        )}
+        {intent.learned_count > 0 && (
+          <>
+            <span className="text-zinc-700 mx-2">·</span>
+            <span className="text-emerald-400">{intent.learned_count}</span> learned from corrections
+          </>
+        )}
+      </div>
+
       {/* Phrase list */}
       <div className="flex-1 border border-zinc-800 rounded-lg bg-zinc-900/50 overflow-y-auto">
         {filtered.length === 0 && (
@@ -544,24 +533,27 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
             <button onClick={() => setPhraseWarning('')} className="shrink-0 text-zinc-500 hover:text-zinc-100 ml-auto">×</button>
           </div>
         )}
-        {/* AI Generate */}
-        <div>
+        {/* AI Generate — prominent panel, defaults to expanded */}
+        <div className="border border-emerald-500/30 bg-emerald-500/5 rounded-lg p-3">
           <button
             onClick={() => setShowAI(!showAI)}
-            className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+            className="w-full flex items-center justify-between text-sm font-semibold text-emerald-400 hover:text-emerald-300"
           >
-            <svg className={`w-3 h-3 transition-transform ${showAI ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <span className="flex items-center gap-2">
+              <span>✨</span>
+              <span>Generate examples with AI</span>
+            </span>
+            <svg className={`w-4 h-4 transition-transform ${showAI ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            Generate phrases with AI
           </button>
 
           {showAI && (
-            <div className="mt-2 space-y-2 pl-4 border-l-2 border-emerald-500/20">
+            <div className="mt-3 space-y-2">
               <textarea
                 value={aiDescription}
                 onChange={e => setAIDescription(e.target.value)}
-                placeholder="Describe the intent: e.g. Customer wants to cancel their order"
+                placeholder={"AI guidance — what should the LLM know? Examples, tone, edge cases all welcome.\n\ne.g.\n  Customer wants to cancel an active subscription.\n  Sample phrases: \"cancel my plan\", \"stop billing\"\n  Be empathetic — these users are usually frustrated."}
                 rows={2}
                 className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-100 text-sm resize-y focus:border-emerald-500 focus:outline-none"
               />
@@ -592,7 +584,11 @@ function PhrasesTab({ intent, onRefresh, phraseSearch }: { intent: IntentInfo; o
                     setGenStatus('Generating...');
                     try {
                       const langs = Array.from(aiLangs);
-                      const parsed = await api.generatePhrases(intent.id, aiDescription, langs);
+                      // Auto-anchor with the top 5 existing learnt phrases — gives the
+                      // LLM context on the intent's actual phrasing without dumping all
+                      // 100+ phrases (which would defeat the variation prompt).
+                      const anchors = (intent.phrases || []).slice(0, 5);
+                      const parsed = await api.generatePhrases(intent.id, aiDescription, langs, anchors);
                       // Add generated phrases through guard
                       let added = 0;
                       const blocked: string[] = [];
@@ -641,6 +637,7 @@ function DetailsTab({
 }: {
   intent: IntentInfo; onRefresh: () => void;
 }) {
+  const [description, setDescription] = useState<string>(intent.description || '');
   const [instructions, setInstructions] = useState<string>(intent.instructions || '');
   const [guardrails, setGuardrails] = useState<string[]>(intent.guardrails || []);
   const [persona, setPersona] = useState<string>(intent.persona || '');
@@ -655,13 +652,14 @@ function DetailsTab({
   }, []);
 
   useEffect(() => {
+    setDescription(intent.description || '');
     setInstructions(intent.instructions || '');
     setGuardrails(intent.guardrails || []);
     setPersona(intent.persona || '');
     setModel(intent.target?.model || '');
     setNewGuardrail('');
     setDirty(false);
-  }, [intent.id, intent.instructions, intent.guardrails, intent.persona, intent.target]);
+  }, [intent.id, intent.description, intent.instructions, intent.guardrails, intent.persona, intent.target]);
 
   const addGuardrail = () => {
     const v = newGuardrail.trim();
@@ -681,6 +679,7 @@ function DetailsTab({
       // Single PATCH carrying every changed field — replaces the four
       // separate per-field POSTs we used to make.
       const fields: Parameters<typeof api.patchIntent>[1] = {
+        description: description.trim(),
         instructions: instructions.trim(),
         persona: persona.trim(),
         guardrails: guardrails.filter(Boolean),
@@ -702,6 +701,21 @@ function DetailsTab({
 
   return (
     <div className="space-y-6">
+
+      {/* Description — editable, primary metadata */}
+      <div>
+        <div className="flex items-baseline justify-between mb-1.5">
+          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Description</div>
+          <span className="text-[10px] text-zinc-600">What this intent represents (used by LLM prompts + AI seed generation)</span>
+        </div>
+        <textarea
+          value={description}
+          onChange={e => { setDescription(e.target.value); setDirty(true); }}
+          placeholder="e.g. Customer wants to cancel an active subscription"
+          rows={2}
+          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-zinc-100 text-sm resize-y focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
 
       {/* Source — read-only, import provenance */}
       {intent.source && (
@@ -738,8 +752,8 @@ function DetailsTab({
         <div className="flex items-baseline justify-between mb-1.5">
           <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Route to Model</div>
           {nsModels.length === 0 ? (
-            <a href="/settings" className="text-[10px] text-emerald-400 hover:underline">
-              Add models in Settings →
+            <a href="/models" className="text-[10px] text-emerald-400 hover:underline">
+              Add models →
             </a>
           ) : (
             <span className="text-[10px] text-zinc-600">Which LLM handles this intent when it fires</span>
@@ -830,51 +844,6 @@ function DetailsTab({
   );
 }
 
-// --- Stats Tab ---
-
-function StatsTab({ intent }: { intent: IntentInfo }) {
-  const langKeys = Object.keys(intent.phrases_by_lang).filter(k => k !== '_learned');
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-6">
-        <div>
-          <div className="text-zinc-500 text-xs mb-1">Total Phrases</div>
-          <div className="text-zinc-100 font-mono text-2xl">{intent.phrases.length}</div>
-        </div>
-        <div>
-          <div className="text-zinc-500 text-xs mb-1">Languages</div>
-          <div className="text-zinc-100 font-mono text-2xl">{langKeys.length}</div>
-          <div className="text-zinc-600 text-xs mt-1">{langKeys.join(', ')}</div>
-        </div>
-        <div>
-          <div className="text-zinc-500 text-xs mb-1">Learned Terms</div>
-          <div className="text-zinc-100 font-mono text-2xl">{intent.learned_count}</div>
-          <div className="text-zinc-600 text-xs mt-1">from corrections</div>
-        </div>
-      </div>
-
-      <div className="border-t border-zinc-800 pt-4">
-        <div className="text-zinc-500 text-xs mb-2">Phrases per Language</div>
-        {langKeys.map(lang => {
-          const count = (intent.phrases_by_lang[lang] || []).length;
-          return (
-            <div key={lang} className="flex items-center gap-3 py-1">
-              <span className="text-xs text-emerald-400 uppercase w-8">{lang}</span>
-              <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500/50 rounded-full"
-                  style={{ width: `${Math.min(100, (count / Math.max(1, intent.phrases.length)) * 100)}%` }}
-                />
-              </div>
-              <span className="text-xs text-zinc-500 w-8 text-right">{count}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // --- Add Intent Panel (simplified two-step) ---
 
 function AddIntentPanel({
@@ -884,7 +853,6 @@ function AddIntentPanel({
 }) {
   const { settings: appSettings } = useAppStore();
   const [id, setId] = useState('');
-  const [intentType, setIntentType] = useState<IntentType>('action');
   const [phraseText, setPhraseText] = useState('');
   const [showAI, setShowAI] = useState(false);
   const [description, setDescription] = useState('');
@@ -906,7 +874,9 @@ function AddIntentPanel({
     setGenerating(true);
     setGenStatus('Generating...');
     try {
-      const parsed = await api.generatePhrases(id || 'new_intent', description, langs);
+      // Existing manual phrases (if any) become anchor examples for the LLM.
+      const examples = phraseText.split('\n').map(s => s.trim()).filter(Boolean);
+      const parsed = await api.generatePhrases(id || 'new_intent', description, langs, examples);
       const allPhrases: string[] = [];
       for (const lang of langs) {
         for (const phrase of parsed.phrases_by_lang[lang] || []) {
@@ -929,7 +899,7 @@ function AddIntentPanel({
     const phrases = phraseText.split('\n').map(s => s.trim()).filter(Boolean);
     if (phrases.length === 0) return;
     const desc = description.trim();
-    await api.addIntent(intentId, phrases, intentType, desc || undefined);
+    await api.addIntent(intentId, phrases, desc || undefined);
     onDone(intentId);
   };
 
@@ -942,54 +912,49 @@ function AddIntentPanel({
         <button onClick={onCancel} className="text-sm text-zinc-500 hover:text-zinc-100">Cancel</button>
       </div>
 
-      {/* Name + Type */}
-      <div className="flex gap-4 items-end">
-        <div className="flex-1">
-          <label className="text-xs text-zinc-500 block mb-1">Intent ID</label>
-          <input
-            value={id}
-            onChange={e => setId(e.target.value)}
-            placeholder="e.g. cancel_order"
-            autoComplete="off"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-100 text-sm font-mono focus:border-emerald-500 focus:outline-none"
-            autoFocus
-          />
-        </div>
-        <div>
-          <label className="text-xs text-zinc-500 block mb-1">Type</label>
-          <div className="flex rounded overflow-hidden border border-zinc-700">
-            {(['action', 'context'] as IntentType[]).map(t => (
-              <button
-                key={t}
-                onClick={() => setIntentType(t)}
-                className={`text-xs px-3 py-2 font-semibold uppercase transition-colors ${
-                  intentType === t
-                    ? t === 'action' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-cyan-400/20 text-cyan-400'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Name */}
+      <div>
+        <label className="text-xs text-zinc-500 block mb-1">Intent ID</label>
+        <input
+          value={id}
+          onChange={e => setId(e.target.value)}
+          placeholder="e.g. cancel_order"
+          autoComplete="off"
+          className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-100 text-sm font-mono focus:border-emerald-500 focus:outline-none"
+          autoFocus
+        />
       </div>
 
-      {/* Phrases */}
+      {/* Description — top-level, always visible. Used both as the saved
+          description AND fed into the AI seed-gen prompt. */}
       <div>
         <label className="text-xs text-zinc-500 block mb-1">
-          Training Phrases {phraseCount > 0 && <span className="text-zinc-600">({phraseCount})</span>}
+          Description <span className="text-zinc-700">— what this intent represents</span>
+        </label>
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder={"What is this intent? Examples, tone, edge cases all welcome — used by the LLM at runtime AND by the seed generator below.\n\ne.g.\n  Customer wants to cancel an active subscription.\n  Sample phrases: \"cancel my plan\", \"stop billing\"\n  Be empathetic — these users are usually frustrated."}
+          rows={4}
+          className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-100 text-sm resize-y focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
+
+      {/* Example phrases */}
+      <div>
+        <label className="text-xs text-zinc-500 block mb-1">
+          Example phrases {phraseCount > 0 && <span className="text-zinc-600">({phraseCount})</span>}
         </label>
         <textarea
           value={phraseText}
           onChange={e => setPhraseText(e.target.value)}
-          placeholder={"One phrase per line:\ncancel my order\nI want to cancel\nstop my order"}
+          placeholder={"Type 1–3 real user phrases — one per line. The AI uses these as anchors when generating more.\ne.g.\ncancel my order\nstop the order I placed"}
           rows={6}
           className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 font-mono resize-y focus:border-emerald-500 focus:outline-none"
         />
       </div>
 
-      {/* AI Generation (expandable) */}
+      {/* AI Generation (expandable) — uses the Description field above */}
       <div>
         <button
           onClick={() => setShowAI(!showAI)}
@@ -1003,13 +968,9 @@ function AddIntentPanel({
 
         {showAI && (
           <div className="mt-3 space-y-3 pl-4 border-l-2 border-emerald-500/20">
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Describe the intent: e.g. Customer wants to cancel their order or subscription"
-              rows={2}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-100 text-sm resize-y focus:border-emerald-500 focus:outline-none"
-            />
+            <div className="text-[10px] text-zinc-500">
+              Uses the Description field above as AI guidance. Add anchor phrases to <span className="text-zinc-400">Example phrases</span> to seed the variation pattern.
+            </div>
             <div className="flex flex-wrap gap-2">
               {Object.entries(languages).filter(([code]) => enabledLangs.has(code)).map(([code, name]) => (
                 <label key={code} className="inline-flex items-center gap-1 text-xs text-zinc-400 cursor-pointer">

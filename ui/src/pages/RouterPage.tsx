@@ -18,21 +18,12 @@ type Message =
   | { type: 'trained'; query: string; phrases_added: number; summary: string }
   | { type: 'error'; text: string };
 
-const DEBUG_KEY = 'resolve.debug';
-
 export default function RouterPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [intentCount, setIntentCount] = useState<number | null>(null);
-  const [debug, setDebug] = useState<boolean>(() => localStorage.getItem(DEBUG_KEY) === 'true');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const toggleDebug = () => setDebug(prev => {
-    const next = !prev;
-    localStorage.setItem(DEBUG_KEY, String(next));
-    return next;
-  });
 
   useEffect(() => {
     api.listIntents().then(list => setIntentCount(list.length)).catch(() => setIntentCount(0));
@@ -93,20 +84,6 @@ export default function RouterPage() {
       title="Resolve"
       subtitle="Resolve queries to intents"
       fullscreen
-      actions={
-        <button
-          onClick={toggleDebug}
-          title={debug ? 'Hide trace' : 'Show trace'}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors ${
-            debug
-              ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-400'
-              : 'border border-zinc-700 text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${debug ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
-          debug
-        </button>
-      }
     >
     <div className="flex flex-col h-full min-h-0 px-6 py-4">
         <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
@@ -141,7 +118,6 @@ export default function RouterPage() {
               onApplySuggestion={applySuggestion}
               onTrain={handleTrain}
               intentCount={intentCount}
-              debug={debug}
             />
           ))}
           <div ref={bottomRef} />
@@ -168,12 +144,11 @@ export default function RouterPage() {
   );
 }
 
-function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: {
+function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount }: {
   msg: Message;
   onApplySuggestion: (s: ReviewAnalysis['suggestions'][0]) => void;
   onTrain: (query: string, detected: string[]) => void;
   intentCount: number | null;
-  debug: boolean;
 }) {
   if (msg.type === 'query') {
     return (
@@ -226,7 +201,7 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
         </div>
         {noIntents && (
           <div className="text-[11px] text-zinc-600">
-            No intents exist yet — <a href="/l2" className="text-emerald-400 hover:underline">create some</a> or <a href="/import" className="text-emerald-400 hover:underline">import from a spec</a>.
+            No intents exist yet — <a href="/intents" className="text-emerald-400 hover:underline">create some</a> or <a href="/import" className="text-emerald-400 hover:underline">import from a spec</a>.
           </div>
         )}
       </div>
@@ -240,11 +215,6 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
 
   return (
     <div className="pl-5 mb-3">
-      {/* Query card */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-2">
-        <HighlightedQuery query={query} />
-      </div>
-
       {/* Intent list */}
       {highIntents.length > 0 && (
         <div className="mb-1">
@@ -296,13 +266,6 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount, debug }: 
         </div>
       )}
       {review && <ReviewCard review={review} onApply={onApplySuggestion} />}
-
-      {/* Trace — opt-in via header debug toggle (persisted in localStorage) */}
-      {debug && result.trace && (
-        <div className="mt-3 text-xs font-mono text-zinc-500">
-          tokens: {result.trace.tokens.join(' ')}
-        </div>
-      )}
     </div>
   );
 }
@@ -423,14 +386,5 @@ function ReviewCard({ review, onApply }: {
         <div className="text-emerald-400 text-xs">All routing correct.</div>
       )}
     </div>
-  );
-}
-
-
-// --- Query display ---
-
-function HighlightedQuery({ query }: { query: string }) {
-  return (
-    <div className="font-mono text-sm leading-relaxed text-zinc-300">{query}</div>
   );
 }

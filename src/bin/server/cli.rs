@@ -60,6 +60,13 @@ pub struct Cli {
     #[arg(long, value_name = "FILE")]
     pub keys_file: Option<PathBuf>,
 
+    /// Config file path (default: ~/.config/microresolve/config.toml). Override
+    /// for sandbox tests or for running multiple Studios with isolated
+    /// per-instance configs. Also honored by `microresolve config` for writes.
+    /// `MICRORESOLVE_CONFIG` env var works as a fallback.
+    #[arg(long, value_name = "FILE")]
+    pub config: Option<PathBuf>,
+
     /// Print the resolved configuration (after merging CLI/env/file) and exit.
     #[arg(long)]
     pub print_config: bool,
@@ -72,6 +79,18 @@ pub struct Cli {
 pub enum Command {
     /// Interactively set up a persistent config file at ~/.config/microresolve/config.toml.
     Config,
+    /// Install a reference pack from the GitHub release matching this binary's version.
+    ///
+    /// The pack tarball is fetched from:
+    ///   https://github.com/gladius/microresolve/releases/download/v<VERSION>/pack-<NAME>-v<VERSION>.tar.gz
+    ///
+    /// Available packs: safety-filter, eu-ai-act-prohibited, hipaa-triage, mcp-tools-generic
+    Install {
+        /// Pack name (e.g. safety-filter, hipaa-triage, eu-ai-act-prohibited, mcp-tools-generic)
+        pack: String,
+    },
+    /// List the 4 reference packs and show install status against the configured data dir.
+    ListPacks,
 }
 
 /// The on-disk config file. All fields are optional; missing fields fall back to
@@ -103,9 +122,20 @@ pub struct ResolvedConfig {
 }
 
 /// Path to the user's config file (created on first `microresolve config` run).
+/// Default location only — see `resolve_config_path` for the cascade.
 pub fn config_path() -> Option<PathBuf> {
     directories::ProjectDirs::from("sh", "gladius", "microresolve")
         .map(|pd| pd.config_dir().join("config.toml"))
+}
+
+/// Resolve the config file path via cascade: `--config` flag > `MICRORESOLVE_CONFIG`
+/// env > XDG default. Returns `None` only if neither override is set and the
+/// XDG default can't be determined.
+pub fn resolve_config_path(cli: &Cli) -> Option<PathBuf> {
+    cli.config
+        .clone()
+        .or_else(|| std::env::var("MICRORESOLVE_CONFIG").ok().map(PathBuf::from))
+        .or_else(config_path)
 }
 
 /// Default data directory (XDG-ish).
@@ -115,9 +145,9 @@ pub fn default_data_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("./microresolve-data"))
 }
 
-/// Load the config file if it exists, return default otherwise.
-pub fn load_config_file() -> ConfigFile {
-    let Some(path) = config_path() else {
+/// Load the config file at the resolved path if it exists, return default otherwise.
+pub fn load_config_file(cli: &Cli) -> ConfigFile {
+    let Some(path) = resolve_config_path(cli) else {
         return ConfigFile::default();
     };
     let Ok(content) = std::fs::read_to_string(&path) else {
@@ -128,7 +158,7 @@ pub fn load_config_file() -> ConfigFile {
 
 /// Merge all sources: CLI flag > env > config file > built-in default.
 pub fn resolve(cli: &Cli) -> ResolvedConfig {
-    let file = load_config_file();
+    let file = load_config_file(cli);
 
     let port = cli
         .port
@@ -196,7 +226,7 @@ pub fn resolve(cli: &Cli) -> ResolvedConfig {
 }
 
 /// Pretty-print the resolved config to stdout (for --print-config).
-pub fn print_resolved(cfg: &ResolvedConfig) {
+pub fn print_resolved(cfg: &ResolvedConfig, cli: &Cli) {
     println!("Resolved configuration:");
     println!("  host         = {}", cfg.host);
     println!("  port         = {}", cfg.port);
@@ -211,16 +241,17 @@ pub fn print_resolved(cfg: &ResolvedConfig) {
             "(not set — training features disabled)"
         }
     );
-    if let Some(p) = config_path() {
+    if let Some(p) = resolve_config_path(cli) {
         println!("  config_file  = {}", p.display());
     }
 }
 
 /// Interactive setup: prompt the user for key fields, write them to the config file.
-pub fn run_config_subcommand() -> std::io::Result<()> {
+/// Honors `--config <PATH>` and `MICRORESOLVE_CONFIG`; falls back to the XDG default.
+pub fn run_config_subcommand(cli: &Cli) -> std::io::Result<()> {
     use std::io::{BufRead, Write};
 
-    let path = config_path().ok_or_else(|| {
+    let path = resolve_config_path(cli).ok_or_else(|| {
         std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "could not determine config directory",
@@ -230,7 +261,7 @@ pub fn run_config_subcommand() -> std::io::Result<()> {
     println!("MicroResolve configuration setup");
     println!("Will write to: {}\n", path.display());
 
-    let existing = load_config_file();
+    let existing = load_config_file(cli);
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut stdin = stdin.lock();

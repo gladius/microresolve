@@ -82,9 +82,9 @@ export default function NamespacePage() {
     if (!isActive) {
       setSelectedNamespaceId(namespaceId);
       setApiNamespaceId(namespaceId);
-      window.location.href = '/l2';
+      window.location.href = '/intents';
     } else {
-      navigate('/l2');
+      navigate('/intents');
     }
   };
 

@@ -16,11 +16,6 @@ impl Resolver {
         }
         Some(IntentInfo {
             id: intent_id.to_string(),
-            intent_type: self
-                .intent_types
-                .get(intent_id)
-                .copied()
-                .unwrap_or(IntentType::Action),
             description: self
                 .descriptions
                 .get(intent_id)
@@ -52,9 +47,6 @@ impl Resolver {
         }
         // Serialize edit before consuming its fields.
         let edit_json = serde_json::to_string(&edit).unwrap_or_default();
-        if let Some(t) = edit.intent_type {
-            self.intent_types.insert(intent_id.to_string(), t);
-        }
         if let Some(d) = edit.description {
             self.descriptions.insert(intent_id.to_string(), d);
         }

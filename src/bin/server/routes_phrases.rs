@@ -18,6 +18,10 @@ pub struct GeneratePhrasesRequest {
     intent_id: String,
     description: String,
     languages: Vec<String>,
+    /// Optional anchor phrases the user has in mind. The LLM uses them as seeds
+    /// and generates variations around them. Empty / missing = original behavior.
+    #[serde(default)]
+    examples: Vec<String>,
 }
 
 /// Server-side LLM phrase generation — used by the Intents page to seed a new intent.
@@ -25,8 +29,12 @@ pub async fn generate_phrases(
     State(state): State<AppState>,
     Json(req): Json<GeneratePhrasesRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let prompt =
-        microresolve::phrase::build_prompt(&req.intent_id, &req.description, &req.languages);
+    let prompt = microresolve::phrase::build_prompt(
+        &req.intent_id,
+        &req.description,
+        &req.languages,
+        &req.examples,
+    );
     let text = call_llm(&state, &prompt, 2048).await?;
     let result = microresolve::phrase::parse_response(&text, &req.languages).map_err(|e| {
         (

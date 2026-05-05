@@ -77,7 +77,7 @@ export declare class Namespace {
   /**
    * Update metadata fields on an existing intent.
    *
-   * Raises an error if the intent does not exist or `intentType` is invalid.
+   * Raises an error if the intent does not exist.
    */
   updateIntent(intentId: string, edit: IntentEditOptions): void
   /** Add a single phrase to an existing intent. */
@@ -189,8 +189,6 @@ export interface EngineOptions {
 
 /** Edit object accepted by `updateIntent`. */
 export interface IntentEditOptions {
-  /** `"action"` or `"context"`. */
-  intentType?: string
   description?: string
   instructions?: string
   persona?: string
@@ -200,8 +198,6 @@ export interface IntentEditOptions {
 /** Read-only view of an intent's metadata and training phrases. */
 export interface IntentInfo {
   id: string
-  /** `"action"` or `"context"`. */
-  intentType: string
   description: string
   /** Training phrases grouped by language code. */
   training: Record<string, Array<string>>

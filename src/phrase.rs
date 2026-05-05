@@ -88,8 +88,17 @@ DO NOT:
 
 /// Build an LLM prompt for seed generation.
 ///
+/// `examples`, when non-empty, gives the LLM 1–3 anchor phrases the user has
+/// already in mind. The model uses them as anchors and generates variations
+/// around them. Empty list = original behavior.
+///
 /// Returns the full prompt string to send to the LLM.
-pub fn build_prompt(intent_id: &str, description: &str, languages: &[String]) -> String {
+pub fn build_prompt(
+    intent_id: &str,
+    description: &str,
+    languages: &[String],
+    examples: &[String],
+) -> String {
     let configs = lang_configs();
 
     let guidelines = BASE_GUIDELINES
@@ -102,6 +111,30 @@ pub fn build_prompt(intent_id: &str, description: &str, languages: &[String]) ->
             },
         )
         .replace("{description}", description);
+
+    // Anchor block — only emitted when the user provided example phrases.
+    let anchor_block = if examples.is_empty() {
+        String::new()
+    } else {
+        let lines: Vec<String> = examples
+            .iter()
+            .filter(|e| !e.trim().is_empty())
+            .take(5)
+            .map(|e| format!("  - \"{}\"", e.trim()))
+            .collect();
+        if lines.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "\n\nThe user provided these anchor examples — generate variations \
+                 around them, matching the same intent. Keep the same meaning but \
+                 vary vocabulary, length, and style. Do NOT just word-swap; treat \
+                 each anchor as one of the ~10 outputs and generate the rest as \
+                 genuinely different phrasings:\n{}",
+                lines.join("\n")
+            )
+        }
+    };
 
     if languages.len() == 1 {
         let lang = &languages[0];
@@ -116,8 +149,8 @@ pub fn build_prompt(intent_id: &str, description: &str, languages: &[String]) ->
             .unwrap_or_default();
 
         format!(
-            "{}{}\n\nLanguage: {}\n\nReturn ONLY a JSON array of strings. No markdown, no explanation.",
-            guidelines, hint, lang_name
+            "{}{}{}\n\nLanguage: {}\n\nReturn ONLY a JSON array of strings. No markdown, no explanation.",
+            guidelines, anchor_block, hint, lang_name
         )
     } else {
         let lang_names: Vec<&str> = languages
@@ -145,8 +178,8 @@ pub fn build_prompt(intent_id: &str, description: &str, languages: &[String]) ->
         };
 
         format!(
-            "{}\n\nLanguages: {}\nFor non-English languages: write how native speakers actually type in chat, not translations of English phrases. Include slang, colloquialisms, and culturally natural expressions.{}\n\nReturn ONLY a JSON object mapping language codes to arrays. No markdown, no explanation. Example:\n{{\"en\": [\"phrase one\", \"long conversational phrase here\"], \"es\": [\"frase natural\", \"frase larga y conversacional aquí\"]}}",
-            guidelines, lang_list, hints_block
+            "{}{}\n\nLanguages: {}\nFor non-English languages: write how native speakers actually type in chat, not translations of English phrases. Include slang, colloquialisms, and culturally natural expressions.{}\n\nReturn ONLY a JSON object mapping language codes to arrays. No markdown, no explanation. Example:\n{{\"en\": [\"phrase one\", \"long conversational phrase here\"], \"es\": [\"frase natural\", \"frase larga y conversacional aquí\"]}}",
+            guidelines, anchor_block, lang_list, hints_block
         )
     }
 }
@@ -218,7 +251,7 @@ mod tests {
 
     #[test]
     fn build_prompt_single_lang() {
-        let prompt = build_prompt("cancel", "cancel order", &["en".to_string()]);
+        let prompt = build_prompt("cancel", "cancel order", &["en".to_string()], &[]);
         assert!(prompt.contains("Intent ID: cancel"));
         assert!(prompt.contains("Language: English"));
         assert!(prompt.contains("JSON array"));
@@ -230,12 +263,37 @@ mod tests {
             "cancel",
             "cancel order",
             &["en".to_string(), "zh".to_string(), "ta".to_string()],
+            &[],
         );
         assert!(prompt.contains("Languages: English, Chinese, Tamil"));
         assert!(prompt.contains("simplified Chinese"));
         assert!(prompt.contains("traditional Chinese"));
         assert!(prompt.contains("pure Tamil script"));
         assert!(prompt.contains("JSON object"));
+    }
+
+    #[test]
+    fn build_prompt_with_examples_includes_anchors() {
+        let examples = vec![
+            "cancel my order".to_string(),
+            "stop the order I placed".to_string(),
+        ];
+        let prompt = build_prompt("cancel", "cancel order", &["en".to_string()], &examples);
+        assert!(prompt.contains("anchor examples"));
+        assert!(prompt.contains("\"cancel my order\""));
+        assert!(prompt.contains("\"stop the order I placed\""));
+    }
+
+    #[test]
+    fn build_prompt_empty_examples_is_unchanged() {
+        let plain = build_prompt("cancel", "cancel order", &["en".to_string()], &[]);
+        let with_blank = build_prompt(
+            "cancel",
+            "cancel order",
+            &["en".to_string()],
+            &["".to_string(), "  ".to_string()],
+        );
+        assert_eq!(plain, with_blank, "blank/empty examples must be a no-op");
     }
 
     #[test]

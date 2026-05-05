@@ -178,7 +178,7 @@ export default function Layout() {
     {
       label: 'Build',
       items: [
-        { to: '/l2', label: 'Intents', icon: '◆',
+        { to: '/intents', label: 'Intents', icon: '◆',
           hint: 'Manage intents, training phrases, metadata' },
       ],
     },

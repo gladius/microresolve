@@ -11,7 +11,6 @@
 //!   {ns_dir}/{domain}/_domain.json        — domain description
 //!   {ns_dir}/{domain}/{intent_name}.json  — intent with domain prefix
 
-use crate::types::IntentType;
 use crate::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -304,7 +303,6 @@ impl Resolver {
             let info = self.intent(&intent_id);
             let intent_json = serde_json::json!({
                 "description": info.as_ref().map(|i| i.description.as_str()).unwrap_or(""),
-                "type": info.as_ref().map(|i| i.intent_type).unwrap_or(IntentType::Action),
                 "phrases": self.training_by_lang(&intent_id).cloned().unwrap_or_default(),
                 "instructions": info.as_ref().map(|i| i.instructions.as_str()).unwrap_or(""),
                 "persona": info.as_ref().map(|i| i.persona.as_str()).unwrap_or(""),
@@ -401,10 +399,6 @@ fn load_intent_file(router: &mut Resolver, path: &Path, intent_id: &str, skip_in
     }
 
     let edit = crate::IntentEdit {
-        intent_type: val.get("type").and_then(|t| t.as_str()).map(|s| match s {
-            "context" => IntentType::Context,
-            _ => IntentType::Action,
-        }),
         description: val
             .get("description")
             .and_then(|d| d.as_str())

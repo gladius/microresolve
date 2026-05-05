@@ -200,14 +200,12 @@ pub async fn simulate_respond(
         let mut defs = Vec::new();
         for intent in &req.routed_intents {
             let id = intent["id"].as_str().unwrap_or("");
-            let intent_type = h
-                .intent(id)
-                .map(|i| i.intent_type)
-                .unwrap_or(microresolve::IntentType::Action);
+            // touch the resolver to keep the borrow live during the loop;
+            // we no longer need any per-intent metadata for the LLM prompt.
+            let _ = h.intent(id);
             defs.push(format!(
-                "- {} ({:?}, score: {})",
+                "- {} (score: {})",
                 id,
-                intent_type,
                 intent["score"].as_f64().unwrap_or(0.0)
             ));
         }
@@ -309,14 +307,9 @@ pub async fn training_generate(
         ids.sort();
         for id in &ids {
             let seeds = h.training(id).unwrap_or_default();
-            let intent_type = h
-                .intent(id)
-                .map(|i| i.intent_type)
-                .unwrap_or(microresolve::IntentType::Action);
             defs.push(format!(
-                "- {} ({:?}): {}",
+                "- {}: {}",
                 id,
-                intent_type,
                 seeds.iter().take(3).cloned().collect::<Vec<_>>().join(", ")
             ));
         }

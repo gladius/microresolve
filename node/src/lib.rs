@@ -15,8 +15,8 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use microresolve_core::{
-    IntentEdit, IntentSeeds, IntentType, MicroResolve as CoreEngine, MicroResolveConfig,
-    NamespaceEdit, NamespaceInfo as CoreNamespaceInfo, ServerConfig,
+    IntentEdit, IntentSeeds, MicroResolve as CoreEngine, MicroResolveConfig, NamespaceEdit,
+    NamespaceInfo as CoreNamespaceInfo, ServerConfig,
 };
 
 fn core_result_to_node(r: microresolve_core::ResolveResult) -> ResolveResult {
@@ -51,8 +51,6 @@ fn core_result_to_node(r: microresolve_core::ResolveResult) -> ResolveResult {
 #[napi(object)]
 pub struct IntentInfo {
     pub id: String,
-    /// `"action"` or `"context"`.
-    pub intent_type: String,
     pub description: String,
     /// Training phrases grouped by language code.
     pub training: HashMap<String, Vec<String>>,
@@ -106,8 +104,6 @@ pub struct NamespaceEditOptions {
 /// Edit object accepted by `updateIntent`.
 #[napi(object)]
 pub struct IntentEditOptions {
-    /// `"action"` or `"context"`.
-    pub intent_type: Option<String>,
     pub description: Option<String>,
     pub instructions: Option<String>,
     pub persona: Option<String>,
@@ -355,10 +351,6 @@ impl Namespace {
             .intent(&intent_id)
             .map(|info| IntentInfo {
                 id: info.id,
-                intent_type: match info.intent_type {
-                    IntentType::Action => "action".to_string(),
-                    IntentType::Context => "context".to_string(),
-                },
                 description: info.description,
                 training: info.training,
             })
@@ -366,21 +358,10 @@ impl Namespace {
 
     /// Update metadata fields on an existing intent.
     ///
-    /// Raises an error if the intent does not exist or `intentType` is invalid.
+    /// Raises an error if the intent does not exist.
     #[napi]
     pub fn update_intent(&self, intent_id: String, edit: IntentEditOptions) -> Result<()> {
         let mut e = IntentEdit::default();
-        if let Some(ref t) = edit.intent_type {
-            e.intent_type = Some(match t.as_str() {
-                "action" => IntentType::Action,
-                "context" => IntentType::Context,
-                other => {
-                    return Err(Error::from_reason(format!(
-                        "intentType must be 'action' or 'context', got '{other}'"
-                    )))
-                }
-            });
-        }
         e.description = edit.description;
         e.instructions = edit.instructions;
         e.persona = edit.persona;

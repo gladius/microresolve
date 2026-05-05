@@ -37,7 +37,6 @@ fn manual_creation() {
                 "en": ["cancel my subscription", "stop my subscription", "end my plan", "I want to cancel"],
                 "fr": ["annuler mon abonnement", "arrêter mon abonnement"]
             },
-            "intent_type": "action",
             "description": "Cancel a recurring subscription"
         })).0;
     assert_eq!(s, 201);
@@ -177,15 +176,9 @@ fn mcp_import_three_tools() {
     assert!(body.contains("shop:create_refund"));
     assert!(body.contains("shop:send_notification"));
 
-    // search_orders is readOnly → Context; others → Action
-    assert!(
-        body.contains("\"intent_type\":\"context\""),
-        "readOnly → Context"
-    );
-    assert!(
-        body.contains("\"intent_type\":\"action\""),
-        "non-readOnly → Action"
-    );
+    // Note: IntentType (Action/Context auto-classification) was removed in
+    // v0.2.1. The field used to be derived from MCP `readOnlyHint`; nothing
+    // consumed it at runtime, so it was dropped. See CHANGELOG [0.2.1].
 
     // Schema preserved
     assert!(body.contains("customer_id"));

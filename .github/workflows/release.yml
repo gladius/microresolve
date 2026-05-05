@@ -295,10 +295,29 @@ jobs:
             npm publish --access public
           fi
 
+  # ── Stage 3b: Build pack tarballs (parallel with publishing) ─────────────────
+  build-pack-tarballs:
+    name: Build reference pack tarballs
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build pack tarballs
+        run: |
+          VERSION="${GITHUB_REF_NAME}"  # e.g. v0.2.1
+          mkdir -p target/pack-tarballs
+          for PACK in safety-filter eu-ai-act-prohibited hipaa-triage mcp-tools-generic; do
+            tar czf "target/pack-tarballs/pack-${PACK}-${VERSION}.tar.gz" -C packs "${PACK}"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pack-tarballs
+          path: target/pack-tarballs/*.tar.gz
+
   # ── Stage 4: GitHub release (only after all 3 registries succeed) ────────────
   github-release:
     name: Create GitHub release
-    needs: [publish-crate, publish-pypi, publish-npm, build-server-binaries]
+    needs: [publish-crate, publish-pypi, publish-npm, build-server-binaries, build-pack-tarballs]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -309,9 +328,15 @@ jobs:
           pattern: server-*
           path: server-archives
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: pack-tarballs
+          path: pack-tarballs
       - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           body_path: CHANGELOG.md
           fail_on_unmatched_files: false
-          files: server-archives/*
+          files: |
+            server-archives/*
+            pack-tarballs/*

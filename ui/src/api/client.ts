@@ -154,8 +154,6 @@ async function del<T>(path: string, body?: unknown): Promise<T> {
 
 // --- Types ---
 
-export type IntentType = 'action' | 'context';
-
 export type ConfidenceTier = 'high' | 'medium' | 'low';
 export type DetectionSource = 'dual' | 'paraphrase' | 'routing';
 
@@ -205,7 +203,6 @@ export interface IntentInfo {
   phrases: string[];
   phrases_by_lang: Record<string, string[]>;
   learned_count: number;
-  intent_type: IntentType;
   instructions?: string;
   persona?: string;
   guardrails?: string[];
@@ -235,7 +232,7 @@ export interface LogEntry {
   query: string;
   threshold: number;
   latency_us: number;
-  results: { id: string; score: number; intent_type: IntentType; span: [number, number] }[];
+  results: { id: string; score: number; span: [number, number] }[];
 }
 
 // --- API ---
@@ -252,10 +249,9 @@ export const api = {
   addIntent: (
     id: string,
     seeds: string[] | Record<string, string[]>,
-    intent_type?: IntentType,
     description?: string,
   ) => {
-    const body: Record<string, unknown> = { id, intent_type };
+    const body: Record<string, unknown> = { id };
     if (Array.isArray(seeds)) {
       body.phrases = seeds;
     } else {
@@ -276,7 +272,6 @@ export const api = {
   deleteIntent: (id: string) => del<void>(`/intents/${encodeURIComponent(id)}`),
   // Partial update — any subset of fields. Server: PATCH /api/intents/:id
   patchIntent: (id: string, fields: {
-    intent_type?: IntentType;
     description?: string;
     instructions?: string;
     persona?: string;
@@ -323,9 +318,19 @@ export const api = {
     get<{ total: number; offset: number; limit: number; entries: LogEntry[] }>(`/logs?limit=${limit}&offset=${offset}`),
   getLogStats: () => get<{ count: number; size_bytes: number; file: string }>('/logs/stats'),
 
-  // Phrase generation (server-side LLM call)
-  generatePhrases: (intent_id: string, description: string, languages: string[]) =>
-    post<{ phrases_by_lang: Record<string, string[]>; total: number }>('/phrase/generate', { intent_id, description, languages }),
+  // Phrase generation (server-side LLM call). `examples` are optional anchor
+  // phrases the user has in mind — the LLM uses them as seeds and generates
+  // variations around them.
+  generatePhrases: (
+    intent_id: string,
+    description: string,
+    languages: string[],
+    examples: string[] = [],
+  ) =>
+    post<{ phrases_by_lang: Record<string, string[]>; total: number }>(
+      '/phrase/generate',
+      { intent_id, description, languages, examples },
+    ),
 
   // Training Arena
   trainingGenerate: (config: {
@@ -368,7 +373,7 @@ export const api = {
 
   simulateRespond: (config: {
     query: string;
-    routed_intents: { id: string; score: number; intent_type: string }[];
+    routed_intents: { id: string; score: number }[];
     history: { role: string; message: string }[];
   }) => post<{ message: string }>('/simulate/respond', config),
 

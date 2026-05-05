@@ -8,7 +8,6 @@ use axum::{
     routing::{get, post},
     Json,
 };
-use microresolve::IntentType;
 use std::collections::HashMap;
 
 /// Feed accepted import phrases into the namespace's L2 (IntentIndex).
@@ -52,17 +51,17 @@ pub fn routes() -> axum::Router<AppState> {
 /// Calculate optimal batch_size and max_tokens for LLM seed generation.
 ///
 /// Formula:
-///   phrases_per_intent  = 5  (focused, spec-driven — quality over quantity)
+///   phrases_per_intent  = 10 (matches manual generate; nano-class LLMs can afford this)
 ///   tokens_per_phrase   = 10 (avg across en/zh: short cmds ~4, sentences ~15)
 ///   json_overhead       = 30 (keys, brackets, commas per intent)
-///   tokens_per_intent   = num_langs × 5 × 10 + 30 = num_langs × 50 + 30
+///   tokens_per_intent   = num_langs × 10 × 10 + 30 = num_langs × 100 + 30
 ///
 ///   batch_size = min(10, floor(8192 / tokens_per_intent))
 ///
 /// Returns (batch_size, max_tokens, tokens_per_tool).
 pub fn seed_gen_params(num_langs: usize) -> (usize, u32, u32) {
     let n = num_langs.max(1) as u32;
-    let tokens_per_intent = n * 50 + 30; // num_langs × 5 phrases × 10 tokens + JSON overhead
+    let tokens_per_intent = n * 100 + 30; // num_langs × 10 phrases × 10 tokens + JSON overhead
     let batch_size = ((8192 / tokens_per_intent) as usize).clamp(1, 10);
     let max_tokens = 8192;
     (batch_size, max_tokens, tokens_per_intent)
@@ -323,10 +322,6 @@ pub async fn import_apply(
                 .as_deref()
                 .or(Some(op.name.as_str()))
                 .unwrap_or("");
-            let intent_type = match op.method.as_str() {
-                "GET" | "HEAD" => microresolve::IntentType::Context,
-                _ => microresolve::IntentType::Action,
-            };
             let endpoint = format!("{} {}", op.method, op.path);
             let schema = serde_json::json!({
                 "method": op.method,
@@ -350,7 +345,6 @@ pub async fn import_apply(
                     } else {
                         Some(description.to_string())
                     },
-                    intent_type: Some(intent_type),
                     source: Some(
                         microresolve::IntentSource::new("openapi").with_label(parsed.title.clone()),
                     ),
@@ -460,7 +454,7 @@ pub async fn import_apply(
             };
 
             let prompt = format!(
-                "Generate 5 diverse training phrases for each API operation below.\n\
+                "Generate 10 diverse training phrases for each API operation below.\n\
                  You have the full operation context — use it to generate TARGETED phrases.\n\
                  These phrases train both a keyword router and a statistical count model.\n\
                  Phrases must use vocabulary specific to THIS operation, not generic API terms.\n\n\
@@ -806,12 +800,6 @@ pub async fn mcp_apply(
             let name_words = base_name.replace('_', " ");
             let _ = h.add_intent(&name, &[name_words.as_str()][..]);
 
-            let read_only = tool
-                .get("annotations")
-                .and_then(|a| a.get("readOnlyHint"))
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-
             let _ = h.update_intent(
                 &name,
                 microresolve::IntentEdit {
@@ -820,11 +808,6 @@ pub async fn mcp_apply(
                     } else {
                         Some(description.to_string())
                     },
-                    intent_type: Some(if read_only {
-                        IntentType::Context
-                    } else {
-                        IntentType::Action
-                    }),
                     source: Some(microresolve::IntentSource::new(*source_type)),
                     schema: Some((*tool).clone()),
                     target: Some(microresolve::IntentTarget::new(if *source_type == "mcp" {
@@ -920,7 +903,7 @@ pub async fn mcp_apply(
             };
 
             let prompt = format!(
-                "Generate 5 diverse training phrases for each MCP tool below.\n\
+                "Generate 10 diverse training phrases for each MCP tool below.\n\
                  You have the full tool description — use it to generate TARGETED phrases.\n\
                  These phrases train both a keyword router and a statistical count model.\n\
                  Phrases must use vocabulary specific to THIS tool, not generic action terms.\n\n\

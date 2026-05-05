@@ -6,7 +6,7 @@
 pub mod openapi;
 pub mod postman;
 
-use crate::{IntentType, Resolver};
+use crate::Resolver;
 use openapi::ParsedSpec;
 
 /// Result of importing a spec into the engine.
@@ -27,14 +27,12 @@ pub struct ImportedIntent {
     pub phrases: Vec<String>,
     pub endpoint: String,
     pub method: String,
-    pub intent_type: IntentType,
 }
 
 /// Import a parsed spec into the engine, creating one intent per operation.
 ///
 /// Only uses operation name as minimal phrase. For proper phrases, use LLM generation
 /// (server-side import_apply does this). Description is stored as metadata, not as phrases.
-/// Intent type: GET/HEAD = Context, everything else = Action.
 /// Metadata: endpoint (method + path), operation_id, tags, description.
 pub fn import_spec(router: &mut Resolver, spec: &ParsedSpec) -> ImportResult {
     let mut created = Vec::new();
@@ -51,12 +49,6 @@ pub fn import_spec(router: &mut Resolver, spec: &ParsedSpec) -> ImportResult {
             continue;
         }
 
-        // Determine intent type from HTTP method
-        let intent_type = match op.method.as_str() {
-            "GET" | "HEAD" => IntentType::Context,
-            _ => IntentType::Action,
-        };
-
         // Create the intent
         let _ = router.add_intent(&intent_name, &[name_lower.as_str()]);
 
@@ -65,7 +57,6 @@ pub fn import_spec(router: &mut Resolver, spec: &ParsedSpec) -> ImportResult {
         let _ = router.update_intent(
             &intent_name,
             crate::IntentEdit {
-                intent_type: Some(intent_type),
                 description: if desc.is_empty() {
                     None
                 } else {
@@ -82,7 +73,6 @@ pub fn import_spec(router: &mut Resolver, spec: &ParsedSpec) -> ImportResult {
             phrases: vec![name_lower],
             endpoint,
             method: op.method.clone(),
-            intent_type,
         });
     }
 
@@ -197,20 +187,6 @@ paths:
 
         assert_eq!(result.created.len(), 3);
         assert_eq!(result.skipped.len(), 0);
-
-        // Check intent types
-        assert_eq!(
-            router.intent("list_orders").map(|i| i.intent_type),
-            Some(IntentType::Context)
-        );
-        assert_eq!(
-            router.intent("create_order").map(|i| i.intent_type),
-            Some(IntentType::Action)
-        );
-        assert_eq!(
-            router.intent("cancel_order").map(|i| i.intent_type),
-            Some(IntentType::Action)
-        );
 
         // Check phrases were stored
         let cancel_phrases = router.training("cancel_order").unwrap_or_default();

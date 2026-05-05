@@ -8,6 +8,7 @@ mod cli;
 mod data_git;
 mod key_store;
 mod log_store;
+mod packs;
 mod pipeline;
 mod routes_auth;
 mod routes_connect;
@@ -94,20 +95,36 @@ async fn main() {
     // Parse CLI: handles --help, --version, subcommands, flag validation.
     let parsed = <cli::Cli as clap::Parser>::parse();
 
-    // Subcommand: interactive config setup, then exit.
-    if let Some(cli::Command::Config) = parsed.command {
-        if let Err(e) = cli::run_config_subcommand() {
-            eprintln!("Failed to write config: {}", e);
-            std::process::exit(1);
+    // Subcommands that exit before starting the server.
+    match &parsed.command {
+        Some(cli::Command::Config) => {
+            if let Err(e) = cli::run_config_subcommand(&parsed) {
+                eprintln!("Failed to write config: {}", e);
+                std::process::exit(1);
+            }
+            return;
         }
-        return;
+        Some(cli::Command::Install { pack }) => {
+            let cfg = cli::resolve(&parsed);
+            if let Err(e) = packs::install(pack, &cfg.data_dir) {
+                eprintln!("Install failed: {}", e);
+                std::process::exit(1);
+            }
+            return;
+        }
+        Some(cli::Command::ListPacks) => {
+            let cfg = cli::resolve(&parsed);
+            packs::list(&cfg.data_dir);
+            return;
+        }
+        None => {}
     }
 
     // Merge CLI flags + env vars + config file into one resolved config.
     let cfg = cli::resolve(&parsed);
 
     if parsed.print_config {
-        cli::print_resolved(&cfg);
+        cli::print_resolved(&cfg, &parsed);
         return;
     }
 

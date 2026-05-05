@@ -148,14 +148,6 @@ impl From<std::io::Error> for Error {
     }
 }
 
-/// Intent type: Action (user wants something done) or Context (supporting info).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum IntentType {
-    Action,
-    Context,
-}
-
 /// Where an intent definition came from.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IntentSource {
@@ -305,7 +297,6 @@ impl From<std::collections::HashMap<String, Vec<String>>> for IntentSeeds {
 #[derive(Debug, Clone)]
 pub struct IntentInfo {
     pub id: String,
-    pub intent_type: IntentType,
     pub description: String,
     pub instructions: String,
     pub persona: String,
@@ -355,7 +346,6 @@ pub struct NamespaceEdit {
 /// `Some(vec![])`, etc.).
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct IntentEdit {
-    pub intent_type: Option<IntentType>,
     pub description: Option<String>,
     pub instructions: Option<String>,
     pub persona: Option<String>,

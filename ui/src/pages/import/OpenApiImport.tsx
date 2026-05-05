@@ -165,7 +165,7 @@ export default function OpenApiImport() {
       {result && (
         <ImportReport
           result={result}
-          onViewIntents={() => navigate('/l2')}
+          onViewIntents={() => navigate('/intents')}
           onImportMore={() => { setParsed(null); setResult(null); setRawSpec(''); setSpecUrl(''); setDomain(null); }}
         />
       )}

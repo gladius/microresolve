@@ -10,7 +10,6 @@ impl Resolver {
         Self {
             index: crate::scoring::IntentIndex::new(),
             training: HashMap::new(),
-            intent_types: HashMap::new(),
             descriptions: HashMap::new(),
             instructions: HashMap::new(),
             persona: HashMap::new(),
@@ -36,10 +35,9 @@ impl Resolver {
 
     /// Get all intent IDs. Canonical source is the training map.
     pub fn intent_ids(&self) -> Vec<String> {
-        // Union of training keys and intent_types keys to include intents
-        // that have a type/description set but no training phrases yet.
+        // Union of training keys and descriptions keys to include intents
+        // that have a description set but no training phrases yet.
         let mut ids: FxHashSet<String> = self.training.keys().cloned().collect();
-        ids.extend(self.intent_types.keys().cloned());
         ids.extend(self.descriptions.keys().cloned());
         let mut v: Vec<String> = ids.into_iter().collect();
         v.sort();
@@ -77,7 +75,6 @@ impl Resolver {
     pub fn export_json(&self) -> String {
         let state = ResolverState {
             training: self.training.clone(),
-            intent_types: self.intent_types.clone(),
             descriptions: self.descriptions.clone(),
             instructions: self.instructions.clone(),
             persona: self.persona.clone(),
@@ -98,7 +95,6 @@ impl Resolver {
         let mut resolver = Self {
             index: crate::scoring::IntentIndex::new(),
             training: state.training,
-            intent_types: state.intent_types,
             descriptions: state.descriptions,
             instructions: state.instructions,
             persona: state.persona,
@@ -504,8 +500,6 @@ impl Resolver {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct ResolverState {
     training: HashMap<String, HashMap<String, Vec<String>>>,
-    #[serde(default)]
-    intent_types: HashMap<String, IntentType>,
     #[serde(default)]
     descriptions: HashMap<String, String>,
     #[serde(default)]

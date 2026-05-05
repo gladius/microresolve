@@ -160,8 +160,6 @@ fn ns_info_to_py(info: microresolve_core::NamespaceInfo) -> NamespaceInfo {
 struct IntentInfo {
     /// Intent identifier.
     id: String,
-    /// `"action"` or `"context"`.
-    intent_type: String,
     /// Human-readable description.
     description: String,
     /// Training phrases grouped by language code.
@@ -172,22 +170,16 @@ struct IntentInfo {
 impl IntentInfo {
     fn __repr__(&self) -> String {
         format!(
-            "IntentInfo(id={:?}, intent_type={:?}, phrases={})",
+            "IntentInfo(id={:?}, phrases={})",
             self.id,
-            self.intent_type,
             self.training.values().map(|v| v.len()).sum::<usize>()
         )
     }
 }
 
 fn info_to_py(info: microresolve_core::IntentInfo) -> IntentInfo {
-    let intent_type = match info.intent_type {
-        microresolve_core::IntentType::Action => "action".to_string(),
-        microresolve_core::IntentType::Context => "context".to_string(),
-    };
     IntentInfo {
         id: info.id,
-        intent_type,
         description: info.description,
         training: info.training,
     }
@@ -304,23 +296,10 @@ impl Namespace {
 
     /// Update metadata fields on an existing intent.
     ///
-    /// Accepts kwargs: `intent_type` ("action"|"context"), `description`,
-    /// `instructions`, `persona`, `guardrails` (list[str]).
-    /// Raises `ValueError` if the intent does not exist or intent_type is invalid.
+    /// Accepts kwargs: `description`, `instructions`, `persona`, `guardrails` (list[str]).
+    /// Raises `ValueError` if the intent does not exist.
     fn update_intent(&self, intent_id: &str, edit: &Bound<'_, PyDict>) -> PyResult<()> {
         let mut e = microresolve_core::IntentEdit::default();
-        if let Some(v) = edit.get_item("intent_type")? {
-            let s = v.extract::<String>()?;
-            e.intent_type = Some(match s.as_str() {
-                "action" => microresolve_core::IntentType::Action,
-                "context" => microresolve_core::IntentType::Context,
-                other => {
-                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                        "intent_type must be 'action' or 'context', got '{other}'"
-                    )))
-                }
-            });
-        }
         if let Some(v) = edit.get_item("description")? {
             e.description = Some(v.extract::<String>()?);
         }

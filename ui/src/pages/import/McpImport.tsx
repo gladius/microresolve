@@ -321,7 +321,7 @@ export default function McpImport() {
       )}
 
       {/* Step 3: Result */}
-      {result && <ImportReport result={result} onViewIntents={() => navigate('/l2')} onImportMore={reset} />}
+      {result && <ImportReport result={result} onViewIntents={() => navigate('/intents')} onImportMore={reset} />}
       </div>
     </Page>
   );

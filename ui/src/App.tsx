@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import HomePage from '@/pages/HomePage';
 import RouterPage from '@/pages/RouterPage';
@@ -122,7 +122,8 @@ export default function App() {
             <Route path="/resolve" element={<RouterPage />} />
             <Route path="/simulate" element={<SimulatePage />} />
             <Route path="/review" element={<ReviewPage />} />
-            <Route path="/l2" element={<IntentsPage />} />
+            <Route path="/intents" element={<IntentsPage />} />
+            <Route path="/l2" element={<Navigate to="/intents" replace />} />
             <Route path="/import" element={<ImportLanding />} />
             <Route path="/import/openapi" element={<OpenApiImport />} />
             <Route path="/import/mcp" element={<McpImport />} />

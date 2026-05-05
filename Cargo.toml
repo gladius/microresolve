@@ -1,6 +1,6 @@
 [package]
 name = "microresolve"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Gladius Thayalarajan"]
 description = "System 1 relay for LLM apps — sub-millisecond intent classification, safety gating, tool selection. CPU-only, continuous learning from corrections."
@@ -57,6 +57,8 @@ open = { version = "5", optional = true }
 rand = { version = "0.10", optional = true }
 hex = { version = "0.4", optional = true }
 zip = { version = "8", optional = true }
+tar = { version = "0.4", optional = true }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"], optional = true }
 rust-embed = { version = "8", features = ["compression"], optional = true }
 mime_guess = { version = "2", optional = true }
 
@@ -71,7 +73,7 @@ connect = ["reqwest"]
 # opt-in so embedded library users do not pay for the HTTP server stack.
 # `server` implies `bundled-ui` so the studio binary always ships its UI
 # in a single executable; build prerequisite: `cd ui && npm run build`.
-server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect", "clap", "toml", "directories", "open", "rand", "hex", "zip", "bundled-ui"]
+server = ["axum", "tokio", "tokio-stream", "tower-http", "reqwest", "connect", "clap", "toml", "directories", "open", "rand", "hex", "zip", "tar", "flate2", "bundled-ui"]
 # Embed ui/dist/ into the binary at compile time. Pulled in transitively
 # by `server`; named separately so future opt-outs are mechanical.
 bundled-ui = ["rust-embed", "mime_guess"]

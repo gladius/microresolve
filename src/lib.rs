@@ -93,8 +93,6 @@ pub struct Resolver {
     /// Structure: { intent_id: { lang_code: [phrases] } }
     /// This is the canonical intent list — `intent_ids()` reads from here.
     training: HashMap<String, HashMap<String, Vec<String>>>,
-    /// Intent type per intent (Action or Context). Default: Action.
-    intent_types: HashMap<String, IntentType>,
     /// Human-readable description per intent.
     /// Used by LLM prompts for Hebbian bootstrap context.
     descriptions: HashMap<String, String>,

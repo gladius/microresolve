@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.1] — Unreleased
+
+### Added
+- `microresolve-studio install <pack>` — fetches a reference pack tarball from
+  the GitHub release matching the binary version and extracts it into the
+  configured data dir.
+- `microresolve-studio list-packs` — shows the 4 reference packs with their
+  install status against the data dir.
+- `--config <PATH>` flag + `MICRORESOLVE_CONFIG` env var on the studio binary,
+  for sandbox testing and multi-instance deployments. The `config`
+  subcommand respects the override.
+
+### Fixed
+- PyPI project page now renders the README as long-description (was empty
+  in v0.2.0 because `pyproject.toml` lacked the `readme` field).
+- Aligned package short-descriptions across crates.io, PyPI, and npm to a
+  single phrasing matching the v0.2.0 README hero ("System 1 relay for
+  LLM apps...").
+
+### Build
+- Release workflow now builds and uploads pack tarballs as release assets
+  (`pack-<name>-v<VERSION>.tar.gz`) so `microresolve-studio install <pack>`
+  has something to fetch.
+
+### Removed
+- **`IntentType` (Action/Context) classification removed entirely.** Field
+  was never consumed by scoring/routing — pure dead metadata. Old intent
+  JSON files with `"type": "action"` still load fine (serde ignores
+  unknown fields). Public API affected: removed `IntentEdit.intent_type`,
+  `IntentInfo.intent_type`, the `intent_type` parameter on
+  `add_intent`/`update_intent`, and the auto-classification at import time
+  (HTTP-verb-based for OpenAPI, `readOnlyHint`-based for MCP) is gone.
+- **Per-intent `Stats` tab on the Intents page** — replaced with a
+  single-line metric strip above the phrases list (`12 examples · 3 langs
+  · 8 learned`). Saves a click and removes a tab that mostly duplicated
+  the phrases-tab count.
+
+### UI
+- **Richer manual seed generation — anchor examples.** The "Generate
+  examples with AI" panel on the per-intent Examples tab gains a
+  textarea for 1–3 anchor phrases the user already has in mind. The
+  LLM uses them as seeds and generates variations around them. Empty =
+  original behavior. Closes part of the quality gap between manual
+  intent creation and import (which has full operation context).
+  Wired through `phrase::build_prompt(... examples)` and
+  `POST /api/phrase/generate` accepts an optional `examples: string[]`.
+- **Import seed count bumped 5 → 10 phrases per intent.** Matches
+  manual generate. Token-budget headroom stays well under 8192;
+  marginal cost increase ~$0.01 per 50-tool import on nano-class
+  models. The previous 5/intent floor was leaving recall on the table
+  for newly-imported namespaces.
+- **`/l2` route renamed to `/intents`.** `/l2` now redirects via
+  `<Navigate>` for backward compat with bookmarks.
+- **"Phrases" relabeled to "Examples"** in the per-intent tabbed panel.
+  Internal-facing names (`phrases`, `phrases_by_lang` API fields) stay
+  as-is — display change only.
+- **Resolve page**: removed the duplicate-query block that was a
+  passthrough render of the `HighlightedQuery` component (the highlighter
+  itself was gutted when L1 was removed in v0.2.0; the duplicate query
+  block had no value).
+
+---
+
 ## [0.2.0] — Unreleased
 
 ### Added — Reference packs

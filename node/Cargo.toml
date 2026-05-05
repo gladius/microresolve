@@ -1,6 +1,6 @@
 [package]
 name = "microresolve-node"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Gladius Thayalarajan"]
 description = "System 1 relay for LLM apps — sub-millisecond intent classification, safety gating, tool selection. CPU-only, continuous learning from corrections."
