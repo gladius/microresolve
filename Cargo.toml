@@ -9,7 +9,7 @@ repository = "https://github.com/gladius/microresolve"
 homepage = "https://github.com/gladius/microresolve"
 documentation = "https://docs.rs/microresolve"
 readme = "README.md"
-keywords = ["intent-classification", "pre-llm", "llm", "safety", "agent-router"]
+keywords = ["intent", "pre-llm", "llm", "safety", "agent-router"]
 categories = ["text-processing", "algorithms"]
 
 # Strip non-library artifacts from the crates.io tarball. Cargo's default
