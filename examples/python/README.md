@@ -20,6 +20,7 @@ All examples import as `from microresolve import Router`.
 
 | Example | Description |
 |---------|-------------|
+| `launch_demo.py` | **Three-namespace fan-out + confirm-turn pattern with a live LLM call.** Mirrors the launch-blog demo end-to-end. |
 | `basic.py` | Routing, multi-intent, learning, export/import, discovery |
 | `fastapi_server.py` | Production REST endpoint with FastAPI |
 | `hybrid_llm.py` | 80/20 pattern: MicroResolve routes cheap, Claude handles the rest |

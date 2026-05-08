@@ -134,6 +134,7 @@ export default function App() {
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/models" element={<ModelsPage />} />
             <Route path="/auth" element={<AuthKeysPage />} />
+            <Route path="/audit" element={<AuthKeysPage />} />
             <Route path="/connected" element={<ConnectedClientsPage />} />
             <Route path="/languages" element={<LanguagesPage />} />
             <Route path="/settings" element={<SettingsPage />} />

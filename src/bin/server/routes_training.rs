@@ -13,7 +13,7 @@ use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
     routing::{get, post},
-    Json,
+    Extension, Json,
 };
 
 pub fn routes() -> axum::Router<AppState> {
@@ -562,6 +562,7 @@ pub struct TrainingApplyRequest {
 pub async fn training_apply(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Json(req): Json<TrainingApplyRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let app_id = app_id_from_headers(&headers);
@@ -569,6 +570,21 @@ pub async fn training_apply(
         return Err((StatusCode::NOT_FOUND, format!("app '{}' not found", app_id)));
     }
     let applied = apply_review(&state, &app_id, &req.result, &req.query).await;
+    audit_mutation(
+        &state,
+        &kid,
+        &app_id,
+        "learn.apply",
+        serde_json::json!({
+            "namespace_id": app_id,
+            "query_hash": crate::audit_log::hash_query(&req.query),
+            "applied": applied,
+            "phrases_added": req.result.phrases_to_add.values().map(|v| v.len()).sum::<usize>(),
+            "correct_intents": req.result.correct_intents,
+            "wrong_detections": req.result.wrong_detections,
+            "missed_intents": req.result.missed_intents,
+        }),
+    );
     Ok(Json(serde_json::json!({ "applied": applied })))
 }
 

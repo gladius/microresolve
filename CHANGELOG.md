@@ -7,6 +7,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.2] — 2026-05-08
+
+### Added — Tamper-evident audit log (continuation of v0.2.0 compliance packs)
+
+**This is the direct continuation of the compliance-pack work from
+v0.2.0.** The two regulated packs (`eu-ai-act-prohibited`,
+`hipaa-triage`) shipped first and needed an audit chain to be deployable
+in regulated environments — that chain is what this release lands. EU
+AI Act Art. 13 and HIPAA §164.312(b) both require tamper-evident
+decision logs for high-risk AI systems; this release wires those
+guarantees into the engine itself, with no external dependencies. Same
+project, same authors, same lineage.
+
+The chain pattern is the same one used by **Certificate Transparency
+(RFC 6962, 2013)** and **Sigstore** — production-grade prior art
+deployed across the public Internet's TLS trust infrastructure. Not
+blockchain. Anyone claiming this design originates elsewhere should be
+asked to point to a hash-chain log primitive that predates RFC 6962
+(there isn't one); this release is engineering, not invention.
+
+#### Chain & attribution
+
+- **Per-key hash-chained audit chains.** Every authenticated key writes
+  to its own append-only chain at `{data_dir}/_audit/{kid}.log`. Each
+  entry carries `prev_hash` and `entry_hash` (SHA-256 of the previous
+  entry's hash plus this entry's content), making post-hoc tampering
+  cryptographically detectable.
+- **Per-workload attribution.** The API key `name` (the `mr_<name>_<hex>`
+  slug, not the secret) is the chain identifier. One App-scope key per
+  workload (a Deployment / service / tenant — not per pod) is the
+  recommended pattern; this matches the CloudTrail / Stripe / Datadog
+  per-credential identity model. All replicas of one workload share the
+  key via Secret / env var.
+- **Per-chain mutex.** Different keys' writes proceed in parallel; only
+  same-key writes serialize. Internal locking — callers do not wrap an
+  outer Mutex.
+
+#### Events logged
+
+Every state-changing operation is captured automatically:
+
+- `resolve` — every `/api/resolve` call (intents, scores, threshold,
+  latency, SHA-256 of the query — no raw query content stored)
+- `intent.add` / `intent.update` / `intent.delete`
+- `phrase.add` / `phrase.remove`
+- `namespace.create` / `namespace.update` / `namespace.delete`
+- `learn.apply` — auto-learn correction events
+- `key.create` / `key.revoke`
+
+#### Mode
+
+Two states: `off` or `default`. Set server-wide via `[audit].mode` in
+`config.toml` or the `MICRORESOLVE_AUDIT_MODE` env var. **Defaults to
+`default` (enabled) on a fresh install** — the audit story is on out
+of the box; operators opt out, not in.
+
+| Mode      | Mutations | Resolves | Query content |
+|-----------|-----------|----------|---------------|
+| `default` | yes       | yes      | SHA-256 hash only |
+| `off`     | no        | no       | n/a               |
+
+#### KeyScope enforcement
+
+- `KeyScope::Library` → renamed to `KeyScope::App`. One key per
+  *workload* is the correct identity unit (not per library version).
+  No backwards-compat shim; 0.x naming clarity wins.
+- **App scope**: `GET /api/*` and `POST /api/{resolve,sync,snapshot,report}`.
+  Anything else returns 403.
+- **Admin scope**: everything.
+- This makes the attribution claim coherent — App-scope keys cannot
+  mutate intents, namespaces, or other keys.
+
+#### Endpoints + tooling
+
+- `GET  /api/audit/heads` — current chain heads per key
+- `GET  /api/audit/config` — server-wide audit mode
+- `POST /api/audit/verify` — re-walks all chains, returns per-chain status
+- `microresolve-studio verify-log` — CLI verifier (exit-non-zero on
+  break; suitable for cron)
+- `microresolve-studio export-log` — CLI export to JSONL stdout for
+  handoff to SIEM / auditor. Filters: `--key`, `--namespace`,
+  `--event-prefix`, `--since <n>{s|m|h|d}`.
+- Studio **Auth & Audit** page — keys table now includes audit columns
+  (chain entries per key, Verify status). One "Verify chains" button
+  walks every chain and reports back inline.
+
+#### Compliance pack metadata
+
+- `compliance_frameworks` field on `_ns.json` (server-side read; the
+  microresolve crate stays unaware of compliance concepts). Surfaced
+  in `/api/namespaces` and rendered as:
+  - "regulated" badge + framework citations on `/namespaces` cards
+  - Sidebar 🛡 pill on the currently-active regulated namespace,
+    linking through to the Auth & Audit page
+- `hipaa-triage/_ns.json` declares `["HIPAA §164.312(b)"]`.
+- `eu-ai-act-prohibited/_ns.json` declares `["EU AI Act Art. 5",
+  "EU AI Act Art. 13"]`.
+
+### Changed
+- **`KeyScope::Library` renamed to `KeyScope::App`.** One key per
+  workload — the chain identifier — is the correct identity unit.
+  No backwards-compat shim; this is a 0.x project where naming clarity
+  matters more than legacy aliases.
+- **Engine compile-time `DEFAULT_THRESHOLD` raised from `0.3` → `1.0`.** The
+  old default was tuned for an earlier scoring path (pre L0/L1 removal) and
+  let too many out-of-scope queries fire as `band=High` on freshly-created
+  namespaces. Bench on `mcp-tools-generic` (7 intents, 21 positive + 21 OOS
+  queries): at 0.3, FPR was 28.6%; at 1.0, FPR drops to 4.8% with TPR
+  essentially unchanged (95.2% → 90.5%). All four shipped packs already
+  override to 1.5 in `_ns.json`, so this only affects user-built namespaces
+  with no override set.
+
+### Fixed
+- **OpenAI GPT-5 / o-series models now work for `/api/phrase/generate`
+  and import seed-generation.** The OpenAI Chat Completions API for
+  reasoning models requires `max_completion_tokens` instead of
+  `max_tokens`; the previous code sent `max_tokens` and silently
+  produced 0-phrase imports. Fixed by branching on `api.openai.com` URL.
+  Other OpenAI-compatible endpoints (Groq, Ollama, vLLM, DeepSeek, LM
+  Studio) still use `max_tokens` (their API expects it).
+- **LLM seed-generation errors no longer silently swallowed.** Import
+  flow now logs `[import] LLM seed generation failed (status): msg`
+  to stderr when the LLM call fails — failures used to surface as
+  "import succeeded, 0 phrases" with no diagnostic.
+- Studio sidebar "Tuning" pill now shows the resolved threshold value (e.g.
+  `1.00`) when no namespace override is set, instead of the placeholder
+  `def`. The displayed value matches what the resolver actually applies.
+
+---
+
 ## [0.2.1] — Unreleased
 
 ### Added

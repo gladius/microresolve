@@ -1,5 +1,6 @@
 //! Server state, shared types, and helper functions.
 
+use crate::audit_log::AuditLog;
 use crate::log_store::{LogRecord, LogStore};
 use axum::http::HeaderMap;
 use microresolve::{MicroResolve, MicroResolveConfig};
@@ -7,6 +8,13 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, Notify};
+
+/// Newtype for the authenticated API key's `name` field. Inserted into
+/// the request extensions by `require_api_key` so handlers can attribute
+/// writes to the calling key without re-running validate(). Used by the
+/// audit log (`kid` field) and the connected-clients roster.
+#[derive(Clone, Debug)]
+pub struct KeyName(pub String);
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct UiSettings {
@@ -119,6 +127,12 @@ pub struct ServerState {
     /// Wrapped in RwLock so the /api/settings/git PUT can update it live.
     pub git_remote: RwLock<Option<String>>,
     pub log_store: Mutex<LogStore>,
+    /// Tamper-evident audit log — per-key hash-chained event store.
+    /// Receives every mutation (intent edits, namespace changes, key
+    /// events, learn.apply) and (depending on resolved AuditMode) every
+    /// resolve call. Internal locking — different keys' chains write
+    /// in parallel. See `audit_log.rs`.
+    pub audit_log: AuditLog,
     pub http: reqwest::Client,
     pub llm_key: Option<String>,
     /// Per-namespace review mode: "manual" | "auto". Defaults to "manual".
@@ -260,6 +274,25 @@ pub fn log_query(state: &ServerState, record: LogRecord) -> u64 {
         .lock()
         .map(|mut s| s.append(record))
         .unwrap_or(0)
+}
+
+/// Append a mutation event to the tamper-evident audit chain.
+/// Returns immediately when audit is `Off`.
+///
+/// Use for every state-changing operation: intent edits, namespace
+/// changes, learn.apply, key creation/revocation. Resolve calls go
+/// through `routes_core.rs::audit_resolve` directly.
+pub fn audit_mutation(
+    state: &ServerState,
+    kid: &str,
+    ns: &str,
+    event_type: &str,
+    payload: serde_json::Value,
+) {
+    if !state.audit_log.mode().enabled() {
+        return;
+    }
+    state.audit_log.record(kid, ns, event_type, payload);
 }
 
 /// Get review mode for a namespace. Returns "manual" if not set.

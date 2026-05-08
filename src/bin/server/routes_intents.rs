@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     routing::{get, patch, post},
-    Json,
+    Extension, Json,
 };
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
@@ -40,6 +40,7 @@ pub struct PatchIntentRequest {
 pub async fn patch_intent(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Path(id): Path<String>,
     Json(req): Json<PatchIntentRequest>,
 ) -> Result<StatusCode, (StatusCode, String)> {
@@ -48,6 +49,18 @@ pub async fn patch_intent(
         StatusCode::NOT_FOUND,
         format!("namespace '{}' not found", app_id),
     ))?;
+
+    let fields_changed: Vec<&str> = [
+        ("description", req.description.is_some()),
+        ("instructions", req.instructions.is_some()),
+        ("persona", req.persona.is_some()),
+        ("guardrails", req.guardrails.is_some()),
+        ("target", req.target.is_some()),
+    ]
+    .iter()
+    .filter(|(_, set)| *set)
+    .map(|(name, _)| *name)
+    .collect();
 
     let edit = microresolve::IntentEdit {
         description: req.description,
@@ -60,6 +73,17 @@ pub async fn patch_intent(
     h.update_intent(&id, edit)
         .map_err(|e| (StatusCode::NOT_FOUND, e.to_string()))?;
 
+    audit_mutation(
+        &state,
+        &kid,
+        &app_id,
+        "intent.update",
+        serde_json::json!({
+            "intent_id": id,
+            "fields": fields_changed,
+        }),
+    );
+
     maybe_commit(&state, &app_id);
     Ok(StatusCode::NO_CONTENT)
 }
@@ -67,6 +91,7 @@ pub async fn patch_intent(
 pub async fn delete_intent_by_id(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Path(id): Path<String>,
 ) -> StatusCode {
     let app_id = app_id_from_headers(&headers);
@@ -75,6 +100,13 @@ pub async fn delete_intent_by_id(
     };
     h.remove_intent(&id)
         .expect("server is standalone; ConnectMode unreachable");
+    audit_mutation(
+        &state,
+        &kid,
+        &app_id,
+        "intent.delete",
+        serde_json::json!({ "intent_id": id }),
+    );
     maybe_commit(&state, &app_id);
     StatusCode::NO_CONTENT
 }
@@ -93,6 +125,7 @@ pub fn default_lang() -> String {
 pub async fn add_phrase_to_intent(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Path(id): Path<String>,
     Json(req): Json<PhrasePayload>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
@@ -112,6 +145,17 @@ pub async fn add_phrase_to_intent(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     if result.added {
+        audit_mutation(
+            &state,
+            &kid,
+            &app_id,
+            "phrase.add",
+            serde_json::json!({
+                "intent_id": id,
+                "phrase_hash": crate::audit_log::hash_query(&req.phrase),
+                "lang": req.lang,
+            }),
+        );
         maybe_commit(&state, &app_id);
     }
 
@@ -135,6 +179,7 @@ pub async fn add_phrase_to_intent(
 pub async fn remove_phrase_from_intent(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Path(id): Path<String>,
     Json(req): Json<PhrasePayload>,
 ) -> Result<StatusCode, (StatusCode, String)> {
@@ -147,6 +192,16 @@ pub async fn remove_phrase_from_intent(
         .remove_phrase(&id, &req.phrase)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     if removed {
+        audit_mutation(
+            &state,
+            &kid,
+            &app_id,
+            "phrase.remove",
+            serde_json::json!({
+                "intent_id": id,
+                "phrase_hash": crate::audit_log::hash_query(&req.phrase),
+            }),
+        );
         maybe_commit(&state, &app_id);
         Ok(StatusCode::NO_CONTENT)
     } else {
@@ -203,10 +258,17 @@ pub struct AddIntentRequest {
 pub async fn add_intent(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Json(req): Json<AddIntentRequest>,
 ) -> StatusCode {
     let app_id = app_id_from_headers(&headers);
     let h = state.engine.namespace(&app_id);
+
+    let phrase_count = req
+        .phrases_by_lang
+        .as_ref()
+        .map(|m| m.values().map(|v| v.len()).sum::<usize>())
+        .unwrap_or(req.phrases.len());
 
     if let Some(by_lang) = req.phrases_by_lang {
         let _ = h.add_intent(&req.id, by_lang);
@@ -215,6 +277,11 @@ pub async fn add_intent(
         let _ = h.add_intent(&req.id, seed_refs.as_slice());
     }
 
+    let desc_set = req
+        .description
+        .as_ref()
+        .map(|d| !d.is_empty())
+        .unwrap_or(false);
     if let Some(desc) = req.description.filter(|d| !d.is_empty()) {
         let _ = h.update_intent(
             &req.id,
@@ -224,6 +291,17 @@ pub async fn add_intent(
             },
         );
     }
+    audit_mutation(
+        &state,
+        &kid,
+        &app_id,
+        "intent.add",
+        serde_json::json!({
+            "intent_id": req.id,
+            "phrase_count": phrase_count,
+            "has_description": desc_set,
+        }),
+    );
     maybe_commit(&state, &app_id);
     StatusCode::CREATED
 }

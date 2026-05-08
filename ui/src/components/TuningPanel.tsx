@@ -41,13 +41,14 @@ const VOTING_TOOLTIP =
   'of "heart" alone. Default 1 (off). Set 2 or 3 to suppress single-word matches.';
 
 // Fetch current namespace values from the list endpoint
-async function fetchNsValues(namespaceId: string): Promise<{ threshold: number | null; minVt: number }> {
+async function fetchNsValues(namespaceId: string): Promise<{ threshold: number | null; minVt: number; complianceFrameworks: string[] }> {
   const list = await api.listNamespaces();
   const ns = list.find(n => n.id === namespaceId);
-  if (!ns) return { threshold: null, minVt: 1 };
+  if (!ns) return { threshold: null, minVt: 1, complianceFrameworks: [] };
   return {
     threshold: ns.default_threshold,
     minVt: ns.default_min_voting_tokens ?? 1,
+    complianceFrameworks: ns.compliance_frameworks ?? [],
   };
 }
 
@@ -196,6 +197,7 @@ function FullPanel({ namespaceId, onAfterUpdate }: { namespaceId: string; onAfte
 function CompactPanel({ namespaceId, onAfterUpdate }: { namespaceId: string; onAfterUpdate?: () => void }) {
   const [threshold, setThreshold] = useState<number | null>(null);
   const [minVt,     setMinVt]     = useState<number>(1);
+  const [complianceFrameworks, setComplianceFrameworks] = useState<string[]>([]);
   const [expanded,  setExpanded]  = useState(false);
   const [loaded,    setLoaded]    = useState(false);
 
@@ -203,6 +205,7 @@ function CompactPanel({ namespaceId, onAfterUpdate }: { namespaceId: string; onA
     fetchNsValues(namespaceId).then(v => {
       setThreshold(v.threshold);
       setMinVt(v.minVt);
+      setComplianceFrameworks(v.complianceFrameworks);
       setLoaded(true);
     }).catch(() => setLoaded(true));
   }, [namespaceId]);
@@ -211,10 +214,14 @@ function CompactPanel({ namespaceId, onAfterUpdate }: { namespaceId: string; onA
 
   if (!loaded) return null;
 
-  const threshDisplay = threshold != null ? threshold.toFixed(2) : 'def';
+  // When no namespace override, fall back to the engine compile-time
+  // default (1.0) — same fallback the resolver uses. Shows the value
+  // that's actually applied at resolve time, not "def".
+  const threshDisplay = (threshold != null ? threshold : 1.0).toFixed(2);
+  const isRegulated = complianceFrameworks.length > 0;
 
   return (
-    <div className="px-2 pb-1">
+    <div className="px-2 pb-1 space-y-1">
       <button
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors font-mono"
@@ -227,6 +234,24 @@ function CompactPanel({ namespaceId, onAfterUpdate }: { namespaceId: string; onA
         <span className="text-zinc-200 font-semibold">{minVt}</span>
         <span className="ml-auto text-zinc-500">⚙</span>
       </button>
+
+      {/* Regulated badge — same always-visible-for-current-namespace
+          treatment as thresh/min_vt. Hover shows the frameworks; click
+          jumps to /auth where the audit chain for this work lives. */}
+      {isRegulated && (
+        <a
+          href="/auth"
+          title={`Regulated namespace — every routing decision and rule change is captured in the per-key audit chain.\nFrameworks: ${complianceFrameworks.join(', ')}\n\nClick to view the audit chain.`}
+          className="w-full flex items-center gap-1.5 px-2 py-1 rounded text-[11px] text-purple-300/90 bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 transition-colors font-mono cursor-pointer"
+        >
+          <span>🛡</span>
+          <span className="uppercase tracking-wider">regulated</span>
+          <span className="text-purple-400/60 truncate">
+            · {complianceFrameworks[0]}
+            {complianceFrameworks.length > 1 && ` +${complianceFrameworks.length - 1}`}
+          </span>
+        </a>
+      )}
 
       {expanded && (
         <div className="mt-1 px-1 py-2 bg-zinc-900/80 border border-zinc-800 rounded-lg">

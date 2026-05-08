@@ -12,21 +12,26 @@ use std::sync::RwLock;
 
 /// Permission scope on an API key.
 ///
-/// Scopes are persisted on every key today but **enforcement is permissive**
-/// — every scope still has full access. The schema exists so future
-/// scope-aware middleware can land in v0.2 without breaking existing keys.
-///
-/// Defaults on load: keys saved before scopes existed deserialize as
-/// `Admin` (backwards-compat — they were trusted at creation time).
+/// Two scopes today:
+/// - `Admin` — full access including key management. The bootstrap key
+///   the operator pastes into Studio uses this.
+/// - `App` — what each application / workload uses to authenticate.
+///   Read namespaces, call `/api/resolve`, write to its own audit
+///   chain via `/api/audit/event`. Cannot mutate intents/namespaces or
+///   manage keys. One App key per workload is the recommended pattern
+///   (k8s Deployment, EC2 ASG, etc.) — the chain identity is the key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum KeyScope {
     /// Full access — UI, libraries, key management. Default for the
     /// auto-generated bootstrap key and any explicitly-admin operator key.
     Admin,
-    /// Intended for connected-mode libraries. Today same access as Admin;
-    /// in v0.2 will be restricted to `/api/sync`, `/api/namespaces`, etc.
-    Library,
+    /// Application / workload scope. Read-only against namespace state
+    /// plus write-only into its own audit chain. One App key per workload
+    /// (a Deployment / service / tenant) — all replicas share it via a
+    /// Secret / env var. The chain identity is the workload, not
+    /// individual pods.
+    App,
 }
 
 fn default_scope() -> KeyScope {
@@ -49,6 +54,7 @@ pub struct ApiKey {
 pub struct KeyStore {
     keys: Vec<ApiKey>,
     /// In-memory last-used tracking (volatile across restarts).
+    /// Map from bearer token to unix-second timestamp.
     last_used: RwLock<HashMap<String, u64>>,
     path: Option<PathBuf>,
 }
@@ -290,12 +296,12 @@ mod tests {
             last_used: RwLock::new(HashMap::new()),
             path: None,
         };
-        let id = s.create("alex-laptop", KeyScope::Library).unwrap();
+        let id = s.create("alex-laptop", KeyScope::App).unwrap();
         assert!(id.starts_with("mr_alex-laptop_"));
         assert_eq!(parse_name(&id).as_deref(), Some("alex-laptop"));
         let validated = s.validate(&id).expect("validates");
         assert_eq!(validated.0, "alex-laptop");
-        assert_eq!(validated.1, KeyScope::Library);
+        assert_eq!(validated.1, KeyScope::App);
     }
 
     #[test]
@@ -305,10 +311,10 @@ mod tests {
             last_used: RwLock::new(HashMap::new()),
             path: None,
         };
-        assert!(s.create("HasUpper", KeyScope::Library).is_err());
-        assert!(s.create("under_score", KeyScope::Library).is_err());
-        assert!(s.create("", KeyScope::Library).is_err());
-        assert!(s.create("-leading-dash", KeyScope::Library).is_err());
+        assert!(s.create("HasUpper", KeyScope::App).is_err());
+        assert!(s.create("under_score", KeyScope::App).is_err());
+        assert!(s.create("", KeyScope::App).is_err());
+        assert!(s.create("-leading-dash", KeyScope::App).is_err());
     }
 
     #[test]

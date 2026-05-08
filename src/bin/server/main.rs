@@ -4,12 +4,16 @@
 //!
 //! Default: http://localhost:4000
 
+mod audit_export;
+mod audit_log;
+mod audit_verify;
 mod cli;
 mod data_git;
 mod key_store;
 mod log_store;
 mod packs;
 mod pipeline;
+mod routes_audit;
 mod routes_auth;
 mod routes_connect;
 mod routes_core;
@@ -117,6 +121,101 @@ async fn main() {
             packs::list(&cfg.data_dir);
             return;
         }
+        Some(cli::Command::ExportLog {
+            key,
+            since,
+            event_prefix,
+            namespace,
+        }) => {
+            let cfg = cli::resolve(&parsed);
+            let data_dir = cfg.data_dir.display().to_string();
+            let since_ms = match since.as_deref() {
+                Some(s) => match audit_export::parse_duration_ms(s) {
+                    Ok(ms) => {
+                        let now = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_millis() as u64)
+                            .unwrap_or(0);
+                        Some(now.saturating_sub(ms))
+                    }
+                    Err(e) => {
+                        eprintln!("--since: {}", e);
+                        std::process::exit(2);
+                    }
+                },
+                None => None,
+            };
+            let filter = audit_export::ExportFilter {
+                key: key.clone(),
+                since_ms,
+                event_prefix: event_prefix.clone(),
+                namespace: namespace.clone(),
+            };
+            match audit_export::export_chains(&data_dir, &filter) {
+                Ok((written, chains)) => {
+                    eprintln!(
+                        "exported {} entries from {} chain(s) in {}/_audit/",
+                        written, chains, data_dir
+                    );
+                }
+                Err(e) => {
+                    eprintln!("export failed: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            return;
+        }
+        Some(cli::Command::VerifyLog { key }) => {
+            let cfg = cli::resolve(&parsed);
+            let data_dir = cfg.data_dir.display().to_string();
+            let report = audit_verify::verify_all(Some(&data_dir));
+            // Pretty print, optionally filter to a single key.
+            let chains: Vec<_> = report
+                .chains
+                .iter()
+                .filter(|c| key.as_deref().map(|k| c.kid == k).unwrap_or(true))
+                .collect();
+            println!("Verifying audit chains in {}/_audit/", data_dir);
+            for c in &chains {
+                if c.ok {
+                    println!(
+                        "  ✓ kid={:<32} {:>8} entries  head={}",
+                        c.kid,
+                        c.entries,
+                        if c.head_hash.is_empty() {
+                            "(empty)".to_string()
+                        } else {
+                            format!("{}…", &c.head_hash[..c.head_hash.len().min(12)])
+                        }
+                    );
+                } else {
+                    println!(
+                        "  ✗ kid={:<32} {:>8} entries  ERROR: {}",
+                        c.kid,
+                        c.entries,
+                        c.error.as_deref().unwrap_or("unknown")
+                    );
+                }
+            }
+            let any_err = chains.iter().any(|c| !c.ok);
+            let total: u64 = chains.iter().map(|c| c.entries).sum();
+            if any_err {
+                println!(
+                    "\nFAIL: {} entries across {} chains, {} with breaks.",
+                    total,
+                    chains.len(),
+                    chains.iter().filter(|c| !c.ok).count()
+                );
+                std::process::exit(1);
+            } else {
+                println!(
+                    "\nOK: {} entries across {} chains verified.",
+                    total,
+                    chains.len()
+                );
+            }
+            return;
+        }
         None => {}
     }
 
@@ -180,6 +279,14 @@ async fn main() {
     }
 
     let log_store = LogStore::new(data_dir.as_deref());
+    // Audit log — server-wide default mode comes from cascade
+    // (env MICRORESOLVE_AUDIT_MODE > config.toml [audit].mode > "default").
+    // Per-namespace overrides cascade on top at request time.
+    let audit_log = audit_log::AuditLog::new(data_dir.as_deref(), cfg.audit_mode);
+    println!(
+        "Audit log: server default mode = {:?} (override via [audit].mode in config.toml or MICRORESOLVE_AUDIT_MODE env)",
+        cfg.audit_mode
+    );
     let ui_settings = data_dir
         .as_deref()
         .map(load_ui_settings)
@@ -240,6 +347,7 @@ async fn main() {
         data_dir,
         git_remote: RwLock::new(git_remote),
         log_store: Mutex::new(log_store),
+        audit_log,
         http: reqwest::Client::new(),
         llm_key,
         review_mode: RwLock::new(HashMap::new()),
@@ -284,6 +392,7 @@ async fn main() {
         .merge(routes_stopwords::routes())
         .merge(routes_git::routes())
         .merge(routes_state::routes())
+        .merge(routes_audit::routes())
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             require_api_key,
@@ -432,16 +541,31 @@ async fn health() -> &'static str {
 /// Universal API key middleware. Runs in front of every protected route
 /// (everything under `/api/*` except `/api/health`, `/api/version`,
 /// `/api/llm/status`). Reads `X-Api-Key`, validates against the keystore,
-/// rejects with 401 when missing or invalid.
+/// rejects with 401 when missing or invalid; with 403 when the key's
+/// scope doesn't permit the requested route.
 ///
-/// Per-scope enforcement is intentionally **permissive in v0.1.9** — every
-/// scope grants every route. The schema exists so v0.2 can land
-/// route-level scope checks without breaking persisted keys.
+/// # Scope rules (v0.2.2)
+///
+/// `KeyScope::App` permits:
+///   - All GET requests (read-only state)
+///   - POST /api/resolve              (the core routing call)
+///   - POST /api/audit/event          (write app-defined audit events)
+///   - POST /api/sync                 (delta sync for connected libs)
+///   - POST /api/snapshot             (full-state bootstrap)
+///   - POST /api/report               (queue an entry for review)
+///
+/// `KeyScope::Admin` permits everything.
+///
+/// Anything else from an App-scope key returns 403. This makes the
+/// audit attribution claim coherent: an App-scope key cannot mutate
+/// intents, namespaces, or other keys — its writes are bounded to its
+/// own audit chain (via /api/audit/event) and routing requests.
 async fn require_api_key(
     State(state): State<AppState>,
-    req: axum::extract::Request,
+    mut req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Result<axum::response::Response, axum::http::StatusCode> {
+    use crate::key_store::KeyScope;
     let provided = req
         .headers()
         .get("X-Api-Key")
@@ -450,10 +574,32 @@ async fn require_api_key(
     if provided.is_empty() {
         return Err(axum::http::StatusCode::UNAUTHORIZED);
     }
-    let validated = state.key_store.read().unwrap().validate(provided);
-    if validated.is_none() {
+    let Some((name, scope)) = state.key_store.read().unwrap().validate(provided) else {
         return Err(axum::http::StatusCode::UNAUTHORIZED);
+    };
+
+    // Scope check. Admin = everything; App = read-only + named writes.
+    if scope == KeyScope::App {
+        let method = req.method().clone();
+        let path = req.uri().path();
+        let allowed = matches!(method, axum::http::Method::GET)
+            || (matches!(method, axum::http::Method::POST)
+                && matches!(
+                    path,
+                    "/api/resolve"
+                        | "/api/audit/event"
+                        | "/api/sync"
+                        | "/api/snapshot"
+                        | "/api/report"
+                ));
+        if !allowed {
+            return Err(axum::http::StatusCode::FORBIDDEN);
+        }
     }
+
+    // Make the authenticated key's name available to handlers via
+    // `Extension<KeyName>`. Used by the audit log (`kid` attribution).
+    req.extensions_mut().insert(state::KeyName(name));
     Ok(next.run(req).await)
 }
 

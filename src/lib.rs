@@ -49,7 +49,7 @@ pub use engine::{
 };
 
 /// Default routing threshold (cascade fallback).
-pub const DEFAULT_THRESHOLD: f32 = 0.3;
+pub const DEFAULT_THRESHOLD: f32 = 1.0;
 /// Default multi-intent gap multiplier.
 pub const DEFAULT_GAP: f32 = 1.5;
 

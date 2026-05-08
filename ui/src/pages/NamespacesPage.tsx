@@ -13,6 +13,9 @@ interface NamespaceInfo {
   default_threshold: number | null;
   version?: number;
   intent_count?: number;
+  /// Pack-level compliance framework citations (e.g. "HIPAA §164.312(b)").
+  /// Surfaced as a "regulated" badge on the namespace card.
+  compliance_frameworks?: string[];
 }
 
 export default function NamespacesPage() {
@@ -125,12 +128,34 @@ export default function NamespacesPage() {
                   {isActive && (
                     <span className="text-[9px] text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded uppercase tracking-wide">active</span>
                   )}
+                  {ns.compliance_frameworks && ns.compliance_frameworks.length > 0 && (
+                    <span
+                      title={`Regulated namespace — every routing decision and rule change is captured in the audit chain.\nFrameworks: ${ns.compliance_frameworks.join(', ')}`}
+                      className="text-[9px] text-purple-300 bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 rounded uppercase tracking-wide cursor-help"
+                    >
+                      regulated
+                    </span>
+                  )}
                 </div>
 
                 {/* Description (static) */}
                 <div className="text-xs text-zinc-500 mt-1 mb-2.5">
                   {ns.description || <span className="italic text-zinc-700">no description</span>}
                 </div>
+
+                {/* Compliance framework citations — visible only on regulated packs */}
+                {ns.compliance_frameworks && ns.compliance_frameworks.length > 0 && (
+                  <div className="text-[11px] text-purple-300/80 mb-2.5 leading-relaxed">
+                    <span className="text-zinc-500">Maps to:</span>{' '}
+                    {ns.compliance_frameworks.map((f, i) => (
+                      <span key={f}>
+                        <span className="font-mono">{f}</span>
+                        {i < (ns.compliance_frameworks?.length ?? 0) - 1 && <span className="text-zinc-600">, </span>}
+                      </span>
+                    ))}
+                    <span className="text-zinc-500"> — every decision and rule change recorded in the per-key audit chain.</span>
+                  </div>
+                )}
 
                 {/* Action row: prominent auto-learn + edit + delete */}
                 <div className="flex items-center gap-3">

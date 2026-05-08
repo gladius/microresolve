@@ -1,9 +1,10 @@
 //! Primary routing endpoint: query → scoring pipeline → multi-intent → response.
 
+use crate::audit_log::hash_query;
 use crate::log_store::LogRecord;
 use crate::routes_events::emit_queued;
 use crate::state::*;
-use axum::{extract::State, http::HeaderMap, routing::post, Json};
+use axum::{extract::State, http::HeaderMap, routing::post, Extension, Json};
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new().route("/api/resolve", post(resolve))
@@ -13,7 +14,7 @@ pub fn routes() -> axum::Router<AppState> {
 pub struct ResolveRequest {
     pub query: String,
     /// Per-request threshold override. If absent, falls back to the namespace's
-    /// `default_threshold`, then to the compile-time default (0.3).
+    /// `default_threshold`, then to the compile-time default (1.0).
     #[serde(default)]
     pub threshold: Option<f32>,
     #[serde(default = "default_gap")]
@@ -51,6 +52,7 @@ fn default_log() -> bool {
 pub async fn resolve(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Json(req): Json<ResolveRequest>,
 ) -> Json<serde_json::Value> {
     let app_id = app_id_from_headers(&headers);
@@ -92,6 +94,10 @@ pub async fn resolve(
             );
             emit_queued(&state, log_id, &req.query, &app_id);
         }
+
+        // Audit: record the no-match decision too (compliance buyers
+        // need to see "the system saw this query and declined to fire").
+        audit_resolve(&state, &kid, &app_id, &req.query, &[], 0.0, latency_us);
 
         let trace_val = opt_trace.map(|t| build_trace_json(&t));
         let mut resp = serde_json::json!({
@@ -180,7 +186,7 @@ pub async fn resolve(
                 id: 0,
                 query: req.query.clone(),
                 app_id: app_id.clone(),
-                detected_intents: detected_ids,
+                detected_intents: detected_ids.clone(),
                 confidence: best_confidence.to_string(),
                 session_id: None,
                 timestamp_ms: now_ms(),
@@ -195,6 +201,11 @@ pub async fn resolve(
         emit_queued(&state, log_id, &req.query, &app_id);
     }
 
+    // ── Audit log: tamper-evident decision record ────────────────────
+    audit_resolve(
+        &state, &kid, &app_id, &req.query, &intents, threshold, latency_us,
+    );
+
     let mut resp = serde_json::json!({
         "intents": intents,
         "disposition": disposition,
@@ -206,6 +217,34 @@ pub async fn resolve(
     }
 
     Json(resp)
+}
+
+/// Append a `resolve` event to the audit log when the effective audit
+/// mode is enabled. Caller already computed everything; this just
+/// shapes the payload and serializes the chain write. The query is
+/// stored as a SHA-256 hash (PII-friendly) — auditors can verify
+/// "decision X happened for query Y" by hashing Y and looking it up,
+/// without the operator retaining raw queries.
+fn audit_resolve(
+    state: &AppState,
+    kid: &str,
+    app_id: &str,
+    query: &str,
+    intents: &[serde_json::Value],
+    threshold: f32,
+    latency_us: u64,
+) {
+    if !state.audit_log.mode().enabled() {
+        return;
+    }
+    let payload = serde_json::json!({
+        "ns": app_id,
+        "query_hash": hash_query(query),
+        "intents": intents,
+        "threshold_applied": threshold,
+        "latency_us": latency_us,
+    });
+    state.audit_log.record(kid, app_id, "resolve", payload);
 }
 
 fn build_trace_json(t: &microresolve::ResolveTrace) -> serde_json::Value {

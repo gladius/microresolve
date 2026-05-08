@@ -203,7 +203,7 @@ export default function Layout() {
         { to: '/history',    label: 'Git History', icon: '⏱', hint: 'Browse commits, diff between revisions, roll back the namespace to any prior state' },
         { to: '/models',     label: 'Models',     icon: '⬡', hint: 'Application-wide routing model registry' },
         { to: '/languages',  label: 'Languages',  icon: '◌', hint: 'Application-wide phrase-generation languages' },
-        { to: '/auth',       label: 'Auth Keys',  icon: '⚿', hint: 'API keys for connected libraries' },
+        { to: '/auth',       label: 'Auth & Audit', icon: '⚿', hint: 'API keys + per-key tamper-evident audit chains' },
         { to: '/settings',   label: 'Settings',   icon: '⚙', hint: 'LLM config and data management' },
       ],
     },

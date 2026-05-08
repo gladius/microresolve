@@ -467,7 +467,15 @@ pub async fn import_apply(
                 lang_instruction, ops_desc.join("\n"), existing_seeds, microresolve::phrase::PHRASE_QUALITY_RULES, response_format
             );
 
-            if let Ok(response) = call_llm(&state, &prompt, max_tokens).await {
+            let llm_result = call_llm(&state, &prompt, max_tokens).await;
+            if let Err((status, msg)) = &llm_result {
+                eprintln!(
+                    "[import] LLM seed generation failed ({}): {}",
+                    status,
+                    msg.chars().take(300).collect::<String>()
+                );
+            }
+            if let Ok(response) = llm_result {
                 if let Ok(seeds_json) =
                     serde_json::from_str::<serde_json::Value>(extract_json(&response))
                 {
@@ -916,7 +924,15 @@ pub async fn mcp_apply(
                 lang_instruction, tools_desc.join("\n"), existing_seeds, microresolve::phrase::PHRASE_QUALITY_RULES, response_format
             );
 
-            if let Ok(response) = call_llm(&state, &prompt, max_tokens).await {
+            let llm_result = call_llm(&state, &prompt, max_tokens).await;
+            if let Err((status, msg)) = &llm_result {
+                eprintln!(
+                    "[import] LLM seed generation failed ({}): {}",
+                    status,
+                    msg.chars().take(300).collect::<String>()
+                );
+            }
+            if let Ok(response) = llm_result {
                 if let Ok(seeds_json) =
                     serde_json::from_str::<serde_json::Value>(extract_json(&response))
                 {

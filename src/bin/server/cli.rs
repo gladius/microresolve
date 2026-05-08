@@ -91,6 +91,44 @@ pub enum Command {
     },
     /// List the 4 reference packs and show install status against the configured data dir.
     ListPacks,
+    /// Verify the tamper-evident audit chains in the configured data dir.
+    ///
+    /// Walks every per-key chain in `{data_dir}/_audit/`, recomputes
+    /// each entry's hash, and reports any divergence. Exit code 0 if
+    /// all chains verify; 1 if any chain has a break.
+    VerifyLog {
+        /// Optional: only verify the chain for this specific key name (kid).
+        #[arg(long)]
+        key: Option<String>,
+    },
+    /// Export audit chain entries as JSONL to stdout — for handoff to
+    /// auditors, piping into a SIEM (Splunk/Datadog), or archiving.
+    ///
+    /// Each line is one valid JSON object: the AuditEntry shape with
+    /// id, ts_ms, kid, ns, event_type, payload, prev_hash, entry_hash.
+    ///
+    /// Examples:
+    ///   microresolve-studio export-log --since 30d > audit-q4.jsonl
+    ///   microresolve-studio export-log --key prod-east-python
+    ///   microresolve-studio export-log --event-prefix intent. > rule-changes.jsonl
+    ///   microresolve-studio export-log --namespace hipaa-triage > hipaa-decisions.jsonl
+    ExportLog {
+        /// Filter to one key's chain.
+        #[arg(long)]
+        key: Option<String>,
+        /// Only entries newer than this duration. Format: "<n>s|m|h|d"
+        /// (e.g. "30d", "24h", "90m").
+        #[arg(long)]
+        since: Option<String>,
+        /// Only events whose event_type starts with this prefix
+        /// (e.g. "intent." for all intent mutations, "resolve" for
+        /// routing decisions, "app." for app-defined events).
+        #[arg(long)]
+        event_prefix: Option<String>,
+        /// Only entries affecting this namespace.
+        #[arg(long)]
+        namespace: Option<String>,
+    },
 }
 
 /// The on-disk config file. All fields are optional; missing fields fall back to
@@ -104,6 +142,18 @@ pub struct ConfigFile {
     pub llm_provider: Option<String>,
     pub llm_model: Option<String>,
     pub llm_api_key: Option<String>,
+    /// Audit-log defaults. `None` = use built-in default ("default" mode).
+    pub audit: Option<AuditConfig>,
+}
+
+/// `[audit]` block in config.toml — server-wide audit on/off toggle.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AuditConfig {
+    /// Server-wide audit mode. Strings: `"off"` or `"default"`. Default
+    /// is `"default"` (mutations + resolve metadata, query content
+    /// hashed not stored).
+    pub mode: Option<String>,
 }
 
 /// Resolved runtime configuration after merging CLI > env > file > defaults.
@@ -119,6 +169,9 @@ pub struct ResolvedConfig {
     /// `Some` only when `--keys-file` was passed explicitly. `None` means
     /// "use the platform default" (`~/.config/microresolve/keys.json`).
     pub keys_file: Option<PathBuf>,
+    /// Resolved server-wide audit mode. Per-namespace overrides cascade
+    /// on top at request time via `AuditLog`.
+    pub audit_mode: crate::audit_log::AuditMode,
 }
 
 /// Path to the user's config file (created on first `microresolve config` run).
@@ -213,6 +266,15 @@ pub fn resolve(cli: &Cli) -> ResolvedConfig {
         .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
         .or(file.llm_api_key);
 
+    // Audit mode cascade: env > config file [audit].mode > built-in default.
+    // CLI flag deliberately omitted — operators use env or config, not flags,
+    // for ops-level toggles like this.
+    let audit_mode_str = std::env::var("MICRORESOLVE_AUDIT_MODE")
+        .ok()
+        .or_else(|| file.audit.as_ref().and_then(|a| a.mode.clone()))
+        .unwrap_or_else(|| "default".to_string());
+    let audit_mode = parse_audit_mode(&audit_mode_str);
+
     ResolvedConfig {
         port,
         host,
@@ -222,6 +284,26 @@ pub fn resolve(cli: &Cli) -> ResolvedConfig {
         llm_api_key,
         no_browser: cli.no_browser,
         keys_file: cli.keys_file.clone(),
+        audit_mode,
+    }
+}
+
+/// Parse audit mode from a config string. Unknown values fall back to
+/// `Default` with a stderr warning so misconfigurations don't silently
+/// disable audit.
+fn parse_audit_mode(s: &str) -> crate::audit_log::AuditMode {
+    use crate::audit_log::AuditMode;
+    match s.to_ascii_lowercase().as_str() {
+        "off" => AuditMode::Off,
+        "default" | "on" => AuditMode::Default,
+        other => {
+            eprintln!(
+                "[audit] unknown mode '{}' — falling back to 'default'. \
+                 Valid: off | default",
+                other
+            );
+            AuditMode::Default
+        }
     }
 }
 
@@ -348,6 +430,7 @@ pub fn run_config_subcommand(cli: &Cli) -> std::io::Result<()> {
         llm_provider,
         llm_model,
         llm_api_key,
+        audit: existing.audit,
     };
 
     if let Some(parent) = path.parent() {

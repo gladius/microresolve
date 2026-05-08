@@ -237,11 +237,21 @@ async fn call_llm_once(
             // OpenAI-compatible (OpenAI, Ollama, Groq, DeepSeek, etc.)
             let url = std::env::var("LLM_API_URL")
                 .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
-            let body = serde_json::json!({
+
+            // OpenAI proper (api.openai.com) requires `max_completion_tokens` for
+            // GPT-5/o1/o3/o4 reasoning models and accepts it for older chat models.
+            // Other OpenAI-compatible endpoints (Groq, Ollama, vLLM, LM Studio, etc.)
+            // still expect the legacy `max_tokens` field — keep that path unchanged.
+            let is_openai_native = url.contains("api.openai.com");
+            let mut body = serde_json::json!({
                 "model": model,
-                "max_tokens": max_tokens,
                 "messages": [{"role": "user", "content": prompt}],
             });
+            if is_openai_native {
+                body["max_completion_tokens"] = serde_json::json!(max_tokens);
+            } else {
+                body["max_tokens"] = serde_json::json!(max_tokens);
+            }
             state
                 .http
                 .post(&url)

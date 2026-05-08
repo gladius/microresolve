@@ -18,5 +18,6 @@ All examples require as `const { Router } = require('microresolve')`.
 
 | Example | Description |
 |---------|-------------|
+| `launch_demo.js` | **Three-namespace fan-out + confirm-turn pattern with a live LLM call.** Mirrors the launch-blog demo end-to-end. |
 | `basic.js` | Routing, multi-intent, learning, export/import, discovery |
 | `express_server.js` | Production REST endpoint with Express |

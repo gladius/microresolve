@@ -11,7 +11,7 @@ use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     routing::{delete, get, patch, post},
-    Json,
+    Extension, Json,
 };
 use std::path::PathBuf;
 
@@ -251,6 +251,7 @@ pub async fn rebuild_namespace(
 
 pub async fn list_namespaces(State(state): State<AppState>) -> Json<serde_json::Value> {
     let modes = state.review_mode.read().unwrap();
+    let data_dir = state.data_dir.clone();
     let mut namespaces: Vec<serde_json::Value> = state
         .engine
         .namespaces()
@@ -258,6 +259,25 @@ pub async fn list_namespaces(State(state): State<AppState>) -> Json<serde_json::
         .map(|id| {
             let h = state.engine.namespace(&id);
             let (info, version, intent_count) = (h.namespace_info(), h.version(), h.intent_count());
+            // Read compliance_frameworks directly from `_ns.json`. This is
+            // pack-level marketing/compliance metadata, not routing config —
+            // we keep it out of the microresolve crate and read it server-
+            // side here so packs can declare which regulations they target
+            // without coupling the engine to compliance concepts.
+            let compliance_frameworks = data_dir
+                .as_ref()
+                .and_then(|dir| std::fs::read_to_string(format!("{}/{}/_ns.json", dir, id)).ok())
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+                .and_then(|v| {
+                    v.get("compliance_frameworks")
+                        .and_then(|a| a.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(String::from))
+                                .collect::<Vec<_>>()
+                        })
+                })
+                .unwrap_or_default();
             serde_json::json!({
                 "id": id,
                 "name": info.name,
@@ -267,6 +287,7 @@ pub async fn list_namespaces(State(state): State<AppState>) -> Json<serde_json::
                 "default_min_voting_tokens": info.default_min_voting_tokens,
                 "version": version,
                 "intent_count": intent_count,
+                "compliance_frameworks": compliance_frameworks,
             })
         })
         .collect();
@@ -288,6 +309,7 @@ pub struct CreateNamespaceRequest {
 
 pub async fn create_namespace(
     State(state): State<AppState>,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Json(req): Json<CreateNamespaceRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let id = &req.namespace_id;
@@ -318,6 +340,16 @@ pub async fn create_namespace(
         description: Some(req.description.clone()),
         ..Default::default()
     });
+    audit_mutation(
+        &state,
+        &kid,
+        &req.namespace_id,
+        "namespace.create",
+        serde_json::json!({
+            "namespace_id": req.namespace_id,
+            "has_description": !req.description.is_empty(),
+        }),
+    );
     maybe_commit(&state, &req.namespace_id);
     Ok(Json(serde_json::json!({"created": req.namespace_id})))
 }
@@ -329,6 +361,7 @@ pub struct DeleteNamespaceRequest {
 
 pub async fn delete_namespace(
     State(state): State<AppState>,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Json(req): Json<DeleteNamespaceRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     if req.namespace_id == "default" {
@@ -349,6 +382,13 @@ pub async fn delete_namespace(
     }
     state.log_store.lock().unwrap().drop_app(&req.namespace_id);
     state.review_mode.write().unwrap().remove(&req.namespace_id);
+    audit_mutation(
+        &state,
+        &kid,
+        &req.namespace_id,
+        "namespace.delete",
+        serde_json::json!({ "namespace_id": req.namespace_id }),
+    );
     Ok(Json(serde_json::json!({"deleted": req.namespace_id})))
 }
 
@@ -369,8 +409,10 @@ pub struct UpdateNamespaceRequest {
 
 pub async fn update_namespace(
     State(state): State<AppState>,
+    Extension(KeyName(kid)): Extension<KeyName>,
     Json(req): Json<UpdateNamespaceRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let mut fields_changed: Vec<&str> = Vec::new();
     {
         let h = state
             .engine
@@ -381,6 +423,18 @@ pub async fn update_namespace(
                     format!("namespace '{}' not found", req.namespace_id),
                 )
             })?;
+        if req.name.is_some() {
+            fields_changed.push("name");
+        }
+        if req.description.is_some() {
+            fields_changed.push("description");
+        }
+        if req.default_threshold.is_some() {
+            fields_changed.push("default_threshold");
+        }
+        if req.default_min_voting_tokens.is_some() {
+            fields_changed.push("default_min_voting_tokens");
+        }
         let edit = microresolve::NamespaceEdit {
             name: req.name.clone(),
             description: req.description.clone(),
@@ -397,6 +451,19 @@ pub async fn update_namespace(
             ..Default::default()
         };
         let _ = h.update_namespace(edit);
+        let mut payload = serde_json::json!({
+            "namespace_id": req.namespace_id,
+            "fields": fields_changed,
+        });
+        // Threshold and min_voting_tokens changes are high-audit-value
+        // — record their new values explicitly for compliance review.
+        if let Some(t) = req.default_threshold {
+            payload["new_threshold"] = serde_json::json!(t);
+        }
+        if let Some(m) = req.default_min_voting_tokens {
+            payload["new_min_voting_tokens"] = serde_json::json!(m);
+        }
+        audit_mutation(&state, &kid, &req.namespace_id, "namespace.update", payload);
         maybe_commit(&state, &req.namespace_id);
     }
     if let Some(auto_learn) = req.auto_learn {

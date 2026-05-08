@@ -95,15 +95,25 @@ impl ConnectState {
         })
     }
 
+    /// Add `X-Api-Key` (if configured) to a request. Single chokepoint
+    /// so adding/removing headers stays consistent across all
+    /// connect-mode calls.
+    fn attach_auth(
+        &self,
+        mut req: reqwest::blocking::RequestBuilder,
+    ) -> reqwest::blocking::RequestBuilder {
+        if let Some(ref key) = self.server.api_key {
+            req = req.header("X-Api-Key", key);
+        }
+        req
+    }
+
     /// Fetch the full list of namespace IDs visible on the server.
     /// Used when `ServerConfig::subscribe` is empty: the library auto-pulls
     /// every namespace the server exposes.
     pub fn list_remote_namespaces(&self) -> Result<Vec<String>, crate::Error> {
         let url = format!("{}/api/namespaces", self.server.url);
-        let mut req = self.http.get(&url);
-        if let Some(ref key) = self.server.api_key {
-            req = req.header("X-Api-Key", key);
-        }
+        let req = self.attach_auth(self.http.get(&url));
         let resp = req
             .send()
             .map_err(|e| crate::Error::Connect(format!("list namespaces: {}", e)))?;
@@ -131,10 +141,7 @@ impl ConnectState {
     ) -> Result<HashMap<String, (Resolver, u64)>, crate::Error> {
         let url = format!("{}/api/snapshot", self.server.url);
         let body = serde_json::json!({ "namespace_ids": ns_ids });
-        let mut req = self.http.post(&url).json(&body);
-        if let Some(ref key) = self.server.api_key {
-            req = req.header("X-Api-Key", key);
-        }
+        let req = self.attach_auth(self.http.post(&url).json(&body));
         let resp = req
             .send()
             .map_err(|e| crate::Error::Connect(format!("snapshot: {}", e)))?;
@@ -355,10 +362,7 @@ fn batch_sync(state: &ConnectState) -> Result<BatchSyncResponse, crate::Error> {
         // Tell the server this client can receive and apply delta ops.
         "supports_delta": true,
     });
-    let mut req = state.http.post(&url).json(&body);
-    if let Some(ref key) = state.server.api_key {
-        req = req.header("X-Api-Key", key);
-    }
+    let req = state.attach_auth(state.http.post(&url).json(&body));
     let resp = req.send().map_err(|e| {
         // Re-queue on send failure.
         let mut log_buf = state.log_buf.lock().unwrap();

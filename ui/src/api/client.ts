@@ -157,6 +157,9 @@ async function del<T>(path: string, body?: unknown): Promise<T> {
 export type ConfidenceTier = 'high' | 'medium' | 'low';
 export type DetectionSource = 'dual' | 'paraphrase' | 'routing';
 
+/// Server-wide audit mode. Two states: off | default.
+export type AuditMode = 'off' | 'default';
+
 export type BandLabel = 'High' | 'Medium' | 'Low';
 export type Disposition = 'Confident' | 'LowConfidence' | 'NoMatch';
 
@@ -282,13 +285,35 @@ export const api = {
   // Auth keys
   listAuthKeys: () => get<{
     enabled: boolean;
-    keys: { name: string; prefix: string; scope: 'admin' | 'library'; created_at: number; last_used_at: number | null }[];
+    keys: {
+      name: string;
+      prefix: string;
+      scope: 'admin' | 'app';
+      created_at: number;
+      last_used_at: number | null;
+    }[];
   }>('/auth/keys'),
-  createAuthKey: (name: string, scope: 'admin' | 'library' = 'library') =>
-    post<{ key: string; name: string; scope: 'admin' | 'library'; warning: string }>(
+  createAuthKey: (name: string, scope: 'admin' | 'app' = 'app') =>
+    post<{ key: string; name: string; scope: 'admin' | 'app'; warning: string }>(
       '/auth/keys', { name, scope }
     ),
   revokeAuthKey: (name: string) => del<void>(`/auth/keys/${encodeURIComponent(name)}`),
+
+  // Audit log
+  auditConfig: () => get<{
+    mode: AuditMode;
+    modes_available: AuditMode[];
+  }>('/audit/config'),
+  auditHeads: () => get<{
+    heads: { kid: string; head_hash: string; count: number }[];
+  }>('/audit/heads'),
+  auditVerify: () => post<{
+    ok: boolean;
+    total_entries: number;
+    chains_verified: number;
+    chains_with_errors: number;
+    chains: { kid: string; entries: number; head_hash: string; ok: boolean; error: string | null }[];
+  }>('/audit/verify', {}),
 
   // Instance-wide model registry (was per-namespace; now global since v0.1)
   getModels: async (): Promise<NamespaceModel[]> => {
@@ -387,6 +412,9 @@ export const api = {
     default_min_voting_tokens: number | null;
     version?: number;
     intent_count?: number;
+    /// Pack-level compliance framework citations (read from `_ns.json`).
+    /// Empty for non-regulated namespaces.
+    compliance_frameworks?: string[];
   }[]>('/namespaces'),
   createNamespace: (namespace_id: string, name = '', description = '') =>
     post<{ created: string }>('/namespaces', { namespace_id, name, description }),
