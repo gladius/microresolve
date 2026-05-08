@@ -303,7 +303,7 @@ fn auth_keys_endpoint() {
     assert!(body.contains("\"enabled\":true"));
     assert!(body.contains("studio-admin"));
 
-    // Create a Library-scoped key for a hypothetical client.
+    // Create an App-scoped key for a hypothetical workload.
     let (s, body) = post_json(
         &c,
         &format!("{}/auth/keys", b),
@@ -313,7 +313,7 @@ fn auth_keys_endpoint() {
     assert_eq!(s, 200);
     assert!(body.contains("mr_test-key_"), "key has expected prefix");
     assert!(body.contains("This key is shown once"));
-    assert!(body.contains("\"scope\":\"library\""));
+    assert!(body.contains("\"scope\":\"app\""));
     let key: serde_json::Value = serde_json::from_str(&body).unwrap();
     let full_key = key["key"].as_str().unwrap();
 
