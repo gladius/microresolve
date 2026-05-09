@@ -240,7 +240,15 @@ impl Resolver {
     /// namespace. Clears the existing index, re-indexes every stored
     /// phrase, and wipes the negative-training audit log.
     pub fn rebuild_index(&mut self) {
+        // Preserve declarative compositional rules across rebuild — they're
+        // pack-author authored, not derived from training phrases. Without
+        // this preservation, every rebuild_index drops conjunctions back
+        // to the empty default.
+        let saved_conjunctions = std::mem::take(&mut self.index.conjunctions);
+        let saved_min_voting = self.index.min_voting_tokens;
         self.index = crate::scoring::IntentIndex::new();
+        self.index.conjunctions = saved_conjunctions;
+        self.index.min_voting_tokens = saved_min_voting;
         let all: Vec<(String, String)> = self
             .training
             .iter()

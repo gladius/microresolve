@@ -118,6 +118,52 @@ impl Resolver {
                 {
                     router.namespace_default_min_voting_tokens = Some(v as u32);
                 }
+
+            }
+        }
+
+        // Conjunction rules: declarative compositional logic per pack.
+        // Format in _ns.json:
+        //   "conjunctions": [{"words":[...], "intent":"...", "bonus":N}]
+        // Each rule fires when all listed words appear in the normalized
+        // query, adding `bonus` to that intent's score. Used to encode
+        // carve-out semantics ("X EXCEPT WHEN Y") that independent token
+        // weights cannot express.
+        //
+        // Loaded into a local Vec here; applied below AFTER _index.json
+        // load so the override below doesn't drop them.
+        let mut ns_conjunctions: Vec<crate::scoring::ConjunctionRule> = Vec::new();
+        if let Ok(json) = std::fs::read_to_string(path.join("_ns.json")) {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json) {
+                if let Some(rules) = val.get("conjunctions").and_then(|c| c.as_array()) {
+                    for rule_val in rules {
+                        let words: Vec<String> = rule_val
+                            .get("words")
+                            .and_then(|w| w.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|v| v.as_str().map(|s| s.to_lowercase()))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        let intent = rule_val
+                            .get("intent")
+                            .and_then(|i| i.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let bonus = rule_val
+                            .get("bonus")
+                            .and_then(|b| b.as_f64())
+                            .unwrap_or(0.0) as f32;
+                        if words.len() >= 2 && !intent.is_empty() && bonus > 0.0 {
+                            ns_conjunctions.push(crate::scoring::ConjunctionRule {
+                                words,
+                                intent,
+                                bonus,
+                            });
+                        }
+                    }
+                }
             }
         }
 
@@ -138,6 +184,13 @@ impl Resolver {
         // (if any) gets overwritten by the namespace setting.
         if let Some(v) = router.namespace_default_min_voting_tokens {
             router.index.set_min_voting_tokens(v);
+        }
+
+        // Apply _ns.json conjunctions AFTER _index.json overwrite so they
+        // always reflect the pack author's declared rules. _ns.json is
+        // source of truth for compositional logic.
+        if !ns_conjunctions.is_empty() {
+            router.index.conjunctions = ns_conjunctions;
         }
 
         let entries = std::fs::read_dir(path).map_err(|e| {
@@ -239,6 +292,22 @@ impl Resolver {
         }
         if let Some(v) = self.namespace_default_min_voting_tokens {
             ns_meta["default_min_voting_tokens"] = serde_json::json!(v);
+        }
+        // Persist conjunction rules so authored rules survive save/load cycles.
+        if !self.index.conjunctions.is_empty() {
+            let rules: Vec<serde_json::Value> = self
+                .index
+                .conjunctions
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "words": r.words,
+                        "intent": r.intent,
+                        "bonus": r.bonus,
+                    })
+                })
+                .collect();
+            ns_meta["conjunctions"] = serde_json::Value::Array(rules);
         }
         std::fs::write(
             path.join("_ns.json"),
