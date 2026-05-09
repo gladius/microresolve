@@ -180,6 +180,8 @@ export default function Layout() {
       items: [
         { to: '/intents', label: 'Intents', icon: '◆',
           hint: 'Manage intents, training phrases, metadata' },
+        { to: '/policy-overrides', label: 'Policy overrides', icon: '⚖',
+          hint: 'Hard rules — externally-specified policy assertions, ≤10 per pack' },
       ],
     },
     {

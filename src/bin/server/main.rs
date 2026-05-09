@@ -15,8 +15,8 @@ mod packs;
 mod pipeline;
 mod routes_audit;
 mod routes_auth;
-mod routes_conjunctions;
 mod routes_connect;
+mod routes_policy_overrides;
 mod routes_core;
 mod routes_events;
 mod routes_git;
@@ -378,7 +378,7 @@ async fn main() {
     // here.
     let protected_api = axum::Router::new()
         .merge(routes_core::routes())
-        .merge(routes_conjunctions::routes())
+        .merge(routes_policy_overrides::routes())
         .merge(routes_intents::routes())
         .merge(routes_logs::routes())
         .merge(routes_phrases::routes())

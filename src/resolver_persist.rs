@@ -122,20 +122,22 @@ impl Resolver {
             }
         }
 
-        // Conjunction rules: declarative compositional logic per pack.
+        // Policy override rules: declarative hard policy per pack — the
+        // narrow escape hatch for externally-specified rules that the
+        // auto-learn loop cannot teach quickly enough (Article 5 carve-outs,
+        // CSAM detection vs generation, similar). Usage guideline: ≤10 per
+        // pack. Mechanism is a token conjunction (all listed words must
+        // appear); role is policy override.
+        //
         // Format in _ns.json:
-        //   "conjunctions": [{"words":[...], "intent":"...", "bonus":N}]
-        // Each rule fires when all listed words appear in the normalized
-        // query, adding `bonus` to that intent's score. Used to encode
-        // carve-out semantics ("X EXCEPT WHEN Y") that independent token
-        // weights cannot express.
+        //   "policy_overrides": [{"words":[...], "intent":"...", "bonus":N}]
         //
         // Loaded into a local Vec here; applied below AFTER _index.json
         // load so the override below doesn't drop them.
         let mut ns_conjunctions: Vec<crate::scoring::ConjunctionRule> = Vec::new();
         if let Ok(json) = std::fs::read_to_string(path.join("_ns.json")) {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json) {
-                if let Some(rules) = val.get("conjunctions").and_then(|c| c.as_array()) {
+                if let Some(rules) = val.get("policy_overrides").and_then(|c| c.as_array()) {
                     for rule_val in rules {
                         let words: Vec<String> = rule_val
                             .get("words")
@@ -293,7 +295,7 @@ impl Resolver {
         if let Some(v) = self.namespace_default_min_voting_tokens {
             ns_meta["default_min_voting_tokens"] = serde_json::json!(v);
         }
-        // Persist conjunction rules so authored rules survive save/load cycles.
+        // Persist policy override rules so authored rules survive save/load.
         if !self.index.conjunctions.is_empty() {
             let rules: Vec<serde_json::Value> = self
                 .index
@@ -307,7 +309,7 @@ impl Resolver {
                     })
                 })
                 .collect();
-            ns_meta["conjunctions"] = serde_json::Value::Array(rules);
+            ns_meta["policy_overrides"] = serde_json::Value::Array(rules);
         }
         std::fs::write(
             path.join("_ns.json"),

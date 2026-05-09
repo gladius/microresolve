@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import { api, type ConjunctionRow, type IntentInfo, type ResolveOutput } from '@/api/client';
+import { api, type PolicyOverrideRow, type IntentInfo, type ResolveOutput } from '@/api/client';
 import Page from '@/components/Page';
 
-/// Conjunction rules editor — pack-author authored compositional logic.
+/// Policy overrides editor — narrow declarative escape hatch (≤10 per pack).
 ///
-/// A conjunction fires when ALL listed words appear in the normalised query,
-/// adding `bonus` to the target intent. Used to encode carve-outs ("X EXCEPT
-/// WHEN Y") that independent token weights cannot express. Every mutation
-/// lands in the audit log.
-export default function ConjunctionsPage() {
-  const [rows, setRows] = useState<ConjunctionRow[]>([]);
+/// A policy override fires when ALL listed words appear in the normalised
+/// query, adding `bonus` to the target intent. Designed for hard rules pack
+/// authors encode for externally-specified policy that the auto-learn loop
+/// cannot reasonably teach (Article 5 carve-outs, CSAM detection vs
+/// generation, similar). Mechanism is a token conjunction; role is policy
+/// override. Every mutation lands in the audit log.
+export default function PolicyOverridesPage() {
+  const [rows, setRows] = useState<PolicyOverrideRow[]>([]);
   const [intents, setIntents] = useState<IntentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -27,8 +29,8 @@ export default function ConjunctionsPage() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const [r, ils] = await Promise.all([api.listConjunctions(), api.listIntents()]);
-      setRows(r.conjunctions || []);
+      const [r, ils] = await Promise.all([api.listPolicyOverrides(), api.listIntents()]);
+      setRows(r.policy_overrides || []);
       setIntents(ils);
       if (!newIntent && ils.length > 0) setNewIntent(ils[0].id);
       setErr(null);
@@ -55,7 +57,7 @@ export default function ConjunctionsPage() {
       return;
     }
     try {
-      await api.addConjunction({ words, intent: newIntent, bonus: newBonus });
+      await api.addPolicyOverride({ words, intent: newIntent, bonus: newBonus });
       setNewWords('');
       setNewBonus(2.0);
       setErr(null);
@@ -67,9 +69,9 @@ export default function ConjunctionsPage() {
   };
 
   const deleteRule = async (idx: number) => {
-    if (!confirm('Remove this conjunction?')) return;
+    if (!confirm('Remove this policy override?')) return;
     try {
-      await api.removeConjunction(idx);
+      await api.removePolicyOverride(idx);
       refresh();
       if (previewQuery) runPreview(previewQuery);
     } catch (e) {
@@ -89,9 +91,9 @@ export default function ConjunctionsPage() {
     }
   };
 
-  // Which conjunctions fire on the current preview?
-  // The trace's per_intent[].conjunctions_fired contains rule descriptions like
-  // "[word_a + word_b]" — match those against the rule list to highlight.
+  // Which policy overrides fire on the current preview?
+  // The trace's per_intent[].conjunctions_fired contains rule descriptions
+  // (the runtime mechanism is still a conjunction) — match against rules.
   const firedRuleSigs = new Set<string>();
   if (previewResult?.trace?.per_intent) {
     for (const pi of previewResult.trace.per_intent) {
@@ -103,15 +105,15 @@ export default function ConjunctionsPage() {
       }
     }
   }
-  const ruleFired = (r: ConjunctionRow): boolean => {
+  const ruleFired = (r: PolicyOverrideRow): boolean => {
     const sig = `${r.intent}::${[...r.words].sort().join(' + ')}`;
     return firedRuleSigs.has(sig);
   };
 
   return (
     <Page
-      title="Conjunctions"
-      subtitle="Declarative compositional rules — fire when listed words co-occur"
+      title="Policy overrides"
+      subtitle="Hard rules — keep ≤10 per pack. Per-intent expansion handles the rest."
     >
       <div className="px-6 py-4 max-w-5xl">
         {err && (
@@ -122,7 +124,7 @@ export default function ConjunctionsPage() {
 
         {/* What is this */}
         <div className="mb-4 text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-lg p-3 leading-relaxed">
-          A <span className="text-emerald-400">conjunction</span> fires when <span className="text-emerald-400">all</span> listed words appear in a query, adding the bonus to the target intent's score. Use this to express carve-outs ("X but NOT when Y appears") and other compositional logic that per-token weights can't capture. Every add / remove is recorded in the audit log.
+          A <span className="text-emerald-400">policy override</span> fires when <span className="text-emerald-400">all</span> listed words appear in a query, adding the bonus to the target intent. Reserved for hard rules where pre-knowledge of policy is more efficient than waiting for the auto-learn loop to discover it (Article 5 carve-outs, CSAM detection vs generation, similar). <span className="text-amber-400">Use sparingly — keep ≤10 per pack.</span> Every add / remove is recorded in the audit log.
         </div>
 
         {/* New rule form */}
@@ -174,7 +176,7 @@ export default function ConjunctionsPage() {
         {/* Preview tool */}
         <div className="mb-4 bg-zinc-900 border border-zinc-800 rounded-lg p-3">
           <div className="text-[10px] text-zinc-500 uppercase tracking-wide font-semibold mb-2">
-            Test query — see which conjunctions fire
+            Test query — see which overrides fire
           </div>
           <div className="flex gap-2">
             <input
@@ -206,7 +208,7 @@ export default function ConjunctionsPage() {
                 )}
               </div>
               <div className="text-zinc-600 text-[11px]">
-                Fired conjunctions are highlighted in the rule list below.
+                Fired overrides are highlighted in the rule list below.
               </div>
             </div>
           )}
@@ -222,7 +224,7 @@ export default function ConjunctionsPage() {
           )}
           {!loading && rows.length === 0 && (
             <div className="px-3 py-4 text-zinc-600 text-xs italic">
-              No conjunctions yet. Add one above.
+              No policy overrides yet. Add one above (sparingly).
             </div>
           )}
           {rows.map(r => (

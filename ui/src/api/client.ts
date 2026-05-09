@@ -210,7 +210,7 @@ export interface ResolveOutput {
   trace?: ResolveTrace;
 }
 
-export interface ConjunctionRow {
+export interface PolicyOverrideRow {
   idx: number;
   words: string[];
   intent: string;
@@ -282,15 +282,19 @@ export const api = {
   resolve: (query: string, threshold = 0.3, log = true, trace = false) =>
     post<ResolveOutput>('/resolve', { query, threshold, log, trace }),
 
-  // Conjunctions — declarative compositional rules per namespace
-  listConjunctions: () =>
-    get<{ conjunctions: ConjunctionRow[] }>('/conjunctions'),
-  addConjunction: (payload: { words: string[]; intent: string; bonus: number }) =>
-    post<{ idx: number }>('/conjunctions', payload),
-  removeConjunction: (idx: number) =>
-    del<void>(`/conjunctions/${idx}`),
-  updateConjunction: (idx: number, payload: { words: string[]; intent: string; bonus: number }) =>
-    patch<void>(`/conjunctions/${idx}`, payload),
+  // Policy overrides — narrow declarative escape hatch (≤10 per pack).
+  // Hard rules pack authors encode for externally-specified policy that
+  // the auto-learn loop cannot reasonably teach (Article 5 carve-outs,
+  // CSAM detection vs generation, similar). Mechanism is a token
+  // conjunction; role is policy override.
+  listPolicyOverrides: () =>
+    get<{ policy_overrides: PolicyOverrideRow[] }>('/policy-overrides'),
+  addPolicyOverride: (payload: { words: string[]; intent: string; bonus: number }) =>
+    post<{ idx: number }>('/policy-overrides', payload),
+  removePolicyOverride: (idx: number) =>
+    del<void>(`/policy-overrides/${idx}`),
+  updatePolicyOverride: (idx: number, payload: { words: string[]; intent: string; bonus: number }) =>
+    patch<void>(`/policy-overrides/${idx}`, payload),
 
   // Intents
   listIntents: () => get<IntentInfo[]>('/intents'),
