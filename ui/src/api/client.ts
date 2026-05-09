@@ -184,8 +184,8 @@ export interface IntentTraceSummary {
   raw_score: number;
   voting_tokens: number;
   voting_multiplier: number;
-  conjunctions_bonus: number;
-  conjunctions_fired: string[];
+  policy_overrides_bonus: number;
+  policy_overrides_fired: string[];
 }
 
 export interface ResolveTrace {

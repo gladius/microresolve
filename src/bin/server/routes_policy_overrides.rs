@@ -9,7 +9,7 @@
 //! belongs in per-intent structured expansion (LLM-distilled at pack-build),
 //! not here.
 //!
-//! Internally still backed by `ConjunctionRule` — the runtime mechanism is a
+//! Internally still backed by `PolicyOverride` — the runtime mechanism is a
 //! token-conjunction. The renamed surface signals the intended *role*: hard
 //! policy override, not a Swiss Army knife.
 //!
@@ -40,7 +40,7 @@ pub struct PolicyOverridePayload {
     pub bonus: f32,
 }
 
-fn rule_to_json(idx: usize, r: &microresolve::scoring::ConjunctionRule) -> serde_json::Value {
+fn rule_to_json(idx: usize, r: &microresolve::scoring::PolicyOverride) -> serde_json::Value {
     serde_json::json!({
         "idx": idx,
         "words": r.words,
@@ -58,7 +58,7 @@ pub async fn list(
         StatusCode::NOT_FOUND,
         format!("namespace '{}' not found", app_id),
     ))?;
-    let rules = h.list_conjunctions();
+    let rules = h.list_policy_overrides();
     let arr: Vec<serde_json::Value> = rules
         .iter()
         .enumerate()
@@ -84,7 +84,7 @@ pub async fn add(
     let bonus_for_audit = req.bonus;
 
     let idx = h
-        .add_conjunction(req.words, req.intent, req.bonus)
+        .add_policy_override(req.words, req.intent, req.bonus)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
     audit_mutation(
@@ -118,7 +118,7 @@ pub async fn remove(
         format!("namespace '{}' not found", app_id),
     ))?;
     let removed = h
-        .remove_conjunction(idx)
+        .remove_policy_override(idx)
         .map_err(|e| (StatusCode::NOT_FOUND, e.to_string()))?;
     audit_mutation(
         &state,
@@ -152,7 +152,7 @@ pub async fn update(
     let words_for_audit = req.words.clone();
     let intent_for_audit = req.intent.clone();
     let bonus_for_audit = req.bonus;
-    h.update_conjunction(idx, req.words, req.intent, req.bonus)
+    h.update_policy_override(idx, req.words, req.intent, req.bonus)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
     audit_mutation(
         &state,

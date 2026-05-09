@@ -499,14 +499,14 @@ impl<'e> NamespaceHandle<'e> {
     }
 
     /// List all conjunction rules currently active on this namespace.
-    pub fn list_conjunctions(&self) -> Vec<crate::scoring::ConjunctionRule> {
+    pub fn list_policy_overrides(&self) -> Vec<crate::scoring::PolicyOverride> {
         self.engine
-            .with_resolver(&self.id, |r| r.index().conjunctions.clone())
+            .with_resolver(&self.id, |r| r.index().policy_overrides.clone())
     }
 
     /// Append a new conjunction rule. Validates: ≥2 distinct words, intent must
     /// exist in the namespace, bonus > 0. Returns the new rule's index.
-    pub fn add_conjunction(
+    pub fn add_policy_override(
         &self,
         words: Vec<String>,
         intent: String,
@@ -540,22 +540,22 @@ impl<'e> NamespaceHandle<'e> {
                     intent_clone
                 )));
             }
-            r.index_mut().conjunctions.push(crate::scoring::ConjunctionRule {
+            r.index_mut().policy_overrides.push(crate::scoring::PolicyOverride {
                 words: normalised.clone(),
                 intent: intent_clone,
                 bonus,
             });
-            Ok(r.index().conjunctions.len() - 1)
+            Ok(r.index().policy_overrides.len() - 1)
         })?
     }
 
     /// Remove the conjunction at the given index. Returns the removed rule.
-    pub fn remove_conjunction(
+    pub fn remove_policy_override(
         &self,
         idx: usize,
-    ) -> Result<crate::scoring::ConjunctionRule, Error> {
+    ) -> Result<crate::scoring::PolicyOverride, Error> {
         self.engine.with_resolver_mut(&self.id, |r| {
-            let rules = &mut r.index_mut().conjunctions;
+            let rules = &mut r.index_mut().policy_overrides;
             if idx >= rules.len() {
                 return Err(Error::Parse(format!(
                     "conjunction index {} out of range (len={})",
@@ -568,7 +568,7 @@ impl<'e> NamespaceHandle<'e> {
     }
 
     /// Replace the conjunction at the given index. Same validation as `add`.
-    pub fn update_conjunction(
+    pub fn update_policy_override(
         &self,
         idx: usize,
         words: Vec<String>,
@@ -601,7 +601,7 @@ impl<'e> NamespaceHandle<'e> {
                     intent_clone
                 )));
             }
-            let rules = &mut r.index_mut().conjunctions;
+            let rules = &mut r.index_mut().policy_overrides;
             if idx >= rules.len() {
                 return Err(Error::Parse(format!(
                     "conjunction index {} out of range (len={})",
@@ -609,7 +609,7 @@ impl<'e> NamespaceHandle<'e> {
                     rules.len()
                 )));
             }
-            rules[idx] = crate::scoring::ConjunctionRule {
+            rules[idx] = crate::scoring::PolicyOverride {
                 words: normalised.clone(),
                 intent: intent_clone,
                 bonus,
@@ -1112,10 +1112,10 @@ fn build_explanation(per_intent: &[crate::scoring::IntentTraceSummary], threshol
     if (top.voting_multiplier - 1.0).abs() > 1e-6 {
         parts.push(format!("voting multiplier ×{:.2}", top.voting_multiplier));
     }
-    if !top.conjunctions_fired.is_empty() {
+    if !top.policy_overrides_fired.is_empty() {
         parts.push(format!(
             "conjunctions {}",
-            top.conjunctions_fired.join(", ")
+            top.policy_overrides_fired.join(", ")
         ));
     }
     if next_score > 0.0 {

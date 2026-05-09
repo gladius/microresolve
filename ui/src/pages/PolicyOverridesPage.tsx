@@ -92,12 +92,12 @@ export default function PolicyOverridesPage() {
   };
 
   // Which policy overrides fire on the current preview?
-  // The trace's per_intent[].conjunctions_fired contains rule descriptions
+  // The trace's per_intent[].policy_overrides_fired contains rule descriptions
   // (the runtime mechanism is still a conjunction) — match against rules.
   const firedRuleSigs = new Set<string>();
   if (previewResult?.trace?.per_intent) {
     for (const pi of previewResult.trace.per_intent) {
-      for (const f of pi.conjunctions_fired) {
+      for (const f of pi.policy_overrides_fired) {
         // f is like "[word_a + word_b]" — extract sorted words.
         const inner = f.replace(/[\[\]]/g, '');
         const ws = inner.split(' + ').map(w => w.trim()).sort();

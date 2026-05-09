@@ -134,7 +134,7 @@ impl Resolver {
         //
         // Loaded into a local Vec here; applied below AFTER _index.json
         // load so the override below doesn't drop them.
-        let mut ns_conjunctions: Vec<crate::scoring::ConjunctionRule> = Vec::new();
+        let mut ns_overrides: Vec<crate::scoring::PolicyOverride> = Vec::new();
         if let Ok(json) = std::fs::read_to_string(path.join("_ns.json")) {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json) {
                 if let Some(rules) = val.get("policy_overrides").and_then(|c| c.as_array()) {
@@ -158,7 +158,7 @@ impl Resolver {
                             .and_then(|b| b.as_f64())
                             .unwrap_or(0.0) as f32;
                         if words.len() >= 2 && !intent.is_empty() && bonus > 0.0 {
-                            ns_conjunctions.push(crate::scoring::ConjunctionRule {
+                            ns_overrides.push(crate::scoring::PolicyOverride {
                                 words,
                                 intent,
                                 bonus,
@@ -191,8 +191,8 @@ impl Resolver {
         // Apply _ns.json conjunctions AFTER _index.json overwrite so they
         // always reflect the pack author's declared rules. _ns.json is
         // source of truth for compositional logic.
-        if !ns_conjunctions.is_empty() {
-            router.index.conjunctions = ns_conjunctions;
+        if !ns_overrides.is_empty() {
+            router.index.policy_overrides = ns_overrides;
         }
 
         let entries = std::fs::read_dir(path).map_err(|e| {
@@ -296,10 +296,10 @@ impl Resolver {
             ns_meta["default_min_voting_tokens"] = serde_json::json!(v);
         }
         // Persist policy override rules so authored rules survive save/load.
-        if !self.index.conjunctions.is_empty() {
+        if !self.index.policy_overrides.is_empty() {
             let rules: Vec<serde_json::Value> = self
                 .index
-                .conjunctions
+                .policy_overrides
                 .iter()
                 .map(|r| {
                     serde_json::json!({

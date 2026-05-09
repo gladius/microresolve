@@ -301,8 +301,8 @@ fn build_trace_json(t: &microresolve::ResolveTrace) -> serde_json::Value {
             "raw_score": (s.raw_score * 100.0).round() / 100.0,
             "voting_tokens": s.voting_tokens,
             "voting_multiplier": (s.voting_multiplier * 100.0).round() / 100.0,
-            "conjunctions_bonus": (s.conjunctions_bonus * 100.0).round() / 100.0,
-            "conjunctions_fired": s.conjunctions_fired,
+            "policy_overrides_bonus": (s.policy_overrides_bonus * 100.0).round() / 100.0,
+            "policy_overrides_fired": s.policy_overrides_fired,
         })).collect::<Vec<_>>(),
         "explanation": t.explanation,
     })
@@ -322,7 +322,7 @@ fn build_compact_audit_trace(t: &microresolve::ResolveTrace) -> serde_json::Valu
                 "intent": s.intent,
                 "raw_score": (s.raw_score * 100.0).round() / 100.0,
                 "voting_tokens": s.voting_tokens,
-                "conjunctions_fired": s.conjunctions_fired,
+                "policy_overrides_fired": s.policy_overrides_fired,
             })
         })
         .collect();

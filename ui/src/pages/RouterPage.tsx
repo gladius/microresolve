@@ -329,7 +329,7 @@ function TracePanel({ trace }: { trace: ResolveTrace }) {
                       {s.voting_multiplier.toFixed(2)}
                     </td>
                     <td className="pl-2 text-emerald-400">
-                      {s.conjunctions_fired.length > 0 ? s.conjunctions_fired.join(', ') : <span className="text-zinc-700">—</span>}
+                      {s.policy_overrides_fired.length > 0 ? s.policy_overrides_fired.join(', ') : <span className="text-zinc-700">—</span>}
                     </td>
                   </tr>
                 ))}

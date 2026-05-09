@@ -16,7 +16,7 @@ use std::collections::HashMap;
 /// A conjunction rule fires when ALL listed words appear in the normalized query.
 /// Adds a bonus activation to the target intent on top of individual word weights.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ConjunctionRule {
+pub struct PolicyOverride {
     pub words: Vec<String>,
     pub intent: String,
     pub bonus: f32,
@@ -68,8 +68,8 @@ pub struct IntentTraceSummary {
     pub raw_score: f32,
     pub voting_tokens: usize,
     pub voting_multiplier: f32,
-    pub conjunctions_bonus: f32,
-    pub conjunctions_fired: Vec<String>,
+    pub policy_overrides_bonus: f32,
+    pub policy_overrides_fired: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -80,7 +80,7 @@ pub struct IntentIndex {
 
     /// Conjunction bonuses — word pairs that together strongly indicate an intent.
     #[serde(default)]
-    pub conjunctions: Vec<ConjunctionRule>,
+    pub policy_overrides: Vec<PolicyOverride>,
 
     /// Char-ngram tiebreaker index: intent_id → set of char 4-grams from seed phrases.
     #[serde(default)]
@@ -379,7 +379,7 @@ impl IntentIndex {
 
     pub fn fired_conjunction_indices(&self, words: &[&str]) -> Vec<usize> {
         let word_set: FxHashSet<&str> = words.iter().copied().collect();
-        self.conjunctions
+        self.policy_overrides
             .iter()
             .enumerate()
             .filter(|(_, rule)| rule.words.iter().all(|w| word_set.contains(w.as_str())))
@@ -388,7 +388,7 @@ impl IntentIndex {
     }
 
     pub fn reinforce_conjunction(&mut self, idx: usize, delta: f32) {
-        if let Some(rule) = self.conjunctions.get_mut(idx) {
+        if let Some(rule) = self.policy_overrides.get_mut(idx) {
             if delta >= 0.0 {
                 rule.bonus = (rule.bonus + delta * (1.0 - rule.bonus)).min(1.0);
             } else {
@@ -449,7 +449,7 @@ impl IntentIndex {
             }
         }
 
-        for rule in &self.conjunctions {
+        for rule in &self.policy_overrides {
             if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
                 *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
             }
@@ -511,8 +511,8 @@ impl IntentIndex {
         let mut has_negation = cjk_negated;
         let mut voting_pairs: FxHashSet<(String, String)> = FxHashSet::default();
         let mut contributions: Vec<TokenContribution> = Vec::new();
-        let mut conjunctions_bonus: FxHashMap<String, f32> = FxHashMap::default();
-        let mut conjunctions_fired: FxHashMap<String, Vec<String>> = FxHashMap::default();
+        let mut policy_overrides_bonus: FxHashMap<String, f32> = FxHashMap::default();
+        let mut policy_overrides_fired: FxHashMap<String, Vec<String>> = FxHashMap::default();
         const VOTING_EPSILON: f32 = 0.05;
 
         let all_bases: FxHashSet<&str> = tokens
@@ -551,11 +551,11 @@ impl IntentIndex {
             }
         }
 
-        for rule in &self.conjunctions {
+        for rule in &self.policy_overrides {
             if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
                 *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
-                *conjunctions_bonus.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
-                conjunctions_fired
+                *policy_overrides_bonus.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
+                policy_overrides_fired
                     .entry(rule.intent.clone())
                     .or_default()
                     .push(format!("[{}]", rule.words.join(" + ")));
@@ -604,8 +604,8 @@ impl IntentIndex {
                 raw_score: *score,
                 voting_tokens: voting_count.get(id).copied().unwrap_or(0),
                 voting_multiplier: voting_mult.get(id).copied().unwrap_or(1.0),
-                conjunctions_bonus: conjunctions_bonus.get(id).copied().unwrap_or(0.0),
-                conjunctions_fired: conjunctions_fired.get(id).cloned().unwrap_or_default(),
+                policy_overrides_bonus: policy_overrides_bonus.get(id).copied().unwrap_or(0.0),
+                policy_overrides_fired: policy_overrides_fired.get(id).cloned().unwrap_or_default(),
             })
             .collect();
 
@@ -783,7 +783,7 @@ impl IntentIndex {
             .iter()
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
-        for rule in &self.conjunctions {
+        for rule in &self.policy_overrides {
             if !exclude_intents.contains(&rule.intent)
                 && rule.words.iter().all(|w| all_bases.contains(w.as_str()))
             {
@@ -942,7 +942,7 @@ impl IntentIndex {
         (
             self.word_intent.len(),
             activation_edges,
-            self.conjunctions.len(),
+            self.policy_overrides.len(),
         )
     }
 }
