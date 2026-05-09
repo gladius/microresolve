@@ -47,6 +47,31 @@ pub struct MultiIntentTrace {
     pub stop_reason: String,
 }
 
+/// Per-token contribution to a specific intent's score during scoring.
+/// Emitted when full-trace mode is enabled; the sum of (delta) across tokens
+/// for a given intent equals that intent's raw score before the voting gate.
+#[derive(Serialize, Clone, Debug)]
+pub struct TokenContribution {
+    pub token: String,
+    pub intent: String,
+    pub weight: f32,
+    pub idf: f32,
+    pub delta: f32,
+    pub negated: bool,
+}
+
+/// Per-intent summary for full-trace output. Captures the IDF score, the
+/// voting-gate state, conjunction bonuses, and any rules that fired.
+#[derive(Serialize, Clone, Debug)]
+pub struct IntentTraceSummary {
+    pub intent: String,
+    pub raw_score: f32,
+    pub voting_tokens: usize,
+    pub voting_multiplier: f32,
+    pub conjunctions_bonus: f32,
+    pub conjunctions_fired: Vec<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct IntentIndex {
     /// word → [(intent_id, weight 0.0–1.0)]
@@ -453,6 +478,138 @@ impl IntentIndex {
         let mut result: Vec<(String, f32)> = scores.into_iter().filter(|(_, s)| *s > 0.0).collect();
         result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         (result, has_negation)
+    }
+
+    /// Like [`score`] but also emits per-token contribution data and per-intent
+    /// summaries. Used by full-trace mode in the resolver pipeline. Slower than
+    /// `score` because it allocates the contribution vector; the no-trace path
+    /// stays unchanged.
+    pub fn score_with_attribution(
+        &self,
+        normalized: &str,
+    ) -> (
+        Vec<(String, f32)>,
+        bool,
+        Vec<TokenContribution>,
+        Vec<IntentTraceSummary>,
+    ) {
+        const CJK_NEG: &[char] = &['不', '没', '别', '未'];
+        let cjk_negated = normalized.chars().any(|c| CJK_NEG.contains(&c));
+        let query_for_tokenize: std::borrow::Cow<str> = if cjk_negated {
+            std::borrow::Cow::Owned(
+                normalized
+                    .chars()
+                    .map(|c| if CJK_NEG.contains(&c) { ' ' } else { c })
+                    .collect(),
+            )
+        } else {
+            std::borrow::Cow::Borrowed(normalized)
+        };
+
+        let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
+        let mut scores: FxHashMap<String, f32> = FxHashMap::default();
+        let mut has_negation = cjk_negated;
+        let mut voting_pairs: FxHashSet<(String, String)> = FxHashSet::default();
+        let mut contributions: Vec<TokenContribution> = Vec::new();
+        let mut conjunctions_bonus: FxHashMap<String, f32> = FxHashMap::default();
+        let mut conjunctions_fired: FxHashMap<String, Vec<String>> = FxHashMap::default();
+        const VOTING_EPSILON: f32 = 0.05;
+
+        let all_bases: FxHashSet<&str> = tokens
+            .iter()
+            .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
+            .collect();
+
+        for token in &tokens {
+            let is_negated = token.starts_with("not_");
+            let base = if is_negated {
+                &token["not_".len()..]
+            } else {
+                token.as_str()
+            };
+            if is_negated {
+                has_negation = true;
+            }
+            if let Some(activations) = self.word_intent.get(base) {
+                let idf = self.idf(base);
+                for (intent, weight) in activations {
+                    let delta = weight * idf;
+                    let signed = if is_negated { -delta } else { delta };
+                    *scores.entry(intent.clone()).or_insert(0.0) += signed;
+                    if !is_negated && delta > VOTING_EPSILON {
+                        voting_pairs.insert((intent.clone(), base.to_string()));
+                    }
+                    contributions.push(TokenContribution {
+                        token: base.to_string(),
+                        intent: intent.clone(),
+                        weight: *weight,
+                        idf,
+                        delta: signed,
+                        negated: is_negated,
+                    });
+                }
+            }
+        }
+
+        for rule in &self.conjunctions {
+            if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
+                *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
+                *conjunctions_bonus.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
+                conjunctions_fired
+                    .entry(rule.intent.clone())
+                    .or_default()
+                    .push(format!("[{}]", rule.words.join(" + ")));
+            }
+        }
+
+        // Voting-token state per intent (pre-gate); the gate itself rescales
+        // scores below.
+        let mut voting_count: FxHashMap<String, usize> = FxHashMap::default();
+        for (intent, _) in &voting_pairs {
+            *voting_count.entry(intent.clone()).or_insert(0) += 1;
+        }
+        let mut voting_mult: FxHashMap<String, f32> = FxHashMap::default();
+
+        if self.min_voting_tokens > 1 {
+            let min = self.min_voting_tokens as usize;
+            let mut updates: Vec<(String, f32)> = Vec::new();
+            for (intent, score) in scores.iter() {
+                let count = voting_count.get(intent).copied().unwrap_or(0);
+                let multiplier = voting_multiplier(count, min);
+                voting_mult.insert(intent.clone(), multiplier);
+                if (multiplier - 1.0).abs() > 1e-6 {
+                    updates.push((intent.clone(), score * multiplier));
+                }
+            }
+            for (intent, new_score) in updates {
+                scores.insert(intent, new_score);
+            }
+        } else {
+            for intent in scores.keys() {
+                voting_mult.insert(intent.clone(), 1.0);
+            }
+        }
+
+        let mut result: Vec<(String, f32)> =
+            scores.into_iter().filter(|(_, s)| *s > 0.0).collect();
+        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Build per-intent summary for the top entries (cap at 10 to keep
+        // payloads small; UI/audit can expand if needed).
+        let summary: Vec<IntentTraceSummary> = result
+            .iter()
+            .take(10)
+            .map(|(id, score)| IntentTraceSummary {
+                intent: id.clone(),
+                raw_score: *score,
+                voting_tokens: voting_count.get(id).copied().unwrap_or(0),
+                voting_multiplier: voting_mult.get(id).copied().unwrap_or(1.0),
+                conjunctions_bonus: conjunctions_bonus.get(id).copied().unwrap_or(0.0),
+                conjunctions_fired: conjunctions_fired.get(id).cloned().unwrap_or_default(),
+            })
+            .collect();
+
+        (result, has_negation, contributions, summary)
     }
 
     pub fn score_multi(

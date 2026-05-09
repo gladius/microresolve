@@ -498,6 +498,126 @@ impl<'e> NamespaceHandle<'e> {
             .with_resolver_mut(&self.id, |r| r.update_namespace(edit))?
     }
 
+    /// List all conjunction rules currently active on this namespace.
+    pub fn list_conjunctions(&self) -> Vec<crate::scoring::ConjunctionRule> {
+        self.engine
+            .with_resolver(&self.id, |r| r.index().conjunctions.clone())
+    }
+
+    /// Append a new conjunction rule. Validates: ≥2 distinct words, intent must
+    /// exist in the namespace, bonus > 0. Returns the new rule's index.
+    pub fn add_conjunction(
+        &self,
+        words: Vec<String>,
+        intent: String,
+        bonus: f32,
+    ) -> Result<usize, Error> {
+        // Normalise + dedupe words; lowercase to match tokenizer output.
+        let mut normalised: Vec<String> = words
+            .iter()
+            .map(|w| w.trim().to_lowercase())
+            .filter(|w| !w.is_empty())
+            .collect();
+        normalised.sort();
+        normalised.dedup();
+        if normalised.len() < 2 {
+            return Err(Error::Parse(
+                "conjunction needs at least 2 distinct non-empty words".into(),
+            ));
+        }
+        if intent.trim().is_empty() {
+            return Err(Error::Parse("conjunction intent must not be empty".into()));
+        }
+        if bonus <= 0.0 {
+            return Err(Error::Parse("conjunction bonus must be > 0".into()));
+        }
+        let intent_clone = intent.clone();
+        self.engine.with_resolver_mut(&self.id, |r| {
+            // Intent must exist (training or description).
+            if r.training(&intent_clone).is_none() {
+                return Err(Error::Parse(format!(
+                    "conjunction targets unknown intent '{}'",
+                    intent_clone
+                )));
+            }
+            r.index_mut().conjunctions.push(crate::scoring::ConjunctionRule {
+                words: normalised.clone(),
+                intent: intent_clone,
+                bonus,
+            });
+            Ok(r.index().conjunctions.len() - 1)
+        })?
+    }
+
+    /// Remove the conjunction at the given index. Returns the removed rule.
+    pub fn remove_conjunction(
+        &self,
+        idx: usize,
+    ) -> Result<crate::scoring::ConjunctionRule, Error> {
+        self.engine.with_resolver_mut(&self.id, |r| {
+            let rules = &mut r.index_mut().conjunctions;
+            if idx >= rules.len() {
+                return Err(Error::Parse(format!(
+                    "conjunction index {} out of range (len={})",
+                    idx,
+                    rules.len()
+                )));
+            }
+            Ok(rules.remove(idx))
+        })?
+    }
+
+    /// Replace the conjunction at the given index. Same validation as `add`.
+    pub fn update_conjunction(
+        &self,
+        idx: usize,
+        words: Vec<String>,
+        intent: String,
+        bonus: f32,
+    ) -> Result<(), Error> {
+        let mut normalised: Vec<String> = words
+            .iter()
+            .map(|w| w.trim().to_lowercase())
+            .filter(|w| !w.is_empty())
+            .collect();
+        normalised.sort();
+        normalised.dedup();
+        if normalised.len() < 2 {
+            return Err(Error::Parse(
+                "conjunction needs at least 2 distinct non-empty words".into(),
+            ));
+        }
+        if intent.trim().is_empty() {
+            return Err(Error::Parse("conjunction intent must not be empty".into()));
+        }
+        if bonus <= 0.0 {
+            return Err(Error::Parse("conjunction bonus must be > 0".into()));
+        }
+        let intent_clone = intent.clone();
+        self.engine.with_resolver_mut(&self.id, |r| {
+            if r.training(&intent_clone).is_none() {
+                return Err(Error::Parse(format!(
+                    "conjunction targets unknown intent '{}'",
+                    intent_clone
+                )));
+            }
+            let rules = &mut r.index_mut().conjunctions;
+            if idx >= rules.len() {
+                return Err(Error::Parse(format!(
+                    "conjunction index {} out of range (len={})",
+                    idx,
+                    rules.len()
+                )));
+            }
+            rules[idx] = crate::scoring::ConjunctionRule {
+                words: normalised.clone(),
+                intent: intent_clone,
+                bonus,
+            };
+            Ok(())
+        })?
+    }
+
     /// Export resolver state as a JSON string (for sync/backup).
     pub fn export_json(&self) -> String {
         self.engine.with_resolver(&self.id, |r| r.export_json())
@@ -644,7 +764,8 @@ impl<'e> NamespaceHandle<'e> {
         let (result, trace) = self.engine.with_resolver(&self.id, |r| {
             let threshold = r.resolve_threshold(None, crate::DEFAULT_THRESHOLD);
             let tokens: Vec<String> = crate::tokenizer::tokenize(query);
-            let (raw, negated) = r.index().score(query);
+            let (raw, negated, per_token, per_intent) =
+                r.index().score_with_attribution(query);
             let (multi, _neg2, multi_trace) = r.index().score_multi_with_trace(
                 query,
                 candidate_threshold(threshold),
@@ -652,12 +773,16 @@ impl<'e> NamespaceHandle<'e> {
             );
             let result =
                 build_resolve_result(multi, raw.clone(), negated, tokens.clone(), threshold);
+            let explanation = build_explanation(&per_intent, threshold);
             let trace = crate::ResolveTrace {
                 tokens,
                 all_scores: raw,
                 multi_round_trace: multi_trace,
                 negated,
                 threshold_applied: threshold,
+                per_token,
+                per_intent,
+                explanation,
             };
             (result, trace)
         });
@@ -681,18 +806,31 @@ impl<'e> NamespaceHandle<'e> {
             let (raw, negated) = r.index().score(query);
             let scoring_threshold = candidate_threshold(threshold);
             if with_trace {
+                let (raw_attr, negated_attr, per_token, per_intent) =
+                    r.index().score_with_attribution(query);
                 let (multi, _neg2, multi_trace) =
                     r.index()
                         .score_multi_with_trace(query, scoring_threshold, gap);
-                let result =
-                    build_resolve_result(multi, raw.clone(), negated, tokens.clone(), threshold);
+                let result = build_resolve_result(
+                    multi,
+                    raw_attr.clone(),
+                    negated_attr,
+                    tokens.clone(),
+                    threshold,
+                );
+                let explanation = build_explanation(&per_intent, threshold);
                 let trace = crate::ResolveTrace {
                     tokens,
-                    all_scores: raw,
+                    all_scores: raw_attr,
                     multi_round_trace: multi_trace,
-                    negated,
+                    negated: negated_attr,
                     threshold_applied: threshold,
+                    per_token,
+                    per_intent,
+                    explanation,
                 };
+                let _ = raw;
+                let _ = negated;
                 (result, Some(trace))
             } else {
                 let (multi, _neg2) = r.index().score_multi(query, scoring_threshold, gap);
@@ -880,6 +1018,14 @@ pub struct ResolveTrace {
     pub multi_round_trace: crate::scoring::MultiIntentTrace,
     pub negated: bool,
     pub threshold_applied: f32,
+    /// Per-token contribution to each intent it activates. Sum of (delta) for
+    /// a given intent equals that intent's raw score before the voting gate.
+    pub per_token: Vec<crate::scoring::TokenContribution>,
+    /// Per-intent summary capped at top 10 by score: raw score, voting state,
+    /// conjunction bonuses + which rules fired.
+    pub per_intent: Vec<crate::scoring::IntentTraceSummary>,
+    /// Single-line human-readable explanation of the routing decision.
+    pub explanation: String,
 }
 
 // ── build_resolve_result helper ─────────────────────────────────────────
@@ -936,6 +1082,50 @@ fn build_resolve_result(
         intents,
         disposition,
     }
+}
+
+/// Build a one-line human-readable explanation of a routing decision from
+/// the per-intent trace summary. Used by [`ResolveTrace::explanation`].
+fn build_explanation(per_intent: &[crate::scoring::IntentTraceSummary], threshold: f32) -> String {
+    if per_intent.is_empty() {
+        return "No intent activated above zero. No tokens in the query matched the index."
+            .to_string();
+    }
+    let top = &per_intent[0];
+    let next_score = per_intent.get(1).map(|s| s.raw_score).unwrap_or(0.0);
+    let band = if top.raw_score >= threshold {
+        "High"
+    } else if top.raw_score >= (threshold * 0.2).max(0.05) {
+        "Medium"
+    } else {
+        "Low"
+    };
+    let mut parts = vec![format!(
+        "{} won at {:.2} ({} band, threshold {:.2})",
+        top.intent, top.raw_score, band, threshold
+    )];
+    parts.push(format!(
+        "{} voting token{}",
+        top.voting_tokens,
+        if top.voting_tokens == 1 { "" } else { "s" }
+    ));
+    if (top.voting_multiplier - 1.0).abs() > 1e-6 {
+        parts.push(format!("voting multiplier ×{:.2}", top.voting_multiplier));
+    }
+    if !top.conjunctions_fired.is_empty() {
+        parts.push(format!(
+            "conjunctions {}",
+            top.conjunctions_fired.join(", ")
+        ));
+    }
+    if next_score > 0.0 {
+        parts.push(format!(
+            "beat next ({}) by {:.2}",
+            per_intent.get(1).map(|s| s.intent.as_str()).unwrap_or("?"),
+            top.raw_score - next_score
+        ));
+    }
+    parts.join(" · ")
 }
 
 #[cfg(test)]

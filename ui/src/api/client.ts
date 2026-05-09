@@ -170,9 +170,37 @@ export interface ResolveIntent {
   band: BandLabel;
 }
 
+export interface TokenContribution {
+  token: string;
+  intent: string;
+  weight: number;
+  idf: number;
+  delta: number;
+  negated: boolean;
+}
+
+export interface IntentTraceSummary {
+  intent: string;
+  raw_score: number;
+  voting_tokens: number;
+  voting_multiplier: number;
+  conjunctions_bonus: number;
+  conjunctions_fired: string[];
+}
+
 export interface ResolveTrace {
   tokens: string[];
-  [key: string]: unknown;
+  all_scores: { id: string; score: number }[];
+  per_token: TokenContribution[];
+  per_intent: IntentTraceSummary[];
+  explanation: string;
+  threshold_applied: number;
+  negated: boolean;
+  multi?: {
+    rounds: unknown[];
+    stop_reason: string;
+    has_negation: boolean;
+  };
 }
 
 export interface ResolveOutput {
@@ -180,6 +208,13 @@ export interface ResolveOutput {
   disposition: Disposition;
   routing_us: number;
   trace?: ResolveTrace;
+}
+
+export interface ConjunctionRow {
+  idx: number;
+  words: string[];
+  intent: string;
+  bonus: number;
 }
 
 export interface NamespaceModel {
@@ -244,8 +279,18 @@ export const api = {
   health: () => get<string>('/health'),
 
   // Routing
-  resolve: (query: string, threshold = 0.3, log = true) =>
-    post<ResolveOutput>('/resolve', { query, threshold, log }),
+  resolve: (query: string, threshold = 0.3, log = true, trace = false) =>
+    post<ResolveOutput>('/resolve', { query, threshold, log, trace }),
+
+  // Conjunctions — declarative compositional rules per namespace
+  listConjunctions: () =>
+    get<{ conjunctions: ConjunctionRow[] }>('/conjunctions'),
+  addConjunction: (payload: { words: string[]; intent: string; bonus: number }) =>
+    post<{ idx: number }>('/conjunctions', payload),
+  removeConjunction: (idx: number) =>
+    del<void>(`/conjunctions/${idx}`),
+  updateConjunction: (idx: number, payload: { words: string[]; intent: string; bonus: number }) =>
+    patch<void>(`/conjunctions/${idx}`, payload),
 
   // Intents
   listIntents: () => get<IntentInfo[]>('/intents'),
