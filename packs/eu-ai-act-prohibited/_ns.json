@@ -1,10 +1,68 @@
 {
   "name": "eu-ai-act-prohibited",
-  "description": "EU AI Act Article 5 prohibited-practice triage. Detects whether a deployment intent matches one of the 6 explicitly prohibited categories: biometric categorization, emotion recognition in workplace/education, exploitation of vulnerability, predictive policing on natural persons, social scoring, subliminal manipulation. Pre-LLM filter for compliance review.",
+  "description": "EU AI Act Article 5 prohibited-practice triage. Detects whether a query describes one of the prohibited categories: subliminal manipulation 5(1)(a), exploitation of vulnerability 5(1)(b), social scoring 5(1)(c), predictive policing 5(1)(d), untargeted facial scraping 5(1)(e), emotion recognition in workplace/education 5(1)(f), biometric categorisation 5(1)(g), real-time remote biometric identification 5(1)(h), and the new prohibitions added by the Digital AI Omnibus political agreement (7 May 2026, compliance 2 Dec 2026) — non-consensual intimate imagery generation and AI-generated CSAM. Includes a `legitimate_use` negative class to absorb adjacent-but-legal queries (single-context credit scoring, fraud detection, driver-fatigue safety, voluntary face-unlock). Pre-LLM triage filter — pair with lawyer review for final determination.",
   "default_threshold": 1.5,
   "default_min_voting_tokens": 2,
   "compliance_frameworks": [
-    "EU AI Act Art. 5",
+    "EU AI Act Art. 5(1)(a)",
+    "EU AI Act Art. 5(1)(b)",
+    "EU AI Act Art. 5(1)(c)",
+    "EU AI Act Art. 5(1)(d)",
+    "EU AI Act Art. 5(1)(e)",
+    "EU AI Act Art. 5(1)(f)",
+    "EU AI Act Art. 5(1)(g)",
+    "EU AI Act Art. 5(1)(h)",
+    "EU AI Act Art. 5 (NCII, Omnibus 7 May 2026)",
+    "EU AI Act Art. 5 (AI-CSAM, Omnibus 7 May 2026)",
     "EU AI Act Art. 13"
+  ],
+  "conjunctions": [
+    {"_comment": "5(h) carve-outs: targeted search for missing victims",
+     "words": ["missing", "child"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["search", "missing"], "intent": "legitimate_use", "bonus": 2.0},
+    {"words": ["named", "suspect"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["specific", "suspect"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["arrest", "warrant"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["active", "investigation"], "intent": "legitimate_use", "bonus": 2.0},
+
+    {"_comment": "5(d) carve-outs: profiling combined with verifiable facts",
+     "words": ["witness", "reports"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["outstanding", "warrants"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["incident", "statistics"], "intent": "legitimate_use", "bonus": 2.0},
+
+    {"_comment": "5(b) carve-outs: accessibility / assistive support is not exploitation",
+     "words": ["accessibility", "disabilities"], "intent": "legitimate_use", "bonus": 2.0},
+    {"words": ["assistive", "tech"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["financial", "literacy"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["help", "elderly"], "intent": "legitimate_use", "bonus": 1.5},
+
+    {"_comment": "NCII/CSAM carve-outs: moderation/detection vs generation",
+     "words": ["detect", "explicit"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["block", "explicit"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["moderation", "tool"], "intent": "legitimate_use", "bonus": 2.0},
+    {"words": ["age", "verification"], "intent": "legitimate_use", "bonus": 2.0},
+    {"words": ["csam", "detection"], "intent": "legitimate_use", "bonus": 3.0},
+    {"words": ["content", "moderation"], "intent": "legitimate_use", "bonus": 2.0},
+
+    {"_comment": "5(c) carve-outs: single-context fraud / credit",
+     "words": ["fraud", "transactions"], "intent": "legitimate_use", "bonus": 1.5},
+    {"words": ["fraud", "detection"], "intent": "legitimate_use", "bonus": 1.5},
+
+    {"_comment": "5(f) carve-outs: medical / safety / fatigue",
+     "words": ["driver", "fatigue"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["driver", "drowsiness"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["pilot", "fatigue"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["medical", "therapy"], "intent": "legitimate_use", "bonus": 2.0},
+    {"words": ["autism", "therapy"], "intent": "legitimate_use", "bonus": 2.5},
+    {"words": ["mental", "health", "support"], "intent": "legitimate_use", "bonus": 2.0},
+
+    {"_comment": "5(g) carve-outs: voluntary biometric authentication",
+     "words": ["face", "unlock"], "intent": "legitimate_use", "bonus": 2.0},
+    {"words": ["voluntary", "biometric"], "intent": "legitimate_use", "bonus": 2.0},
+    {"words": ["passport", "match"], "intent": "legitimate_use", "bonus": 2.0},
+
+    {"_comment": "5(e) carve-outs: opt-in face data only",
+     "words": ["consented", "opt-in"], "intent": "legitimate_use", "bonus": 2.0},
+    {"words": ["badge", "access"], "intent": "legitimate_use", "bonus": 1.5}
   ]
 }

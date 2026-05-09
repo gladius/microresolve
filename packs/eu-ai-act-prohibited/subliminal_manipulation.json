@@ -1,22 +1,25 @@
 {
-  "description": "",
+  "description": "Art. 5(1)(a) — AI deploying subliminal techniques beyond a person's consciousness, or purposefully manipulative or deceptive techniques, with the objective or effect of materially distorting behaviour and causing significant harm. Anchored on Recital 29 + Feb 2025 Commission guidelines: requires technique + behaviour distortion + significant harm. Personalised advertising is not inherently prohibited.",
   "guardrails": [],
   "instructions": "",
   "persona": "",
   "phrases": {
     "en": [
-      "subliminal messages to change voting behavior",
-      "below awareness stimuli to influence purchases",
-      "manipulative techniques beyond consumer awareness",
-      "hidden audio cues to shift opinion",
-      "imperceptible prompts to alter decisions",
-      "subliminal video frames to steer choices",
-      "deceptive techniques to distort behavior materially",
-      "covert cues that bypass conscious reasoning",
-      "subliminal ad imagery to change behavior",
-      "techniques below perceptual threshold to influence",
-      "below-threshold suggestion system for political persuasion",
-      "manipulation outside user awareness targeting kids to buy"
+      "subliminal nudge",
+      "subliminal manipulation",
+      "subliminal advertising",
+      "subliminal frames",
+      "imperceptible cues",
+      "imperceptible audio prompts",
+      "below-conscious manipulation",
+      "below-threshold persuasion",
+      "covert behavioral steering",
+      "override user autonomy",
+      "ultrasound nudging in store",
+      "microsecond frame insertion",
+      "nudge below awareness",
+      "influence below perception",
+      "hidden persuasion technique"
     ]
   },
   "schema": null,

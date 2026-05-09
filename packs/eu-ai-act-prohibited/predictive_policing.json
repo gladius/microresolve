@@ -1,21 +1,25 @@
 {
-  "description": "",
+  "description": "Art. 5(1)(d) — AI for risk assessment of natural persons to predict criminal offences, based SOLELY on profiling or assessing personality traits and characteristics. Per Feb 2025 Commission guidelines: only prohibited if solely on profiling. Models combining profiling with objective verifiable facts (warrants, witness reports) are not prohibited.",
   "guardrails": [],
   "instructions": "",
   "persona": "",
   "phrases": {
     "en": [
-      "predict who will commit crimes",
-      "profile individuals for likelihood of offending",
-      "AI system forecasting criminal behavior of person",
-      "risk score for future crime by individual",
-      "predict arrests based on personality profile",
-      "individual crime risk prediction from profile",
-      "forecast individual recidivism solely from profile",
-      "single out persons likely to commit future crimes",
-      "personality-based prediction of criminal propensity",
-      "predicting future criminality of named individuals",
-      "AI flagging specific people as likely criminals without any crime"
+      "predictive policing",
+      "predict future crime",
+      "predict future offender",
+      "profile-based crime prediction",
+      "personality crime risk",
+      "pre-crime profiling",
+      "predict crime by personality",
+      "profiling for police watchlist",
+      "profile-only criminal risk",
+      "forecast criminality from profile",
+      "personality-based pre-crime",
+      "predict offender by demographic profile",
+      "flag future criminals by profile",
+      "predict who will commit crime",
+      "criminal risk score from profile"
     ]
   },
   "schema": null,
