@@ -121,17 +121,12 @@ impl Resolver {
             }
         }
 
-        // IntentIndex — track whether it was pre-loaded so we can skip re-indexing below.
-        let l2_preloaded = if let Ok(json) = std::fs::read_to_string(path.join("_index.json")) {
-            if let Ok(ig) = serde_json::from_str::<crate::scoring::IntentIndex>(&json) {
-                router.index = ig;
-                true
-            } else {
-                false
-            }
-        } else {
-            false
-        };
+        // Always rebuild the IntentIndex from seeds at load time. No
+        // persistent index cache — the rebuild is sub-millisecond for the
+        // pack sizes we ship and removing the cache eliminates a class of
+        // staleness bugs by construction. If we ever ship packs large
+        // enough to make rebuild user-visible, add a content-hashed cache
+        // at that point.
 
         // Propagate namespace-level voting-gate default to the live index.
         // _ns.json is the source of truth; _index.json's serialized field
@@ -164,7 +159,7 @@ impl Resolver {
                     .and_then(|s| s.to_str())
                     .unwrap_or("")
                     .to_string();
-                load_intent_file(&mut router, &p, &stem, l2_preloaded);
+                load_intent_file(&mut router, &p, &stem);
             }
         }
 
@@ -197,7 +192,7 @@ impl Resolver {
                             .unwrap_or("")
                             .to_string();
                         let intent_id = format!("{}:{}", domain, stem);
-                        load_intent_file(&mut router, &p, &intent_id, l2_preloaded);
+                        load_intent_file(&mut router, &p, &intent_id);
                     }
                 }
             }
@@ -322,14 +317,8 @@ impl Resolver {
             written.insert(file_path);
         }
 
-        // Save IntentIndex
-        if let Ok(json) = serde_json::to_string_pretty(&self.index) {
-            let index_path = path.join("_index.json");
-            std::fs::write(&index_path, json).map_err(|e| {
-                crate::Error::Persistence(format!("cannot write _index.json: {}", e))
-            })?;
-            written.insert(index_path);
-        }
+        // The IntentIndex is rebuilt from seeds on load — no persistent
+        // index cache. See `load_from_dir`.
 
         // Save oplog
         if let Ok(json) = serde_json::to_string(&self.oplog) {
@@ -356,11 +345,10 @@ fn split_intent_id(id: &str) -> (Option<&str>, &str) {
     }
 }
 
-/// Deserialize and register one intent file into the engine.
-/// When `skip_indexing` is true (index was pre-loaded from _index.json), only store
-/// training data without re-indexing — avoids O(n²) rebuild on startup.
-/// Errors are logged but do not abort the load.
-fn load_intent_file(router: &mut Resolver, path: &Path, intent_id: &str, skip_indexing: bool) {
+/// Deserialize and register one intent file into the engine. Always indexes
+/// phrases — there is no precomputed index cache anymore. Errors are logged
+/// but do not abort the load.
+fn load_intent_file(router: &mut Resolver, path: &Path, intent_id: &str) {
     let json = match std::fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) => {
@@ -382,19 +370,11 @@ fn load_intent_file(router: &mut Resolver, path: &Path, intent_id: &str, skip_in
         .unwrap_or_default();
 
     if phrases_by_lang.is_empty() {
-        // Just register the intent with no phrases — no indexing needed.
         router
             .training
             .insert(intent_id.to_string(), HashMap::new());
         router.version += 1;
-    } else if skip_indexing {
-        // L2 pre-loaded: store training data only, skip re-indexing.
-        router
-            .training
-            .insert(intent_id.to_string(), phrases_by_lang);
-        router.version += 1;
     } else {
-        // No _index.json: index all phrases now (migration path for old namespaces).
         let _ = router.add_intent(intent_id, phrases_by_lang);
     }
 

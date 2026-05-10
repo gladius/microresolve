@@ -46,3 +46,8 @@ data/*.json
 # Internal launch / planning notes (private to the maintainer's working copy)
 _internal/
 mr-data/
+
+# Per-namespace runtime artifacts. `_oplog.json` is the live delta-sync
+# ringbuffer, regenerated on every mutation. `_audit/` is the tamper-evident
+# hash chain at data-dir root, not in packs.
+packs/**/_oplog.json
