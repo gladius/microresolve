@@ -165,6 +165,18 @@ export declare class Namespace {
   applyReview(missedPhrases: Record<string, Array<string>>, spansToLearn: Array<SpanPair>, wrongDetections: Array<string>, originalQuery: string, negativeAlpha?: number | undefined | null): number
   /** Remove a single phrase from an intent. Returns `true` if the phrase existed. */
   removePhrase(intentId: string, phrase: string): boolean
+  /** List all lexical groups in this namespace. */
+  listLexicalGroups(): Array<LexicalGroup>
+  /**
+   * Add a lexical group. Returns the index of the new group.
+   * Rebuilds the index — every existing seed is re-tokenized through
+   * the new group set.
+   */
+  addLexicalGroup(group: LexicalGroup): number
+  /** Remove the lexical group at `idx`. Rebuilds the index. */
+  removeLexicalGroup(idx: number): LexicalGroup
+  /** Replace the lexical group at `idx`. Rebuilds the index. */
+  updateLexicalGroup(idx: number, group: LexicalGroup): void
 }
 
 /** Options for `new MicroResolve(options)`. */
@@ -211,6 +223,21 @@ export interface IntentMatch {
   confidence: number
   /** Score band: `"High"`, `"Medium"`, or `"Low"`. */
   band: string
+}
+
+/**
+ * A per-namespace lexical normalization group: either a `morph` (inflection
+ * variants of one root) or `abbrev` (short forms of a longer phrase).
+ */
+export interface LexicalGroup {
+  /** `"morph"` or `"abbrev"`. */
+  kind: string
+  /** Language code (e.g. `"en"`). */
+  lang: string
+  /** The form every variant normalizes to. */
+  canonical: string
+  /** All variants (canonical is included automatically). */
+  variants: Array<string>
 }
 
 /**

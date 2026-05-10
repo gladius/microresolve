@@ -6,6 +6,7 @@ import RouterPage from '@/pages/RouterPage';
 import SimulatePage from '@/pages/SimulatePage';
 import ReviewPage from '@/pages/ReviewPage';
 import IntentsPage from '@/pages/IntentsPage';
+import LexicalGroupsPage from '@/pages/LexicalGroupsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NamespacesPage from '@/pages/NamespacesPage';
 import ModelsPage from '@/pages/ModelsPage';
@@ -123,6 +124,7 @@ export default function App() {
             <Route path="/simulate" element={<SimulatePage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/intents" element={<IntentsPage />} />
+            <Route path="/lexical" element={<LexicalGroupsPage />} />
             <Route path="/l2" element={<Navigate to="/intents" replace />} />
             <Route path="/import" element={<ImportLanding />} />
             <Route path="/import/openapi" element={<OpenApiImport />} />

@@ -87,6 +87,12 @@ pub struct IntentIndex {
     /// supporting evidence.
     #[serde(default)]
     pub min_voting_tokens: u32,
+
+    /// Per-namespace lexical normalization (morph + abbrev). Built fresh
+    /// from `_ns.json` on namespace load; not serialized with the index
+    /// (the source of truth is the lexical_groups list in `_ns.json`).
+    #[serde(skip)]
+    pub lexical: crate::lexical::LexicalIndex,
 }
 
 impl IntentIndex {
@@ -387,7 +393,8 @@ impl IntentIndex {
             std::borrow::Cow::Borrowed(normalized)
         };
 
-        let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
+        let mut tokens = crate::tokenizer::tokenize(&query_for_tokenize);
+        self.lexical.normalize_in_place(&mut tokens);
         let mut scores: FxHashMap<String, f32> = FxHashMap::default();
         let mut has_negation = cjk_negated;
         // Voting-token tracking: distinct (intent, base_token) pairs that
@@ -487,7 +494,8 @@ impl IntentIndex {
             std::borrow::Cow::Borrowed(normalized)
         };
 
-        let all_tokens: Vec<String> = crate::tokenizer::tokenize(&query_for_tokenize);
+        let mut all_tokens: Vec<String> = crate::tokenizer::tokenize(&query_for_tokenize);
+        self.lexical.normalize_in_place(&mut all_tokens);
         let has_negation = cjk_negated || all_tokens.iter().any(|t| t.starts_with("not_"));
 
         let mut remaining: Vec<String> = all_tokens;
@@ -728,7 +736,8 @@ impl IntentIndex {
             return;
         }
 
-        let tokens = crate::tokenizer::tokenize(query);
+        let mut tokens = crate::tokenizer::tokenize(query);
+        self.lexical.normalize_in_place(&mut tokens);
         let confirmed_ids: FxHashSet<&str> = confirmed.iter().map(|(id, _)| id.as_str()).collect();
 
         let mut unique_count: FxHashMap<&str, usize> = FxHashMap::default();

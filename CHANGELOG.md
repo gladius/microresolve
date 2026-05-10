@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — Lexical groups (per-namespace morph + abbrev normalization)
+
+### Added — `LexicalGroup` primitive
+
+Per-namespace, per-language lexical normalization that runs at
+tokenization time (both index-time on seeds and query-time on resolves).
+Two kinds:
+
+- **`morph`** — inflectional variants of one root (e.g.
+  `child` ⇄ `children`, `predict` ⇄ `predicts` ⇄ `predicting`).
+- **`abbrev`** — short forms of a longer phrase (e.g.
+  `rbi` → `real-time biometric identification`, `csam` → `child sexual
+  abuse material`).
+
+Distinct from synonyms by design: groups only collapse forms that share
+the same surface meaning. Synonym expansion was tried in the L1 graph
+era and removed because of pollution (one source intent leaking into
+unrelated sibling intents). Lexical groups don't have that failure mode
+because they only affect the literal token, not its semantic neighbours.
+
+Stored per-namespace in `_ns.json`, persistence is round-tripped, and
+mutations rebuild the index so existing seeds re-tokenize through the
+new groups.
+
+#### Surface
+
+- **Library (Rust):** `microresolve::{LexicalGroup, LexicalKind}` is
+  re-exported from the crate root. Engine API on `NamespaceHandle`:
+  `list_lexical_groups`, `add_lexical_group`, `remove_lexical_group`,
+  `update_lexical_group`.
+- **Server:** `GET/POST /api/lexical-groups`,
+  `DELETE/PATCH /api/lexical-groups/{idx}`, plus
+  `POST /api/lexical-groups/suggest` for operator-triggered LLM
+  proposals (returns proposals; nothing applies until you approve).
+  Every mutation lands in the per-key audit chain
+  (`lexical_group.add` / `.remove` / `.update`).
+- **Studio UI:** new "Lexicon" page under **Build** with tabs for
+  Inflections / Abbreviations, manual add form, and an LLM Suggest panel
+  that grounds proposals in the namespace's actual vocabulary +
+  intent descriptions.
+- **Python bindings:** `LexicalGroup` class plus
+  `Namespace.list_lexical_groups`, `add_lexical_group`,
+  `remove_lexical_group`, `update_lexical_group`.
+- **Node bindings:** `LexicalGroup` interface plus the same four
+  methods on `Namespace` (camelCase per napi convention).
+
+#### Pack support
+
+The `eu-ai-act-prohibited` pack ships with 10 morph groups (child,
+warrant, predict, person, score, manipulate, infer, categorize,
+exploit, scrape) and 3 abbreviations (rbi, ncii, csam) — measured as
++2.5pp F1 vs. the no-lexical baseline on a 100-prohibited / 80-benign
+hand-curated eval, with zero regression on CLINC150 + BANKING77.
+
+Note: older "lexical" mentions in this CHANGELOG (the L0/L1 graph
+removal) are unrelated — those layers were removed in v0.1. The new
+primitive is bounded, per-namespace, and operator-controlled.
+
+---
+
 ## [0.2.2] — 2026-05-08
 
 ### Added — Tamper-evident audit log (continuation of v0.2.0 compliance packs)

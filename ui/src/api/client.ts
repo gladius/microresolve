@@ -214,6 +214,23 @@ export interface IntentInfo {
   schema?: Record<string, unknown>;
 }
 
+export type LexicalKind = 'morph' | 'abbrev';
+
+export interface LexicalGroup {
+  idx?: number;
+  kind: LexicalKind;
+  lang: string;
+  canonical: string;
+  variants: string[];
+}
+
+export interface LexicalSuggestion {
+  kind: LexicalKind;
+  lang: string;
+  canonical: string;
+  variants: string[];
+}
+
 export interface ReviewAnalysis {
   correct: string[];
   false_positives: { id: string; reason: string }[];
@@ -555,6 +572,18 @@ export const api = {
       body: JSON.stringify({ remote_url }),
     }).then(r => r.json() as Promise<{ remote_url: string | null; auto_push: boolean; has_repo: boolean }>),
   gitPushNow: () => post<{ ok: boolean; error: string | null }>('/git/push', {}),
+
+  // Lexical groups (per-namespace morph + abbrev)
+  listLexicalGroups: () =>
+    get<{ lexical_groups: LexicalGroup[] }>('/lexical-groups'),
+  addLexicalGroup: (group: Omit<LexicalGroup, 'idx'>) =>
+    post<{ idx: number }>('/lexical-groups', group),
+  removeLexicalGroup: (idx: number) =>
+    del<void>(`/lexical-groups/${idx}`),
+  updateLexicalGroup: (idx: number, group: Omit<LexicalGroup, 'idx'>) =>
+    patch<void>(`/lexical-groups/${idx}`, group),
+  suggestLexicalGroups: (kind: LexicalKind, lang = 'en') =>
+    post<{ proposals: LexicalSuggestion[]; count: number }>('/lexical-groups/suggest', { kind, lang }),
 
   // Spec Import
   importSpec: (spec: string) =>

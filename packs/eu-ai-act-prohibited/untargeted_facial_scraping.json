@@ -1,0 +1,29 @@
+{
+  "description": "Art. 5(1)(e) — AI systems that create or expand facial recognition databases through the untargeted scraping of facial images from the internet or CCTV footage. Targets Clearview-style data harvesting at scale. Effective since 2 Feb 2025.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "scrape internet for faces",
+      "mass face scraping",
+      "harvest faces from web",
+      "bulk facial scraping",
+      "internet face database",
+      "CCTV face harvesting",
+      "untargeted face collection",
+      "scrape Instagram for faces",
+      "scrape LinkedIn faces",
+      "Clearview-style face database",
+      "crawl web for face data",
+      "bulk download social media faces",
+      "ingest CCTV streams for faces",
+      "global face index from web",
+      "indiscriminate face harvesting"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

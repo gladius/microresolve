@@ -24,6 +24,7 @@ impl Resolver {
             namespace_default_min_voting_tokens: None,
             domain_descriptions: HashMap::new(),
             negative_training_log: Vec::new(),
+            lexical_groups: Vec::new(),
             oplog: std::collections::VecDeque::new(),
         }
     }
@@ -109,6 +110,7 @@ impl Resolver {
             namespace_default_min_voting_tokens: None,
             domain_descriptions: HashMap::new(),
             negative_training_log: Vec::new(),
+            lexical_groups: Vec::new(),
             oplog: std::collections::VecDeque::new(),
         };
 
@@ -166,8 +168,9 @@ impl Resolver {
         let token_lists: Vec<Vec<String>> = raw_queries
             .iter()
             .map(|q| {
-                crate::tokenizer::tokenize(q)
-                    .into_iter()
+                let mut toks = crate::tokenizer::tokenize(q);
+                self.index.lexical.normalize_in_place(&mut toks);
+                toks.into_iter()
                     .map(|t| {
                         if let Some(stripped) = t.strip_prefix("not_") {
                             stripped.to_string()
@@ -228,7 +231,8 @@ impl Resolver {
     }
 
     pub(crate) fn index_phrase_no_rebuild(&mut self, intent_id: &str, phrase: &str) {
-        let words = crate::tokenizer::tokenize(phrase);
+        let mut words = crate::tokenizer::tokenize(phrase);
+        self.index.lexical.normalize_in_place(&mut words);
         let word_refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
         if !word_refs.is_empty() {
             self.index.learn_phrase(&word_refs, intent_id);
@@ -344,7 +348,8 @@ impl Resolver {
         for (intent_id, phrases) in missed_phrases {
             for phrase in phrases {
                 // Snapshot before indexing.
-                let words_pre = crate::tokenizer::tokenize(phrase);
+                let mut words_pre = crate::tokenizer::tokenize(phrase);
+                self.index.lexical.normalize_in_place(&mut words_pre);
                 let snap_pairs: Vec<(String, String)> = words_pre
                     .iter()
                     .map(|w| (w.clone(), intent_id.clone()))
@@ -383,7 +388,8 @@ impl Resolver {
 
         // 2. Learn LLM-extracted query spans as intent-bearing words.
         for (intent_id, span_text) in spans_to_learn {
-            let span_words: Vec<String> = crate::tokenizer::tokenize(span_text);
+            let mut span_words: Vec<String> = crate::tokenizer::tokenize(span_text);
+            self.index.lexical.normalize_in_place(&mut span_words);
             let snap_pairs: Vec<(String, String)> = span_words
                 .iter()
                 .map(|w| (w.as_str(), intent_id.as_str()))
@@ -445,7 +451,8 @@ impl Resolver {
             return;
         }
 
-        let tokens = crate::tokenizer::tokenize(query);
+        let mut tokens = crate::tokenizer::tokenize(query);
+        self.index.lexical.normalize_in_place(&mut tokens);
         let scored_ids: FxHashSet<&str> = scored.iter().map(|(id, _)| id.as_str()).collect();
 
         // For each token, count it toward an intent only if that intent is the

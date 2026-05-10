@@ -227,8 +227,10 @@ impl Resolver {
         // Index phrase into L2 atomically.
         self.index_phrase(intent_id, seed);
 
-        // Collect weight changes for all tokens in this phrase.
-        let words = crate::tokenizer::tokenize(seed);
+        // Collect weight changes for all tokens in this phrase. Normalize so
+        // we look up the same canonical forms `index_phrase` just stored.
+        let mut words = crate::tokenizer::tokenize(seed);
+        self.index.lexical.normalize_in_place(&mut words);
         let mut changes: Vec<(String, String, f32)> = Vec::new();
         for word in &words {
             if let Some(w) = self.index.get_weight(word, intent_id) {

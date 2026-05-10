@@ -180,6 +180,8 @@ export default function Layout() {
       items: [
         { to: '/intents', label: 'Intents', icon: '◆',
           hint: 'Manage intents, training phrases, metadata' },
+        { to: '/lexical', label: 'Lexicon', icon: '⌥',
+          hint: 'Per-namespace morph + abbrev normalization' },
       ],
     },
     {

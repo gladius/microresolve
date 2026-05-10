@@ -128,6 +128,27 @@ impl Resolver {
         // enough to make rebuild user-visible, add a content-hashed cache
         // at that point.
 
+        // Load lexical_groups from _ns.json BEFORE seeds get indexed below.
+        // The LexicalIndex must be populated so seed tokenization picks up
+        // canonical forms (otherwise variants get stored separately, then
+        // queries after lexical lookup find nothing).
+        //
+        // Source of truth: Resolver.lexical_groups (persisted in _ns.json).
+        // Derived: IntentIndex.lexical (HashMap rebuilt from groups on every
+        // mutation). Always rebuild together — never let them drift.
+        if let Ok(json) = std::fs::read_to_string(path.join("_ns.json")) {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json) {
+                if let Some(groups) = val.get("lexical_groups").and_then(|g| g.as_array()) {
+                    let parsed: Vec<crate::lexical::LexicalGroup> = groups
+                        .iter()
+                        .filter_map(|g| serde_json::from_value(g.clone()).ok())
+                        .collect();
+                    router.index.lexical = crate::lexical::LexicalIndex::from_groups(&parsed);
+                    router.lexical_groups = parsed;
+                }
+            }
+        }
+
         // Propagate namespace-level voting-gate default to the live index.
         // _ns.json is the source of truth; _index.json's serialized field
         // (if any) gets overwritten by the namespace setting.
@@ -224,17 +245,36 @@ impl Resolver {
             crate::Error::Persistence(format!("cannot create {}: {}", path.display(), e))
         })?;
 
-        // Namespace metadata
-        let mut ns_meta = serde_json::json!({
-            "name": self.namespace_name,
-            "description": self.namespace_description,
-        });
+        // Namespace metadata. Preserve any pack-author fields the engine
+        // doesn't model directly (compliance_frameworks, policy_overrides,
+        // anything else). Read the existing _ns.json if present, update
+        // only engine-managed fields, write back.
+        let mut ns_meta: serde_json::Value = std::fs::read_to_string(path.join("_ns.json"))
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_else(|| serde_json::json!({}));
+
+        ns_meta["name"] = serde_json::json!(self.namespace_name);
+        ns_meta["description"] = serde_json::json!(self.namespace_description);
         if let Some(t) = self.namespace_default_threshold {
             ns_meta["default_threshold"] = serde_json::json!(t);
         }
         if let Some(v) = self.namespace_default_min_voting_tokens {
             ns_meta["default_min_voting_tokens"] = serde_json::json!(v);
         }
+        // Persist lexical_groups (source of truth on disk; LexicalIndex is
+        // rebuilt from this on every load).
+        if !self.lexical_groups.is_empty() {
+            ns_meta["lexical_groups"] = serde_json::to_value(&self.lexical_groups)
+                .unwrap_or_else(|_| serde_json::json!([]));
+        } else if ns_meta.get("lexical_groups").is_some() {
+            // Operator removed all groups → drop the field instead of writing []
+            // so the file stays clean.
+            if let Some(obj) = ns_meta.as_object_mut() {
+                obj.remove("lexical_groups");
+            }
+        }
+
         std::fs::write(
             path.join("_ns.json"),
             serde_json::to_string_pretty(&ns_meta).unwrap_or_default(),

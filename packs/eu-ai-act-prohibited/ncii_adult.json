@@ -1,0 +1,29 @@
+{
+  "description": "Art. 5 — NEW prohibition added by Digital AI Omnibus political agreement (7 May 2026): AI systems generating non-consensual sexually explicit or intimate imagery of adults ('nudifier' apps, deepfake pornography services). Compliance starts 2 Dec 2026; status: provisional pending formal Council + Parliament endorsement. Split from CSAM-generation intent because vocabularies and downstream actions differ.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "nudify app",
+      "undress photo AI",
+      "AI undressing tool",
+      "deepfake porn generator",
+      "face-swap into pornography",
+      "non-consensual nude generation",
+      "AI strip clothing from photo",
+      "deepfake nudity tool",
+      "generate explicit deepfake",
+      "fake nude generator",
+      "AI undress any photo",
+      "non-consensual intimate imagery",
+      "AI face-swap to adult video",
+      "synthetic nude from portrait",
+      "NCII generation service"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

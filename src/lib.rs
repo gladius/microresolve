@@ -22,6 +22,8 @@
 // of rustdoc + IDE autocomplete. Library users go through `MicroResolve` +
 // `NamespaceHandle`; these modules are not part of the semver surface.
 #[doc(hidden)]
+pub mod lexical;
+#[doc(hidden)]
 pub mod phrase;
 #[doc(hidden)]
 pub mod scoring;
@@ -47,6 +49,7 @@ mod engine;
 pub use engine::{
     Band, Disposition, IntentMatch, MicroResolve, NamespaceHandle, ResolveResult, ResolveTrace,
 };
+pub use lexical::{LexicalGroup, LexicalKind};
 
 /// Default routing threshold (cascade fallback).
 pub const DEFAULT_THRESHOLD: f32 = 1.0;
@@ -130,6 +133,10 @@ pub struct Resolver {
     /// this namespace. Persisted in `_ns.json`. Use `rebuild_index()` + clear
     /// to undo. Rail 2 of three: visible action, reversible, bounded.
     negative_training_log: Vec<NegativeTrainingEntry>,
+    /// Per-namespace morph + abbrev groups (the source of truth). The
+    /// derived `IntentIndex.lexical` lookup is rebuilt from this Vec on
+    /// every mutation. Persisted in `_ns.json`.
+    pub(crate) lexical_groups: Vec<crate::lexical::LexicalGroup>,
     /// Delta-sync oplog: bounded ring of (version, Op) pairs. Not persisted
     /// via serde — saved/loaded as `_oplog.json` alongside `_index.json`.
     #[doc(hidden)]

@@ -635,4 +635,97 @@ impl Namespace {
             .remove_phrase(&intent_id, &phrase)
             .map_err(|e| Error::from_reason(e.to_string()))
     }
+
+    // ── Lexical groups (per-namespace morph + abbrev normalization) ──
+
+    /// List all lexical groups in this namespace.
+    #[napi]
+    pub fn list_lexical_groups(&self) -> Vec<LexicalGroup> {
+        self.engine
+            .namespace(&self.id)
+            .list_lexical_groups()
+            .into_iter()
+            .map(lex_to_node)
+            .collect()
+    }
+
+    /// Add a lexical group. Returns the index of the new group.
+    /// Rebuilds the index — every existing seed is re-tokenized through
+    /// the new group set.
+    #[napi]
+    pub fn add_lexical_group(&self, group: LexicalGroup) -> Result<u32> {
+        let core_group = lex_from_node(group)?;
+        self.engine
+            .namespace(&self.id)
+            .add_lexical_group(core_group)
+            .map(|n| n as u32)
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
+    /// Remove the lexical group at `idx`. Rebuilds the index.
+    #[napi]
+    pub fn remove_lexical_group(&self, idx: u32) -> Result<LexicalGroup> {
+        self.engine
+            .namespace(&self.id)
+            .remove_lexical_group(idx as usize)
+            .map(lex_to_node)
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+
+    /// Replace the lexical group at `idx`. Rebuilds the index.
+    #[napi]
+    pub fn update_lexical_group(&self, idx: u32, group: LexicalGroup) -> Result<()> {
+        let core_group = lex_from_node(group)?;
+        self.engine
+            .namespace(&self.id)
+            .update_lexical_group(idx as usize, core_group)
+            .map_err(|e| Error::from_reason(e.to_string()))
+    }
+}
+
+// ── LexicalGroup (Node) ───────────────────────────────────────────────────────
+
+/// A per-namespace lexical normalization group: either a `morph` (inflection
+/// variants of one root) or `abbrev` (short forms of a longer phrase).
+#[napi(object)]
+pub struct LexicalGroup {
+    /// `"morph"` or `"abbrev"`.
+    pub kind: String,
+    /// Language code (e.g. `"en"`).
+    pub lang: String,
+    /// The form every variant normalizes to.
+    pub canonical: String,
+    /// All variants (canonical is included automatically).
+    pub variants: Vec<String>,
+}
+
+fn lex_to_node(g: microresolve_core::LexicalGroup) -> LexicalGroup {
+    LexicalGroup {
+        kind: match g.kind {
+            microresolve_core::LexicalKind::Morph => "morph".to_string(),
+            microresolve_core::LexicalKind::Abbrev => "abbrev".to_string(),
+        },
+        lang: g.lang,
+        canonical: g.canonical,
+        variants: g.variants,
+    }
+}
+
+fn lex_from_node(g: LexicalGroup) -> Result<microresolve_core::LexicalGroup> {
+    let kind = match g.kind.as_str() {
+        "morph" => microresolve_core::LexicalKind::Morph,
+        "abbrev" => microresolve_core::LexicalKind::Abbrev,
+        other => {
+            return Err(Error::from_reason(format!(
+                "kind must be 'morph' or 'abbrev', got {:?}",
+                other
+            )))
+        }
+    };
+    Ok(microresolve_core::LexicalGroup {
+        kind,
+        lang: g.lang,
+        canonical: g.canonical,
+        variants: g.variants,
+    })
 }
