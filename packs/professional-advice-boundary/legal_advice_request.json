@@ -1,0 +1,37 @@
+{
+  "description": "User is requesting personalised legal advice on their specific situation — assessment of their legal options, interpretation of a contract or statute as it applies to them, recommendation of a course of action in a dispute, or representation referral. In the US, providing such advice without a license is unauthorised practice of law (UPL) under most state bar rules and ABA Model Rule 5.5. Equivalent regimes in the EU/UK reserve such advice to qualified solicitors / avocats / Rechtsanwälte. Sub-domains covered: tenant/landlord disputes, employment/wrongful termination, contract review, criminal defence, family law (divorce, custody), personal injury/torts, IP/NDAs, estates/wills. Recommended downstream action: refuse personalised advice, redirect to a licensed attorney in the user's jurisdiction, optionally explain the relevant general legal concept.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "is this legal",
+      "wrongful termination help",
+      "lease break advice",
+      "DUI lawyer needed",
+      "sue for damages",
+      "non-compete enforcement",
+      "should I sue my landlord",
+      "is this contract clause enforceable",
+      "can I get out of this non-compete",
+      "do I need a lawyer for this",
+      "what are my custody rights",
+      "is what they did defamation",
+      "review this severance agreement",
+      "they are threatening to sue me",
+      "what happens if I miss court",
+      "can my employer require drug test",
+      "should I file small claims",
+      "fired for reporting OSHA violations",
+      "responding to cease and desist",
+      "rear-ended insurance lowball settlement",
+      "criminal charges first court appearance",
+      "evicted without proper notice",
+      "deposit not returned by landlord"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

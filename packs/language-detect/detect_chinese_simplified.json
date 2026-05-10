@@ -1,0 +1,37 @@
+{
+  "description": "检测简体中文消息。Chinese Simplified is handled by the CJK tokenizer path. Expected accuracy: excellent — Chinese characters (hanzi) are fully distinct from all other languages in this pack. Chinese Traditional shares characters with Simplified but uses different forms for some common characters — this pack targets Simplified (Mainland China, Singapore). Common particles and endings (的、了、吗、呢、吧、啊) are strong signals. No overlap possible with Latin-script intents.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "zh": [
+      "请问如何开始使用这个产品",
+      "能解释一下这是如何工作的吗",
+      "我想取消我的订阅",
+      "请问客服的工作时间是什么",
+      "付款意外失败了",
+      "我正在寻找快速解决方案",
+      "我的账户已被锁定了",
+      "在哪里可以找到设置选项",
+      "我想重置我的密码",
+      "感谢您今天的帮助",
+      "这个功能无法正常工作",
+      "能一步步引导我完成吗",
+      "我已经等待回复很长时间了",
+      "账单周期是如何运作的",
+      "我想升级我的套餐",
+      "对于造成的不便我深表歉意",
+      "一切看起来很好非常感谢",
+      "我登录时遇到了问题",
+      "能为我澄清这一点吗",
+      "我没想到会出现这个错误消息",
+      "下载花费的时间太长了",
+      "有什么方法可以解决这个问题吗",
+      "感谢您的快速回复"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

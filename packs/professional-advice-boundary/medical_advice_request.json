@@ -1,0 +1,37 @@
+{
+  "description": "User is requesting personalised medical advice — interpretation of their symptoms, diagnosis of a condition, recommendation about taking or stopping medication, dosage guidance, urgency triage (ER vs urgent care vs wait), or prognosis. In the US, providing such advice without a medical license violates state medical-practice acts (varies by state but universally prohibited). EU/UK equivalents reserve diagnosis and prescribing to licensed physicians. Sub-domains covered: emergency/acute symptoms (chest pain, stroke), chronic conditions, mental health, paediatric, OB/pregnancy, dermatology, medication management, dental, ophthalmology. Recommended downstream action: refuse personalised diagnosis/prognosis, escalate urgent symptoms (chest pain, stroke signs, suicidality) to 911/ER guidance, redirect non-urgent queries to licensed physician or telehealth.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "am I dying",
+      "stroke symptoms",
+      "should I worry",
+      "diagnose this rash",
+      "ER or urgent care",
+      "broken toe?",
+      "am I having a heart attack",
+      "is this lump cancerous",
+      "should I go to the ER",
+      "what dose of ibuprofen for child",
+      "can I take this while pregnant",
+      "should I stop my antidepressant",
+      "is this mole skin cancer",
+      "do these symptoms mean COVID",
+      "panic attack or stroke",
+      "how do I know broken bone",
+      "discharge normal during pregnancy",
+      "chest pain on and off two days",
+      "toddler 103 fever third day",
+      "exposed to TB at work",
+      "missed two doses blood pressure med",
+      "lump on breast feels different",
+      "slurred speech face drooping stroke"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

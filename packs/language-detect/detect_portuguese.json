@@ -1,0 +1,37 @@
+{
+  "description": "Detecta mensagens em português. Portuguese is closely related to Spanish — key discriminators: 'obrigado/obrigada' (vs Spanish 'gracias'), 'muito' (vs 'muy'), 'mas' (vs 'pero'), 'também' (vs 'también'), nasal vowels with tilde ('ão', 'ã', 'em', 'ens'), digraphs 'lh' and 'nh' (trabalho, manhã, filho, vinho). Function words surviving the English stop list: 'é', 'são', 'com', 'para', 'por', 'que', 'os', 'as', 'mas', 'também', 'muito', 'está', 'estou'. Covers both Brazilian (BR) and European (PT) Portuguese.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "pt": [
+      "como posso começar com isso",
+      "pode me explicar como isso funciona",
+      "quero cancelar minha assinatura",
+      "quais são os horários de atendimento ao cliente",
+      "o pagamento falhou inesperadamente",
+      "estou procurando uma solução rápida",
+      "minha conta foi bloqueada",
+      "onde posso encontrar as configurações",
+      "gostaria de redefinir minha senha",
+      "obrigado pela sua ajuda hoje",
+      "esta funcionalidade não está funcionando corretamente",
+      "pode me guiar pelos passos",
+      "estou esperando uma resposta há muito tempo",
+      "como funciona o ciclo de faturamento",
+      "gostaria de atualizar meu plano",
+      "desculpe pelo inconveniente causado",
+      "tudo parece ótimo muito obrigado",
+      "estou tendo problemas para fazer login",
+      "poderia esclarecer isso para mim",
+      "não estava esperando esta mensagem de erro",
+      "o download está demorando muito tempo",
+      "existe alguma maneira de resolver este problema",
+      "agradeço muito sua resposta rápida"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

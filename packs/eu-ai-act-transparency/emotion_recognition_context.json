@@ -1,0 +1,37 @@
+{
+  "description": "EU AI Act Art. 50(2) — the system is being used to process emotional state or biometric categorisation data of natural persons. Triggers the Art. 50(2) notification obligation: deployers must inform natural persons that they are being subject to emotion recognition or biometric categorisation, in accordance with GDPR. NOTE: if the context is a workplace or educational institution, the system is likely prohibited under Art. 5(1)(f) — check the companion pack eu-ai-act-prohibited (intent: emotion_recognition_workplace). Recommended downstream action: inject user-facing notification of emotion/biometric processing before or during the interaction.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "analyze customer sentiment from voice",
+      "detect emotion from audio recording",
+      "classify facial expression of user",
+      "infer mood from user interaction",
+      "track emotional state of customer",
+      "analyze sentiment of incoming messages",
+      "detect stress in voice recording",
+      "infer emotional state from writing",
+      "classify user mood from behavior",
+      "detect frustration in conversation",
+      "analyze user emotional response",
+      "infer sentiment from user clicks",
+      "detect anger in user message",
+      "classify emotional tone of session",
+      "analyze biometric data for emotion",
+      "detect happiness from facial recognition",
+      "infer distress from typing pattern",
+      "analyze emotional engagement metrics",
+      "classify sentiment for user profiling",
+      "detect anxiety or distress in message",
+      "monitor emotional wellbeing from interactions",
+      "infer emotional state from voice features",
+      "classify user affect from response time"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

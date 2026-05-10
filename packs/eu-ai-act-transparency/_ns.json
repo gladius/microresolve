@@ -1,0 +1,47 @@
+{
+  "name": "eu-ai-act-transparency",
+  "status": "experimental",
+  "description": "**ALPHA** — companion to `eu-ai-act-prohibited`. Maps incoming queries and content requests to the four EU AI Act Article 50 transparency obligations (applicable from 2 December 2026). Distinct from Art. 5 (prohibitions → block): Art. 50 obligations → disclose / label / machine-mark the output. Four positive intents: (1) ai_identity_inquiry — user challenges AI identity, triggering Art. 50(1) truthful disclosure; (2) emotion_recognition_context — system is processing user emotional/biometric data, triggering Art. 50(2) notification; (3) synthetic_media_request — request for AI-generated/manipulated media resembling real persons/events, triggering Art. 50(3) labeling; (4) public_interest_content_request — AI-generated text on matters of public interest (elections, health, finance, climate), triggering Art. 50(4/5) machine marking. Negative class no_disclosure_triggered absorbs clearly fictional, satire, parody, and already-disclosed contexts. Install alongside `eu-ai-act-prohibited` for full Art. 5 + Art. 50 coverage.",
+  "default_threshold": 1.5,
+  "default_min_voting_tokens": 2,
+  "compliance_frameworks": [
+    "EU AI Act Article 50 (transparency obligations, compliance date 2 Dec 2026)",
+    "EU AI Act Article 5 (see companion pack eu-ai-act-prohibited)"
+  ],
+  "lexical_groups": [
+    {"kind": "morph", "lang": "en", "canonical": "generate", "variants": ["generate", "generates", "generating", "generated", "generation"]},
+    {"kind": "morph", "lang": "en", "canonical": "manipulate", "variants": ["manipulate", "manipulates", "manipulating", "manipulated", "manipulation"]},
+    {"kind": "morph", "lang": "en", "canonical": "deepfake", "variants": ["deepfake", "deepfakes", "deepfaked", "deepfaking"]},
+    {"kind": "morph", "lang": "en", "canonical": "impersonate", "variants": ["impersonate", "impersonates", "impersonating", "impersonated", "impersonation"]},
+    {"kind": "morph", "lang": "en", "canonical": "disclose", "variants": ["disclose", "discloses", "disclosing", "disclosed", "disclosure"]},
+    {"kind": "morph", "lang": "en", "canonical": "detect", "variants": ["detect", "detects", "detecting", "detected", "detection"]},
+    {"kind": "morph", "lang": "en", "canonical": "classify", "variants": ["classify", "classifies", "classifying", "classified", "classification"]},
+    {"kind": "morph", "lang": "en", "canonical": "infer", "variants": ["infer", "infers", "inferring", "inferred", "inference"]},
+    {"kind": "morph", "lang": "en", "canonical": "clone", "variants": ["clone", "clones", "cloning", "cloned"]},
+    {"kind": "morph", "lang": "en", "canonical": "label", "variants": ["label", "labels", "labeling", "labelled", "labeled"]},
+    {"kind": "morph", "lang": "en", "canonical": "recognize", "variants": ["recognize", "recognizes", "recognizing", "recognized", "recognition"]},
+    {"kind": "morph", "lang": "en", "canonical": "synthetic", "variants": ["synthetic", "synthetically", "synthesize", "synthesized"]},
+    {"kind": "morph", "lang": "en", "canonical": "watermark", "variants": ["watermark", "watermarks", "watermarking", "watermarked"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "gpai", "variants": ["gpai"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "ncii", "variants": ["ncii"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "biometric", "variants": ["biometric", "biometrics"]}
+  ],
+  "policy_overrides": [
+    {"_comment": "Deepfake + real person — clear Art. 50(3) synthetic media trigger",
+     "words": ["deepfake", "real"], "intent": "synthetic_media_request", "bonus": 2.5},
+    {"_comment": "Voice clone — clear Art. 50(3) trigger",
+     "words": ["voice", "clone"], "intent": "synthetic_media_request", "bonus": 2.5},
+    {"_comment": "Election content + generate — Art. 50(4/5) public interest machine-marking trigger",
+     "words": ["election", "generate"], "intent": "public_interest_content_request", "bonus": 2.0},
+    {"_comment": "Emotion + workplace — Art. 50(2) notification trigger (note: workplace emotion recognition also prohibited under Art. 5(1)(f) — check eu-ai-act-prohibited pack)",
+     "words": ["emotion", "workplace"], "intent": "emotion_recognition_context", "bonus": 2.5},
+    {"_comment": "Human identity challenge — Art. 50(1) AI self-disclosure trigger",
+     "words": ["human", "talking"], "intent": "ai_identity_inquiry", "bonus": 2.0},
+    {"_comment": "Satire / parody — no disclosure required (editorial exception Art. 50(3))",
+     "words": ["satire", "parody"], "intent": "no_disclosure_triggered", "bonus": 2.0},
+    {"_comment": "Clearly fictional framing — no disclosure required",
+     "words": ["fictional", "clearly"], "intent": "no_disclosure_triggered", "bonus": 1.5},
+    {"_comment": "Already labeled / disclosed — no further disclosure required",
+     "words": ["labeled", "ai-generated"], "intent": "no_disclosure_triggered", "bonus": 2.0}
+  ]
+}

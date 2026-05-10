@@ -1,0 +1,51 @@
+{
+  "name": "professional-advice-boundary",
+  "status": "experimental",
+  "description": "**ALPHA** — feedback welcome. Refusal-boundary triage for LLM apps that must not give specific professional advice in regulated domains. Detects whether a query is a request for personalised advice in legal, medical, tax, or investment domains (where unauthorised practice law / tort liability applies in most US states and equivalent regimes elsewhere) versus a general-information question (educational or definitional, no jurisdictional liability risk). Pre-LLM filter: when a positive intent fires, the recommended downstream action is a domain-appropriate disclaimer + redirect to a licensed professional. The `general_information` negative class absorbs queries that mention these domains but do not request personalised advice (e.g. \"what is a 401k\", \"what does cardiac arrest mean\").",
+  "default_threshold": 1.5,
+  "default_min_voting_tokens": 2,
+  "compliance_frameworks": [
+    "ABA Model Rule 5.5 (Unauthorized Practice of Law)",
+    "Investment Advisers Act of 1940 §202(a)(11)",
+    "State medical-practice acts (varies by US state)",
+    "State CPA / accountancy acts (varies by US state)"
+  ],
+  "lexical_groups": [
+    {"kind": "morph", "lang": "en", "canonical": "advise", "variants": ["advise", "advises", "advising", "advised", "advice"]},
+    {"kind": "morph", "lang": "en", "canonical": "recommend", "variants": ["recommend", "recommends", "recommending", "recommended", "recommendation", "recommendations"]},
+    {"kind": "morph", "lang": "en", "canonical": "diagnose", "variants": ["diagnose", "diagnoses", "diagnosing", "diagnosed", "diagnosis"]},
+    {"kind": "morph", "lang": "en", "canonical": "prescribe", "variants": ["prescribe", "prescribes", "prescribing", "prescribed", "prescription"]},
+    {"kind": "morph", "lang": "en", "canonical": "invest", "variants": ["invest", "invests", "investing", "invested", "investment", "investments"]},
+    {"kind": "morph", "lang": "en", "canonical": "sue", "variants": ["sue", "sues", "suing", "sued", "lawsuit", "lawsuits"]},
+    {"kind": "morph", "lang": "en", "canonical": "contract", "variants": ["contract", "contracts", "contractual"]},
+    {"kind": "morph", "lang": "en", "canonical": "symptom", "variants": ["symptom", "symptoms", "symptomatic"]},
+    {"kind": "morph", "lang": "en", "canonical": "tax", "variants": ["tax", "taxes", "taxed", "taxable", "taxation"]},
+    {"kind": "morph", "lang": "en", "canonical": "deduct", "variants": ["deduct", "deducts", "deducting", "deducted", "deduction", "deductions", "deductible"]},
+    {"kind": "morph", "lang": "en", "canonical": "buy", "variants": ["buy", "buys", "buying", "bought"]},
+    {"kind": "morph", "lang": "en", "canonical": "sell", "variants": ["sell", "sells", "selling", "sold"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "irs", "variants": ["irs"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "ira", "variants": ["ira"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "401k", "variants": ["401k", "401(k)"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "etf", "variants": ["etf", "etfs"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "llc", "variants": ["llc"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "nda", "variants": ["nda", "ndas"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "ekg", "variants": ["ekg", "ecg"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "er", "variants": ["er"]}
+  ],
+  "policy_overrides": [
+    {"_comment": "Educational definitional queries — 'what is X' phrasing should always route general_information",
+     "words": ["what", "is"], "intent": "general_information", "bonus": 1.5},
+    {"_comment": "Educational definitional queries — 'how does X work' phrasing should always route general_information",
+     "words": ["how", "does"], "intent": "general_information", "bonus": 1.5},
+    {"_comment": "Definitional queries — 'definition of X' or 'meaning of X' is general_information",
+     "words": ["definition", "of"], "intent": "general_information", "bonus": 2.0},
+    {"_comment": "Direct ask for legal advice on the user's specific situation — UPL territory",
+     "words": ["should", "i", "sue"], "intent": "legal_advice_request", "bonus": 2.5},
+    {"_comment": "Direct ask for medical interpretation of user's symptoms — UPM territory",
+     "words": ["am", "i", "having"], "intent": "medical_advice_request", "bonus": 2.5},
+    {"_comment": "Direct ask for personalised investment recommendation — Investment Advisers Act territory",
+     "words": ["should", "i", "buy"], "intent": "investment_advice_request", "bonus": 2.5},
+    {"_comment": "Direct ask for personalised tax filing decision — IRS / state CPA board territory",
+     "words": ["can", "i", "deduct"], "intent": "tax_advice_request", "bonus": 2.5}
+  ]
+}

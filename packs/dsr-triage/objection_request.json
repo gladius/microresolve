@@ -1,0 +1,37 @@
+{
+  "description": "User is objecting to specific processing of their personal data — typically opposing further use for direct marketing, profiling, or processing based on legitimate-interest grounds. GDPR Article 21 ('right to object'), CCPA right to limit use of sensitive personal information (1798.121, where the user opposes a specific purpose without erasing the underlying data), Quebec Law 25, UK DUA Act. For direct-marketing objections, the controller must STOP without justification (Art. 21(2)). For other objections, the controller must demonstrate compelling legitimate grounds that override the user's interests. Distinguished from erasure — objection halts a specific PURPOSE while keeping the data; from restriction — objection is a substantive challenge to a basis, restriction is a temporary pause. Distinguished from CCPA opt-out — objection is the GDPR mechanism (broader); opt-out is the CCPA-specific 'do not sell' mechanism (narrower). Recommended downstream action: identify objected purpose, stop processing for that purpose if direct-marketing or no overriding legitimate ground.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "stop emailing me",
+      "unsubscribe me from marketing",
+      "I object to processing",
+      "withdraw my consent",
+      "no more profiling",
+      "stop targeted ads",
+      "stop using my data for marketing",
+      "I object to your legitimate interest",
+      "Article 21 objection request",
+      "withdraw consent to data processing",
+      "stop processing for direct marketing",
+      "object to profiling decisions",
+      "no more behavioral ads for me",
+      "I revoke my consent",
+      "stop sending promotional emails",
+      "remove me from marketing lists",
+      "right to object GDPR",
+      "object to use of my data",
+      "stop using my info for ads",
+      "I no longer consent to processing",
+      "withdraw consent to share my data",
+      "stop personalized recommendations",
+      "object to data being processed"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

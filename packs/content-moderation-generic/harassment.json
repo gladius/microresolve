@@ -1,0 +1,37 @@
+{
+  "description": "Targeted personal abuse directed at a specific individual — insults, humiliation, repeated unwanted contact, coordinated pile-ons, or implicit threats designed to drive someone out of a space. Distinct from hate_speech (which targets a group by protected characteristic) by the personal targeting: the victim is a named or identifiable individual. Recommended action: remove content + issue formal warning to sender + escalate if pattern of behaviour.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "you are absolutely worthless and pathetic",
+      "nobody likes you and everyone knows it",
+      "you should quit and never come back",
+      "you are the worst person in here",
+      "everyone here hates you just leave",
+      "you are a disgrace to this community",
+      "stop posting your opinion is trash",
+      "people like you ruin everything here",
+      "your work is embarrassingly bad honestly",
+      "you don't belong in this space",
+      "keep talking and see what happens",
+      "you should be ashamed of yourself",
+      "no one wants your opinion here",
+      "sending repeated abusive messages to user",
+      "tagging someone to coordinate pile-on",
+      "mocking someone's personal appearance online",
+      "threatening to expose personal information",
+      "leaving abusive comment on every post",
+      "I know where you live remember that",
+      "coordinated abuse targeting single community member",
+      "calling someone slurs repeatedly in replies",
+      "you are such a pathetic failure",
+      "get out of this community you're toxic"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

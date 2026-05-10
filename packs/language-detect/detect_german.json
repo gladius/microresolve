@@ -1,0 +1,37 @@
+{
+  "description": "Erkennt Nachrichten auf Deutsch. German has very strong discriminating signals: compound nouns ('Abrechnungszyklus', 'Einstellungen', 'Fehlermeldung'), umlaut characters (ü, ö, ä, ß), and function words that survive the English stop word filter: 'ist', 'sind', 'mit', 'und', 'ein', 'eine', 'nicht', 'auch', 'aber', 'sehr', 'noch', 'können', 'haben', 'werden', 'dass'. One of the easiest European languages to detect due to compound word structure and umlauts. Phrases cover formal (Sie-form) and informal (du-form) German.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "de": [
+      "wie kann ich damit anfangen",
+      "können Sie mir erklären wie das funktioniert",
+      "ich möchte mein Abonnement kündigen",
+      "was sind die Geschäftszeiten des Supports",
+      "die Zahlung ist unerwartet fehlgeschlagen",
+      "ich suche eine schnelle Lösung für das Problem",
+      "mein Konto wurde gesperrt",
+      "wo finde ich die Einstellungen",
+      "ich möchte mein Passwort zurücksetzen",
+      "vielen Dank für Ihre Hilfe heute",
+      "diese Funktion funktioniert nicht richtig",
+      "können Sie mich durch die Schritte führen",
+      "ich warte schon sehr lange auf eine Antwort",
+      "wie funktioniert der Abrechnungszyklus",
+      "ich würde gerne meinen Plan upgraden",
+      "entschuldigung für die Unannehmlichkeiten",
+      "alles sieht gut aus vielen Dank",
+      "ich habe Probleme beim Einloggen",
+      "könnten Sie das für mich klären",
+      "ich habe diese Fehlermeldung nicht erwartet",
+      "der Download dauert viel zu lange",
+      "gibt es eine Möglichkeit dieses Problem zu beheben",
+      "ich schätze Ihre schnelle Antwort sehr"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

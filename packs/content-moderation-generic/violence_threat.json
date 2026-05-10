@@ -1,0 +1,37 @@
+{
+  "description": "Explicit threats of physical harm against an individual or group, calls for others to commit violence, graphic descriptions of planned harm, or content that combines personal identifying information with threatening language. Highest severity category — potential law enforcement referral. Recommended action: remove immediately + preserve evidence + escalate to trust-and-safety + consider referral to law enforcement if credible threat.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "I will hurt you if you post again",
+      "you'll regret posting this I promise",
+      "death threat directed at community member",
+      "I know where you work watch out",
+      "calling for violence against individual",
+      "graphic description of harming someone",
+      "you better stop or face consequences",
+      "I will find you and make you pay",
+      "calling for assault on group members",
+      "threat combined with personal information posted",
+      "encouraging others to harm specific person",
+      "inciting mob violence against individual",
+      "bomb threat posted in public forum",
+      "content glorifying mass violence event",
+      "instructions for harming specific target",
+      "explicit threat against named individual",
+      "stay away or something bad happens",
+      "calling for coordinated attack on person",
+      "posting someone's address with threatening message",
+      "advocating harm against community member",
+      "graphic violence fantasized about specific person",
+      "threatening someone's family members online",
+      "credible threat of physical violence posted"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

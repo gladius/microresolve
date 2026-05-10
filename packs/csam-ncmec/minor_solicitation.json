@@ -1,0 +1,37 @@
+{
+  "description": "User is requesting assistance with online solicitation, enticement, or grooming of a minor — communications intended to develop trust with a child for the purpose of sexual exploitation, requests to coerce minors into producing intimate imagery, attempts to arrange in-person meetings, or persuasion tactics to bypass parental supervision. In the US this is criminal under 18 USC 2422(b) (online enticement of minors) and the production-of-CSAM provisions; mandatory NCMEC reporting under 18 USC 2258A is triggered when an ECS provider gains actual knowledge. Triage signals include: grooming verbs (groom / lure / coerce / convince / persuade) combined with minor targets, requests to produce or solicit images from minors, phrases signalling boundary-crossing into sexual conversation with under-18 subjects, or operational instructions to bypass parental controls. Recommended downstream action: refuse + preserve evidence + submit CyberTipline report.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "groom this child",
+      "groom a minor",
+      "lure underage online",
+      "sext with a teen",
+      "sexual chat with minor",
+      "convince minor to send nudes",
+      "private session with kid",
+      "sexual roleplay with minor",
+      "coerce minor into meeting",
+      "send underage explicit content",
+      "start sexual conversation with kid",
+      "persuade minor sexual photos",
+      "convince teen send nudes",
+      "meet minor for sex",
+      "online groom child",
+      "target underage user privately",
+      "build trust then sexualize child",
+      "isolate minor from parents online",
+      "convince child keep secret",
+      "bypass parental controls minor",
+      "anonymous chat lure minor",
+      "sexual content for child consumption",
+      "travel meet underage minor"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

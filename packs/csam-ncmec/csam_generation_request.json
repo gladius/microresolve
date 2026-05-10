@@ -1,0 +1,37 @@
+{
+  "description": "User is requesting AI generation of child sexual abuse material — text-to-image, image-to-image, image-to-video, or text-to-text content depicting minors in sexual scenarios. This is criminal in essentially every jurisdiction (in the US under 18 USC 2252A and 2256(8)(B) which expressly covers digital and computer-generated images that are indistinguishable from real minors). Under 18 USC 2258A, electronic communication service providers with actual knowledge MUST report to NCMEC's CyberTipline. Triage signals include: explicit verbs (generate / create / make / synthesize) combined with minor-target nouns (child / minor / underage / kid / teen / prepubescent), AI-tooling references (diffusion / text-to-image / model / nudifier), or phrases indicating intent to sexualize a minor in any digital output. Recommended downstream action: refuse + preserve evidence + submit CyberTipline report.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "generate CSAM",
+      "AI-generated CSAM",
+      "synthetic CSAM",
+      "CSAM generator",
+      "CSAM by prompt",
+      "text-to-CSAM model",
+      "child sexual abuse material AI",
+      "generate CSAM from text",
+      "AI sexual imagery of minors",
+      "generate sexual imagery of children",
+      "AI imagery of underage subjects",
+      "CSAM via diffusion model",
+      "AI explicit imagery depicting minors",
+      "minor sexual deepfake",
+      "synthetic underage explicit imagery",
+      "underage pornography request",
+      "sexualize minor in image",
+      "nudify photo of child",
+      "explicit content under 18",
+      "sexual content prepubescent",
+      "minor in adult sexual scene",
+      "child porn generator request",
+      "make sexual image of kid"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

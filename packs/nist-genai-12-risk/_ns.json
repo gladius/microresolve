@@ -1,0 +1,53 @@
+{
+  "name": "nist-genai-12-risk",
+  "status": "experimental",
+  "description": "**ALPHA** — feedback welcome. Foundation pack mapping user query intent to risk categories from NIST AI 600-1 (GenAI Profile, July 2024). NIST RMF is voluntary in the US but ubiquitously referenced — federal procurement, CSF crosswalks, and many state-AG positions cite it. This pack triages incoming queries against 7 of the 12 NIST risk categories that are pre-LLM-router-shaped: CBRN (risk 1), dangerous/violent/hateful (3), data privacy (4), harmful bias (6), information integrity (8), information security (9), intellectual property (10). The 11th NIST risk (obscene/abusive content incl. CSAM/NCII) is more thoroughly covered by the sibling `csam-ncmec` pack — install both for complete coverage. Risks 2 (confabulation), 5 (environmental impact), 7 (human-AI configuration), and 12 (value chain) are system-level concerns not addressable via pre-LLM input triage and are intentionally out of scope. The `legitimate_research` negative class absorbs academic / educational queries that mention these risk topics without requesting harmful output.",
+  "default_threshold": 1.5,
+  "default_min_voting_tokens": 2,
+  "compliance_frameworks": [
+    "NIST AI Risk Management Framework 1.0",
+    "NIST AI 600-1 (GenAI Profile)",
+    "NIST CSF 2.0 crosswalk"
+  ],
+  "lexical_groups": [
+    {"kind": "morph", "lang": "en", "canonical": "weapon", "variants": ["weapon", "weapons", "weaponize", "weaponized", "weaponization"]},
+    {"kind": "morph", "lang": "en", "canonical": "attack", "variants": ["attack", "attacks", "attacking", "attacked", "attacker"]},
+    {"kind": "morph", "lang": "en", "canonical": "exploit", "variants": ["exploit", "exploits", "exploiting", "exploited", "exploitation"]},
+    {"kind": "morph", "lang": "en", "canonical": "generate", "variants": ["generate", "generates", "generating", "generated", "generation", "generator"]},
+    {"kind": "morph", "lang": "en", "canonical": "hack", "variants": ["hack", "hacks", "hacking", "hacked", "hacker"]},
+    {"kind": "morph", "lang": "en", "canonical": "synthesize", "variants": ["synthesize", "synthesise", "synthesized", "synthesised", "synthesizing", "synthesising", "synthesis"]},
+    {"kind": "morph", "lang": "en", "canonical": "bomb", "variants": ["bomb", "bombs", "bombing", "bomber", "bombings"]},
+    {"kind": "morph", "lang": "en", "canonical": "kill", "variants": ["kill", "kills", "killing", "killed", "killer"]},
+    {"kind": "morph", "lang": "en", "canonical": "extract", "variants": ["extract", "extracts", "extracted", "extracting", "extraction"]},
+    {"kind": "morph", "lang": "en", "canonical": "dox", "variants": ["dox", "doxx", "doxxing", "doxed", "doxxed"]},
+    {"kind": "morph", "lang": "en", "canonical": "copy", "variants": ["copy", "copies", "copied", "copying"]},
+    {"kind": "morph", "lang": "en", "canonical": "plagiarize", "variants": ["plagiarize", "plagiarise", "plagiarized", "plagiarised", "plagiarism"]},
+    {"kind": "morph", "lang": "en", "canonical": "bias", "variants": ["bias", "biases", "biased", "biasing"]},
+    {"kind": "morph", "lang": "en", "canonical": "infect", "variants": ["infect", "infects", "infected", "infecting", "infection"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "cbrn", "variants": ["cbrn", "nbc"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "cve", "variants": ["cve"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "ddos", "variants": ["ddos"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "pii", "variants": ["pii"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "nist", "variants": ["nist"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "rmf", "variants": ["rmf"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "vx", "variants": ["vx"]}
+  ],
+  "policy_overrides": [
+    {"_comment": "Educational signal — academic/research queries about these topics route legitimate_research",
+     "words": ["history", "of"], "intent": "legitimate_research", "bonus": 1.5},
+    {"_comment": "Educational signal — explanation queries route legitimate_research",
+     "words": ["how", "does"], "intent": "legitimate_research", "bonus": 1.5},
+    {"_comment": "Educational signal — for-research-purposes route legitimate_research",
+     "words": ["academic", "research"], "intent": "legitimate_research", "bonus": 2.5},
+    {"_comment": "Synthesis verb + weapon-class noun — clear CBRN block trigger",
+     "words": ["synthesize"], "intent": "cbrn_request", "bonus": 2.0},
+    {"_comment": "Exploit + CVE — clear offensive-security block trigger",
+     "words": ["exploit", "cve"], "intent": "information_security_offensive", "bonus": 3.0},
+    {"_comment": "Write + copyrighted + verbatim — clear IP-violation trigger",
+     "words": ["copyrighted", "verbatim"], "intent": "ip_violation", "bonus": 2.5},
+    {"_comment": "Doxx + person — clear data-privacy-extraction trigger",
+     "words": ["dox"], "intent": "data_privacy_extraction", "bonus": 3.0},
+    {"_comment": "Generate + propaganda — clear information-integrity trigger",
+     "words": ["generate", "propaganda"], "intent": "information_integrity_attack", "bonus": 2.5}
+  ]
+}

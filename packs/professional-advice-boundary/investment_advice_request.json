@@ -1,0 +1,37 @@
+{
+  "description": "User is requesting personalised investment advice — recommendation to buy/sell/hold a specific security, portfolio allocation guidance, retirement strategy for their numbers, market timing, or product selection (which fund, which ETF, which IRA). In the US, providing such advice generally requires Investment Adviser registration under the Investment Advisers Act of 1940 §202(a)(11), or broker-dealer registration under FINRA. EU equivalents apply under MiFID II. Sub-domains covered: stock picks, ETFs/index funds, crypto, real estate, bonds, retirement allocation (401k/IRA/Roth), portfolio rebalancing, dollar-cost averaging, leverage/margin, alternatives (gold, REITs, employer stock concentration). Recommended downstream action: refuse personalised buy/sell/allocation recommendations, redirect to a registered investment adviser or fiduciary financial planner, optionally explain general investment concepts (what an index fund is, how diversification works) without applying them to the user's portfolio.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "buy this stock",
+      "best ETF",
+      "should I sell",
+      "crypto worth it",
+      "max out 401k",
+      "rebalance my portfolio",
+      "should I buy Tesla stock",
+      "good time to invest in crypto",
+      "should I sell my Apple shares",
+      "what to invest in for retirement",
+      "real estate good investment now",
+      "move my 401k to bonds",
+      "which mutual fund for IRA",
+      "take HELOC to invest",
+      "dollar cost average vs lump sum",
+      "Roth or traditional 401k contribution",
+      "where to put $50k cash",
+      "buy the dip or wait",
+      "stock bond allocation at 35",
+      "everything in QQQ strategy",
+      "employer stock 40% of portfolio",
+      "loan to buy rental property",
+      "diversify concentrated stock position"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

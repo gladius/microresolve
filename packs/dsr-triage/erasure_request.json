@@ -1,0 +1,37 @@
+{
+  "description": "User is asking the controller to delete personal data — the 'right to be forgotten'. GDPR Article 17, CCPA right to delete (1798.105), Quebec Law 25, UK DUA Act, India DPDP Section 13. The most-frequent DSR by far in production traffic. Wide vocabulary range: delete / remove / erase / wipe / purge / forget / close / cancel / terminate, paired with account / profile / data / records / information / everything. Recommended downstream action: identity-verify, check for legal-basis exemptions (legal claims, freedom of expression, public-interest archiving, ongoing contract), if exempt explain why; if not, propagate deletion across all systems including backups (or apply deletion-on-restore tombstones), confirm to user, log in audit-chain.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "delete my account",
+      "remove my data",
+      "right to be forgotten",
+      "wipe my profile",
+      "erase my information",
+      "GDPR delete request",
+      "I want to leave permanently",
+      "close my account and delete data",
+      "remove all traces of me",
+      "purge my records from your system",
+      "delete everything you have on me",
+      "forget me from your platform",
+      "terminate my profile and data",
+      "cancel and delete my account",
+      "wipe me from your database",
+      "Article 17 erasure request",
+      "scrub my personal data",
+      "remove my personal info entirely",
+      "delete my user history",
+      "I want my data deleted",
+      "permanently delete my profile",
+      "right to erasure under GDPR",
+      "remove me from your system"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

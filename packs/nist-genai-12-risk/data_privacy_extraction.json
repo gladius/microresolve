@@ -1,0 +1,37 @@
+{
+  "description": "NIST AI 600-1 risk 4: data privacy — user is attempting to extract, infer, reconstruct, or aggregate personal data about a specific individual or to attack model privacy (membership inference, training data extraction). Distinguished from general_data_inquiry by targeting a specific person and absence of a consent/rights framing. Includes doxxing enablement, stalking support, de-anonymization, PII aggregation from public sources, and inference attacks. Recommended action: block + log.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "find home address of person",
+      "locate someone using their name",
+      "get phone number for individual",
+      "aggregate PII from public sources",
+      "doxx this person for me",
+      "find where this person lives",
+      "track someone using their username",
+      "identify person from partial information",
+      "reconstruct deleted personal data",
+      "membership inference on training data",
+      "extract private data from model",
+      "infer someone's medical condition",
+      "link anonymized records to individual",
+      "find person's workplace from name",
+      "get daily routine of target",
+      "compile dossier on private person",
+      "scrape personal data from profiles",
+      "identify anonymous poster identity",
+      "reverse lookup person from photo",
+      "find email of private individual",
+      "aggregate social media into profile",
+      "infer location from metadata",
+      "expose private information about person"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

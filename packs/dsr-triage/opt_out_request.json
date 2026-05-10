@@ -1,0 +1,37 @@
+{
+  "description": "User is exercising the CCPA-specific 'do not sell or share' right (1798.120 / 1798.135) — opting out of the sale or sharing of their personal information for cross-context behavioural advertising or any monetary/valuable consideration. Includes Global Privacy Control (GPC) browser-signal honouring. Distinguished from objection (Art. 21) — opt-out is the CCPA mechanism, narrower in scope (specific to sale/share/profiling for cross-context behavioural ads); objection is the GDPR mechanism, broader. Distinguished from erasure — opt-out keeps the data but prohibits sale/share; erasure deletes the data. Recommended downstream action: tag user as opted-out in CMP / CDP, suppress from sale/share pipelines, honour GPC signal site-wide, log opt-out timestamp in audit-chain.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "do not sell my info",
+      "opt out of sale",
+      "don't share my data",
+      "stop selling my information",
+      "global privacy control opt out",
+      "CCPA opt out request",
+      "do not sell or share my data",
+      "I don't want my data sold",
+      "opt out of cross context advertising",
+      "stop sharing my info with third parties",
+      "respect my GPC signal",
+      "no monetary sale of my data",
+      "do not share for ad targeting",
+      "opt out of data brokers",
+      "CPRA opt out request",
+      "stop selling my data to advertisers",
+      "do not sell my personal information",
+      "limit use of sensitive data",
+      "do not share for cross context ads",
+      "opt out of cookie sale",
+      "honor my do not sell signal",
+      "opt out of profiling for ads",
+      "stop monetizing my personal data"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

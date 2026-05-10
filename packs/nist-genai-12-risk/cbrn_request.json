@@ -1,0 +1,37 @@
+{
+  "description": "NIST AI 600-1 risk 1: CBRN information / capability — user is requesting actionable information that lowers the barrier of entry to producing or deploying chemical, biological, radiological, or nuclear weapons. Distinguished from general curiosity (which routes to legitimate_research) by the request for synthesis routes, weaponisation procedures, dispersal methods, precursor sourcing, or operational instructions. Pre-LLM router triages user intent only; pair with downstream output filtering for full coverage. Recommended action: block + log + optionally route to safety review queue.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "chemical weapon synthesis request",
+      "biological weapon development query",
+      "radiological weapon construction guide",
+      "nuclear device assembly instructions",
+      "CBRN capability acquisition request",
+      "WMD synthesis procedure request",
+      "weaponize toxic industrial chemical",
+      "pathogen enhancement procedure query",
+      "dispersal device design request",
+      "precursor chemical sourcing guide",
+      "dual-use pathogen modification method",
+      "toxin production operational steps",
+      "chemical agent weaponization procedure",
+      "improvised explosive device construction",
+      "radiological dispersal device build",
+      "biological agent aerosolization method",
+      "nuclear material enrichment guide",
+      "chemical precursor acquisition route",
+      "bioweapon delivery mechanism design",
+      "mass casualty weapon synthesis",
+      "select agent modification request",
+      "CBRN operational planning instructions",
+      "nuclear weapon component sourcing"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

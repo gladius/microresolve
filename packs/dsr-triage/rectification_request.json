@@ -1,0 +1,37 @@
+{
+  "description": "User is asking the controller to correct inaccurate personal data or complete incomplete data they hold. GDPR Article 16 ('right to rectification'), CCPA right to correct (1798.106 added by CPRA), Quebec Law 25 §28, UK DUA Act, India DPDP Section 12. Distinguished from account self-service in that the user is asking the data CONTROLLER to fix data they cannot edit themselves (or believes the controller's records are wrong even after they updated). Common triggers: out-of-date contact details, wrong date of birth on file, mis-spelled name in records, incorrect transaction in account history, inaccurate credit-bureau-style profile. Recommended downstream action: identity-verify the requester, route to data steward for correction, propagate change to downstream systems, confirm completion within statutory deadline.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "fix my address",
+      "correct my email",
+      "update my date of birth",
+      "wrong info on my account",
+      "rectify my data",
+      "fix wrong data about me",
+      "the email on my account is wrong",
+      "correct my date of birth on file",
+      "update my legal name with you",
+      "fix incorrect transaction on record",
+      "my profile shows wrong information",
+      "you have the wrong phone number for me",
+      "amend the spelling of my name",
+      "change my address in your records",
+      "edit incorrect personal details",
+      "modify my account information",
+      "incorrect date of birth on file",
+      "wrong gender listed on my profile",
+      "profile photo wrong update it",
+      "right to rectification GDPR",
+      "Art 16 rectification request",
+      "fix my data with you",
+      "data correction request submitted"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

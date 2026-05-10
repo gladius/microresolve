@@ -1,0 +1,37 @@
+{
+  "description": "Negative class — user message is a factual inquiry or task request with no detectable emotional affect. Standard informational tone: asking about features, prices, procedures, policies, or status. The majority of messages in most systems will route here. Absorbs false positives from the six emotional intents — ensures that ordinary support and product questions are not misclassified as emotionally charged. Recommended downstream action: standard response pipeline, no emotional adaptation needed.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "what are your business hours",
+      "how do I reset my password",
+      "what is the refund policy",
+      "can I change my subscription plan",
+      "where is my order",
+      "what features are included",
+      "how does this integration work",
+      "what is the price for enterprise",
+      "how do I export my data",
+      "what formats do you support",
+      "is there a free trial available",
+      "how long does shipping take",
+      "what is included in the plan",
+      "can I add a team member",
+      "where can I find documentation",
+      "how do I contact support",
+      "what payment methods do you accept",
+      "does this work on mobile",
+      "can I download the invoice",
+      "when does my subscription renew",
+      "how do I delete my account",
+      "what is the uptime guarantee",
+      "can I use this offline"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

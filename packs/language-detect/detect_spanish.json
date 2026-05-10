@@ -1,0 +1,37 @@
+{
+  "description": "Detecta mensajes en español. Spanish function words that survive the English stop word filter: 'es', 'son', 'con', 'para', 'por', 'que', 'los', 'las', 'pero', 'también', 'muy', 'cómo', 'está', 'estoy'. Key discriminators from Portuguese: 'también' (vs 'também'), 'muy' (vs 'muito'), 'pero' (vs 'mas'), 'ñ' character (niño, mañana, señor), double-l (ella, llamar). Phrases cover common support and conversational contexts in Latin American and Castilian Spanish.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "es": [
+      "cómo puedo empezar con esto",
+      "puede explicarme cómo funciona esto",
+      "quiero cancelar mi suscripción",
+      "cuáles son los horarios de atención al cliente",
+      "el pago falló de manera inesperada",
+      "estoy buscando una solución rápida",
+      "mi cuenta ha sido bloqueada",
+      "dónde puedo encontrar la configuración",
+      "quisiera restablecer mi contraseña",
+      "gracias por su ayuda hoy",
+      "esta función no está funcionando correctamente",
+      "puede guiarme a través de los pasos",
+      "he estado esperando una respuesta",
+      "cómo funciona el ciclo de facturación",
+      "me gustaría actualizar mi plan",
+      "disculpe el inconveniente causado",
+      "todo se ve muy bien muchas gracias",
+      "tengo problemas para iniciar sesión",
+      "podría aclarar esto por favor",
+      "no esperaba este mensaje de error",
+      "la descarga está tardando demasiado tiempo",
+      "hay alguna manera de solucionar este problema",
+      "agradezco mucho su rápida respuesta"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

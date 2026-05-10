@@ -1,0 +1,37 @@
+{
+  "description": "User is asking the controller to PAUSE processing of their data while a dispute is resolved (typically follows a rectification request — 'don't use this data while we sort out whether it's correct'). GDPR Article 18 ('right to restriction of processing'), Quebec Law 25, UK DUA Act. Less common than erasure but has specific use cases: data accuracy under dispute, processing is unlawful but user prefers restriction over deletion, controller no longer needs the data but user needs it for legal claims, user has objected and verification is pending. Distinguished from erasure (Art. 17) — restriction keeps the data but freezes its use; from objection (Art. 21) — restriction is a temporary state, objection is a substantive challenge. Recommended downstream action: tag affected records as 'restricted', block processing pipelines from reading them, lift restriction once dispute resolved.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "stop processing my data",
+      "pause my data use",
+      "freeze my account",
+      "halt processing temporarily",
+      "restrict use of my information",
+      "Article 18 restriction request",
+      "stop using my data while we dispute",
+      "freeze processing pending verification",
+      "do not use my data right now",
+      "suspend automated processing of my profile",
+      "pause data use while I challenge",
+      "limit processing to storage only",
+      "block use of my data temporarily",
+      "stop processing until accuracy verified",
+      "right to restriction GDPR",
+      "freeze my data processing",
+      "suspend marketing processing for now",
+      "stop using my data temporarily",
+      "halt all data processing for me",
+      "restrict processing pending appeal",
+      "pause use of my personal data",
+      "data processing freeze request",
+      "suspend my account processing"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

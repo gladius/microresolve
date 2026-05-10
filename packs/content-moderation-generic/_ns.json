@@ -1,0 +1,44 @@
+{
+  "name": "content-moderation-generic",
+  "status": "experimental",
+  "description": "**ALPHA** — classifies user-generated content (forum posts, comments, chat messages, reviews) for moderation action. NOT for classifying what a user asks the AI to generate (see nist-genai-12-risk or safety-filter for that). This pack reads the CONTENT ITSELF and routes it to the appropriate moderation action. Seven positive intents ordered by severity: violence_threat (remove + report), hate_speech (remove + escalate), sexual_content (remove or age-gate), harassment (remove + warn), misinformation (label or remove), spam (delete + rate-limit), self_promotion (warn + disclosure). Negative class clean_content passes moderation. Pair with emotion-detection to also read the poster's emotional state for escalation decisions.",
+  "default_threshold": 1.5,
+  "default_min_voting_tokens": 2,
+  "compliance_frameworks": [
+    "EU Digital Services Act (DSA) Art. 16 notice-and-action",
+    "US Section 230 CDA (immunity conditioned on good-faith moderation)"
+  ],
+  "lexical_groups": [
+    {"kind": "morph", "lang": "en", "canonical": "harass", "variants": ["harass", "harasses", "harassing", "harassment", "harassed"]},
+    {"kind": "morph", "lang": "en", "canonical": "threaten", "variants": ["threaten", "threatens", "threatening", "threatened", "threat", "threats"]},
+    {"kind": "morph", "lang": "en", "canonical": "spam", "variants": ["spam", "spamming", "spammer", "spammed"]},
+    {"kind": "morph", "lang": "en", "canonical": "promote", "variants": ["promote", "promotes", "promoting", "promoted", "promotion"]},
+    {"kind": "morph", "lang": "en", "canonical": "advertise", "variants": ["advertise", "advertises", "advertising", "advertised", "advertisement"]},
+    {"kind": "morph", "lang": "en", "canonical": "solicit", "variants": ["solicit", "solicits", "soliciting", "solicited", "solicitation"]},
+    {"kind": "morph", "lang": "en", "canonical": "fabricate", "variants": ["fabricate", "fabricates", "fabricating", "fabricated", "fabrication"]},
+    {"kind": "morph", "lang": "en", "canonical": "mislead", "variants": ["mislead", "misleads", "misleading", "misled"]},
+    {"kind": "morph", "lang": "en", "canonical": "explicit", "variants": ["explicit", "explicitly"]},
+    {"kind": "morph", "lang": "en", "canonical": "hate", "variants": ["hate", "hates", "hating", "hateful", "hatred"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "nsfw", "variants": ["nsfw"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "dm", "variants": ["dm", "dms"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "seo", "variants": ["seo"]}
+  ],
+  "policy_overrides": [
+    {"_comment": "Click + link — classic spam CTA pattern",
+     "words": ["click", "link"], "intent": "spam", "bonus": 2.0},
+    {"_comment": "Free + money — spam bait signal",
+     "words": ["free", "money"], "intent": "spam", "bonus": 2.5},
+    {"_comment": "Follow + bio — undisclosed self-promotion signal",
+     "words": ["follow", "bio"], "intent": "self_promotion", "bonus": 2.0},
+    {"_comment": "Death + threat — highest severity violence signal",
+     "words": ["death", "threat"], "intent": "violence_threat", "bonus": 3.0},
+    {"_comment": "Explicit + NSFW — sexual content signal",
+     "words": ["explicit", "nsfw"], "intent": "sexual_content", "bonus": 2.5},
+    {"_comment": "Election + stolen — election misinformation signal",
+     "words": ["election", "stolen"], "intent": "misinformation", "bonus": 2.5},
+    {"_comment": "Vaccine + autism — health misinformation signal",
+     "words": ["vaccine", "autism"], "intent": "misinformation", "bonus": 2.5},
+    {"_comment": "Conspiracy + proof — misinformation framing signal",
+     "words": ["conspiracy", "proof"], "intent": "misinformation", "bonus": 2.0}
+  ]
+}

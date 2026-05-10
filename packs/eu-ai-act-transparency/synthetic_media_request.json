@@ -1,0 +1,37 @@
+{
+  "description": "EU AI Act Art. 50(3) — request involves AI-generated or AI-manipulated image, audio, video, or text that appreciably resembles existing real persons, places, objects, or events. Triggers the Art. 50(3) labeling obligation: the deployer must ensure the output is marked as AI-generated or manipulated in a machine-readable format and in a manner perceptible to users. Editorial satire and parody with clear disclosure are excepted (routes to no_disclosure_triggered). Recommended downstream action: inject machine-readable provenance label + visible user-facing disclosure on the generated/manipulated output.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "create deepfake video of politician",
+      "generate AI face swap of celebrity",
+      "clone voice of public figure",
+      "create synthetic media of real person",
+      "generate photorealistic image of named person",
+      "make AI video of president speaking",
+      "create voice clone for impersonation",
+      "generate fake photo of real individual",
+      "produce AI-manipulated image of person",
+      "create deepfake audio of celebrity",
+      "generate synthetic video of politician",
+      "impersonate real person with AI voice",
+      "create AI likeness of existing person",
+      "generate manipulated footage of real event",
+      "produce face-swapped content of individual",
+      "create AI-generated likeness of person",
+      "generate audio resembling real person",
+      "make this person say something AI",
+      "create AI video of historical figure",
+      "generate image resembling specific individual",
+      "produce synthetic media of named person",
+      "create AI-manipulated footage of event",
+      "generate realistic simulation of real person"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

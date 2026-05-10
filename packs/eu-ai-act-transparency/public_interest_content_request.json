@@ -1,0 +1,37 @@
+{
+  "description": "EU AI Act Art. 50(4)/(5) — request involves AI-generated text, audio, video, or image on a matter of public interest (elections, health, finance, climate, legislation, public safety, military conflict). Triggers the Art. 50(4)/(5) machine-marking obligation: GPAI model providers must embed machine-readable provenance; deployers must mark AI-generated content as such in a way detectable by automated tools. Recommended downstream action: attach C2PA-compatible provenance metadata + visible AI-generated label before distributing the output.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "write article about election results",
+      "generate health advice for patients",
+      "write climate change policy statement",
+      "generate content about voting procedure",
+      "write financial market commentary",
+      "generate public health announcement",
+      "write statement on immigration policy",
+      "generate news article about election",
+      "write analysis of referendum outcome",
+      "generate economic forecast commentary",
+      "write editorial on public health crisis",
+      "generate statement about political candidate",
+      "write public safety announcement",
+      "generate content about legislative change",
+      "write analysis of military conflict",
+      "generate statement on environmental policy",
+      "write news summary of public event",
+      "generate content about social movement",
+      "write regulatory update for public",
+      "generate text about vaccine policy",
+      "write government budget analysis",
+      "generate content about judicial ruling",
+      "write article on national security policy"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

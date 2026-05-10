@@ -1,0 +1,37 @@
+{
+  "description": "Détecte les messages en français. French has strong function word signals that survive the English stop word filter: 'est', 'sont', 'avec', 'pour', 'dans', 'que', 'qui', 'très', 'mais', 'aussi'. Key discriminators from other Romance languages: 'vous', 'votre', 'nous', 'notre', 'aussi', 'très', 'bonjour', 'merci', nasal vowels in writing (on, en, an, in). Phrases cover common support and conversational contexts.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "fr": [
+      "comment puis-je commencer avec ceci",
+      "pouvez-vous m'expliquer comment ça marche",
+      "je souhaite annuler mon abonnement",
+      "quelles sont les heures d'ouverture",
+      "le paiement a échoué de façon inattendue",
+      "je cherche une solution rapide",
+      "mon compte a été verrouillé",
+      "où puis-je trouver les paramètres",
+      "je voudrais réinitialiser mon mot de passe",
+      "merci pour votre aide aujourd'hui",
+      "cette fonctionnalité ne fonctionne pas correctement",
+      "pouvez-vous me guider à travers les étapes",
+      "j'attends une réponse depuis longtemps",
+      "comment fonctionne le cycle de facturation",
+      "je voudrais passer à un forfait supérieur",
+      "désolé pour le désagrément causé",
+      "tout semble parfait merci beaucoup",
+      "j'ai du mal à me connecter aujourd'hui",
+      "pourriez-vous préciser cela pour moi",
+      "je n'attendais pas ce message d'erreur",
+      "le téléchargement prend beaucoup de temps",
+      "y a-t-il un moyen de résoudre cela",
+      "j'apprécie vraiment votre réponse rapide"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

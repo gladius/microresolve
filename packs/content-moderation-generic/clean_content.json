@@ -1,0 +1,37 @@
+{
+  "description": "Negative class — content passes moderation. Normal community participation: asking questions, sharing experiences, leaving constructive feedback, expressing disagreement respectfully, reporting bugs, celebrating milestones, or joining discussions on-topic. The large majority of content in healthy communities routes here. Absorbs false positives from the seven positive intents to avoid over-moderation. Recommended action: no moderation action — serve content normally.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "great point I hadn't thought of that",
+      "thanks for sharing this information",
+      "has anyone else experienced this issue",
+      "I disagree but here is my reasoning",
+      "can someone help me understand this",
+      "this worked for me in my case",
+      "looking for recommendations on this topic",
+      "sharing my experience with this product",
+      "I found a solution to this problem",
+      "interesting perspective I will think about it",
+      "does anyone know how to fix this",
+      "welcome to the community glad you joined",
+      "leaving an honest review of my experience",
+      "question about the terms of service",
+      "reporting a bug I found in the app",
+      "constructive feedback on the recent update",
+      "celebrating a milestone in this community",
+      "asking for advice on this situation",
+      "sharing a relevant article on this topic",
+      "I agree with the previous comment",
+      "thank you for the helpful response",
+      "off topic but related question here",
+      "my honest opinion after using this product"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

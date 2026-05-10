@@ -1,0 +1,37 @@
+{
+  "description": "User is requesting assistance with sex trafficking of minors or commercial sexual exploitation of children — recruiting, transporting, harboring, advertising, selling, buying, or facilitating sex acts with minors. In the US this is criminal under 18 USC 1591 (sex trafficking of minors, with mandatory minimum sentences) and 18 USC 2421A (promotion or facilitation of prostitution / FOSTA-SESTA). Mandatory NCMEC reporting under 18 USC 2258A is triggered when an ECS provider gains actual knowledge. Triage signals include: commercial verbs (buy / sell / pay / hire / recruit) combined with minor targets, references to sex tourism / commercial sexual exploitation of children (CSEC), runaway-minor exploitation, online classified or escort listings involving minors. Recommended downstream action: refuse + preserve evidence + submit CyberTipline report; in some cases also contact FBI HSI tipline.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "sell access to minor",
+      "buy sex with minor",
+      "commercial sex minor",
+      "child trafficking online",
+      "transport minor for sex",
+      "buy underage sex",
+      "recruit minor sex work",
+      "minor for sale online",
+      "child exploitation commercial",
+      "underage escort service",
+      "smuggle minor across border",
+      "force minor sex labor",
+      "profit from child sexual",
+      "pimp underage girl",
+      "coordinate child sex tour",
+      "organize minor sex purchase",
+      "runaway minor exploitation",
+      "recruit kids for porn industry",
+      "sex tourism minor",
+      "trafficking ring minors",
+      "sell child for sexual purposes",
+      "online ad selling access to child",
+      "foreign minor sex purchase"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}
