@@ -97,7 +97,17 @@ pub async fn resolve(
 
         // Audit: record the no-match decision too (compliance buyers
         // need to see "the system saw this query and declined to fire").
-        audit_resolve(&state, &kid, &app_id, &req.query, &[], 0.0, latency_us);
+        let no_match_trace = opt_trace.as_ref().map(build_compact_audit_trace);
+        audit_resolve(
+            &state,
+            &kid,
+            &app_id,
+            &req.query,
+            &[],
+            0.0,
+            latency_us,
+            no_match_trace,
+        );
 
         let trace_val = opt_trace.map(|t| build_trace_json(&t));
         let mut resp = serde_json::json!({
@@ -202,8 +212,20 @@ pub async fn resolve(
     }
 
     // ── Audit log: tamper-evident decision record ────────────────────
+    // When the caller asked for a trace, embed a compact summary in the
+    // audit payload too — this is what makes Art. 13 interpretive
+    // transparency real (you can defend not just "we routed" but "we
+    // routed because tokens X, Y, Z").
+    let compact_trace = opt_trace.as_ref().map(build_compact_audit_trace);
     audit_resolve(
-        &state, &kid, &app_id, &req.query, &intents, threshold, latency_us,
+        &state,
+        &kid,
+        &app_id,
+        &req.query,
+        &intents,
+        threshold,
+        latency_us,
+        compact_trace,
     );
 
     let mut resp = serde_json::json!({
@@ -224,7 +246,11 @@ pub async fn resolve(
 /// shapes the payload and serializes the chain write. The query is
 /// stored as a SHA-256 hash (PII-friendly) — auditors can verify
 /// "decision X happened for query Y" by hashing Y and looking it up,
-/// without the operator retaining raw queries.
+/// without the operator retaining raw queries. When `compact_trace`
+/// is supplied, it lands inside the payload — surfaces *why* a routing
+/// happened, not just *that* it happened (Art. 13 interpretive
+/// transparency in the audit chain).
+#[allow(clippy::too_many_arguments)]
 fn audit_resolve(
     state: &AppState,
     kid: &str,
@@ -233,17 +259,21 @@ fn audit_resolve(
     intents: &[serde_json::Value],
     threshold: f32,
     latency_us: u64,
+    compact_trace: Option<serde_json::Value>,
 ) {
     if !state.audit_log.mode().enabled() {
         return;
     }
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "ns": app_id,
         "query_hash": hash_query(query),
         "intents": intents,
         "threshold_applied": threshold,
         "latency_us": latency_us,
     });
+    if let Some(t) = compact_trace {
+        payload["trace"] = t;
+    }
     state.audit_log.record(kid, app_id, "resolve", payload);
 }
 
@@ -259,5 +289,67 @@ fn build_trace_json(t: &microresolve::ResolveTrace) -> serde_json::Value {
         },
         "negated": t.negated,
         "threshold_applied": t.threshold_applied,
+        "per_token": t.per_token.iter().map(|c| serde_json::json!({
+            "token": c.token,
+            "intent": c.intent,
+            "weight": (c.weight * 1000.0).round() / 1000.0,
+            "idf": (c.idf * 1000.0).round() / 1000.0,
+            "delta": (c.delta * 1000.0).round() / 1000.0,
+            "negated": c.negated,
+        })).collect::<Vec<_>>(),
+        "per_intent": t.per_intent.iter().map(|s| serde_json::json!({
+            "intent": s.intent,
+            "raw_score": (s.raw_score * 100.0).round() / 100.0,
+            "voting_tokens": s.voting_tokens,
+            "voting_multiplier": (s.voting_multiplier * 100.0).round() / 100.0,
+            "policy_overrides_bonus": (s.policy_overrides_bonus * 100.0).round() / 100.0,
+            "policy_overrides_fired": s.policy_overrides_fired,
+        })).collect::<Vec<_>>(),
+        "explanation": t.explanation,
+    })
+}
+
+/// Compact trace summary for audit log entries: top intents (with voting state
+/// and any conjunctions that fired) and top 5 token contributions. Designed
+/// to be small enough to live inside every resolve audit event without
+/// bloating the chain. Full trace stays in the API response only when requested.
+fn build_compact_audit_trace(t: &microresolve::ResolveTrace) -> serde_json::Value {
+    let top_intents: Vec<serde_json::Value> = t
+        .per_intent
+        .iter()
+        .take(3)
+        .map(|s| {
+            serde_json::json!({
+                "intent": s.intent,
+                "raw_score": (s.raw_score * 100.0).round() / 100.0,
+                "voting_tokens": s.voting_tokens,
+                "policy_overrides_fired": s.policy_overrides_fired,
+            })
+        })
+        .collect();
+    // Top 5 by absolute delta, picking the highest-impact contributions only.
+    let mut sorted_contrib: Vec<&microresolve::scoring::TokenContribution> =
+        t.per_token.iter().collect();
+    sorted_contrib.sort_by(|a, b| {
+        b.delta
+            .abs()
+            .partial_cmp(&a.delta.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let top_tokens: Vec<serde_json::Value> = sorted_contrib
+        .iter()
+        .take(5)
+        .map(|c| {
+            serde_json::json!({
+                "token": c.token,
+                "intent": c.intent,
+                "delta": (c.delta * 1000.0).round() / 1000.0,
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "top_intents": top_intents,
+        "top_tokens": top_tokens,
+        "explanation": t.explanation,
     })
 }

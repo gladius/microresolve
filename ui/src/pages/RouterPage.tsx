@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { api, type ResolveOutput, type ReviewAnalysis } from '@/api/client';
+import { api, type ResolveOutput, type ReviewAnalysis, type ResolveTrace } from '@/api/client';
 import Page from '@/components/Page';
 
 const INTENT_COLORS = [
@@ -45,11 +45,11 @@ export default function RouterPage() {
   };
 
   const handleInput = async (raw: string) => {
-    // Regular query
+    // Regular query — request trace so the "why?" panel has data to show.
     push({ type: 'query', text: raw });
     const t0 = performance.now();
     try {
-      const result = await api.resolve(raw, 0.3, true);
+      const result = await api.resolve(raw, 0.3, true, true);
       const latency = performance.now() - t0;
       push({ type: 'result', result, latency, query: raw });
     } catch (err) {
@@ -256,6 +256,9 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount }: {
 
 
 
+      {/* Why? — per-token and per-intent attribution. */}
+      {result.trace && <TracePanel trace={result.trace} />}
+
       {/* E1: LLM Review card */}
       {reviewing && (
         <div className="mt-2 bg-amber-400/5 border border-amber-400/20 rounded-lg p-3">
@@ -266,6 +269,112 @@ function MessageBubble({ msg, onApplySuggestion, onTrain, intentCount }: {
         </div>
       )}
       {review && <ReviewCard review={review} onApply={onApplySuggestion} />}
+    </div>
+  );
+}
+
+// --- Trace panel ---
+
+function TracePanel({ trace }: { trace: ResolveTrace }) {
+  const [open, setOpen] = useState(false);
+
+  const intentColor = (i: number) => INTENT_COLORS[i % INTENT_COLORS.length];
+
+  // Group per-token contributions: token → list of (intent, delta) sorted desc
+  const groups: { token: string; entries: { intent: string; delta: number; idf: number; weight: number; negated: boolean }[] }[] = [];
+  const seen = new Set<string>();
+  for (const c of trace.per_token) {
+    if (!seen.has(c.token)) {
+      seen.add(c.token);
+      groups.push({ token: c.token, entries: [] });
+    }
+    const g = groups.find(x => x.token === c.token)!;
+    g.entries.push({ intent: c.intent, delta: c.delta, idf: c.idf, weight: c.weight, negated: c.negated });
+  }
+  for (const g of groups) g.entries.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+  return (
+    <div className="mt-2 text-xs">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="text-zinc-500 hover:text-zinc-300 text-[10px] uppercase tracking-wide font-semibold flex items-center gap-1"
+      >
+        <span>{open ? '▾' : '▸'}</span>
+        <span>Why?</span>
+        <span className="text-zinc-700 ml-1 lowercase font-normal normal-case">{trace.explanation}</span>
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-3 bg-zinc-950 border border-zinc-800 rounded-lg p-3">
+          {/* Per-intent summary */}
+          <div>
+            <div className="text-[9px] text-zinc-600 uppercase font-semibold mb-1">Per-intent score breakdown</div>
+            <table className="w-full font-mono text-[11px]">
+              <thead>
+                <tr className="text-zinc-600 text-[9px] uppercase">
+                  <th className="text-left font-semibold py-0.5">Intent</th>
+                  <th className="text-right font-semibold">Score</th>
+                  <th className="text-right font-semibold">Voting</th>
+                  <th className="text-right font-semibold">×Mult</th>
+                  <th className="text-left font-semibold pl-2">Conjunctions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trace.per_intent.map((s, i) => (
+                  <tr key={s.intent} className="border-t border-zinc-900">
+                    <td className={`py-0.5 ${intentColor(i)} font-semibold`}>{s.intent}</td>
+                    <td className="text-right text-amber-400">{s.raw_score.toFixed(2)}</td>
+                    <td className="text-right text-zinc-500">{s.voting_tokens}</td>
+                    <td className={`text-right ${Math.abs(s.voting_multiplier - 1) > 0.01 ? 'text-amber-400' : 'text-zinc-600'}`}>
+                      {s.voting_multiplier.toFixed(2)}
+                    </td>
+                    <td className="pl-2 text-emerald-400">
+                      {s.policy_overrides_fired.length > 0 ? s.policy_overrides_fired.join(', ') : <span className="text-zinc-700">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Per-token attribution */}
+          <div>
+            <div className="text-[9px] text-zinc-600 uppercase font-semibold mb-1">Per-token contribution (delta = weight × IDF, signed)</div>
+            <div className="space-y-0.5 font-mono text-[11px]">
+              {groups.map(g => (
+                <div key={g.token} className="flex items-baseline gap-2">
+                  <span className={`min-w-[10ch] ${g.entries[0].negated ? 'text-red-400' : 'text-cyan-300'}`}>
+                    {g.entries[0].negated ? `¬${g.token}` : g.token}
+                  </span>
+                  <div className="flex flex-wrap gap-x-2 text-[10px]">
+                    {g.entries.map((e, idx) => (
+                      <span key={idx} className="text-zinc-500">
+                        <span className={trace.per_intent.findIndex(p => p.intent === e.intent) >= 0
+                          ? intentColor(trace.per_intent.findIndex(p => p.intent === e.intent))
+                          : 'text-zinc-600'}>
+                          {e.intent}
+                        </span>
+                        <span className={e.delta < 0 ? 'text-red-400' : 'text-amber-400'}>
+                          {' '}{e.delta >= 0 ? '+' : ''}{e.delta.toFixed(2)}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {groups.length === 0 && (
+                <div className="text-zinc-700 italic">No tokens activated any intent.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Threshold context */}
+          <div className="text-[10px] text-zinc-600 pt-1 border-t border-zinc-900">
+            Threshold applied: <span className="text-zinc-400 font-mono">{trace.threshold_applied.toFixed(2)}</span>
+            {trace.negated && <span className="ml-3 text-red-400">negation detected</span>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
