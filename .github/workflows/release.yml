@@ -306,7 +306,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME}"  # e.g. v0.2.1
           mkdir -p target/pack-tarballs
-          for PACK in safety-filter eu-ai-act-prohibited hipaa-triage mcp-tools-generic; do
+          for PACK in safety-filter eu-ai-act-prohibited medical-triage mcp-tools-generic; do
             tar czf "target/pack-tarballs/pack-${PACK}-${VERSION}.tar.gz" -C packs "${PACK}"
           done
       - uses: actions/upload-artifact@v4
