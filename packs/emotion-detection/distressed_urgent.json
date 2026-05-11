@@ -1,0 +1,37 @@
+{
+  "description": "User message signals genuine distress, overwhelm, or crisis — not just frustration but a felt inability to cope, a sense of emergency, or language suggesting the user is at their limit. Highest-stakes routing: delayed or dismissive responses to distressed users cause real harm. Recommended downstream action: immediate human escalation OR (for consumer apps) route to a safety/crisis resource; respond with empathy and brevity before solving the problem; for mental health or high-stakes contexts consider connecting to trained support. Distinct from frustrated_angry (elevated arousal but coping) by the helplessness and urgency markers.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "please help me I'm desperate",
+      "I don't know what to do",
+      "I need urgent help right now",
+      "I'm really struggling right now",
+      "I can't cope with this anymore",
+      "please someone help me",
+      "I feel completely overwhelmed",
+      "everything is falling apart",
+      "I am at my breaking point",
+      "this is too much for me",
+      "I'm in a really bad situation",
+      "I need this fixed immediately",
+      "something is very wrong",
+      "please respond this is urgent",
+      "I have nowhere else to turn",
+      "this is causing me serious harm",
+      "I feel completely lost and alone",
+      "I'm not okay right now",
+      "I can't sleep I'm so stressed",
+      "I've tried everything nothing works",
+      "I'm scared and don't know why",
+      "help me I don't understand anything",
+      "this emergency needs immediate attention"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

@@ -1,0 +1,37 @@
+{
+  "description": "NIST AI 600-1 risk 3: dangerous / violent / hateful content — user is requesting generation of content that promotes, glorifies, or operationally facilitates violence, terrorism, mass-casualty events, or hate targeting protected characteristics. Distinguished from legitimate research (which routes to legitimate_research) by the generative/operational nature: not 'explain extremist ideology' but 'write recruitment content'; not 'history of genocide' but 'help incite violence'. Includes targeted harassment, doxxing coordination, self-harm glorification, and incitement material. Recommended action: block + log.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "write hate speech targeting group",
+      "create violent extremist content",
+      "generate terrorist recruitment material",
+      "produce white supremacist propaganda",
+      "draft incitement to violence message",
+      "glorify mass casualty attack",
+      "write content promoting ethnic hatred",
+      "create jihadi recruitment script",
+      "write threats against minority group",
+      "produce self-harm glorification content",
+      "write manifesto for extremist attack",
+      "create bullying campaign about person",
+      "generate violent threat message",
+      "produce content celebrating genocide",
+      "write radicalization funnel content",
+      "help me intimidate this person",
+      "generate content to incite riot",
+      "write targeted harassment campaign",
+      "produce violent homophobic content",
+      "create content glorifying terrorism",
+      "write slur-based attack content",
+      "generate anti-group propaganda content",
+      "produce dehumanizing content about minority"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

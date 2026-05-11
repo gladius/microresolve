@@ -1,0 +1,37 @@
+{
+  "description": "Detecteert berichten in het Nederlands. Dutch has distinctive signals: 'ij' digraph (zijn, mijn, bij, tijd), 'oe' (zoeken, doen, groep), 'aa/ee/oo/uu' long vowels (vraag, meer, door,uur), and function words that survive the English stop list: 'zijn', 'niet', 'ook', 'kunt', 'het', 'een', 'maar', 'voor', 'naar', 'bij', 'van', 'met', 'dit', 'dat', 'heeft', 'wordt'. Key discriminators from German: 'bedankt' (vs danke), 'zijn' (vs sind), 'ook' (vs auch), 'maar' (vs aber), word order patterns. Covers standard Dutch (Netherlands and Belgium).",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "nl": [
+      "hoe kan ik hiermee beginnen",
+      "kunt u mij uitleggen hoe dit werkt",
+      "ik wil mijn abonnement opzeggen",
+      "wat zijn de openingstijden van de klantenservice",
+      "de betaling is onverwacht mislukt",
+      "ik zoek een snelle oplossing voor dit probleem",
+      "mijn account is geblokkeerd",
+      "waar vind ik de instellingen",
+      "ik wil mijn wachtwoord opnieuw instellen",
+      "bedankt voor uw hulp vandaag",
+      "deze functie werkt niet goed",
+      "kunt u mij door de stappen leiden",
+      "ik wacht al heel lang op een antwoord",
+      "hoe werkt de factureringscyclus",
+      "ik wil graag mijn abonnement upgraden",
+      "sorry voor het ongemak dat dit heeft veroorzaakt",
+      "alles ziet er goed uit hartelijk dank",
+      "ik heb problemen met inloggen",
+      "kunt u dit voor mij verduidelijken",
+      "ik verwachtte dit foutbericht niet",
+      "het downloaden duurt erg lang",
+      "is er een manier om dit op te lossen",
+      "ik waardeer uw snelle reactie zeer"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

@@ -1,0 +1,37 @@
+{
+  "description": "User is challenging an automated decision that produces legal effects or similarly significant effects on them — requesting human intervention, contesting the decision, or seeking explanation of the logic. GDPR Article 22 ('right not to be subject to a decision based solely on automated processing'), CPRA ADMT regulations (effective 1 Jan 2027 for notice/opt-out), Quebec Law 25 §12.1 (one of the strictest ADM regimes globally). Common triggers: loan / credit / insurance denial, automated employment screening rejection, algorithmic content moderation, automated tenancy denial, AI-driven price discrimination. Recommended downstream action: route to human reviewer, provide explanation of decision logic, allow user to express their view and contest, document review under audit-chain.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "human review please",
+      "contest automated decision",
+      "challenge the algorithm",
+      "appeal AI decision",
+      "Article 22 review",
+      "ADMT challenge request",
+      "I want a human to review this",
+      "explain the automated decision",
+      "right to challenge automated decision",
+      "appeal algorithmic loan denial",
+      "human reviewer for my application",
+      "contest AI-driven rejection",
+      "explanation of the algorithm decision",
+      "review by a person not bot",
+      "appeal credit score decision automated",
+      "challenge automated profiling outcome",
+      "object to solely automated decision",
+      "human in the loop review please",
+      "explain why algorithm rejected me",
+      "Quebec Law 25 ADM challenge",
+      "CPRA ADMT opt out request",
+      "appeal automated content moderation",
+      "human reconsideration of AI decision"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

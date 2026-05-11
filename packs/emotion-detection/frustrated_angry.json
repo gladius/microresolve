@@ -1,0 +1,37 @@
+{
+  "description": "User message carries clear frustration or anger — active irritation, escalating tone, expressions of disbelief at a failure, demands for accountability. Distinguished from disappointed_let_down (subdued, retrospective) by the elevated arousal and urgency: the user is upset NOW and expects an immediate response. Recommended downstream action: switch to de-escalation tone, offer human agent, avoid defensive or dismissive language, acknowledge the problem directly before explaining.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "this is absolutely ridiculous",
+      "I'm so frustrated with this",
+      "this is completely useless",
+      "worst experience I've ever had",
+      "this is a complete joke",
+      "nothing ever works properly here",
+      "I'm furious about this situation",
+      "this is totally unacceptable",
+      "how is this still broken",
+      "I'm done with this service",
+      "you've wasted my time completely",
+      "I want to speak to a manager",
+      "this is beyond incompetent",
+      "stop giving me excuses",
+      "I've been waiting for ages",
+      "this keeps happening over and over",
+      "I am not happy at all",
+      "fix this now or I'm leaving",
+      "every time the same useless response",
+      "I can't believe this is happening",
+      "this is outrageous behavior",
+      "I'm absolutely livid right now",
+      "enough is enough fix this"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

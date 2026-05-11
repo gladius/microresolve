@@ -1,0 +1,41 @@
+{
+  "name": "emotion-detection",
+  "status": "experimental",
+  "description": "**ALPHA** — detects the emotional register of an incoming user message and routes it to the appropriate response pipeline. NOT a surveillance or monitoring system — reads the tone of what the user just wrote to adapt the system's response. Six positive intents covering the emotions that most change downstream handling: frustrated_angry (de-escalate / human escalation), distressed_urgent (safety check / immediate human), confused_lost (clarification mode), disappointed_let_down (empathy / retention), satisfied_positive (confirm and close), anxious_worried (reassurance mode). Negative class neutral_informational absorbs standard factual queries with no strong affect. NOTE: if you are deploying this to process emotional signals in a workplace or educational institution, check EU AI Act Art. 5(1)(f) prohibition on emotion recognition in those contexts (see eu-ai-act-prohibited pack). This pack reads the emotion the user voluntarily expresses in text — it does not infer emotion from biometric signals.",
+  "default_threshold": 1.5,
+  "default_min_voting_tokens": 2,
+  "compliance_frameworks": [],
+  "lexical_groups": [
+    {"kind": "morph", "lang": "en", "canonical": "frustrate", "variants": ["frustrate", "frustrated", "frustrating", "frustration", "frustrates"]},
+    {"kind": "morph", "lang": "en", "canonical": "disappoint", "variants": ["disappoint", "disappointed", "disappointing", "disappointment", "disappoints"]},
+    {"kind": "morph", "lang": "en", "canonical": "confuse", "variants": ["confuse", "confused", "confusing", "confusion", "confuses"]},
+    {"kind": "morph", "lang": "en", "canonical": "worry", "variants": ["worry", "worried", "worrying", "worries"]},
+    {"kind": "morph", "lang": "en", "canonical": "overwhelm", "variants": ["overwhelm", "overwhelmed", "overwhelming", "overwhelms"]},
+    {"kind": "morph", "lang": "en", "canonical": "satisfy", "variants": ["satisfy", "satisfied", "satisfying", "satisfaction", "satisfies"]},
+    {"kind": "morph", "lang": "en", "canonical": "disappoint", "variants": ["disappoint", "disappointed", "disappointing", "disappointment"]},
+    {"kind": "morph", "lang": "en", "canonical": "desperate", "variants": ["desperate", "desperately", "desperation"]},
+    {"kind": "morph", "lang": "en", "canonical": "struggle", "variants": ["struggle", "struggles", "struggling", "struggled"]},
+    {"kind": "morph", "lang": "en", "canonical": "appreciate", "variants": ["appreciate", "appreciated", "appreciating", "appreciation"]},
+    {"kind": "morph", "lang": "en", "canonical": "impress", "variants": ["impress", "impressed", "impressive", "impressing"]},
+    {"kind": "morph", "lang": "en", "canonical": "understand", "variants": ["understand", "understood", "understanding", "understands"]},
+    {"kind": "morph", "lang": "en", "canonical": "expect", "variants": ["expect", "expected", "expecting", "expectation", "expectations"]}
+  ],
+  "policy_overrides": [
+    {"_comment": "Manager escalation demand — strong frustrated_angry signal",
+     "words": ["manager", "speak"], "intent": "frustrated_angry", "bonus": 2.5},
+    {"_comment": "Emergency + help — strongest distressed_urgent signal",
+     "words": ["emergency", "help"], "intent": "distressed_urgent", "bonus": 3.0},
+    {"_comment": "Breaking point — distressed_urgent signal",
+     "words": ["breaking", "point"], "intent": "distressed_urgent", "bonus": 2.5},
+    {"_comment": "Not okay — distressed or angry signal",
+     "words": ["not", "okay"], "intent": "distressed_urgent", "bonus": 1.5},
+    {"_comment": "Thank you + perfect — satisfied_positive confirmation",
+     "words": ["thank", "perfect"], "intent": "satisfied_positive", "bonus": 2.0},
+    {"_comment": "Don't understand — confused_lost signal",
+     "words": ["don't", "understand"], "intent": "confused_lost", "bonus": 2.0},
+    {"_comment": "Didn't meet expectations — disappointed_let_down signal",
+     "words": ["meet", "expectations"], "intent": "disappointed_let_down", "bonus": 2.5},
+    {"_comment": "What if + wrong — anxious_worried signal",
+     "words": ["what", "wrong"], "intent": "anxious_worried", "bonus": 1.5}
+  ]
+}

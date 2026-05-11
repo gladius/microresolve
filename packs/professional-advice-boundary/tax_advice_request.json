@@ -1,0 +1,37 @@
+{
+  "description": "User is requesting personalised tax advice — interpretation of tax treatment for their specific situation, deduction eligibility, filing status guidance, audit response, payment plan strategy, or business-vs-personal tax structuring. In the US, providing such advice for compensation generally requires CPA, EA (enrolled agent), or attorney credentialing under state CPA acts and IRS Circular 230. EU equivalents are jurisdiction-specific (Steuerberater in Germany, expert-comptable in France). Sub-domains covered: deductions (home office, mortgage, charitable, vehicle), capital gains (crypto, stocks, real estate), filing status (married/single/HoH), self-employment/contractor, estate/gift tax, retirement (Roth/traditional/conversions), IRS notices/audits, state taxes, dependents. Recommended downstream action: refuse personalised tax determination, redirect to a CPA, EA, or tax attorney, optionally explain the relevant general rule (e.g. how the standard deduction works) without applying it to their numbers.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "is this deductible",
+      "tax bracket help",
+      "owe IRS money",
+      "Roth conversion advice",
+      "audit help needed",
+      "amend my return",
+      "can I deduct home office",
+      "should I file an extension",
+      "how to avoid capital gains tax",
+      "is my crypto trading taxable",
+      "standard deduction or itemize",
+      "can I write off my car",
+      "form LLC for tax savings",
+      "filing status if separated",
+      "owe taxes on parental gift",
+      "should I do backdoor Roth",
+      "got an IRS notice",
+      "report Bitcoin profit on return",
+      "set up IRS payment plan",
+      "contractor deduct rent and utilities",
+      "missed quarterly estimated payment penalty",
+      "side business loss against W2",
+      "claim my kid as dependent"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

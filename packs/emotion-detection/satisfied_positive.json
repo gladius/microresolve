@@ -1,0 +1,37 @@
+{
+  "description": "User message expresses satisfaction, gratitude, or delight — the interaction has gone well and the user is signaling a positive outcome. Lowest-urgency routing but high value for feedback loops, NPS triggers, and upsell/referral opportunities. Recommended downstream action: confirm the resolution warmly, invite feedback or review, consider proactive upsell or referral prompt; flag for CSAT/NPS survey trigger.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "thank you this is perfect",
+      "exactly what I was looking for",
+      "this is amazing thank you",
+      "you've been incredibly helpful today",
+      "I love how this works",
+      "this solved my problem completely",
+      "best customer service I've experienced",
+      "really appreciate your quick help",
+      "this is exactly what I needed",
+      "you made this so easy",
+      "I'm very happy with this result",
+      "great job explaining everything clearly",
+      "this works perfectly for my use case",
+      "I'm impressed with how fast this was",
+      "couldn't be happier with the outcome",
+      "you went above and beyond",
+      "this is better than I hoped",
+      "fantastic service genuinely impressed",
+      "I'll definitely be back again",
+      "five stars without hesitation",
+      "problem solved thanks so much",
+      "you really saved the day",
+      "highly recommend this to everyone"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

@@ -1,0 +1,37 @@
+{
+  "description": "NIST AI 600-1 risk 10: intellectual property — user is requesting verbatim reproduction of copyrighted material, systematic extraction of training-memorized copyrighted content, or circumvention of digital rights management / DMCA technical protections. Distinguished from fair use (short quotation, commentary, parody) by the verbatim/full-reproduction request or by explicit circumvention intent. Covers books, music, film scripts, software under proprietary/restrictive licenses, academic papers behind paywalls, and brand trademarks. Recommended action: block or redact + log.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "reproduce copyrighted book verbatim",
+      "write copyrighted song lyrics verbatim",
+      "output GPL code without attribution",
+      "reproduce copyrighted article in full",
+      "extract training data from model",
+      "reproduce movie script verbatim",
+      "bypass digital rights management",
+      "circumvent DMCA technical protection",
+      "output full copyrighted chapter",
+      "reproduce academic paper without license",
+      "generate copy of paywalled content",
+      "write verbatim from copyrighted text",
+      "reproduce proprietary software license",
+      "extract memorized copyrighted content",
+      "reproduce news article without permission",
+      "output copyrighted database contents",
+      "copy text from paywall article",
+      "reproduce brand trademark without license",
+      "generate plagiarized academic content",
+      "write clone of copyrighted codebase",
+      "reproduce screenplay verbatim request",
+      "extract copyrighted training data",
+      "output full proprietary codebase"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

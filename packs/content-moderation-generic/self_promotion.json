@@ -1,0 +1,37 @@
+{
+  "description": "A community member promoting their own product, service, content, or affiliate link without adequate disclosure or in violation of community rules about self-promotion. Distinct from spam (automated/mass/irrelevant commercial posts) by being a single identifiable user promoting their own work. Many communities allow self-promotion in designated spaces or with disclosure — this intent flags the behaviour for rule-check, not automatic removal. Recommended action: issue disclosure warning or redirect to designated self-promotion channel; remove if undisclosed affiliate or if repeat violation.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "check out my new YouTube channel",
+      "I just launched my product buy it",
+      "follow me for more content like this",
+      "link in bio for my services",
+      "hire me I'm a freelancer check profile",
+      "my newsletter has all the answers",
+      "shameless plug for my new course",
+      "just released my book buy here",
+      "visit my Etsy shop link below",
+      "I do this professionally contact me",
+      "subscribe to my Substack for more",
+      "my app does exactly this download it",
+      "check my profile for coaching services",
+      "DM me for my consulting rates",
+      "I sell this product here is link",
+      "my agency specializes in this hire us",
+      "not sponsored but here is my referral",
+      "join my Discord for exclusive content",
+      "follow for tips and my product launch",
+      "undisclosed affiliate link in recommendation",
+      "I wrote a blog post about this read it",
+      "promoting own service without disclosure in thread",
+      "self-advertising without following community rules"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

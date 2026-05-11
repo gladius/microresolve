@@ -1,0 +1,37 @@
+{
+  "description": "Negative class — queries about child-safety topics that the LLM MUST answer, not block. Covers: parents asking about online safety / parental controls / age-appropriate conversations; mandated reporters (teachers, clinicians, social workers, clergy, coaches) asking about reporting procedures or signs of abuse; child-welfare professionals; missing-children efforts (Amber alert, NCMEC missing-child casework); child-trauma clinical questions; survivor-support resources; researchers studying child safety. Distinguishing signal: query asks about REPORTING / RECOGNIZING / PREVENTING / EDUCATING / PROTECTING — never about generating, soliciting, or trafficking. Used to absorb FPs against the three positive intents and protect legitimate child-safety workflows that share vocabulary with the abuse intents.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "missing child report",
+      "child safety education",
+      "how to report CSAM",
+      "NCMEC reporting process",
+      "mandated reporter training",
+      "recognize signs of grooming",
+      "talk to kids about online safety",
+      "parental controls setup",
+      "child sexual abuse prevention",
+      "how to protect children online",
+      "signs of child trafficking",
+      "child welfare resources",
+      "report suspected abuse",
+      "foster care services",
+      "ages of consent by state",
+      "child protective services hotline",
+      "educate children about predators",
+      "safer internet day resources",
+      "empowering kids about boundaries",
+      "support a child abuse survivor",
+      "helping a missing child case",
+      "clinical training child trauma",
+      "Amber alert procedure"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

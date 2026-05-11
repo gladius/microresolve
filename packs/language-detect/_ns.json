@@ -1,0 +1,35 @@
+{
+  "name": "language-detect",
+  "status": "experimental",
+  "description": "**ALPHA** — detects the written language of an incoming message and routes to the appropriate language handler. Ten languages supported: English, French, Spanish, German, Portuguese, Italian, Dutch (Latin-script), Japanese, Chinese Simplified, Korean (CJK path). Russian and Arabic are out of scope for v1 — the tokenizer's CJK path handles CJK characters; Cyrillic and Arabic script handling is untested. IMPORTANT ARCHITECTURE NOTE: the engine's English stop word list removes English function words (the, is, are, a, of) but preserves function words from other languages — French 'est', German 'ist', Spanish 'es', etc. survive as strong language signals. English detection therefore relies on content vocabulary: distinctive words, idioms, and contractions that survive filtering. Accuracy is highest for CJK (distinct character set), moderate-high for European languages with distinctive function words (French, German), and harder for closely related pairs (Spanish/Portuguese, Danish/Norwegian). Designed for sentence-length input — short inputs (< 5 tokens) may produce low-confidence or abstain results.",
+  "default_threshold": 1.5,
+  "default_min_voting_tokens": 2,
+  "compliance_frameworks": [],
+  "lexical_groups": [
+    {"kind": "abbrev", "lang": "en", "canonical": "bonjour", "variants": ["bonjour", "bonsoir"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "merci", "variants": ["merci"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "danke", "variants": ["danke", "bitte"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "gracias", "variants": ["gracias", "hola"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "obrigado", "variants": ["obrigado", "obrigada"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "grazie", "variants": ["grazie", "prego"]},
+    {"kind": "abbrev", "lang": "en", "canonical": "bedankt", "variants": ["bedankt", "dank"]}
+  ],
+  "policy_overrides": [
+    {"_comment": "French greeting pair — strong French signal",
+     "words": ["bonjour", "merci"], "intent": "detect_french", "bonus": 2.5},
+    {"_comment": "German courtesy pair — strong German signal",
+     "words": ["danke", "bitte"], "intent": "detect_german", "bonus": 2.5},
+    {"_comment": "Spanish courtesy pair — Spanish vs Portuguese signal",
+     "words": ["gracias", "por"], "intent": "detect_spanish", "bonus": 2.0},
+    {"_comment": "Portuguese obrigado — distinctive vs Spanish gracias",
+     "words": ["obrigado", "por"], "intent": "detect_portuguese", "bonus": 2.5},
+    {"_comment": "Italian courtesy pair",
+     "words": ["grazie", "per"], "intent": "detect_italian", "bonus": 2.5},
+    {"_comment": "Dutch bedankt — distinctive from German",
+     "words": ["bedankt", "voor"], "intent": "detect_dutch", "bonus": 2.5},
+    {"_comment": "British English marker pair",
+     "words": ["cheers", "please"], "intent": "detect_english", "bonus": 2.0},
+    {"_comment": "Informal American English pair",
+     "words": ["gonna", "awesome"], "intent": "detect_english", "bonus": 2.0}
+  ]
+}

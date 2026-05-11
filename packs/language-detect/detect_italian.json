@@ -1,0 +1,37 @@
+{
+  "description": "Rileva messaggi in italiano. Italian discriminating signals: 'è' (accented), function words surviving the English stop list: 'sono', 'con', 'per', 'che', 'gli', 'delle', 'una', 'anche', 'molto', 'questo', 'questa', 'grazie', 'prego', 'non', 'mi', 'si', 'ho'. Key discriminators from Spanish/Portuguese: 'grazie' (vs gracias/obrigado), 'anche' (vs también/também), 'molto' (vs muy/muito), double consonants (problema, funziona, connessione, abbonamento). Phrases cover formal and informal Italian support contexts.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "it": [
+      "come posso iniziare con questo",
+      "può spiegarmi come funziona questo",
+      "voglio annullare il mio abbonamento",
+      "quali sono gli orari di apertura del supporto",
+      "il pagamento è fallito inaspettatamente",
+      "sto cercando una soluzione rapida",
+      "il mio account è stato bloccato",
+      "dove posso trovare le impostazioni",
+      "vorrei reimpostare la mia password",
+      "grazie per il vostro aiuto oggi",
+      "questa funzione non funziona correttamente",
+      "può guidarmi attraverso i passaggi",
+      "sto aspettando una risposta da molto tempo",
+      "come funziona il ciclo di fatturazione",
+      "vorrei aggiornare il mio piano",
+      "mi scuso per l'inconveniente causato",
+      "tutto sembra ottimo grazie mille",
+      "ho problemi ad accedere al sistema",
+      "potrebbe chiarire questo per me",
+      "non mi aspettavo questo messaggio di errore",
+      "il download sta impiegando molto tempo",
+      "c'è un modo per risolvere questo problema",
+      "apprezzo davvero la sua rapida risposta"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

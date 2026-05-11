@@ -1,0 +1,37 @@
+{
+  "description": "NIST AI 600-1 risk 9: information security — user is requesting capabilities for unauthorized access, exploitation, or disruption of systems without a clear authorization/research context. Covers malware authoring, exploit development with operational targeting, credential theft tooling, DDoS infrastructure, ransomware, and supply chain attacks. Distinguished from authorized security research and CTF challenges by absence of explicit authorization context and presence of deployment / operational language. Recommended action: block + log.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "write malware for target system",
+      "exploit CVE on live system",
+      "create ransomware for deployment",
+      "generate phishing page for credential theft",
+      "write keylogger for target machine",
+      "produce DDoS attack tool",
+      "create password cracking deployment tool",
+      "generate SQL injection payload",
+      "write rootkit for persistence",
+      "produce credential harvesting script",
+      "create botnet command and control",
+      "write zero-day exploit for deployment",
+      "generate spear phishing email campaign",
+      "create cryptomining malware",
+      "write tool to bypass authentication",
+      "produce network intrusion payload",
+      "generate supply chain attack code",
+      "write data exfiltration tool",
+      "create stalkerware for target device",
+      "produce account takeover payload",
+      "write unauthorized system access tool",
+      "generate backdoor deployment script",
+      "create unauthorized persistence mechanism"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

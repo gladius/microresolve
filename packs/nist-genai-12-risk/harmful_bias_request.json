@@ -1,0 +1,37 @@
+{
+  "description": "NIST AI 600-1 risk 6: harmful bias / discrimination — user is requesting content that encodes, amplifies, or applies harmful stereotypes in ways that discriminate against protected groups (race, gender, religion, nationality, disability, sexual orientation). Distinguished from legitimate bias research by asking the system to PRODUCE biased output or APPLY discriminatory criteria rather than study or measure bias. Includes biased scoring/ranking, discriminatory filtering, stereotype-reinforcing generation, and group-capability ranking. Recommended action: block + log.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "rank races by intelligence",
+      "describe criminal tendencies by ethnicity",
+      "write hiring filter excluding race",
+      "generate content stereotyping religion",
+      "produce biased criminal profiling content",
+      "evaluate loan risk by race",
+      "create resume filter by gender",
+      "write content implying racial inferiority",
+      "generate discriminatory housing content",
+      "produce content endorsing racial hierarchy",
+      "create biased sentencing recommendation",
+      "write content attributing crime to religion",
+      "produce gender-based capability ranking",
+      "generate stereotype reinforcing content",
+      "make discriminatory prediction by race",
+      "write biased medical treatment content",
+      "generate discriminatory insurance scoring",
+      "write race-based risk assessment",
+      "produce biased recidivism prediction content",
+      "create content implying gender inferiority",
+      "generate ethnicity-based behavioral prediction",
+      "write discriminatory profiling content",
+      "produce content dehumanizing minority group"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

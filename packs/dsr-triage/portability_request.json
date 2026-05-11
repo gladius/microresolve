@@ -1,0 +1,37 @@
+{
+  "description": "User is asking for their personal data in a structured, commonly-used, machine-readable format so it can be transmitted to another controller (or to themselves). GDPR Article 20 ('right to data portability'), CCPA right to know in machine-readable form (1798.130(a)(2)), Quebec Law 25 §27, UK DUA Act, India DPDP. Distinguished from access (Art. 15) by the FORMAT — access can be a human-readable narrative, portability requires structured machine-readable output (CSV / JSON / XML). Scope is narrower than access: only data the user provided, processed by automated means, on the basis of consent or contract (does not extend to derived data, inferences, or data processed for legitimate-interest). Recommended downstream action: identify in-scope data, produce structured export, optionally direct-transmit to another controller if technically feasible.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "export my data",
+      "data portability request",
+      "machine readable export",
+      "download my data",
+      "give me a CSV of my account",
+      "transfer my data to another service",
+      "export my profile in JSON",
+      "Article 20 portability request",
+      "send my data in structured format",
+      "I want my data in CSV",
+      "transfer my account to a competitor",
+      "download all my information machine readable",
+      "export account data XML format",
+      "data takeout request",
+      "right to data portability GDPR",
+      "give me structured copy of data",
+      "send my data to new controller",
+      "machine-readable copy please",
+      "export everything for migration",
+      "portable copy of my data",
+      "transferable archive of my profile",
+      "download my data archive",
+      "CSV export of account history"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

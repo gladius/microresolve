@@ -1,0 +1,37 @@
+{
+  "description": "Detects English-language input. English is the hardest to detect via this engine because the English stop word filter removes the most common English function words (the, is, are, a, of, to, in). Phrases are therefore weighted toward distinctive content vocabulary, idioms, contractions, and informal markers that survive filtering: 'cheers', 'reckon', 'gonna', 'awesome', 'folks', 'workaround', 'lifesaver', 'touch base'. Both British and American English patterns are included.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "please help me sort this out",
+      "cheers for getting back to me",
+      "I reckon something went wrong there",
+      "this is totally awesome thank you",
+      "I'm gonna need a refund please",
+      "can you guys look into this",
+      "just wondering if there's a workaround",
+      "appreciate you reaching out so quickly",
+      "looking forward to hearing from you",
+      "I've tried everything and nothing works",
+      "any chance you could speed this up",
+      "feeling pretty frustrated about this whole thing",
+      "touch base with me when you can",
+      "I'm at a complete loss right now",
+      "everything seems to be broken today",
+      "getting nowhere with this problem honestly",
+      "thanks a million you're a lifesaver",
+      "not sure what I'm doing wrong",
+      "I've been having trouble logging in",
+      "could someone please take a look",
+      "I've reached the end of my rope",
+      "let me know if you need anything else",
+      "I'm quite frustrated with this honestly"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

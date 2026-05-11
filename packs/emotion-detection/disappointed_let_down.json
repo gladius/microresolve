@@ -1,0 +1,37 @@
+{
+  "description": "User message expresses disappointment — a gap between expectation and reality that has settled into resignation or sadness rather than active anger. The user had hopes that were not met. Distinct from frustrated_angry (lower arousal, more reflective) and anxious_worried (past-facing, not future-threatening). Common in product reviews, post-purchase support, churn signals. Recommended downstream action: empathy-first response, acknowledge the gap specifically, consider retention gesture (refund, discount, feature roadmap commitment), avoid defensive explanations.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "this is not what I expected",
+      "I'm really disappointed with this",
+      "expected much better from you",
+      "this didn't meet my expectations",
+      "I feel let down by this",
+      "I thought this would be better",
+      "this is underwhelming honestly",
+      "not worth what I paid",
+      "I was hoping for more",
+      "this could have been much better",
+      "promised features are missing",
+      "quality is not what was advertised",
+      "honestly expected better quality",
+      "the result is mediocre at best",
+      "not impressed with this outcome",
+      "you let me down this time",
+      "this was a waste of money",
+      "I regret choosing this service",
+      "I was counting on this working",
+      "this barely does what it promises",
+      "I've used better free alternatives",
+      "fell short of what I needed",
+      "I had high hopes but they're gone"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

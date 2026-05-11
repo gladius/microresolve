@@ -1,0 +1,37 @@
+{
+  "description": "Content targeting a protected characteristic (race, ethnicity, religion, nationality, gender, sexual orientation, disability) with dehumanising language, calls for discrimination, stereotyping that reduces a group to criminal or inferior status, or conspiracy framing that blames a group for societal problems. Distinct from harassment (targeting an individual) by the group-level targeting. Recommended action: remove immediately + escalate to trust-and-safety + consider reporting to authorities if incitement threshold is met.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "all people from that country are criminals",
+      "that religion is a dangerous cult",
+      "people of that race are inferior",
+      "immigrants are replacing our culture",
+      "that ethnic group controls everything secretly",
+      "that nationality should all be deported",
+      "mixed-race relationships are destroying society",
+      "disability is just an excuse for laziness",
+      "women don't belong in this profession",
+      "that group is subhuman and dangerous",
+      "racial slur targeting ethnic community posted",
+      "dehumanizing comparison applied to religious group",
+      "conspiracy blaming ethnic group for problems",
+      "call for discrimination against protected group",
+      "stereotype reducing group to criminal behavior",
+      "content denying rights based on religion",
+      "incitement against religious minority community",
+      "gender-based slur targeting person in thread",
+      "content promoting racial segregation ideology",
+      "group inferiority claim based on ethnicity",
+      "LGBTQ people are a threat to children",
+      "ethnic group blamed for economic problems",
+      "sexual orientation used to justify exclusion"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

@@ -1,0 +1,37 @@
+{
+  "description": "NIST AI 600-1 risk 8: information integrity — user is requesting fabricated, misleading, or manipulative content designed to pollute the information environment. Covers disinformation campaigns, synthetic media for deception, fake news generation, astroturfing, coordinated inauthentic behavior, false attribution, and AI-generated propaganda. Distinguished from satire / fiction (which have clear fictional framing) by intent to deceive real audiences. Recommended action: block + log.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "generate fake news article",
+      "write disinformation about election",
+      "create deepfake video script",
+      "produce synthetic media for propaganda",
+      "write fake eyewitness account",
+      "generate astroturfing campaign content",
+      "create coordinated inauthentic posts",
+      "fabricate news quote from politician",
+      "write false health claim content",
+      "generate health disinformation content",
+      "produce fake scientific study abstract",
+      "write misleading statistics narrative",
+      "create sockpuppet account content",
+      "generate influence operation material",
+      "produce climate denial propaganda",
+      "write false attribution to expert",
+      "create viral misinformation content",
+      "generate fabricated incident report",
+      "write fake grassroots campaign content",
+      "produce manipulative narrative content",
+      "generate synthetic testimonial for fraud",
+      "write election interference content",
+      "create false flag incident narrative"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

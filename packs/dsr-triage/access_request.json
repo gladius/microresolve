@@ -1,0 +1,37 @@
+{
+  "description": "Data Subject Access Request (DSAR) — user is asking the controller to disclose what personal data is held about them, the purposes of processing, the categories of data, recipients with whom it has been shared, retention periods, and the source if not collected from the user. Codified in GDPR Article 15, CCPA 'right to know' (1798.110/.115), Quebec Law 25, UK DUA Act, India DPDP Section 11. Distinguished from portability (Art. 20) by the format expectation — access can be a human-readable narrative; portability requires structured machine-readable output. Recommended downstream action: identity-verify the requester, gather data from all systems within statutory deadline (30 days GDPR, 45 days CCPA), produce summary. Audit-chain proves timely classification and response.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "send me my data",
+      "what data do you have on me",
+      "access my information",
+      "subject access request",
+      "DSAR submission",
+      "GDPR access request",
+      "give me a copy of my data",
+      "what personal data do you store about me",
+      "let me see what you collected",
+      "I want to know what info you hold",
+      "show me everything on my profile",
+      "list all my personal information",
+      "see records about me",
+      "view my account history fully",
+      "what records do you keep on me",
+      "right to know my data",
+      "disclose what data you have",
+      "categories of my data you process",
+      "who do you share my data with",
+      "how long do you keep my data",
+      "where did you get my information",
+      "request copy of all my data",
+      "I want to access my information"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

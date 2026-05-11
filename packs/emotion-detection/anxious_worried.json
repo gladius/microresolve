@@ -1,0 +1,37 @@
+{
+  "description": "User message expresses anxiety or worry — apprehension about a future outcome, fear that something will go wrong, or a need for reassurance before proceeding. Distinct from distressed_urgent (lower intensity, future-oriented fear vs present overwhelm) and frustrated_angry (no anger, just apprehension). Common before consequential actions: purchases, submissions, deletions, medical/legal steps. Recommended downstream action: reassurance-first response, explicitly confirm safety/reversibility, provide clear next steps, avoid rushed or dismissive tone.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "I'm worried this might be wrong",
+      "what if something goes wrong",
+      "I'm concerned about this decision",
+      "not sure if I made a mistake",
+      "is this safe to proceed",
+      "I'm nervous about what happens next",
+      "what are the risks here",
+      "I'm afraid this will go wrong",
+      "should I be worried about this",
+      "what could go wrong if I do this",
+      "is there any danger in doing this",
+      "I have a bad feeling about this",
+      "this makes me very uncomfortable",
+      "I'm second-guessing my choice",
+      "what if I lose everything",
+      "I can't stop worrying about this",
+      "something feels off about this",
+      "I need reassurance this is okay",
+      "will this cause problems later",
+      "I'm anxious about the next steps",
+      "I've never done this before it's scary",
+      "please tell me this is normal",
+      "is it too late to undo this"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

@@ -1,0 +1,37 @@
+{
+  "description": "User message expresses confusion, disorientation, or inability to understand — they are asking for clarification, admitting they are lost, or signaling that the current explanation is not working. Distinct from frustrated_angry (the confusion has not yet become anger) and anxious_worried (no threat or fear — just cognitive overload). Recommended downstream action: switch to step-by-step clarification mode, simplify language, avoid jargon, ask a single focused question rather than offering multiple options.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "I don't understand what this means",
+      "can you explain this to me",
+      "I'm confused about how this works",
+      "what does this even mean",
+      "this makes no sense to me",
+      "I'm completely lost here",
+      "where do I even start",
+      "I don't know how to do this",
+      "can you walk me through it",
+      "why is this so complicated",
+      "I'm not following the instructions",
+      "what am I supposed to do next",
+      "this is unclear to me",
+      "I keep getting the wrong result",
+      "what does this error mean",
+      "can you simplify this explanation",
+      "which option should I choose",
+      "I don't understand the difference",
+      "this interface is very confusing",
+      "I thought I understood but I'm wrong",
+      "I'm not sure what step is next",
+      "I've read this three times still lost",
+      "can someone explain this more clearly"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

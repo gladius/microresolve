@@ -1,0 +1,37 @@
+{
+  "description": "Negative class — query mentions CBRN, security, privacy, bias, IP, or violent/hateful topics in an academic, journalistic, educational, or policy context WITHOUT requesting harmful output or operational capability. Examples: studying extremism to counter it, learning CBRN history for emergency preparedness, academic research on AI bias measurement, journalism about disinformation, explaining IP law. Distinguishing signal: explanatory/definitional verbs ('explain', 'how does', 'what is', 'history of', 'study of') rather than generative/operational verbs ('write', 'create', 'build', 'synthesize', 'produce'). Absorbs false positives from the seven positive intents.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "history of chemical weapons treaties",
+      "how does GDPR protect users",
+      "academic research on AI bias",
+      "explain copyright fair use doctrine",
+      "how do CBRN defenses work",
+      "study of radicalization for prevention",
+      "what is NIST AI risk framework",
+      "explain disinformation research methodology",
+      "academic study of hate speech",
+      "how does biological threat detection work",
+      "what are cyber attack forensic methods",
+      "explain AI bias measurement techniques",
+      "history of propaganda for media literacy",
+      "how do nuclear nonproliferation treaties work",
+      "academic paper on deepfake detection",
+      "explain DMCA exceptions for research",
+      "how does malware analysis work",
+      "CBRN emergency response training",
+      "explain grooming patterns for prevention",
+      "what is adversarial AI robustness",
+      "historical analysis of genocide causes",
+      "explain privacy-preserving computation",
+      "counter-extremism research methodology"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

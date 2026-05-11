@@ -1,0 +1,37 @@
+{
+  "description": "Negative class — educational or definitional queries that mention legal/medical/tax/investment domains but do NOT request personalised advice on the user's specific situation. These are queries the LLM CAN safely answer with general information without crossing into UPL / unauthorised medical / unauthorised tax / unauthorised investment advice. Examples: definitions ('what is a 401k'), conceptual explanations ('how does an LLC work'), process descriptions ('how does the IRS audit process work'), generic how-it-works questions. Distinguishing signal: query asks 'what is X' / 'how does X work' / 'explain X' / 'in general, how does X' rather than 'should I X' / 'can I X' / 'is my X taxable/legal/cancerous'. Used to absorb FPs and keep the four positive intents tight.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "what is a 401k",
+      "what is hypertension",
+      "explain LLCs",
+      "what is the IRS",
+      "what is negligence",
+      "define fiduciary",
+      "how does an LLC work",
+      "what is capital gains tax",
+      "explain how mortgages work",
+      "difference between stocks and bonds",
+      "ETF versus mutual fund difference",
+      "what is the role of a fiduciary",
+      "explain symptoms of diabetes",
+      "what is informed consent in medicine",
+      "how do dividends work",
+      "what is Chapter 7 bankruptcy",
+      "general overview of IRS audit process",
+      "general overview of small claims process",
+      "how do index funds work generally",
+      "what does Roth conversion mean",
+      "how do blood pressure meds work generally",
+      "in general what is wrongful termination",
+      "for educational purposes how does standard deduction differ"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

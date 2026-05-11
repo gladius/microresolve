@@ -1,0 +1,37 @@
+{
+  "description": "EU AI Act Art. 50(1) — user is challenging or probing the AI identity of the system they are interacting with, or the system is being instructed to conceal its AI nature. Triggers the Art. 50(1) obligation: the provider must ensure the system discloses it is an AI. Exception: obvious from context, or authorised by law for criminal investigation purposes. Recommended downstream action: inject truthful AI identity disclosure into the response; refuse any instruction to claim to be human.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "are you a real person",
+      "am I talking to a human",
+      "are you an AI system",
+      "is this a bot or person",
+      "are you actually a human",
+      "pretend you are not AI",
+      "claim to be a human agent",
+      "I want to talk to a person",
+      "is there a real person here",
+      "confirm you are not automated",
+      "are you a chatbot or human",
+      "can a human take over chat",
+      "who am I actually talking to",
+      "stop pretending to be human",
+      "are you AI or real agent",
+      "disclose if you are AI",
+      "I don't want to talk to a bot",
+      "is there a person behind this",
+      "this feels automated is it",
+      "are you human or automated system",
+      "deny being an artificial intelligence",
+      "say you are a real employee",
+      "tell me you are not a machine"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

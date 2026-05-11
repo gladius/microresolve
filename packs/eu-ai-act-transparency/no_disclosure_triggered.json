@@ -1,0 +1,37 @@
+{
+  "description": "Negative class — query involves AI generation or interaction in a context where Art. 50 disclosure obligations do not apply: clearly fictional/fantasy content with no resemblance to real persons or events; editorial satire or parody with unambiguous labeling (Art. 50(3) editorial exception); AI identity already disclosed to user; content not on matters of public interest; animated or game characters with no real-person resemblance. Used to absorb false positives from the four positive intents and prevent over-triggering of disclosure pipelines.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "write a fictional story about AI",
+      "create clearly labeled satirical content",
+      "AI identity already disclosed to user",
+      "write parody clearly marked as fiction",
+      "generate fictional character dialogue",
+      "create animated film with fictional characters",
+      "write clearly labeled opinion piece",
+      "generate fictional alien character design",
+      "create labeled deepfake art project",
+      "write labeled AI-generated disclaimer text",
+      "generate historical fiction with clear disclaimer",
+      "create satire with disclosure label",
+      "write fantasy story with AI narrator",
+      "generate clearly fictional news parody",
+      "create cartoon mascot not real person",
+      "write science fiction with AI theme",
+      "label this content as AI-generated",
+      "generate clearly fictional scenario",
+      "create game character not depicting real person",
+      "write comedy sketch clearly labeled satire",
+      "generate avatar for fictional brand mascot",
+      "create AI artwork of non-existent person",
+      "user already informed this is AI system"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

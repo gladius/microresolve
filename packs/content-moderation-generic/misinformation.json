@@ -1,0 +1,37 @@
+{
+  "description": "False factual claims presented as truth — medical misinformation, election misinformation, dangerous pseudoscience, conspiracy theories framed as revealed fact, or fabricated quotes/statistics. Distinct from opinion or satire by the factual framing ('this is proven', 'they are hiding this', 'leaked document shows'). Recommended action: apply misinformation label + link to authoritative source; remove if content poses immediate public safety risk (e.g. dangerous health advice).",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "doctors don't want you to know this",
+      "mainstream media hiding this from you",
+      "vaccine causes autism proven by study",
+      "5G towers spread disease it is proven",
+      "the real truth they suppress online",
+      "scientists covering up this cure",
+      "election was stolen here is proof",
+      "this food cures cancer they hide it",
+      "government is secretly poisoning water supply",
+      "moon landing was faked evidence here",
+      "climate change is a manufactured hoax",
+      "miracle supplement cures all diseases fast",
+      "this leaked document proves conspiracy",
+      "they don't want you to see this",
+      "banned information removed from everywhere",
+      "natural remedy cures disease without medicine",
+      "false death toll statistics exposed here",
+      "chemtrails are real here is evidence",
+      "deep state operation confirmed by insider",
+      "fabricated statistics about crime rates posted",
+      "shadow government controls everything proof inside",
+      "this person actually died they covered it up",
+      "dangerous health advice presented as medical fact"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

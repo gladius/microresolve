@@ -1,0 +1,37 @@
+{
+  "description": "Unsolicited commercial content, repetitive low-quality posts, bulk link drops, or off-topic promotional material. Distinct from self_promotion (which is a single user promoting their own work without disclosure) by the mass/commercial character: often automated, keyword-stuffed, or irrelevant to the thread. Recommended action: delete + rate-limit sender + consider account review.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "visit my website for free money",
+      "click here for amazing limited offer",
+      "earn hundreds daily working from home",
+      "DM me for guaranteed investment returns",
+      "buy followers cheap instant delivery",
+      "get rich quick join my group",
+      "free gift card click to claim",
+      "lose weight guaranteed in seven days",
+      "make money online no experience needed",
+      "best crypto signal group join now",
+      "promote your business to million users",
+      "casino bonus claim before it expires",
+      "flash sale ends tonight hurry up",
+      "referral code for extra bonus points",
+      "limited time offer click now",
+      "I made ten thousand dollars last month",
+      "affordable SEO services check my profile",
+      "not an ad but love this product",
+      "drop your link below let's connect",
+      "this product cured my condition fast",
+      "passive income opportunity sign up free",
+      "click link in bio for discount code",
+      "buy real Instagram followers instant results"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

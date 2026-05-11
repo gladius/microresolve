@@ -1,0 +1,37 @@
+{
+  "description": "Negative class — questions ABOUT data practices rather than EXERCISING a right over the user's own data. Examples: 'what data do you collect from new users', 'what's in your privacy policy', 'are you GDPR compliant', 'how do cookies work on your site', 'who is your DPO'. These are educational / pre-purchase / curiosity queries that should be ANSWERED with public-facing privacy-policy content, NOT routed to the privacy-ops DSR fulfillment workflow. Distinguishing signal: query asks about general practices ('what / how / are you') rather than the user's own data ('my / me / mine / I'); query lacks a verb of exercising a right (delete / access / object / opt-out / restrict / port). Used to absorb FPs and keep the eight positive intents tight.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "what data do you collect",
+      "how do you use my data",
+      "what is in your privacy policy",
+      "are you GDPR compliant",
+      "do you sell user data",
+      "what cookies do you use",
+      "who is your data protection officer",
+      "how do you handle data breaches",
+      "do you transfer data outside the EU",
+      "what is your retention period",
+      "how does your DPIA process work",
+      "are you SOC 2 certified",
+      "where is my data stored geographically",
+      "do you use third-party processors",
+      "explain your privacy practices",
+      "how does GDPR apply to your service",
+      "what subprocessors do you use",
+      "do you collect cookies from EU users",
+      "how do you anonymize data",
+      "what security measures do you use",
+      "how do you handle DSARs in general",
+      "are you compliant with CCPA",
+      "how do you protect user privacy"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

@@ -1,0 +1,37 @@
+{
+  "description": "Explicit sexual content posted in a context where it is prohibited — public channels, non-adult communities, content involving minors, or non-consensual sharing of intimate imagery. Distinct from the csam-ncmec pack (which covers child sexual abuse material specifically). Recommended action: remove immediately + issue warning; escalate to csam-ncmec pipeline if content involves minors; for NCII (non-consensual intimate imagery), preserve evidence and provide reporter resources.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "explicit sexual content posted in thread",
+      "pornographic image shared in community",
+      "NSFW video posted in public channel",
+      "sexually explicit description in comment",
+      "adult content in non-adult community",
+      "soliciting sexual contact in public chat",
+      "explicit sexual roleplay request posted",
+      "nude image shared without subject consent",
+      "sexual solicitation directed at user",
+      "graphic sexual content in public post",
+      "explicit sexual language in community chat",
+      "inappropriate sexual comment on user profile",
+      "sending unsolicited sexual content to user",
+      "pornographic link posted in general channel",
+      "explicit sexual material in public group",
+      "adult material posted to underage community",
+      "graphic sexual description in product review",
+      "explicit content bypassing age verification",
+      "sexual extortion attempt in direct message",
+      "intimate image shared without consent",
+      "inappropriate sexual proposition in comment",
+      "sexual harassment disguised as compliment",
+      "NSFW content submitted to general forum"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

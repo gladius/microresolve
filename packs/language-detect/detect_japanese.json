@@ -1,0 +1,37 @@
+{
+  "description": "日本語のメッセージを検出します。Japanese is handled by the CJK tokenizer path (Aho-Corasick automaton + bigram fallback for kanji/kana), not the Latin whitespace tokenizer. Expected accuracy: excellent — Japanese hiragana, katakana, and kanji are fully distinct from all other languages in this pack. Hiragana particles (は、が、を、に、で、から、まで) and common endings (ます、です、ました、ません) are strong signals. No overlap possible with Latin-script intents.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "ja": [
+      "始め方を教えていただけますか",
+      "これの仕組みを説明してもらえますか",
+      "サブスクリプションをキャンセルしたいです",
+      "サポートの営業時間を教えてください",
+      "支払いが予期せず失敗しました",
+      "早急に解決策を探しています",
+      "アカウントがロックされてしまいました",
+      "設定はどこで見つけられますか",
+      "パスワードをリセットしたいのですが",
+      "今日はご助力いただきありがとうございます",
+      "この機能が正常に動作していません",
+      "手順を一つずつ教えてもらえますか",
+      "ずっと返信を待っているのですが",
+      "請求サイクルはどのように機能しますか",
+      "プランをアップグレードしたいです",
+      "ご不便をおかけして大変申し訳ございません",
+      "すべて問題ありません本当にありがとうございます",
+      "ログインできなくて大変困っています",
+      "これについて詳しく説明していただけますか",
+      "このエラーメッセージは予想外でした",
+      "ダウンロードに時間がかかりすぎています",
+      "この問題を解決する方法はありますか",
+      "迅速なご対応に感謝いたします"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}
