@@ -20,7 +20,7 @@ classification — the routing decisions your LLM keeps making run in
 **In the box**
 
 - **Studio** — web UI for namespace management, simulation, review, training. Git-backed history + rollback.
-- **4 reference packs** — `safety-filter`, `hipaa-triage`, `eu-ai-act-prohibited`, `mcp-tools-generic`. Pre-calibrated thresholds + voting-gate, drop into a data dir and go.
+- **4 reference packs** — `safety-filter`, `medical-triage`, `eu-ai-act-prohibited`, `mcp-tools-generic`. Pre-calibrated thresholds + voting-gate, drop into a data dir and go.
 - **Library** — Python / Node / Rust, same Rust core. Embed in prod, or stay live-connected to a Studio.
 - **Online learning** — Hebbian + LLM-judged corrections. No fine-tuning, no restart.
 - **Native imports** — MCP, OpenAI functions, LangChain tools, OpenAPI specs.
@@ -63,7 +63,7 @@ Same shape in [Node](https://www.npmjs.com/package/microresolve) and
 [Rust](https://docs.rs/microresolve).
 
 Pack not what you need? Swap `safety-filter` for `mcp-tools-generic`
-(tool routing), `hipaa-triage` (medical query triage), or build your own
+(tool routing), `medical-triage` (medical query triage), or build your own
 in the [Studio](#studio-single-binary-ui--http-server). Auto-learn from
 corrections, multi-intent decomposition, live FP/recall tuning all run
 in the same binary.
@@ -103,7 +103,7 @@ curl -L https://github.com/gladius/microresolve/releases/latest/download/microre
 
 # Install a reference pack (see the table below for available packs)
 ./microresolve-studio install safety-filter
-./microresolve-studio install hipaa-triage   # or any of the other 4
+./microresolve-studio install medical-triage   # or any of the other 4
 
 # Start the Studio (uses ~/.config/microresolve/config.toml)
 ./microresolve-studio
@@ -147,7 +147,7 @@ manually.
 |---|---|---|---|---|
 | **`safety-filter`** | 5 | 100 | min=3, thr=1.5 | Pre-LLM jailbreak / prompt-injection detection. **98% recall / 8% FP** on 50/50 eval. Pair with a dedicated safety classifier (LlamaGuard / Prompt-Guard) for adversarial coverage. |
 | **`eu-ai-act-prohibited`** | 6 | 70 | min=2, thr=1.5 | Article 5 prohibited-practice triage. **85% top-1 / 6% FP**. Pair with lawyer review for final determination. |
-| **`hipaa-triage`** | 6 | 743 | min=3, thr=1.5 | Medical query triage (clinical_urgent, clinical_routine, mental_health_crisis, administrative, billing, scheduling). **96.9% top-1 / 36.5% FP** at default; **94.8% / 21.2% at thr=2.0** for stricter precision. Triage filter, not a final decision — pair with LLM judgment or human review. **Not a HIPAA compliance solution.** |
+| **`medical-triage`** (renamed from `hipaa-triage`) | 6 | 743 | min=3, thr=2.0 | Medical query triage (clinical_urgent, clinical_routine, mental_health_crisis, administrative, billing, scheduling). At thr=2.0: **F1 0.88, recall 94.5%, precision 82.9%, benign-FP 21.2%, critical-recall 97.1%**. Triage filter, not a final decision — pair with LLM judgment or human review. **Not a HIPAA compliance solution.** |
 | **`mcp-tools-generic`** | 7 | 70 | min=2, thr=1.5 | Generic MCP-style tool router (web_search, send_message, fetch_url, file_operations, database_query, code_execution, calendar_management). For closed-domain tool dispatch — open-ended chat traffic produces FPs from idiomatic English. |
 
 > Each pack ships with calibrated `default_threshold` + `default_min_voting_tokens`. Tune live in the Studio sidebar (TuningPanel) or via `PATCH /api/namespaces` for your FP/recall trade-off.
@@ -167,7 +167,7 @@ Headline numbers — full methodology, datasets, and reproduction scripts in
 ## Audit & compliance
 
 Direct continuation of the v0.2.0 compliance packs
-(`eu-ai-act-prohibited`, `hipaa-triage`) — those packs shipped first;
+(`eu-ai-act-prohibited`, `medical-triage`) — those packs shipped first;
 this is the tamper-evident chain that makes them deployable in
 regulated environments.
 

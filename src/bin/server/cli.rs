@@ -84,9 +84,9 @@ pub enum Command {
     /// The pack tarball is fetched from:
     ///   https://github.com/gladius/microresolve/releases/download/v<VERSION>/pack-<NAME>-v<VERSION>.tar.gz
     ///
-    /// Available packs: safety-filter, eu-ai-act-prohibited, hipaa-triage, mcp-tools-generic
+    /// Available packs: safety-filter, eu-ai-act-prohibited, medical-triage, mcp-tools-generic
     Install {
-        /// Pack name (e.g. safety-filter, hipaa-triage, eu-ai-act-prohibited, mcp-tools-generic)
+        /// Pack name (e.g. safety-filter, medical-triage, eu-ai-act-prohibited, mcp-tools-generic)
         pack: String,
     },
     /// List the 4 reference packs and show install status against the configured data dir.
@@ -111,7 +111,7 @@ pub enum Command {
     ///   microresolve-studio export-log --since 30d > audit-q4.jsonl
     ///   microresolve-studio export-log --key prod-east-python
     ///   microresolve-studio export-log --event-prefix intent. > rule-changes.jsonl
-    ///   microresolve-studio export-log --namespace hipaa-triage > hipaa-decisions.jsonl
+    ///   microresolve-studio export-log --namespace medical-triage > hipaa-decisions.jsonl
     ExportLog {
         /// Filter to one key's chain.
         #[arg(long)]

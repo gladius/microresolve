@@ -1,7 +1,7 @@
 //! Tamper-evident audit log — per-key hash-chained event store.
 //!
 //! Lineage: this module is the natural extension of the v0.2.0 compliance
-//! pack work (`eu-ai-act-prohibited`, `hipaa-triage`). EU AI Act Art. 13
+//! pack work (`eu-ai-act-prohibited`, `medical-triage`). EU AI Act Art. 13
 //! and HIPAA §164.312(b) both require tamper-evident decision logs for
 //! high-risk AI systems; this module lands the infrastructure those packs
 //! need to be audit-defensible end-to-end.

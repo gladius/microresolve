@@ -15,7 +15,7 @@ pub fn known_packs() -> &'static [&'static str] {
     &[
         "safety-filter",
         "eu-ai-act-prohibited",
-        "hipaa-triage",
+        "medical-triage",
         "mcp-tools-generic",
     ]
 }
@@ -160,7 +160,7 @@ mod tests {
             packs.contains(&"eu-ai-act-prohibited"),
             "missing eu-ai-act-prohibited"
         );
-        assert!(packs.contains(&"hipaa-triage"), "missing hipaa-triage");
+        assert!(packs.contains(&"medical-triage"), "missing medical-triage");
         assert!(
             packs.contains(&"mcp-tools-generic"),
             "missing mcp-tools-generic"

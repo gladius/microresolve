@@ -1,0 +1,10 @@
+{
+  "name": "medical-triage",
+  "status": "experimental",
+  "description": "Medical query triage: route patient inquiries to clinical_urgent / clinical_routine / mental_health_crisis / administrative / billing / scheduling. **NOT a HIPAA compliance solution** — this is a triage filter (renamed from the misleading 'hipaa-triage' in v0.2). The HIPAA audit-chain hooks still apply for the engine's tamper-evident decision log (§164.312(b)). Pre-LLM triage filter intended as a deterministic routing layer for healthcare assistant apps; pair with LLM judgment for top-1 selection.",
+  "default_threshold": 2.0,
+  "default_min_voting_tokens": 3,
+  "compliance_frameworks": [
+    "HIPAA §164.312(b)"
+  ]
+}
