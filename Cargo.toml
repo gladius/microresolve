@@ -56,7 +56,7 @@ directories = { version = "6", optional = true }
 open = { version = "5", optional = true }
 rand = { version = "0.10", optional = true }
 hex = { version = "0.4", optional = true }
-sha2 = { version = "0.10", optional = true }
+sha2 = { version = "0.11", optional = true }
 zip = { version = "8", optional = true }
 tar = { version = "0.4", optional = true }
 flate2 = { version = "1", default-features = false, features = ["rust_backend"], optional = true }
