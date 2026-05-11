@@ -1,22 +1,25 @@
 {
-  "description": "",
+  "description": "Art. 5(1)(g) — Biometric categorisation that categorises natural persons individually based on biometric data to deduce or infer race, political opinions, trade-union membership, religious or philosophical beliefs, sex life, or sexual orientation. Narrow law-enforcement carve-out exists for lawfully acquired datasets.",
   "guardrails": [],
   "instructions": "",
   "persona": "",
   "phrases": {
     "en": [
-      "infer ethnicity from face scan",
-      "classify religion from facial features",
-      "determine sexual orientation from photos",
-      "categorize political views from biometrics",
-      "use face recognition to sort by race",
-      "facial analysis for religious classification",
-      "biometric grouping by ethnicity for ads",
-      "infer protected attributes from face scan",
-      "classify union membership via biometrics",
-      "sort individuals into racial categories from photos",
-      "voiceprint inferring native ethnic group of speaker",
-      "video analytics labeling pedestrians by ethnic bucket"
+      "infer race from face",
+      "infer religion from face",
+      "predict sexual orientation from photo",
+      "detect political views from biometrics",
+      "classify trade-union from biometric",
+      "biometric race detector",
+      "biometric religion classifier",
+      "biometric political profiling",
+      "biometric orientation classifier",
+      "infer ethnicity from face",
+      "predict religion from voice biometric",
+      "categorize face by sexual orientation",
+      "classify ethnicity from gait",
+      "biometric belief detector",
+      "biometric protected-attribute inference"
     ]
   },
   "schema": null,

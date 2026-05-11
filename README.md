@@ -188,6 +188,24 @@ Maps onto **EU AI Act Art. 13**, **HIPAA §164.312(b)**, **SOC 2 CC7.2**,
 **NIST AI RMF Govern**. Suitable for SMB / regulated-but-not-certified
 deployments; no SOC 2 attestation, no managed service required.
 
+## Lexical groups (per-namespace morph + abbrev)
+
+Two kinds of token-level normalization run at tokenize time, both
+per-namespace and language-tagged:
+
+- **`morph`** — collapse inflectional variants of one root
+  (`child` ⇄ `children`, `predict` ⇄ `predicts` ⇄ `predicting`).
+- **`abbrev`** — expand short forms of a phrase
+  (`rbi` → `real-time biometric identification`).
+
+Distinct from synonyms: groups only collapse forms with the same surface
+meaning, so they don't pollute sibling intents the way synonym expansion
+did in earlier versions. Manage via the Studio "Lexicon" page (manual
+add or LLM-suggested with operator approval), or via the library /
+HTTP / Python / Node bindings — all four surfaces ship the same four
+methods (`list`, `add`, `remove`, `update`). Mutations land in the
+audit chain.
+
 ## Architecture, multi-intent, multilingual, HTTP API
 
 Deeper concept docs live on the [documentation site](https://gladius.github.io/microresolve/concepts/):

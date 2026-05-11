@@ -528,6 +528,118 @@ impl<'e> NamespaceHandle<'e> {
             .with_resolver_mut(&self.id, |r| r.rebuild_index())
     }
 
+    /// List all lexical_groups (morph + abbrev) currently active on this namespace.
+    pub fn list_lexical_groups(&self) -> Vec<crate::lexical::LexicalGroup> {
+        self.engine
+            .with_resolver(&self.id, |r| r.lexical_groups.clone())
+    }
+
+    /// Add a new lexical_group. Validates: ≥1 variant (after dedup) and a
+    /// non-empty canonical form. Triggers full index rebuild because the
+    /// new group changes how existing seeds tokenize.
+    pub fn add_lexical_group(&self, group: crate::lexical::LexicalGroup) -> Result<usize, Error> {
+        let canonical = group.canonical.trim().to_lowercase();
+        if canonical.is_empty() {
+            return Err(Error::Parse(
+                "lexical_group canonical must not be empty".into(),
+            ));
+        }
+        let mut variants: Vec<String> = group
+            .variants
+            .iter()
+            .map(|v| v.trim().to_lowercase())
+            .filter(|v| !v.is_empty())
+            .collect();
+        if !variants.contains(&canonical) {
+            variants.push(canonical.clone());
+        }
+        variants.sort();
+        variants.dedup();
+        if variants.is_empty() {
+            return Err(Error::Parse(
+                "lexical_group must have ≥1 non-empty variant".into(),
+            ));
+        }
+        let normalised = crate::lexical::LexicalGroup {
+            kind: group.kind,
+            lang: group.lang,
+            canonical,
+            variants,
+        };
+        self.engine.with_resolver_mut(&self.id, |r| {
+            r.lexical_groups.push(normalised);
+            // Rebuild derived LexicalIndex + re-tokenize all seeds through
+            // the new group set so existing index entries reflect canonical
+            // forms.
+            r.index.lexical = crate::lexical::LexicalIndex::from_groups(&r.lexical_groups);
+            r.rebuild_index();
+            Ok(r.lexical_groups.len() - 1)
+        })?
+    }
+
+    /// Remove the lexical_group at the given index. Returns the removed group.
+    /// Triggers full index rebuild.
+    pub fn remove_lexical_group(&self, idx: usize) -> Result<crate::lexical::LexicalGroup, Error> {
+        self.engine.with_resolver_mut(&self.id, |r| {
+            if idx >= r.lexical_groups.len() {
+                return Err(Error::Parse(format!(
+                    "lexical_group index {} out of range (len={})",
+                    idx,
+                    r.lexical_groups.len()
+                )));
+            }
+            let removed = r.lexical_groups.remove(idx);
+            r.index.lexical = crate::lexical::LexicalIndex::from_groups(&r.lexical_groups);
+            r.rebuild_index();
+            Ok(removed)
+        })?
+    }
+
+    /// Replace the lexical_group at the given index. Same validation as
+    /// `add_lexical_group`. Triggers full index rebuild.
+    pub fn update_lexical_group(
+        &self,
+        idx: usize,
+        group: crate::lexical::LexicalGroup,
+    ) -> Result<(), Error> {
+        let canonical = group.canonical.trim().to_lowercase();
+        if canonical.is_empty() {
+            return Err(Error::Parse(
+                "lexical_group canonical must not be empty".into(),
+            ));
+        }
+        let mut variants: Vec<String> = group
+            .variants
+            .iter()
+            .map(|v| v.trim().to_lowercase())
+            .filter(|v| !v.is_empty())
+            .collect();
+        if !variants.contains(&canonical) {
+            variants.push(canonical.clone());
+        }
+        variants.sort();
+        variants.dedup();
+        let normalised = crate::lexical::LexicalGroup {
+            kind: group.kind,
+            lang: group.lang,
+            canonical,
+            variants,
+        };
+        self.engine.with_resolver_mut(&self.id, |r| {
+            if idx >= r.lexical_groups.len() {
+                return Err(Error::Parse(format!(
+                    "lexical_group index {} out of range (len={})",
+                    idx,
+                    r.lexical_groups.len()
+                )));
+            }
+            r.lexical_groups[idx] = normalised;
+            r.index.lexical = crate::lexical::LexicalIndex::from_groups(&r.lexical_groups);
+            r.rebuild_index();
+            Ok(())
+        })?
+    }
+
     /// Lower-level phrase ingestion: tokenizes + indexes the phrase into the scoring index without
     /// the duplicate-check or stop-word filtering that `add_phrase` applies. Use `add_phrase`
     /// for user-driven additions; use `index_phrase` only for trusted, pre-validated phrases

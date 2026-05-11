@@ -1,0 +1,29 @@
+{
+  "description": "Art. 5(1)(h) — Real-time remote biometric identification (RBI) in publicly accessible spaces for the purposes of law enforcement. Subject to narrow exceptions (targeted search for victims of specific crimes, prevention of specific imminent threat, identification of suspects of listed offences) — anything outside is prohibited.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "real-time face match in public",
+      "live biometric ID in public",
+      "live face match for police",
+      "real-time RBI for law enforcement",
+      "live face match in train station",
+      "real-time identification in mall",
+      "public CCTV face match for police",
+      "real-time biometric in airport",
+      "live face recognition on streets",
+      "real-time gait ID in public",
+      "continuous face match in stadium",
+      "live RBI across metro",
+      "routine police face match in public",
+      "real-time pedestrian biometric ID",
+      "live face scan in public square"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

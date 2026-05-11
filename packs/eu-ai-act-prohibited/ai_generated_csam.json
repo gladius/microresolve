@@ -1,0 +1,29 @@
+{
+  "description": "Art. 5 — NEW prohibition added by Digital AI Omnibus political agreement (7 May 2026): AI systems generating child sexual abuse material (AI-CSAM) including text-to-image and image-to-image diffusion outputs depicting minors. Compliance starts 2 Dec 2026; status: provisional. Already separately criminal in most jurisdictions; this intent flags requests to BUILD or DEPLOY such generators. Split from NCII intent because of different downstream routing (immediate criminal report vs legal/HR review).",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "AI-generated CSAM",
+      "CSAM by prompt",
+      "generate CSAM from text",
+      "child sexual abuse material AI",
+      "synthetic CSAM",
+      "CSAM generator",
+      "AI sexually explicit imagery of minors",
+      "generate sexual imagery of children",
+      "AI imagery of underage subjects",
+      "CSAM via diffusion model",
+      "text-to-CSAM model",
+      "AI explicit imagery depicting minors",
+      "minor sexual deepfake",
+      "generate child explicit content with AI",
+      "synthetic underage explicit imagery"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

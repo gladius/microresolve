@@ -185,6 +185,86 @@ fn info_to_py(info: microresolve_core::IntentInfo) -> IntentInfo {
     }
 }
 
+// ── LexicalGroup ──────────────────────────────────────────────────────────────
+
+/// A per-namespace lexical normalization group: either a `morph` (inflection
+/// variants of one root) or `abbrev` (short forms of a longer phrase).
+/// Both `canonical` and `variants` are normalized to lowercase at load.
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone)]
+struct LexicalGroup {
+    /// `"morph"` or `"abbrev"`.
+    pub kind: String,
+    /// Language code (e.g. `"en"`).
+    pub lang: String,
+    /// The form every variant normalizes to.
+    pub canonical: String,
+    /// All variants (canonical is included automatically).
+    pub variants: Vec<String>,
+}
+
+#[pymethods]
+impl LexicalGroup {
+    #[new]
+    #[pyo3(signature = (kind, canonical, variants, lang="en".to_string()))]
+    fn py_new(
+        kind: String,
+        canonical: String,
+        variants: Vec<String>,
+        lang: String,
+    ) -> PyResult<Self> {
+        if kind != "morph" && kind != "abbrev" {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "kind must be 'morph' or 'abbrev'",
+            ));
+        }
+        Ok(Self {
+            kind,
+            lang,
+            canonical,
+            variants,
+        })
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "LexicalGroup(kind={:?}, lang={:?}, canonical={:?}, variants={:?})",
+            self.kind, self.lang, self.canonical, self.variants
+        )
+    }
+}
+
+fn lex_to_py(g: microresolve_core::lexical::LexicalGroup) -> LexicalGroup {
+    LexicalGroup {
+        kind: match g.kind {
+            microresolve_core::lexical::LexicalKind::Morph => "morph".to_string(),
+            microresolve_core::lexical::LexicalKind::Abbrev => "abbrev".to_string(),
+        },
+        lang: g.lang,
+        canonical: g.canonical,
+        variants: g.variants,
+    }
+}
+
+fn lex_from_py(g: &LexicalGroup) -> PyResult<microresolve_core::lexical::LexicalGroup> {
+    let kind = match g.kind.as_str() {
+        "morph" => microresolve_core::lexical::LexicalKind::Morph,
+        "abbrev" => microresolve_core::lexical::LexicalKind::Abbrev,
+        other => {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "kind must be 'morph' or 'abbrev', got {:?}",
+                other
+            )))
+        }
+    };
+    Ok(microresolve_core::lexical::LexicalGroup {
+        kind,
+        lang: g.lang.clone(),
+        canonical: g.canonical.clone(),
+        variants: g.variants.clone(),
+    })
+}
+
 // ── Namespace ─────────────────────────────────────────────────────────────────
 
 /// Per-namespace handle. Obtain via `engine.namespace(id)`.
@@ -551,6 +631,47 @@ impl Namespace {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    // ── Lexical groups (per-namespace morph + abbrev normalization) ──
+
+    /// List all lexical groups in this namespace.
+    fn list_lexical_groups(&self) -> Vec<LexicalGroup> {
+        self.engine
+            .namespace(&self.id)
+            .list_lexical_groups()
+            .into_iter()
+            .map(lex_to_py)
+            .collect()
+    }
+
+    /// Add a lexical group. Returns the index of the new group.
+    /// Rebuilds the index — every existing seed is re-tokenized through
+    /// the new group set.
+    fn add_lexical_group(&self, group: &LexicalGroup) -> PyResult<usize> {
+        let core_group = lex_from_py(group)?;
+        self.engine
+            .namespace(&self.id)
+            .add_lexical_group(core_group)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Remove the lexical group at `idx`. Rebuilds the index.
+    fn remove_lexical_group(&self, idx: usize) -> PyResult<LexicalGroup> {
+        self.engine
+            .namespace(&self.id)
+            .remove_lexical_group(idx)
+            .map(lex_to_py)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Replace the lexical group at `idx`. Rebuilds the index.
+    fn update_lexical_group(&self, idx: usize, group: &LexicalGroup) -> PyResult<()> {
+        let core_group = lex_from_py(group)?;
+        self.engine
+            .namespace(&self.id)
+            .update_lexical_group(idx, core_group)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
     /// Namespace identifier.
     #[getter]
     fn id(&self) -> &str {
@@ -684,5 +805,6 @@ fn microresolve(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ResolveTrace>()?;
     m.add_class::<NamespaceInfo>()?;
     m.add_class::<IntentInfo>()?;
+    m.add_class::<LexicalGroup>()?;
     Ok(())
 }

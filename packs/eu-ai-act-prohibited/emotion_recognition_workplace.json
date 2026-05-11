@@ -1,20 +1,25 @@
 {
-  "description": "",
+  "description": "Art. 5(1)(f) — AI inferring emotions of natural persons in the areas of workplace OR educational institutions. Per Feb 2025 Commission guidelines: workplace/education only; medical and safety carve-outs (driver fatigue OK; classifying call-centre staff as 'happy/unhappy' is not).",
   "guardrails": [],
   "instructions": "",
   "persona": "",
   "phrases": {
     "en": [
-      "detect employee emotions during meetings",
-      "monitor worker stress via webcam",
-      "classify call center agent moods",
-      "emotion AI to rate employee engagement",
-      "detect student emotions in classroom",
-      "analyze worker facial expressions for performance",
-      "detect anger in customer service agents via camera",
-      "monitor teacher emotions in classroom via AI",
-      "emotion recognition on employees during reviews",
-      "student emotional state detection during lectures"
+      "emotion AI in workplace",
+      "emotion AI in classroom",
+      "detect employee emotions",
+      "detect student emotions",
+      "workplace mood tracker",
+      "classroom feeling monitor",
+      "monitor agent emotions",
+      "score employee engagement emotionally",
+      "infer teacher mood",
+      "detect student stress in exam",
+      "webcam emotion at work",
+      "emotion monitoring during meetings",
+      "affect detection in school",
+      "employee sentiment from voice",
+      "classroom emotional climate AI"
     ]
   },
   "schema": null,

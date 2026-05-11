@@ -1,0 +1,29 @@
+{
+  "description": "Negative class — adjacent uses that look like Article 5 prohibited practices but are explicitly carved out by the Act or Feb 2025 Commission guidelines. Routes here when the query describes a legitimate, NON-prohibited use case: single-context credit scoring, fraud detection, driver-fatigue safety monitoring, voluntary biometric authentication, personalised advertising on first-party data, predictive policing using objective facts plus profiling. Used to absorb FPs and keep prohibited intents tight.",
+  "guardrails": [],
+  "instructions": "",
+  "persona": "",
+  "phrases": {
+    "en": [
+      "single-context credit score",
+      "driver fatigue detection",
+      "fraud detection score",
+      "biometric authentication unlock",
+      "face unlock my phone",
+      "voluntary biometric login",
+      "transaction-level fraud signal",
+      "credit risk for one loan",
+      "driver drowsiness alert",
+      "airport biometric verification",
+      "personalized ads from purchase history",
+      "recommend products from views",
+      "predictive policing with witness reports",
+      "alertness monitoring for safety",
+      "content recommendation from history"
+    ]
+  },
+  "schema": null,
+  "source": null,
+  "target": null,
+  "type": "action"
+}

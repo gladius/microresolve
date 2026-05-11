@@ -66,7 +66,8 @@ impl Resolver {
                 phrase: query.to_string(),
                 lang: lang.to_string(),
             });
-            let words = crate::tokenizer::tokenize(query);
+            let mut words = crate::tokenizer::tokenize(query);
+            self.index.lexical.normalize_in_place(&mut words);
             let mut changes: Vec<(String, String, f32)> = Vec::new();
             for word in &words {
                 if let Some(w) = self.index.get_weight(word, correct_intent) {
