@@ -121,53 +121,6 @@ impl Resolver {
             }
         }
 
-        // Policy override rules: declarative hard policy per pack — the
-        // narrow escape hatch for externally-specified rules that the
-        // auto-learn loop cannot teach quickly enough (Article 5 carve-outs,
-        // CSAM detection vs generation, similar). Usage guideline: ≤10 per
-        // pack. Mechanism is a token conjunction (all listed words must
-        // appear); role is policy override.
-        //
-        // Format in _ns.json:
-        //   "policy_overrides": [{"words":[...], "intent":"...", "bonus":N}]
-        //
-        // Loaded into a local Vec here; applied below AFTER _index.json
-        // load so the override below doesn't drop them.
-        let mut ns_overrides: Vec<crate::scoring::PolicyOverride> = Vec::new();
-        if let Ok(json) = std::fs::read_to_string(path.join("_ns.json")) {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json) {
-                if let Some(rules) = val.get("policy_overrides").and_then(|c| c.as_array()) {
-                    for rule_val in rules {
-                        let words: Vec<String> = rule_val
-                            .get("words")
-                            .and_then(|w| w.as_array())
-                            .map(|arr| {
-                                arr.iter()
-                                    .filter_map(|v| v.as_str().map(|s| s.to_lowercase()))
-                                    .collect()
-                            })
-                            .unwrap_or_default();
-                        let intent = rule_val
-                            .get("intent")
-                            .and_then(|i| i.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let bonus = rule_val
-                            .get("bonus")
-                            .and_then(|b| b.as_f64())
-                            .unwrap_or(0.0) as f32;
-                        if words.len() >= 2 && !intent.is_empty() && bonus > 0.0 {
-                            ns_overrides.push(crate::scoring::PolicyOverride {
-                                words,
-                                intent,
-                                bonus,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
         // Always rebuild the IntentIndex from seeds at load time. No
         // persistent index cache — the rebuild is sub-millisecond for the
         // pack sizes we ship and removing the cache eliminates a class of
@@ -201,13 +154,6 @@ impl Resolver {
         // (if any) gets overwritten by the namespace setting.
         if let Some(v) = router.namespace_default_min_voting_tokens {
             router.index.set_min_voting_tokens(v);
-        }
-
-        // Apply _ns.json conjunctions AFTER _index.json overwrite so they
-        // always reflect the pack author's declared rules. _ns.json is
-        // source of truth for compositional logic.
-        if !ns_overrides.is_empty() {
-            router.index.policy_overrides = ns_overrides;
         }
 
         let entries = std::fs::read_dir(path).map_err(|e| {
@@ -300,7 +246,7 @@ impl Resolver {
         })?;
 
         // Namespace metadata. Preserve any pack-author fields the engine
-        // doesn't model directly (compliance_frameworks, policy_overrides,
+        // doesn't model directly (compliance_frameworks,
         // anything else). Read the existing _ns.json if present, update
         // only engine-managed fields, write back.
         let mut ns_meta: serde_json::Value = std::fs::read_to_string(path.join("_ns.json"))
@@ -327,22 +273,6 @@ impl Resolver {
             }
         }
 
-        // Persist policy override rules so authored rules survive save/load.
-        if !self.index.policy_overrides.is_empty() {
-            let rules: Vec<serde_json::Value> = self
-                .index
-                .policy_overrides
-                .iter()
-                .map(|r| {
-                    serde_json::json!({
-                        "words": r.words,
-                        "intent": r.intent,
-                        "bonus": r.bonus,
-                    })
-                })
-                .collect();
-            ns_meta["policy_overrides"] = serde_json::Value::Array(rules);
-        }
         std::fs::write(
             path.join("_ns.json"),
             serde_json::to_string_pretty(&ns_meta).unwrap_or_default(),

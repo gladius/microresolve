@@ -184,8 +184,6 @@ export interface IntentTraceSummary {
   raw_score: number;
   voting_tokens: number;
   voting_multiplier: number;
-  policy_overrides_bonus: number;
-  policy_overrides_fired: string[];
 }
 
 export interface ResolveTrace {
@@ -208,13 +206,6 @@ export interface ResolveOutput {
   disposition: Disposition;
   routing_us: number;
   trace?: ResolveTrace;
-}
-
-export interface PolicyOverrideRow {
-  idx: number;
-  words: string[];
-  intent: string;
-  bonus: number;
 }
 
 export interface NamespaceModel {
@@ -298,20 +289,6 @@ export const api = {
   // Routing
   resolve: (query: string, threshold = 0.3, log = true, trace = false) =>
     post<ResolveOutput>('/resolve', { query, threshold, log, trace }),
-
-  // Policy overrides — narrow declarative escape hatch (≤10 per pack).
-  // Hard rules pack authors encode for externally-specified policy that
-  // the auto-learn loop cannot reasonably teach (Article 5 carve-outs,
-  // CSAM detection vs generation, similar). Mechanism is a token
-  // conjunction; role is policy override.
-  listPolicyOverrides: () =>
-    get<{ policy_overrides: PolicyOverrideRow[] }>('/policy-overrides'),
-  addPolicyOverride: (payload: { words: string[]; intent: string; bonus: number }) =>
-    post<{ idx: number }>('/policy-overrides', payload),
-  removePolicyOverride: (idx: number) =>
-    del<void>(`/policy-overrides/${idx}`),
-  updatePolicyOverride: (idx: number, payload: { words: string[]; intent: string; bonus: number }) =>
-    patch<void>(`/policy-overrides/${idx}`, payload),
 
   // Intents
   listIntents: () => get<IntentInfo[]>('/intents'),

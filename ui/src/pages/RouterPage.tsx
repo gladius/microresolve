@@ -316,7 +316,6 @@ function TracePanel({ trace }: { trace: ResolveTrace }) {
                   <th className="text-right font-semibold">Score</th>
                   <th className="text-right font-semibold">Voting</th>
                   <th className="text-right font-semibold">×Mult</th>
-                  <th className="text-left font-semibold pl-2">Conjunctions</th>
                 </tr>
               </thead>
               <tbody>
@@ -327,9 +326,6 @@ function TracePanel({ trace }: { trace: ResolveTrace }) {
                     <td className="text-right text-zinc-500">{s.voting_tokens}</td>
                     <td className={`text-right ${Math.abs(s.voting_multiplier - 1) > 0.01 ? 'text-amber-400' : 'text-zinc-600'}`}>
                       {s.voting_multiplier.toFixed(2)}
-                    </td>
-                    <td className="pl-2 text-emerald-400">
-                      {s.policy_overrides_fired.length > 0 ? s.policy_overrides_fired.join(', ') : <span className="text-zinc-700">—</span>}
                     </td>
                   </tr>
                 ))}

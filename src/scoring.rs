@@ -13,15 +13,6 @@ use crate::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// A conjunction rule fires when ALL listed words appear in the normalized query.
-/// Adds a bonus activation to the target intent on top of individual word weights.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct PolicyOverride {
-    pub words: Vec<String>,
-    pub intent: String,
-    pub bonus: f32,
-}
-
 /// Full routing result with disposition and ranked candidates.
 #[derive(Debug, Clone)]
 pub struct RouteResult {
@@ -61,15 +52,13 @@ pub struct TokenContribution {
 }
 
 /// Per-intent summary for full-trace output. Captures the IDF score, the
-/// voting-gate state, conjunction bonuses, and any rules that fired.
+/// voting-gate state.
 #[derive(Serialize, Clone, Debug)]
 pub struct IntentTraceSummary {
     pub intent: String,
     pub raw_score: f32,
     pub voting_tokens: usize,
     pub voting_multiplier: f32,
-    pub policy_overrides_bonus: f32,
-    pub policy_overrides_fired: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -77,10 +66,6 @@ pub struct IntentIndex {
     /// word → [(intent_id, weight 0.0–1.0)]
     #[serde(default)]
     pub word_intent: HashMap<String, Vec<(String, f32)>>,
-
-    /// Conjunction bonuses — word pairs that together strongly indicate an intent.
-    #[serde(default)]
-    pub policy_overrides: Vec<PolicyOverride>,
 
     /// Char-ngram tiebreaker index: intent_id → set of char 4-grams from seed phrases.
     #[serde(default)]
@@ -383,26 +368,6 @@ impl IntentIndex {
         }
     }
 
-    pub fn fired_conjunction_indices(&self, words: &[&str]) -> Vec<usize> {
-        let word_set: FxHashSet<&str> = words.iter().copied().collect();
-        self.policy_overrides
-            .iter()
-            .enumerate()
-            .filter(|(_, rule)| rule.words.iter().all(|w| word_set.contains(w.as_str())))
-            .map(|(i, _)| i)
-            .collect()
-    }
-
-    pub fn reinforce_conjunction(&mut self, idx: usize, delta: f32) {
-        if let Some(rule) = self.policy_overrides.get_mut(idx) {
-            if delta >= 0.0 {
-                rule.bonus = (rule.bonus + delta * (1.0 - rule.bonus)).min(1.0);
-            } else {
-                rule.bonus = (rule.bonus * (1.0 + delta)).max(0.0);
-            }
-        }
-    }
-
     /// IDF-weighted 1-gram scoring.
     pub fn score(&self, normalized: &str) -> (Vec<(String, f32)>, bool) {
         const CJK_NEG: &[char] = &['不', '没', '别', '未'];
@@ -428,11 +393,6 @@ impl IntentIndex {
         let mut voting_pairs: FxHashSet<(String, String)> = FxHashSet::default();
         const VOTING_EPSILON: f32 = 0.05;
 
-        let all_bases: FxHashSet<&str> = tokens
-            .iter()
-            .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
-            .collect();
-
         for token in &tokens {
             let is_negated = token.starts_with("not_");
             let base = if is_negated {
@@ -453,12 +413,6 @@ impl IntentIndex {
                         voting_pairs.insert((intent.clone(), base.to_string()));
                     }
                 }
-            }
-        }
-
-        for rule in &self.policy_overrides {
-            if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
-                *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
             }
         }
 
@@ -519,14 +473,7 @@ impl IntentIndex {
         let mut has_negation = cjk_negated;
         let mut voting_pairs: FxHashSet<(String, String)> = FxHashSet::default();
         let mut contributions: Vec<TokenContribution> = Vec::new();
-        let mut policy_overrides_bonus: FxHashMap<String, f32> = FxHashMap::default();
-        let mut policy_overrides_fired: FxHashMap<String, Vec<String>> = FxHashMap::default();
         const VOTING_EPSILON: f32 = 0.05;
-
-        let all_bases: FxHashSet<&str> = tokens
-            .iter()
-            .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
-            .collect();
 
         for token in &tokens {
             let is_negated = token.starts_with("not_");
@@ -556,19 +503,6 @@ impl IntentIndex {
                         negated: is_negated,
                     });
                 }
-            }
-        }
-
-        for rule in &self.policy_overrides {
-            if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
-                *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
-                *policy_overrides_bonus
-                    .entry(rule.intent.clone())
-                    .or_insert(0.0) += rule.bonus;
-                policy_overrides_fired
-                    .entry(rule.intent.clone())
-                    .or_default()
-                    .push(format!("[{}]", rule.words.join(" + ")));
             }
         }
 
@@ -613,8 +547,6 @@ impl IntentIndex {
                 raw_score: *score,
                 voting_tokens: voting_count.get(id).copied().unwrap_or(0),
                 voting_multiplier: voting_mult.get(id).copied().unwrap_or(1.0),
-                policy_overrides_bonus: policy_overrides_bonus.get(id).copied().unwrap_or(0.0),
-                policy_overrides_fired: policy_overrides_fired.get(id).cloned().unwrap_or_default(),
             })
             .collect();
 
@@ -789,18 +721,6 @@ impl IntentIndex {
             }
         }
 
-        let all_bases: FxHashSet<&str> = tokens
-            .iter()
-            .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
-            .collect();
-        for rule in &self.policy_overrides {
-            if !exclude_intents.contains(&rule.intent)
-                && rule.words.iter().all(|w| all_bases.contains(w.as_str()))
-            {
-                *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
-            }
-        }
-
         // Apply voting-token gate (no-op when min_voting_tokens <= 1).
         if self.min_voting_tokens > 1 {
             let mut voting_count: FxHashMap<String, usize> = FxHashMap::default();
@@ -948,13 +868,9 @@ impl IntentIndex {
         }
     }
 
-    pub fn stats(&self) -> (usize, usize, usize) {
+    pub fn stats(&self) -> (usize, usize) {
         let activation_edges: usize = self.word_intent.values().map(|v| v.len()).sum();
-        (
-            self.word_intent.len(),
-            activation_edges,
-            self.policy_overrides.len(),
-        )
+        (self.word_intent.len(), activation_edges)
     }
 }
 

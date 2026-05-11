@@ -1,5 +1,5 @@
 {
-  "description": "Negative class — adjacent uses that look like Article 5 prohibited practices but are explicitly carved out by the Act or Feb 2025 Commission guidelines. Routes here when the query describes a legitimate, NON-prohibited use case: single-context credit scoring, fraud detection, driver-fatigue safety monitoring, voluntary biometric authentication, personalised advertising on first-party data, predictive policing using objective facts plus profiling. Used to absorb FPs and keep prohibited intents tight.",
+  "description": "Negative class \u2014 adjacent uses that look like Article 5 prohibited practices but are explicitly carved out by the Act or Feb 2025 Commission guidelines. Routes here when the query describes a legitimate, NON-prohibited use case: single-context credit scoring, fraud detection, driver-fatigue safety monitoring, voluntary biometric authentication, personalised advertising on first-party data, predictive policing using objective facts plus profiling. Used to absorb FPs and keep prohibited intents tight.",
   "guardrails": [],
   "instructions": "",
   "persona": "",
@@ -19,7 +19,15 @@
       "recommend products from views",
       "predictive policing with witness reports",
       "alertness monitoring for safety",
-      "content recommendation from history"
+      "content recommendation from history",
+      "risk model using outstanding warrants and witness reports",
+      "criminal investigation profile combining suspect description with verifiable facts",
+      "investigation analysis using outstanding warrants for active case",
+      "CSAM detection model for NCMEC reporting",
+      "automated child safety scanner for content moderation",
+      "detection tool for flagging illegal child abuse material",
+      "targeted facial search for missing child",
+      "missing children identification system at airports"
     ]
   },
   "schema": null,

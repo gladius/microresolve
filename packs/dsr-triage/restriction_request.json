@@ -27,7 +27,10 @@
       "restrict processing pending appeal",
       "pause use of my personal data",
       "data processing freeze request",
-      "suspend my account processing"
+      "suspend my account processing",
+      "GDPR Article 18 restriction of processing",
+      "stop processing my data temporarily",
+      "restrict use of my personal information"
     ]
   },
   "schema": null,

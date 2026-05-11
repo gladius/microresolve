@@ -498,128 +498,6 @@ impl<'e> NamespaceHandle<'e> {
             .with_resolver_mut(&self.id, |r| r.update_namespace(edit))?
     }
 
-    /// List all conjunction rules currently active on this namespace.
-    pub fn list_policy_overrides(&self) -> Vec<crate::scoring::PolicyOverride> {
-        self.engine
-            .with_resolver(&self.id, |r| r.index().policy_overrides.clone())
-    }
-
-    /// Append a new conjunction rule. Validates: ≥2 distinct words, intent must
-    /// exist in the namespace, bonus > 0. Returns the new rule's index.
-    pub fn add_policy_override(
-        &self,
-        words: Vec<String>,
-        intent: String,
-        bonus: f32,
-    ) -> Result<usize, Error> {
-        // Normalise + dedupe words; lowercase to match tokenizer output.
-        let mut normalised: Vec<String> = words
-            .iter()
-            .map(|w| w.trim().to_lowercase())
-            .filter(|w| !w.is_empty())
-            .collect();
-        normalised.sort();
-        normalised.dedup();
-        if normalised.len() < 2 {
-            return Err(Error::Parse(
-                "conjunction needs at least 2 distinct non-empty words".into(),
-            ));
-        }
-        if intent.trim().is_empty() {
-            return Err(Error::Parse("conjunction intent must not be empty".into()));
-        }
-        if bonus <= 0.0 {
-            return Err(Error::Parse("conjunction bonus must be > 0".into()));
-        }
-        let intent_clone = intent.clone();
-        self.engine.with_resolver_mut(&self.id, |r| {
-            // Intent must exist (training or description).
-            if r.training(&intent_clone).is_none() {
-                return Err(Error::Parse(format!(
-                    "conjunction targets unknown intent '{}'",
-                    intent_clone
-                )));
-            }
-            r.index_mut()
-                .policy_overrides
-                .push(crate::scoring::PolicyOverride {
-                    words: normalised.clone(),
-                    intent: intent_clone,
-                    bonus,
-                });
-            Ok(r.index().policy_overrides.len() - 1)
-        })?
-    }
-
-    /// Remove the conjunction at the given index. Returns the removed rule.
-    pub fn remove_policy_override(
-        &self,
-        idx: usize,
-    ) -> Result<crate::scoring::PolicyOverride, Error> {
-        self.engine.with_resolver_mut(&self.id, |r| {
-            let rules = &mut r.index_mut().policy_overrides;
-            if idx >= rules.len() {
-                return Err(Error::Parse(format!(
-                    "conjunction index {} out of range (len={})",
-                    idx,
-                    rules.len()
-                )));
-            }
-            Ok(rules.remove(idx))
-        })?
-    }
-
-    /// Replace the conjunction at the given index. Same validation as `add`.
-    pub fn update_policy_override(
-        &self,
-        idx: usize,
-        words: Vec<String>,
-        intent: String,
-        bonus: f32,
-    ) -> Result<(), Error> {
-        let mut normalised: Vec<String> = words
-            .iter()
-            .map(|w| w.trim().to_lowercase())
-            .filter(|w| !w.is_empty())
-            .collect();
-        normalised.sort();
-        normalised.dedup();
-        if normalised.len() < 2 {
-            return Err(Error::Parse(
-                "conjunction needs at least 2 distinct non-empty words".into(),
-            ));
-        }
-        if intent.trim().is_empty() {
-            return Err(Error::Parse("conjunction intent must not be empty".into()));
-        }
-        if bonus <= 0.0 {
-            return Err(Error::Parse("conjunction bonus must be > 0".into()));
-        }
-        let intent_clone = intent.clone();
-        self.engine.with_resolver_mut(&self.id, |r| {
-            if r.training(&intent_clone).is_none() {
-                return Err(Error::Parse(format!(
-                    "conjunction targets unknown intent '{}'",
-                    intent_clone
-                )));
-            }
-            let rules = &mut r.index_mut().policy_overrides;
-            if idx >= rules.len() {
-                return Err(Error::Parse(format!(
-                    "conjunction index {} out of range (len={})",
-                    idx,
-                    rules.len()
-                )));
-            }
-            rules[idx] = crate::scoring::PolicyOverride {
-                words: normalised.clone(),
-                intent: intent_clone,
-                bonus,
-            };
-            Ok(())
-        })?
-    }
-
     /// Export resolver state as a JSON string (for sync/backup).
     pub fn export_json(&self) -> String {
         self.engine.with_resolver(&self.id, |r| r.export_json())
@@ -1134,8 +1012,7 @@ pub struct ResolveTrace {
     /// Per-token contribution to each intent it activates. Sum of (delta) for
     /// a given intent equals that intent's raw score before the voting gate.
     pub per_token: Vec<crate::scoring::TokenContribution>,
-    /// Per-intent summary capped at top 10 by score: raw score, voting state,
-    /// conjunction bonuses + which rules fired.
+    /// Per-intent summary capped at top 10 by score: raw score + voting state.
     pub per_intent: Vec<crate::scoring::IntentTraceSummary>,
     /// Single-line human-readable explanation of the routing decision.
     pub explanation: String,
@@ -1224,12 +1101,6 @@ fn build_explanation(per_intent: &[crate::scoring::IntentTraceSummary], threshol
     ));
     if (top.voting_multiplier - 1.0).abs() > 1e-6 {
         parts.push(format!("voting multiplier ×{:.2}", top.voting_multiplier));
-    }
-    if !top.policy_overrides_fired.is_empty() {
-        parts.push(format!(
-            "conjunctions {}",
-            top.policy_overrides_fired.join(", ")
-        ));
     }
     if next_score > 0.0 {
         parts.push(format!(

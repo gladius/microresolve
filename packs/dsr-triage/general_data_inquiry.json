@@ -27,7 +27,10 @@
       "what security measures do you use",
       "how do you handle DSARs in general",
       "are you compliant with CCPA",
-      "how do you protect user privacy"
+      "how do you protect user privacy",
+      "general question about privacy policy",
+      "what privacy regulations apply",
+      "how does GDPR affect this service"
     ]
   },
   "schema": null,
