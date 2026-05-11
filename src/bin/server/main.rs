@@ -24,6 +24,7 @@ mod routes_intents;
 mod routes_lexical;
 mod routes_logs;
 mod routes_phrases;
+mod routes_policy_overrides;
 mod routes_projects;
 mod routes_review;
 mod routes_settings;
@@ -378,6 +379,7 @@ async fn main() {
     // here.
     let protected_api = axum::Router::new()
         .merge(routes_core::routes())
+        .merge(routes_policy_overrides::routes())
         .merge(routes_intents::routes())
         .merge(routes_lexical::routes())
         .merge(routes_logs::routes())

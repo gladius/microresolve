@@ -16,7 +16,7 @@ use std::collections::HashMap;
 /// A conjunction rule fires when ALL listed words appear in the normalized query.
 /// Adds a bonus activation to the target intent on top of individual word weights.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ConjunctionRule {
+pub struct PolicyOverride {
     pub words: Vec<String>,
     pub intent: String,
     pub bonus: f32,
@@ -47,6 +47,31 @@ pub struct MultiIntentTrace {
     pub stop_reason: String,
 }
 
+/// Per-token contribution to a specific intent's score during scoring.
+/// Emitted when full-trace mode is enabled; the sum of (delta) across tokens
+/// for a given intent equals that intent's raw score before the voting gate.
+#[derive(Serialize, Clone, Debug)]
+pub struct TokenContribution {
+    pub token: String,
+    pub intent: String,
+    pub weight: f32,
+    pub idf: f32,
+    pub delta: f32,
+    pub negated: bool,
+}
+
+/// Per-intent summary for full-trace output. Captures the IDF score, the
+/// voting-gate state, conjunction bonuses, and any rules that fired.
+#[derive(Serialize, Clone, Debug)]
+pub struct IntentTraceSummary {
+    pub intent: String,
+    pub raw_score: f32,
+    pub voting_tokens: usize,
+    pub voting_multiplier: f32,
+    pub policy_overrides_bonus: f32,
+    pub policy_overrides_fired: Vec<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct IntentIndex {
     /// word → [(intent_id, weight 0.0–1.0)]
@@ -55,7 +80,7 @@ pub struct IntentIndex {
 
     /// Conjunction bonuses — word pairs that together strongly indicate an intent.
     #[serde(default)]
-    pub conjunctions: Vec<ConjunctionRule>,
+    pub policy_overrides: Vec<PolicyOverride>,
 
     /// Char-ngram tiebreaker index: intent_id → set of char 4-grams from seed phrases.
     #[serde(default)]
@@ -360,7 +385,7 @@ impl IntentIndex {
 
     pub fn fired_conjunction_indices(&self, words: &[&str]) -> Vec<usize> {
         let word_set: FxHashSet<&str> = words.iter().copied().collect();
-        self.conjunctions
+        self.policy_overrides
             .iter()
             .enumerate()
             .filter(|(_, rule)| rule.words.iter().all(|w| word_set.contains(w.as_str())))
@@ -369,7 +394,7 @@ impl IntentIndex {
     }
 
     pub fn reinforce_conjunction(&mut self, idx: usize, delta: f32) {
-        if let Some(rule) = self.conjunctions.get_mut(idx) {
+        if let Some(rule) = self.policy_overrides.get_mut(idx) {
             if delta >= 0.0 {
                 rule.bonus = (rule.bonus + delta * (1.0 - rule.bonus)).min(1.0);
             } else {
@@ -431,7 +456,7 @@ impl IntentIndex {
             }
         }
 
-        for rule in &self.conjunctions {
+        for rule in &self.policy_overrides {
             if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
                 *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
             }
@@ -460,6 +485,140 @@ impl IntentIndex {
         let mut result: Vec<(String, f32)> = scores.into_iter().filter(|(_, s)| *s > 0.0).collect();
         result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         (result, has_negation)
+    }
+
+    /// Like [`score`] but also emits per-token contribution data and per-intent
+    /// summaries. Used by full-trace mode in the resolver pipeline. Slower than
+    /// `score` because it allocates the contribution vector; the no-trace path
+    /// stays unchanged.
+    #[allow(clippy::type_complexity)]
+    pub fn score_with_attribution(
+        &self,
+        normalized: &str,
+    ) -> (
+        Vec<(String, f32)>,
+        bool,
+        Vec<TokenContribution>,
+        Vec<IntentTraceSummary>,
+    ) {
+        const CJK_NEG: &[char] = &['不', '没', '别', '未'];
+        let cjk_negated = normalized.chars().any(|c| CJK_NEG.contains(&c));
+        let query_for_tokenize: std::borrow::Cow<str> = if cjk_negated {
+            std::borrow::Cow::Owned(
+                normalized
+                    .chars()
+                    .map(|c| if CJK_NEG.contains(&c) { ' ' } else { c })
+                    .collect(),
+            )
+        } else {
+            std::borrow::Cow::Borrowed(normalized)
+        };
+
+        let tokens = crate::tokenizer::tokenize(&query_for_tokenize);
+        let mut scores: FxHashMap<String, f32> = FxHashMap::default();
+        let mut has_negation = cjk_negated;
+        let mut voting_pairs: FxHashSet<(String, String)> = FxHashSet::default();
+        let mut contributions: Vec<TokenContribution> = Vec::new();
+        let mut policy_overrides_bonus: FxHashMap<String, f32> = FxHashMap::default();
+        let mut policy_overrides_fired: FxHashMap<String, Vec<String>> = FxHashMap::default();
+        const VOTING_EPSILON: f32 = 0.05;
+
+        let all_bases: FxHashSet<&str> = tokens
+            .iter()
+            .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
+            .collect();
+
+        for token in &tokens {
+            let is_negated = token.starts_with("not_");
+            let base = if is_negated {
+                &token["not_".len()..]
+            } else {
+                token.as_str()
+            };
+            if is_negated {
+                has_negation = true;
+            }
+            if let Some(activations) = self.word_intent.get(base) {
+                let idf = self.idf(base);
+                for (intent, weight) in activations {
+                    let delta = weight * idf;
+                    let signed = if is_negated { -delta } else { delta };
+                    *scores.entry(intent.clone()).or_insert(0.0) += signed;
+                    if !is_negated && delta > VOTING_EPSILON {
+                        voting_pairs.insert((intent.clone(), base.to_string()));
+                    }
+                    contributions.push(TokenContribution {
+                        token: base.to_string(),
+                        intent: intent.clone(),
+                        weight: *weight,
+                        idf,
+                        delta: signed,
+                        negated: is_negated,
+                    });
+                }
+            }
+        }
+
+        for rule in &self.policy_overrides {
+            if rule.words.iter().all(|w| all_bases.contains(w.as_str())) {
+                *scores.entry(rule.intent.clone()).or_insert(0.0) += rule.bonus;
+                *policy_overrides_bonus
+                    .entry(rule.intent.clone())
+                    .or_insert(0.0) += rule.bonus;
+                policy_overrides_fired
+                    .entry(rule.intent.clone())
+                    .or_default()
+                    .push(format!("[{}]", rule.words.join(" + ")));
+            }
+        }
+
+        // Voting-token state per intent (pre-gate); the gate itself rescales
+        // scores below.
+        let mut voting_count: FxHashMap<String, usize> = FxHashMap::default();
+        for (intent, _) in &voting_pairs {
+            *voting_count.entry(intent.clone()).or_insert(0) += 1;
+        }
+        let mut voting_mult: FxHashMap<String, f32> = FxHashMap::default();
+
+        if self.min_voting_tokens > 1 {
+            let min = self.min_voting_tokens as usize;
+            let mut updates: Vec<(String, f32)> = Vec::new();
+            for (intent, score) in scores.iter() {
+                let count = voting_count.get(intent).copied().unwrap_or(0);
+                let multiplier = voting_multiplier(count, min);
+                voting_mult.insert(intent.clone(), multiplier);
+                if (multiplier - 1.0).abs() > 1e-6 {
+                    updates.push((intent.clone(), score * multiplier));
+                }
+            }
+            for (intent, new_score) in updates {
+                scores.insert(intent, new_score);
+            }
+        } else {
+            for intent in scores.keys() {
+                voting_mult.insert(intent.clone(), 1.0);
+            }
+        }
+
+        let mut result: Vec<(String, f32)> = scores.into_iter().filter(|(_, s)| *s > 0.0).collect();
+        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Build per-intent summary for the top entries (cap at 10 to keep
+        // payloads small; UI/audit can expand if needed).
+        let summary: Vec<IntentTraceSummary> = result
+            .iter()
+            .take(10)
+            .map(|(id, score)| IntentTraceSummary {
+                intent: id.clone(),
+                raw_score: *score,
+                voting_tokens: voting_count.get(id).copied().unwrap_or(0),
+                voting_multiplier: voting_mult.get(id).copied().unwrap_or(1.0),
+                policy_overrides_bonus: policy_overrides_bonus.get(id).copied().unwrap_or(0.0),
+                policy_overrides_fired: policy_overrides_fired.get(id).cloned().unwrap_or_default(),
+            })
+            .collect();
+
+        (result, has_negation, contributions, summary)
     }
 
     pub fn score_multi(
@@ -634,7 +793,7 @@ impl IntentIndex {
             .iter()
             .map(|t| t.strip_prefix("not_").unwrap_or(t.as_str()))
             .collect();
-        for rule in &self.conjunctions {
+        for rule in &self.policy_overrides {
             if !exclude_intents.contains(&rule.intent)
                 && rule.words.iter().all(|w| all_bases.contains(w.as_str()))
             {
@@ -794,7 +953,7 @@ impl IntentIndex {
         (
             self.word_intent.len(),
             activation_edges,
-            self.conjunctions.len(),
+            self.policy_overrides.len(),
         )
     }
 }

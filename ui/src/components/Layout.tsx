@@ -182,6 +182,8 @@ export default function Layout() {
           hint: 'Manage intents, training phrases, metadata' },
         { to: '/lexical', label: 'Lexicon', icon: '⌥',
           hint: 'Per-namespace morph + abbrev normalization' },
+        { to: '/policy-overrides', label: 'Policy overrides', icon: '⚖',
+          hint: 'Hard rules — externally-specified policy assertions, ≤10 per pack' },
       ],
     },
     {
