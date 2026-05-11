@@ -7,7 +7,6 @@ import SimulatePage from '@/pages/SimulatePage';
 import ReviewPage from '@/pages/ReviewPage';
 import IntentsPage from '@/pages/IntentsPage';
 import LexicalGroupsPage from '@/pages/LexicalGroupsPage';
-import PolicyOverridesPage from '@/pages/PolicyOverridesPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NamespacesPage from '@/pages/NamespacesPage';
 import ModelsPage from '@/pages/ModelsPage';
@@ -126,7 +125,6 @@ export default function App() {
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/intents" element={<IntentsPage />} />
             <Route path="/lexical" element={<LexicalGroupsPage />} />
-            <Route path="/policy-overrides" element={<PolicyOverridesPage />} />
             <Route path="/l2" element={<Navigate to="/intents" replace />} />
             <Route path="/import" element={<ImportLanding />} />
             <Route path="/import/openapi" element={<OpenApiImport />} />

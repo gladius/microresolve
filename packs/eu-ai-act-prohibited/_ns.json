@@ -1,7 +1,7 @@
 {
   "name": "eu-ai-act-prohibited",
   "status": "experimental",
-  "description": "EU AI Act Article 5 prohibited-practice triage. Detects whether a query describes one of the prohibited categories: subliminal manipulation 5(1)(a), exploitation of vulnerability 5(1)(b), social scoring 5(1)(c), predictive policing 5(1)(d), untargeted facial scraping 5(1)(e), emotion recognition in workplace/education 5(1)(f), biometric categorisation 5(1)(g), real-time remote biometric identification 5(1)(h), and the new prohibitions added by the Digital AI Omnibus political agreement (7 May 2026, compliance 2 Dec 2026) — non-consensual intimate imagery generation and AI-generated CSAM. Includes a `legitimate_use` negative class to absorb adjacent-but-legal queries (single-context credit scoring, fraud detection, driver-fatigue safety, voluntary face-unlock). Pre-LLM triage filter — pair with lawyer review for final determination.",
+  "description": "EU AI Act Article 5 prohibited-practice triage. Detects whether a query describes one of the prohibited categories: subliminal manipulation 5(1)(a), exploitation of vulnerability 5(1)(b), social scoring 5(1)(c), predictive policing 5(1)(d), untargeted facial scraping 5(1)(e), emotion recognition in workplace/education 5(1)(f), biometric categorisation 5(1)(g), real-time remote biometric identification 5(1)(h), and the new prohibitions added by the Digital AI Omnibus political agreement (7 May 2026, compliance 2 Dec 2026) \u2014 non-consensual intimate imagery generation and AI-generated CSAM. Includes a `legitimate_use` negative class to absorb adjacent-but-legal queries (single-context credit scoring, fraud detection, driver-fatigue safety, voluntary face-unlock). Pre-LLM triage filter \u2014 pair with lawyer review for final determination.",
   "default_threshold": 1.5,
   "default_min_voting_tokens": 2,
   "compliance_frameworks": [
@@ -17,37 +17,142 @@
     "EU AI Act Art. 5 (AI-CSAM, Omnibus 7 May 2026)",
     "EU AI Act Art. 13"
   ],
-  "policy_overrides": [
-    {"_comment": "5(1)(h) carve-out — explicit law-text exception: targeted search for missing victims",
-     "words": ["missing", "child"], "intent": "legitimate_use", "bonus": 2.5},
-    {"_comment": "5(1)(h) carve-out — explicit law-text exception: identification of named suspect under warrant",
-     "words": ["arrest", "warrant"], "intent": "legitimate_use", "bonus": 2.5},
-    {"_comment": "5(1)(d) carve-out — Feb 2025 Commission guidelines: profiling + objective verifiable facts",
-     "words": ["witness", "reports"], "intent": "legitimate_use", "bonus": 2.5},
-    {"_comment": "5(1)(d) carve-out — Feb 2025 Commission guidelines: profiling + outstanding warrants",
-     "words": ["outstanding", "warrants"], "intent": "legitimate_use", "bonus": 2.5},
-    {"_comment": "Omnibus 5/2026 — CSAM detection (moderation) is NOT CSAM generation: hard policy distinction",
-     "words": ["csam", "detection"], "intent": "legitimate_use", "bonus": 3.0},
-    {"_comment": "5(1)(f) carve-out — Feb 2025 Commission canonical example: driver fatigue is safety, not workplace surveillance",
-     "words": ["driver", "fatigue"], "intent": "legitimate_use", "bonus": 2.5},
-    {"_comment": "5(1)(g) carve-out — voluntary biometric authentication on user's own device is not categorisation",
-     "words": ["face", "unlock"], "intent": "legitimate_use", "bonus": 2.0},
-    {"_comment": "5(1)(e) carve-out — explicitly consented opt-in is not untargeted scraping",
-     "words": ["consented", "opt-in"], "intent": "legitimate_use", "bonus": 2.0}
-  ],
   "lexical_groups": [
-    {"kind": "morph", "lang": "en", "canonical": "child", "variants": ["child", "children", "child's"]},
-    {"kind": "morph", "lang": "en", "canonical": "warrant", "variants": ["warrant", "warrants"]},
-    {"kind": "morph", "lang": "en", "canonical": "predict", "variants": ["predict", "predicts", "predicted", "predicting", "prediction"]},
-    {"kind": "morph", "lang": "en", "canonical": "person", "variants": ["person", "persons", "people"]},
-    {"kind": "morph", "lang": "en", "canonical": "score", "variants": ["score", "scores", "scoring", "scored"]},
-    {"kind": "morph", "lang": "en", "canonical": "manipulate", "variants": ["manipulate", "manipulates", "manipulating", "manipulated", "manipulation"]},
-    {"kind": "morph", "lang": "en", "canonical": "infer", "variants": ["infer", "infers", "inferring", "inferred", "inference"]},
-    {"kind": "morph", "lang": "en", "canonical": "categorize", "variants": ["categorize", "categorise", "categorizes", "categorising", "categorization", "categorisation"]},
-    {"kind": "morph", "lang": "en", "canonical": "exploit", "variants": ["exploit", "exploits", "exploiting", "exploited", "exploitation"]},
-    {"kind": "morph", "lang": "en", "canonical": "scrape", "variants": ["scrape", "scrapes", "scraping", "scraped"]},
-    {"kind": "abbrev", "lang": "en", "canonical": "rbi", "variants": ["rbi"]},
-    {"kind": "abbrev", "lang": "en", "canonical": "ncii", "variants": ["ncii"]},
-    {"kind": "abbrev", "lang": "en", "canonical": "csam", "variants": ["csam"]}
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "child",
+      "variants": [
+        "child",
+        "children",
+        "child's"
+      ]
+    },
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "warrant",
+      "variants": [
+        "warrant",
+        "warrants"
+      ]
+    },
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "predict",
+      "variants": [
+        "predict",
+        "predicts",
+        "predicted",
+        "predicting",
+        "prediction"
+      ]
+    },
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "person",
+      "variants": [
+        "person",
+        "persons",
+        "people"
+      ]
+    },
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "score",
+      "variants": [
+        "score",
+        "scores",
+        "scoring",
+        "scored"
+      ]
+    },
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "manipulate",
+      "variants": [
+        "manipulate",
+        "manipulates",
+        "manipulating",
+        "manipulated",
+        "manipulation"
+      ]
+    },
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "infer",
+      "variants": [
+        "infer",
+        "infers",
+        "inferring",
+        "inferred",
+        "inference"
+      ]
+    },
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "categorize",
+      "variants": [
+        "categorize",
+        "categorise",
+        "categorizes",
+        "categorising",
+        "categorization",
+        "categorisation"
+      ]
+    },
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "exploit",
+      "variants": [
+        "exploit",
+        "exploits",
+        "exploiting",
+        "exploited",
+        "exploitation"
+      ]
+    },
+    {
+      "kind": "morph",
+      "lang": "en",
+      "canonical": "scrape",
+      "variants": [
+        "scrape",
+        "scrapes",
+        "scraping",
+        "scraped"
+      ]
+    },
+    {
+      "kind": "abbrev",
+      "lang": "en",
+      "canonical": "rbi",
+      "variants": [
+        "rbi"
+      ]
+    },
+    {
+      "kind": "abbrev",
+      "lang": "en",
+      "canonical": "ncii",
+      "variants": [
+        "ncii"
+      ]
+    },
+    {
+      "kind": "abbrev",
+      "lang": "en",
+      "canonical": "csam",
+      "variants": [
+        "csam"
+      ]
+    }
   ]
 }

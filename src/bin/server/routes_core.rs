@@ -302,17 +302,15 @@ fn build_trace_json(t: &microresolve::ResolveTrace) -> serde_json::Value {
             "raw_score": (s.raw_score * 100.0).round() / 100.0,
             "voting_tokens": s.voting_tokens,
             "voting_multiplier": (s.voting_multiplier * 100.0).round() / 100.0,
-            "policy_overrides_bonus": (s.policy_overrides_bonus * 100.0).round() / 100.0,
-            "policy_overrides_fired": s.policy_overrides_fired,
         })).collect::<Vec<_>>(),
         "explanation": t.explanation,
     })
 }
 
-/// Compact trace summary for audit log entries: top intents (with voting state
-/// and any conjunctions that fired) and top 5 token contributions. Designed
-/// to be small enough to live inside every resolve audit event without
-/// bloating the chain. Full trace stays in the API response only when requested.
+/// Compact trace summary for audit log entries: top intents (with voting
+/// state) and top 5 token contributions. Designed to be small enough to live
+/// inside every resolve audit event without bloating the chain. Full trace
+/// stays in the API response only when requested.
 fn build_compact_audit_trace(t: &microresolve::ResolveTrace) -> serde_json::Value {
     let top_intents: Vec<serde_json::Value> = t
         .per_intent
@@ -323,7 +321,6 @@ fn build_compact_audit_trace(t: &microresolve::ResolveTrace) -> serde_json::Valu
                 "intent": s.intent,
                 "raw_score": (s.raw_score * 100.0).round() / 100.0,
                 "voting_tokens": s.voting_tokens,
-                "policy_overrides_fired": s.policy_overrides_fired,
             })
         })
         .collect();
