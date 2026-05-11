@@ -27,7 +27,11 @@
       "opt out of cookie sale",
       "honor my do not sell signal",
       "opt out of profiling for ads",
-      "stop monetizing my personal data"
+      "stop monetizing my personal data",
+      "CCPA do not sell my personal information",
+      "opt out of data sale",
+      "do not share my personal information",
+      "stop selling my data"
     ]
   },
   "schema": null,

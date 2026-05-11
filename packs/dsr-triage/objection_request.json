@@ -27,7 +27,10 @@
       "I no longer consent to processing",
       "withdraw consent to share my data",
       "stop personalized recommendations",
-      "object to data being processed"
+      "object to data being processed",
+      "GDPR Article 21 right to object",
+      "object to processing of my data",
+      "withdraw consent for data processing"
     ]
   },
   "schema": null,

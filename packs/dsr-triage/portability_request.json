@@ -27,7 +27,11 @@
       "portable copy of my data",
       "transferable archive of my profile",
       "download my data archive",
-      "CSV export of account history"
+      "CSV export of account history",
+      "GDPR Article 20 data portability",
+      "transfer my data to another provider",
+      "export my data in machine readable format",
+      "right to data portability"
     ]
   },
   "schema": null,
